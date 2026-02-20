@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+// Add import for AuthService and shared_preferences
+import 'package:kobac/services/local_auth_service.dart';
 import 'package:kobac/shared/pages/login_screen.dart';
 import 'package:kobac/student/pages/academic_activity.dart';
 import 'package:kobac/student/pages/exam_schedule.dart';
@@ -8,9 +10,6 @@ import 'package:kobac/student/pages/student_notices.dart';
 import 'package:kobac/student/pages/student_profile.dart';
 import 'package:kobac/student/pages/student_quizzes.dart';
 import 'package:kobac/student/pages/student_result.dart';
-
-// Add import for AuthService and shared_preferences
-import 'package:kobac/services/local_auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // ----------------------- Drawer Widget ------------------------
@@ -117,7 +116,7 @@ class AppDrawer extends StatelessWidget {
         Future.delayed(const Duration(milliseconds: 250), () {
           Navigator.of(
             context,
-          ).push(MaterialPageRoute(builder: (_) => StudentProfileScreenV1()));
+          ).push(MaterialPageRoute(builder: (_) => StudentProfileScreen()));
         });
       },
     ),

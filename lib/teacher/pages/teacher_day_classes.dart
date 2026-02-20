@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
 
+// ---------- WONDERFUL COLOR PALETTE (Matching Student Dashboard) ----------
+const Color kPrimaryColor = Color(0xFF2A2E45); // Deep charcoal
+const Color kSecondaryColor = Color(0xFF6C5CE7); // Rich purple
+const Color kAccentColor = Color(0xFF00B894); // Mint green
+const Color kSoftPurple = Color(0xFFA29BFE); // Light purple
+const Color kSoftPink = Color(0xFFFF7675); // Soft pink
+const Color kSoftOrange = Color(0xFFFDCB6E); // Warm orange
+const Color kSoftBlue = Color(0xFF74B9FF); // Sky blue
+const Color kBackgroundStart = Color(0xFFE8EEF9); // Light blue-gray
+const Color kBackgroundEnd = Color(0xFFF5F0FF); // Light purple
+const Color kCardColor = Colors.white;
+const Color kTextPrimary = Color(0xFF2D3436); // Dark gray
+const Color kTextSecondary = Color(0xFF636E72); // Medium gray
+
 class TeacherTodayClassesScreen extends StatelessWidget {
   TeacherTodayClassesScreen({Key? key}) : super(key: key);
-
-  // BRAND COLORS
-  static const Color _kPrimaryColor = Color(0xFF023471);
-  static const Color _kAccentColor = Color(0xFF5AB04B);
-  static const Color _kBgColor = Colors.white;
 
   // Dummy data for exactly 2 classes
   final List<_ClassCardData> _classes = const [
@@ -18,8 +27,8 @@ class TeacherTodayClassesScreen extends StatelessWidget {
       numStudents: 32,
       lessonTopic: "Fractions and Decimals",
       syllabusProgress: "Unit 3 of 7",
-      teacherNotes:
-          "Revise last homework; prepare students for weekly quiz.",
+      teacherNotes: "Revise last homework; prepare students for weekly quiz.",
+      icon: Icons.calculate_rounded,
     ),
     _ClassCardData(
       className: "Grade 8 – A",
@@ -29,7 +38,9 @@ class TeacherTodayClassesScreen extends StatelessWidget {
       numStudents: 29,
       lessonTopic: "Cell Structure",
       syllabusProgress: "Unit 2 of 6",
-      teacherNotes: "Bring lab coats for practical; check previous lab reports.",
+      teacherNotes:
+          "Bring lab coats for practical; check previous lab reports.",
+      icon: Icons.science_rounded,
     ),
   ];
 
@@ -44,7 +55,7 @@ class TeacherTodayClassesScreen extends StatelessWidget {
       'Thursday',
       'Friday',
       'Saturday',
-      'Sunday'
+      'Sunday',
     ][now.weekday - 1];
     return "$weekday, ${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}";
   }
@@ -52,66 +63,168 @@ class TeacherTodayClassesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _kBgColor,
-      appBar: AppBar(
-        backgroundColor: _kPrimaryColor,
-        elevation: 2,
-        centerTitle: true,
-        title: const Text(
-          "Today's Classes",
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-            fontSize: 20,
-            overflow: TextOverflow.ellipsis,
-          ),
-          maxLines: 1,
-        ),
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: SingleChildScrollView(
-        // Absolute safety: vertical scrolling prevents any overflow
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // SECTION 1: DAY SUMMARY CARD
-              _DaySummaryCard(
-                teacherName: teacherName,
-                date: _todayDate(),
-                totalClasses: _classes.length,
-              ),
-              const SizedBox(height: 24),
-              // SECTION 2 & 3 & 4: CLASS CARDS
-              ListView.builder(
-                shrinkWrap: true, // Prevents RenderFlex overflow
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _classes.length,
-                itemBuilder: (context, index) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 18.0),
-                    child: _ClassCard(
-                      data: _classes[index],
+      backgroundColor: kBackgroundEnd,
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          // ---------------- BEAUTIFUL APP BAR ----------------
+          SliverAppBar(
+            expandedHeight: 120,
+            pinned: true,
+            backgroundColor: kPrimaryColor,
+            flexibleSpace: FlexibleSpaceBar(
+              titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  );
-                },
+                    child: const Icon(
+                      Icons.today_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    "Today's Classes",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 24,
+                    ),
+                  ),
+                ],
+              ),
+              background: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [kPrimaryColor, kSecondaryColor, kSoftPurple],
+                    stops: const [0.1, 0.6, 1.0],
+                  ),
+                ),
+              ),
+            ),
+            leading: IconButton(
+              icon: const Icon(
+                Icons.arrow_back_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
+              onPressed: () => Navigator.pop(context),
+            ),
+            actions: [
+              Container(
+                margin: const EdgeInsets.only(right: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: IconButton(
+                  icon: const Icon(
+                    Icons.notifications_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                  onPressed: () {},
+                ),
               ),
             ],
           ),
-        ),
+
+          // ---------------- MAIN CONTENT ----------------
+          SliverPadding(
+            padding: const EdgeInsets.all(20),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                // ---------------- DAY SUMMARY CARD ----------------
+                _DaySummaryCard(
+                  teacherName: teacherName,
+                  date: _todayDate(),
+                  totalClasses: _classes.length,
+                ),
+                const SizedBox(height: 20),
+
+                // ---------------- CLASSES HEADER ----------------
+                _buildClassesHeader(_classes.length),
+
+                const SizedBox(height: 16),
+
+                // ---------------- CLASS CARDS ----------------
+                ...List.generate(
+                  _classes.length,
+                  (index) => Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _ClassCard(data: _classes[index]),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildClassesHeader(int count) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: kSoftOrange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.class_rounded,
+                color: kSoftOrange,
+                size: 16,
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              "Today's Schedule",
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: kTextPrimary,
+              ),
+            ),
+          ],
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: kSoftPurple.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            '$count classes',
+            style: TextStyle(
+              color: kSoftPurple,
+              fontWeight: FontWeight.w600,
+              fontSize: 11,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
 
+// ---------------- DAY SUMMARY CARD ----------------
 class _DaySummaryCard extends StatelessWidget {
   final String teacherName;
   final String date;
   final int totalClasses;
-
-  static const Color _kPrimaryColor = Color(0xFF023471);
-  static const Color _kAccentColor = Color(0xFF5AB04B);
 
   const _DaySummaryCard({
     required this.teacherName,
@@ -121,88 +234,272 @@ class _DaySummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Safety: Always wrap with IntrinsicHeight or let padding adapt
-    return Card(
-      elevation: 3,
-      color: Colors.white,
-      surfaceTintColor: Colors.white,
-      shadowColor: Colors.black.withOpacity(0.10),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.today, color: _kAccentColor, size: 27),
-                const SizedBox(width: 12),
-                Expanded(
-                  // To guarantee text never overflows
-                  child: Text(
-                    teacherName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: _kPrimaryColor,
-                      fontSize: 16.5,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+        border: Border.all(color: Colors.white, width: 2),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [kSoftPurple, kSoftBlue],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: kSoftPurple.withOpacity(0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Row(
+            child: const Icon(
+              Icons.calendar_month_rounded,
+              color: Colors.white,
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.calendar_month, size: 19, color: _kPrimaryColor),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    date,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: _kPrimaryColor,
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w500,
-                    ),
+                Text(
+                  teacherName,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: kTextPrimary,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
+                const SizedBox(height: 4),
+                Text(
+                  date,
+                  style: TextStyle(color: kTextSecondary, fontSize: 13),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 6),
                 Container(
-                  width: 7,
-                  height: 27,
-                  margin: const EdgeInsets.only(left: 7),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
-                    color: _kAccentColor,
+                    color: kSoftOrange.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
+                  child: Text(
+                    "Total classes: $totalClasses",
+                    style: TextStyle(
+                      color: kSoftOrange,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Icon(Icons.class_, color: _kPrimaryColor, size: 18),
-                const SizedBox(width: 7),
-                Text(
-                  "Total classes today: ",
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: _kPrimaryColor,
-                    fontSize: 14,
-                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------- CLASS CARD ----------------
+class _ClassCard extends StatelessWidget {
+  final _ClassCardData data;
+
+  const _ClassCard({required this.data});
+
+  Color _getSubjectColor(String subject) {
+    if (subject.contains("Math")) return kSoftPurple;
+    if (subject.contains("Science")) return kSoftBlue;
+    return kSoftOrange;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final subjectColor = _getSubjectColor(data.subject);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.all(16),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          collapsedShape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          leading: Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [subjectColor, subjectColor.withOpacity(0.7)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: subjectColor.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
                 ),
-                Text(
-                  "$totalClasses",
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: _kAccentColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
+              ],
+            ),
+            child: Icon(data.icon, color: Colors.white, size: 26),
+          ),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      data.className,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: kTextPrimary,
+                        fontSize: 16,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: subjectColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      data.subject,
+                      style: TextStyle(
+                        color: subjectColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                data.section,
+                style: TextStyle(color: kTextSecondary, fontSize: 13),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                children: [
+                  _buildInfoChip(
+                    icon: Icons.access_time_rounded,
+                    value: data.time,
+                    label: "Time",
+                    color: kSoftPurple,
+                  ),
+                  _buildInfoChip(
+                    icon: Icons.people_rounded,
+                    value: "${data.numStudents}",
+                    label: "Students",
+                    color: kSoftOrange,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          trailing: const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: kSecondaryColor,
+            size: 24,
+          ),
+          children: [
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            _buildDetailRow(
+              icon: Icons.menu_book_rounded,
+              label: "Lesson Topic",
+              value: data.lessonTopic,
+              color: kSoftPurple,
+            ),
+            const SizedBox(height: 8),
+            _buildDetailRow(
+              icon: Icons.timeline_rounded,
+              label: "Syllabus Progress",
+              value: data.syllabusProgress,
+              color: kSoftBlue,
+            ),
+            const SizedBox(height: 8),
+            _buildDetailRow(
+              icon: Icons.note_alt_rounded,
+              label: "Teacher Notes",
+              value: data.teacherNotes,
+              color: kSoftOrange,
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _buildActionChip(
+                  icon: Icons.play_arrow_rounded,
+                  label: "Start Class",
+                  color: kAccentColor,
+                ),
+                _buildActionChip(
+                  icon: Icons.check_circle_rounded,
+                  label: "Attendance",
+                  color: kSoftPurple,
+                ),
+                _buildActionChip(
+                  icon: Icons.people_rounded,
+                  label: "Students",
+                  color: kSoftBlue,
+                ),
+                _buildActionChip(
+                  icon: Icons.assignment_rounded,
+                  label: "Assignments",
+                  color: kSoftOrange,
                 ),
               ],
             ),
@@ -211,8 +508,140 @@ class _DaySummaryCard extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildInfoChip({
+    required IconData icon,
+    required String value,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 14),
+          const SizedBox(width: 4),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                value,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+              Text(
+                label,
+                style: TextStyle(color: color.withOpacity(0.7), fontSize: 9),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: color, size: 14),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: kTextSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: TextStyle(color: kTextPrimary, fontSize: 13),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionChip({
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {},
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [color, color.withOpacity(0.8)],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: color.withOpacity(0.3),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: Colors.white, size: 12),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
+// ---------------- DATA MODEL ----------------
 class _ClassCardData {
   final String className;
   final String subject;
@@ -222,6 +651,7 @@ class _ClassCardData {
   final String lessonTopic;
   final String syllabusProgress;
   final String teacherNotes;
+  final IconData icon;
 
   const _ClassCardData({
     required this.className,
@@ -232,339 +662,6 @@ class _ClassCardData {
     required this.lessonTopic,
     required this.syllabusProgress,
     required this.teacherNotes,
+    required this.icon,
   });
 }
-
-class _ClassCard extends StatelessWidget {
-  final _ClassCardData data;
-
-  static const Color _kPrimaryColor = Color(0xFF023471);
-  static const Color _kAccentColor = Color(0xFF5AB04B);
-
-  const _ClassCard({required this.data});
-
-  @override
-  Widget build(BuildContext context) {
-    // Allows width to adapt, ensures overflow safety
-    return Card(
-      elevation: 3,
-      color: Colors.white,
-      surfaceTintColor: Colors.white,
-      shadowColor: Colors.black.withOpacity(0.09),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Main class info (no fixed width/height, all Expanded or Wrap)
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    color: _kAccentColor.withOpacity(0.11),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.menu_book_rounded,
-                    color: _kAccentColor,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 13),
-                // Content for class info (Expanded for safety)
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        data.className,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: _kPrimaryColor,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 17,
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        data.subject,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: _kAccentColor,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14.5,
-                        ),
-                      ),
-                      const SizedBox(height: 7),
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 4,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          _ClassInfoItem(
-                            icon: Icons.schedule,
-                            text: data.time,
-                          ),
-                          _ClassInfoItem(
-                            icon: Icons.location_on_outlined,
-                            text: data.section,
-                          ),
-                          _ClassInfoItem(
-                            icon: Icons.people_outline,
-                            text: "${data.numStudents} students",
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            // Quick Actions (safe on any screen: always Wrap)
-            _ClassQuickActions(),
-            const SizedBox(height: 5),
-            // Expandable class details (overflow-safe ExpansionTile)
-            _ClassExpansionDetails(
-              lessonTopic: data.lessonTopic,
-              syllabusProgress: data.syllabusProgress,
-              teacherNotes: data.teacherNotes,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ClassInfoItem extends StatelessWidget {
-  final IconData icon;
-  final String text;
-
-  static const Color _kPrimaryColor = Color(0xFF023471);
-  static const Color _kAccentColor = Color(0xFF5AB04B);
-
-  const _ClassInfoItem({required this.icon, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min, // Prevents wide row overflow
-      children: [
-        Icon(
-          icon,
-          color: _kAccentColor,
-          size: 17,
-        ),
-        const SizedBox(width: 4),
-        Text(
-          text,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: _kPrimaryColor,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ClassQuickActions extends StatelessWidget {
-  // No instance state needed; use for UI only
-  static const Color _kAccentColor = Color(0xFF5AB04B);
-  static const Color _kPrimaryColor = Color(0xFF023471);
-
-  const _ClassQuickActions();
-
-  @override
-  Widget build(BuildContext context) {
-    // Wrap ensures chips/buttons wrap on small screens, 100% overflow safe
-    return Padding(
-      padding: const EdgeInsets.only(top: 2.0, bottom: 6.0),
-      child: Wrap(
-        spacing: 9,
-        runSpacing: 7,
-        children: [
-          _QuickActionChip(
-            icon: Icons.play_arrow_rounded,
-            label: "Start Class",
-          ),
-          _QuickActionChip(
-            icon: Icons.check_circle_outline,
-            label: "Attendance",
-          ),
-          _QuickActionChip(
-            icon: Icons.people,
-            label: "Students",
-          ),
-          _QuickActionChip(
-            icon: Icons.assignment_outlined,
-            label: "Assignments",
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _QuickActionChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  static const Color _kAccentColor = Color(0xFF5AB04B);
-  static const Color _kPrimaryColor = Color(0xFF023471);
-
-  const _QuickActionChip({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    // No fixed width, text wraps, uses chip for touch target
-    return Material(
-      color: _kAccentColor.withOpacity(0.1),
-      borderRadius: BorderRadius.circular(22),
-      child: InkWell(
-        // No fixed height/width; safe touch area
-        borderRadius: BorderRadius.circular(22),
-        onTap: () {},
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 7),
-          child: Row(
-            mainAxisSize: MainAxisSize.min, // Prevents overflow
-            children: [
-              Icon(icon, size: 17, color: _kAccentColor),
-              const SizedBox(width: 5),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: _kPrimaryColor,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ClassExpansionDetails extends StatelessWidget {
-  final String lessonTopic;
-  final String syllabusProgress;
-  final String teacherNotes;
-
-  static const Color _kAccentColor = Color(0xFF5AB04B);
-  static const Color _kPrimaryColor = Color(0xFF023471);
-
-  const _ClassExpansionDetails({
-    required this.lessonTopic,
-    required this.syllabusProgress,
-    required this.teacherNotes,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // ExpansionTile is overflow safe since all contents use maxLines
-    return Theme(
-      // Custom theme to control ExpansionTile icon colors
-      data: Theme.of(context).copyWith(
-        dividerColor: Colors.transparent,
-        unselectedWidgetColor: _kAccentColor,
-        colorScheme: ColorScheme.fromSwatch().copyWith(
-          secondary: _kAccentColor,
-        ),
-      ),
-      child: ExpansionTile(
-        tilePadding: EdgeInsets.zero,
-        iconColor: _kAccentColor,
-        collapsedIconColor: _kAccentColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: Text(
-          "More Details",
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: _kPrimaryColor,
-            fontWeight: FontWeight.w500,
-            fontSize: 15,
-          ),
-        ),
-        childrenPadding: const EdgeInsets.only(left: 6, right: 6, bottom: 9),
-        children: [
-          // Lesson topic
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(Icons.info_outline, size: 17, color: _kPrimaryColor),
-              const SizedBox(width: 7),
-              Expanded(
-                child: Text(
-                  lessonTopic,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: _kPrimaryColor,
-                    fontSize: 13.5,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // Syllabus progress
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(Icons.menu_book_rounded, size: 17, color: _kAccentColor),
-              const SizedBox(width: 7),
-              Expanded(
-                child: Text(
-                  "Syllabus: $syllabusProgress",
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: _kPrimaryColor,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // Teacher notes
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(Icons.note_alt_outlined, size: 17, color: _kAccentColor),
-              const SizedBox(width: 7),
-              Expanded(
-                child: Text(
-                  teacherNotes,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: _kPrimaryColor,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-

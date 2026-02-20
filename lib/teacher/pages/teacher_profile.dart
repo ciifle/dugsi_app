@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 
-// =======================
-//  BRAND COLORS (STRICT)
-// =======================
-const Color kPrimaryColor = Color(0xFF023471); // Dark Blue
-const Color kAccentColor = Color(0xFF5AB04B); // Orange
-const Color kBGColor = Color(0xFFF8F9FA); // Very Light Gray
-const Color kTextColor = Color(0xFF023471);
+// ---------- WONDERFUL COLOR PALETTE (Matching Student Dashboard) ----------
+const Color kPrimaryColor = Color(0xFF2A2E45); // Deep charcoal
+const Color kSecondaryColor = Color(0xFF6C5CE7); // Rich purple
+const Color kAccentColor = Color(0xFF00B894); // Mint green
+const Color kSoftPurple = Color(0xFFA29BFE); // Light purple
+const Color kSoftPink = Color(0xFFFF7675); // Soft pink
+const Color kSoftOrange = Color(0xFFFDCB6E); // Warm orange
+const Color kSoftBlue = Color(0xFF74B9FF); // Sky blue
+const Color kBackgroundStart = Color(0xFFE8EEF9); // Light blue-gray
+const Color kBackgroundEnd = Color(0xFFF5F0FF); // Light purple
+const Color kCardColor = Colors.white;
+const Color kTextPrimary = Color(0xFF2D3436); // Dark gray
+const Color kTextSecondary = Color(0xFF64748B); // Medium slate
 
 // =======================
 //  TEACHER PROFILE SCREEN
@@ -37,112 +43,194 @@ class TeacherProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kBGColor,
-      appBar: AppBar(
-        backgroundColor: kPrimaryColor,
-        elevation: 0.8,
-        automaticallyImplyLeading: true,
-        centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text(
-          'My Profile',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
-            fontSize: 20,
-            letterSpacing: 0.3,
+      backgroundColor: kBackgroundEnd,
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          // ---------------- APP BAR (SMALLER SIZE) ----------------
+          SliverAppBar(
+            expandedHeight: 90, // REDUCED from 120
+            pinned: true,
+            backgroundColor: kPrimaryColor,
+            flexibleSpace: FlexibleSpaceBar(
+              titlePadding: const EdgeInsets.only(
+                left: 16,
+                bottom: 10,
+              ), // REDUCED padding
+              title: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(5), // REDUCED padding
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8), // REDUCED radius
+                    ),
+                    child: const Icon(
+                      Icons.person_rounded,
+                      color: Colors.white,
+                      size: 16, // REDUCED icon size
+                    ),
+                  ),
+                  const SizedBox(width: 6), // REDUCED spacing
+                  const Text(
+                    "My Profile",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16, // REDUCED font size
+                    ),
+                  ),
+                ],
+              ),
+              background: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [kPrimaryColor, kSecondaryColor, kSoftPurple],
+                    stops: const [0.1, 0.6, 1.0],
+                  ),
+                ),
+              ),
+            ),
+            leading: IconButton(
+              icon: const Icon(
+                Icons.arrow_back_rounded,
+                color: Colors.white,
+                size: 20,
+              ), // REDUCED size
+              onPressed: () => Navigator.pop(context),
+            ),
+            actions: [
+              Container(
+                margin: const EdgeInsets.only(right: 12), // REDUCED margin
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: IconButton(
+                  icon: const Icon(
+                    Icons.edit_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ), // REDUCED size
+                  onPressed: () {},
+                  padding: const EdgeInsets.all(6), // REDUCED padding
+                  constraints: const BoxConstraints(),
+                ),
+              ),
+            ],
           ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          // Overflow prevention: vertical scroll.
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+
+          // ---------------- MAIN CONTENT ----------------
+          SliverPadding(
+            padding: const EdgeInsets.all(16), // REDUCED from 20
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                // ---------------- PROFILE HEADER ----------------
                 _ProfileHeader(teacher: teacher),
-                const SizedBox(height: 22),
+
+                const SizedBox(height: 20), // REDUCED from 24
+                // ---------------- BASIC INFORMATION ----------------
                 _InfoSectionCard(
                   title: "Basic Information",
+                  icon: Icons.person_outline_rounded,
+                  gradientColor: kSoftPurple,
                   children: [
                     _ProfileInfoRow(
                       icon: Icons.email_outlined,
                       label: "Email",
                       value: teacher['email'] ?? '',
+                      color: kSoftPurple,
                     ),
                     _ProfileInfoRow(
                       icon: Icons.phone_outlined,
                       label: "Phone",
                       value: teacher['phone'] ?? '',
+                      color: kSoftBlue,
                     ),
                     _ProfileInfoRow(
                       icon: Icons.person_outline,
                       label: "Gender",
                       value: teacher['gender'] ?? '',
+                      color: kAccentColor,
                     ),
                     _ProfileInfoRow(
                       icon: Icons.calendar_month_outlined,
-                      label: "Date of Joining",
+                      label: "Joined",
                       value: teacher['doj'] ?? '',
+                      color: kSoftOrange,
                     ),
                   ],
                 ),
-                const SizedBox(height: 18),
+
+                const SizedBox(height: 16), // REDUCED from 20
+                // ---------------- PROFESSIONAL DETAILS ----------------
                 _InfoSectionCard(
                   title: "Professional Details",
+                  icon: Icons.work_outline_rounded,
+                  gradientColor: kSoftBlue,
                   children: [
                     _ProfileInfoWrapRow(
                       icon: Icons.book_outlined,
                       label: "Subjects",
-                      items: (teacher['subjects'] as List<dynamic>?)
+                      items:
+                          (teacher['subjects'] as List<dynamic>?)
                               ?.map((e) => e.toString())
                               .toList() ??
                           [],
+                      color: kSoftPurple,
                     ),
                     _ProfileInfoWrapRow(
                       icon: Icons.class_outlined,
-                      label: "Classes Assigned",
-                      items: (teacher['classes'] as List<dynamic>?)
+                      label: "Classes",
+                      items:
+                          (teacher['classes'] as List<dynamic>?)
                               ?.map((e) => e.toString())
                               .toList() ??
                           [],
+                      color: kSoftBlue,
                     ),
                     _ProfileInfoRow(
                       icon: Icons.timelapse_outlined,
                       label: "Experience",
                       value: teacher['experience'] ?? '',
+                      color: kAccentColor,
                     ),
                     _ProfileInfoRow(
                       icon: Icons.school_outlined,
                       label: "Qualification",
                       value: teacher['qualification'] ?? '',
+                      color: kSoftOrange,
                     ),
                   ],
                 ),
-                const SizedBox(height: 18),
+
+                const SizedBox(height: 16), // REDUCED from 20
+                // ---------------- ACCOUNT ACTIONS ----------------
                 _AccountActionsSection(),
-                const SizedBox(height: 18),
+
+                const SizedBox(height: 16), // REDUCED from 20
+                // ---------------- EXPANDABLE DETAILS ----------------
                 _ExpandableDetailsSection(
                   address: teacher['address'] ?? '',
                   notes: teacher['notes'] ?? '',
                   emergency: teacher['emergency'] ?? '',
                 ),
-                const SizedBox(height: 18),
-              ],
+
+                const SizedBox(height: 16), // REDUCED from 20
+              ]),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
 }
 
 //==============================
-// PROFILE HEADER (always safe)
+// PROFILE HEADER
 //==============================
 class _ProfileHeader extends StatelessWidget {
   final Map<String, dynamic> teacher;
@@ -157,187 +245,271 @@ class _ProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Always wrap text, never overflow
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 2.0),
-      child: Material(
-        color: Colors.white,
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(22),
-          bottomRight: Radius.circular(22),
+    return Container(
+      padding: const EdgeInsets.all(16), // REDUCED from 24
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [kCardColor, kBackgroundEnd],
         ),
-        elevation: 3,
-        shadowColor: kPrimaryColor.withOpacity(0.09),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Profile Picture/Initials
-              CircleAvatar(
-                radius: 38,
-                backgroundColor: kPrimaryColor.withOpacity(0.09),
-                child: Text(
-                  _getInitials(teacher['name'] ?? ''),
-                  style: const TextStyle(
-                    fontSize: 32,
-                    color: kPrimaryColor,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.5,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+        borderRadius: BorderRadius.circular(24), // REDUCED from 30
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 15, // REDUCED from 20
+            offset: const Offset(0, 5), // REDUCED from 8
+          ),
+        ],
+        border: Border.all(
+          color: Colors.white,
+          width: 1.5,
+        ), // REDUCED border width
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Profile Image with Gradient Border
+          Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [kSoftPurple, kSoftBlue],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              const SizedBox(height: 12),
-              Text(
-                teacher['name'] ?? '',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: kPrimaryColor,
-                  fontSize: 20.5,
-                  letterSpacing: 0.1,
+              boxShadow: [
+                BoxShadow(
+                  color: kSoftPurple.withOpacity(0.3),
+                  blurRadius: 10, // REDUCED from 15
+                  spreadRadius: 1, // REDUCED from 2
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 5),
-              Text(
-                teacher['role'] ?? '',
-                style: const TextStyle(
-                  color: kAccentColor,
-                  fontSize: 15.8,
-                  fontWeight: FontWeight.w600,
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(2), // REDUCED from 3
+              child: Container(
+                width: 70, // REDUCED from 90
+                height: 70, // REDUCED from 90
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 3),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.badge_outlined, color: kAccentColor, size: 18),
-                  const SizedBox(width: 5),
-                  Text(
-                    teacher['employeeId'] ?? '',
+                child: Center(
+                  child: Text(
+                    _getInitials(teacher['name'] ?? ''),
                     style: const TextStyle(
                       color: kPrimaryColor,
-                      fontSize: 14.2,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0.3,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 28, // REDUCED from 36
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                ],
+                ),
               ),
-              const SizedBox(height: 13),
-              // Accent divider (orange)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    height: 3, width: 34,
-                    decoration: BoxDecoration(
-                      color: kAccentColor.withOpacity(0.78),
-                      borderRadius: BorderRadius.circular(5),
-                    ),
+            ),
+          ),
+          const SizedBox(height: 12), // REDUCED from 16
+          // Name
+          Text(
+            teacher['name'] ?? '',
+            style: const TextStyle(
+              color: kTextPrimary,
+              fontWeight: FontWeight.bold,
+              fontSize: 20, // REDUCED from 24
+            ),
+          ),
+          const SizedBox(height: 3), // REDUCED from 4
+          // Role Badge
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 3,
+            ), // REDUCED padding
+            decoration: BoxDecoration(
+              color: kSoftPurple.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20), // REDUCED from 30
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.school_rounded,
+                  size: 12,
+                  color: kSoftPurple,
+                ), // REDUCED from 14
+                const SizedBox(width: 4), // REDUCED from 6
+                Text(
+                  teacher['role'] ?? '',
+                  style: TextStyle(
+                    color: kSoftPurple,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 11, // REDUCED from 13
                   ),
-                ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6), // REDUCED from 8
+          // Employee ID
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.badge_rounded,
+                size: 12,
+                color: kTextSecondary,
+              ), // REDUCED from 14
+              const SizedBox(width: 3), // REDUCED from 4
+              Text(
+                teacher['employeeId'] ?? '',
+                style: TextStyle(
+                  color: kTextSecondary,
+                  fontSize: 11, // REDUCED from 13
+                ),
               ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }
 }
 
 // =========================
-// REUSABLE INFO SECTION CARD
+// INFO SECTION CARD
 // =========================
 class _InfoSectionCard extends StatelessWidget {
   final String title;
+  final IconData icon;
+  final Color gradientColor;
   final List<Widget> children;
-  const _InfoSectionCard({required this.title, required this.children});
+
+  const _InfoSectionCard({
+    required this.title,
+    required this.icon,
+    required this.gradientColor,
+    required this.children,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      elevation: 1.2,
-      borderRadius: BorderRadius.circular(14),
-      shadowColor: kPrimaryColor.withOpacity(0.04),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                color: kPrimaryColor,
-                fontWeight: FontWeight.w700,
-                fontSize: 15.8,
+    return Container(
+      padding: const EdgeInsets.all(16), // REDUCED from 20
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20), // REDUCED from 24
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10, // REDUCED from 15
+            offset: const Offset(0, 3), // REDUCED from 5
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6), // REDUCED from 8
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [gradientColor, gradientColor.withOpacity(0.7)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(10), // REDUCED from 12
+                  boxShadow: [
+                    BoxShadow(
+                      color: gradientColor.withOpacity(0.2),
+                      blurRadius: 5, // REDUCED from 8
+                      offset: const Offset(0, 2), // REDUCED from 4
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  icon,
+                  color: Colors.white,
+                  size: 16,
+                ), // REDUCED from 18
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 10),
-            ...children,
-          ],
-        ),
+              const SizedBox(width: 8), // REDUCED from 12
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 14, // REDUCED from 16
+                  fontWeight: FontWeight.bold,
+                  color: kTextPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12), // REDUCED from 16
+          ...children,
+        ],
       ),
     );
   }
 }
 
 // =============
-// ROW: LABEL+VALUE+ICON (Overflow Safe)
+// INFO ROW
 // =============
 class _ProfileInfoRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
+  final Color color;
+
   const _ProfileInfoRow({
     required this.icon,
     required this.label,
     required this.value,
+    required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Overflow prevention: make value take expanded
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      padding: const EdgeInsets.symmetric(vertical: 4), // REDUCED from 6
       child: Row(
         children: [
-          Icon(icon, size: 19, color: kAccentColor),
-          const SizedBox(width: 9),
-          Text(
-            "$label:",
-            style: const TextStyle(
-              color: kPrimaryColor,
-              fontWeight: FontWeight.w600,
-              fontSize: 14.8,
+          Container(
+            padding: const EdgeInsets.all(4), // REDUCED from 6
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              shape: BoxShape.circle,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            child: Icon(icon, color: color, size: 14), // REDUCED from 16
           ),
-          const SizedBox(width: 9),
-          // Expanded: ensures value wraps, avoids overflow
+          const SizedBox(width: 8), // REDUCED from 12
           Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                color: kTextColor,
-                fontSize: 14.3,
-                fontWeight: FontWeight.normal,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: kTextSecondary,
+                    fontSize: 12, // REDUCED from 13
+                  ),
+                ),
+                const SizedBox(width: 6), // REDUCED from 8
+                Flexible(
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      color: kTextPrimary,
+                      fontSize: 13, // REDUCED from 14
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -347,64 +519,79 @@ class _ProfileInfoRow extends StatelessWidget {
 }
 
 // ================
-// Wrap Row: List Items (Overflow Safe)
+// WRAP ROW
 // ================
 class _ProfileInfoWrapRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final List<String> items;
+  final Color color;
+
   const _ProfileInfoWrapRow({
     required this.icon,
     required this.label,
     required this.items,
+    required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Overflow prevention: Wrap automatically
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      padding: const EdgeInsets.symmetric(vertical: 4), // REDUCED from 6
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 19, color: kAccentColor),
-          const SizedBox(width: 9),
-          Text(
-            "$label:",
-            style: const TextStyle(
-              color: kPrimaryColor,
-              fontWeight: FontWeight.w600,
-              fontSize: 14.7,
+          Container(
+            padding: const EdgeInsets.all(4), // REDUCED from 6
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              shape: BoxShape.circle,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            child: Icon(icon, color: color, size: 14), // REDUCED from 16
           ),
-          const SizedBox(width: 5),
-          // Expanded wrap for flexible items
+          const SizedBox(width: 8), // REDUCED from 12
           Expanded(
-            child: Wrap(
-              spacing: 7,
-              runSpacing: 4,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: items
-                  .map((item) => Container(
-                        padding: const EdgeInsets.symmetric(vertical: 2.5, horizontal: 10),
-                        decoration: BoxDecoration(
-                          color: kAccentColor.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          item,
-                          style: const TextStyle(
-                            color: kAccentColor,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13.3,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: kTextSecondary,
+                    fontSize: 12, // REDUCED from 13
+                  ),
+                ),
+                const SizedBox(height: 4), // REDUCED from 6
+                Wrap(
+                  spacing: 6, // REDUCED from 8
+                  runSpacing: 6, // REDUCED from 8
+                  children: items
+                      .map(
+                        (item) => Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8, // REDUCED from 10
+                            vertical: 3, // REDUCED from 4
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          decoration: BoxDecoration(
+                            color: color.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(
+                              10,
+                            ), // REDUCED from 12
+                          ),
+                          child: Text(
+                            item,
+                            style: TextStyle(
+                              color: color,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 11, // REDUCED from 12
+                            ),
+                          ),
                         ),
-                      ))
-                  .toList(),
+                      )
+                      .toList(),
+                ),
+              ],
             ),
           ),
         ],
@@ -417,105 +604,128 @@ class _ProfileInfoWrapRow extends StatelessWidget {
 // ACCOUNT ACTIONS
 // =====================
 class _AccountActionsSection extends StatelessWidget {
-  _AccountActionsSection({Key? key}) : super(key: key);
-
-  final List<_AccountActionItem> actions = const [
-    _AccountActionItem(
-      icon: Icons.edit_outlined,
-      label: 'Edit Profile',
-    ),
-    _AccountActionItem(
-      icon: Icons.lock_outline,
-      label: 'Change Password',
-    ),
-    _AccountActionItem(
-      icon: Icons.settings_outlined,
-      label: 'Settings',
-    ),
-    _AccountActionItem(
-      icon: Icons.logout,
-      label: 'Logout',
-      warn: true,
-    ),
-  ];
-
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      elevation: 1.2,
-      shadowColor: kPrimaryColor.withOpacity(0.04),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: actions
-              .map((a) => _AccountActionTile(
-                    icon: a.icon,
-                    label: a.label,
-                    warn: a.warn,
-                  ))
-              .toList(),
-        ),
+    return Container(
+      padding: const EdgeInsets.all(16), // REDUCED from 20
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20), // REDUCED from 24
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10, // REDUCED from 15
+            offset: const Offset(0, 3), // REDUCED from 5
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6), // REDUCED from 8
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [kSoftOrange, kSoftPink],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(10), // REDUCED from 12
+                  boxShadow: [
+                    BoxShadow(
+                      color: kSoftOrange.withOpacity(0.2),
+                      blurRadius: 5, // REDUCED from 8
+                      offset: const Offset(0, 2), // REDUCED from 4
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.settings_rounded,
+                  color: Colors.white,
+                  size: 16,
+                ), // REDUCED from 18
+              ),
+              const SizedBox(width: 8), // REDUCED from 12
+              const Text(
+                "Account Actions",
+                style: TextStyle(
+                  fontSize: 14, // REDUCED from 16
+                  fontWeight: FontWeight.bold,
+                  color: kTextPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12), // REDUCED from 16
+          _buildActionTile(
+            icon: Icons.edit_rounded,
+            label: "Edit Profile",
+            color: kSoftPurple,
+          ),
+          _buildActionTile(
+            icon: Icons.lock_rounded,
+            label: "Change Password",
+            color: kSoftBlue,
+          ),
+          _buildActionTile(
+            icon: Icons.settings_rounded,
+            label: "Settings",
+            color: kSoftOrange,
+          ),
+          _buildActionTile(
+            icon: Icons.logout_rounded,
+            label: "Logout",
+            color: kSoftPink,
+            isLogout: true,
+          ),
+        ],
       ),
     );
   }
-}
 
-class _AccountActionItem {
-  final IconData icon;
-  final String label;
-  final bool warn;
-  const _AccountActionItem({
-    required this.icon,
-    required this.label,
-    this.warn = false,
-  });
-}
-
-class _AccountActionTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool warn;
-  const _AccountActionTile({
-    required this.icon,
-    required this.label,
-    this.warn = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // Overflow safe: No fixed height, wrap label
+  Widget _buildActionTile({
+    required IconData icon,
+    required String label,
+    required Color color,
+    bool isLogout = false,
+  }) {
     return InkWell(
       onTap: () {},
-      borderRadius: BorderRadius.circular(9),
+      borderRadius: BorderRadius.circular(10), // REDUCED from 12
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 8),
+        padding: const EdgeInsets.symmetric(vertical: 8), // REDUCED from 12
         child: Row(
           children: [
-            Icon(
-              icon,
-              size: 21,
-              color: warn ? kAccentColor : kAccentColor,
+            Container(
+              padding: const EdgeInsets.all(6), // REDUCED from 8
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8), // REDUCED from 10
+              ),
+              child: Icon(
+                icon,
+                color: isLogout ? color : color,
+                size: 16,
+              ), // REDUCED from 18
             ),
-            const SizedBox(width: 11),
+            const SizedBox(width: 10), // REDUCED from 12
             Expanded(
               child: Text(
                 label,
                 style: TextStyle(
-                  color: warn ? kAccentColor : kPrimaryColor,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
+                  color: isLogout ? color : kTextPrimary,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14, // REDUCED from 15
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
             ),
             Icon(
-              Icons.arrow_forward_ios,
-              color: kPrimaryColor.withOpacity(0.40),
-              size: 18,
+              Icons.arrow_forward_ios_rounded,
+              color: kTextSecondary.withOpacity(0.3),
+              size: 14, // REDUCED from 16
             ),
           ],
         ),
@@ -525,12 +735,13 @@ class _AccountActionTile extends StatelessWidget {
 }
 
 // ===========================
-// EXPANDABLE SECTION
+// EXPANDABLE DETAILS SECTION
 // ===========================
 class _ExpandableDetailsSection extends StatelessWidget {
   final String address;
   final String notes;
   final String emergency;
+
   const _ExpandableDetailsSection({
     required this.address,
     required this.notes,
@@ -539,115 +750,188 @@ class _ExpandableDetailsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Overflow safety: No fixed heights, single ExpansionTile per info
-    return Material(
-      color: Colors.white,
-      elevation: 1.2,
-      borderRadius: BorderRadius.circular(14),
-      shadowColor: kPrimaryColor.withOpacity(0.04),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
-        child: Column(
-          children: [
-            ExpansionTile(
-              tilePadding: const EdgeInsets.symmetric(horizontal: 13),
-              leading: const Icon(Icons.location_on_outlined, color: kAccentColor),
+    return Container(
+      padding: const EdgeInsets.all(16), // REDUCED from 20
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20), // REDUCED from 24
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10, // REDUCED from 15
+            offset: const Offset(0, 3), // REDUCED from 5
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6), // REDUCED from 8
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [kSoftBlue, kSoftPurple],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(10), // REDUCED from 12
+                  boxShadow: [
+                    BoxShadow(
+                      color: kSoftBlue.withOpacity(0.2),
+                      blurRadius: 5, // REDUCED from 8
+                      offset: const Offset(0, 2), // REDUCED from 4
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.info_rounded,
+                  color: Colors.white,
+                  size: 16,
+                ), // REDUCED from 18
+              ),
+              const SizedBox(width: 8), // REDUCED from 12
+              const Text(
+                "Additional Details",
+                style: TextStyle(
+                  fontSize: 14, // REDUCED from 16
+                  fontWeight: FontWeight.bold,
+                  color: kTextPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12), // REDUCED from 16
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              leading: Container(
+                padding: const EdgeInsets.all(4), // REDUCED from 6
+                decoration: BoxDecoration(
+                  color: kSoftPurple.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.location_on_rounded,
+                  color: kSoftPurple,
+                  size: 14,
+                ), // REDUCED from 16
+              ),
               title: const Text(
                 "Address",
                 style: TextStyle(
-                  color: kPrimaryColor,
                   fontWeight: FontWeight.w600,
-                  fontSize: 15.6,
+                  color: kTextPrimary,
+                  fontSize: 14, // REDUCED from 15
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
               children: [
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 6.0, right: 12, bottom: 13, top: 3),
-                    child: Text(
-                      address,
-                      style: const TextStyle(
-                        color: kTextColor,
-                        fontSize: 14,
-                      ),
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
+                Padding(
+                  padding: const EdgeInsets.only(
+                    left: 40,
+                    bottom: 8,
+                  ), // REDUCED from 44,12
+                  child: Text(
+                    address,
+                    style: TextStyle(
+                      color: kTextSecondary,
+                      fontSize: 13, // REDUCED from 14
+                      height: 1.3, // REDUCED from 1.4
                     ),
                   ),
-                )
+                ),
               ],
             ),
-            const Divider(height: 1, color: kBGColor),
-            ExpansionTile(
-              tilePadding: const EdgeInsets.symmetric(horizontal: 13),
-              leading: const Icon(Icons.info_outline, color: kAccentColor),
+          ),
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              leading: Container(
+                padding: const EdgeInsets.all(4), // REDUCED from 6
+                decoration: BoxDecoration(
+                  color: kSoftBlue.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.note_alt_rounded,
+                  color: kSoftBlue,
+                  size: 14,
+                ), // REDUCED from 16
+              ),
               title: const Text(
                 "Notes",
                 style: TextStyle(
-                  color: kPrimaryColor,
                   fontWeight: FontWeight.w600,
-                  fontSize: 15.6,
+                  color: kTextPrimary,
+                  fontSize: 14, // REDUCED from 15
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
               children: [
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 6.0, right: 12, bottom: 13, top: 3),
-                    child: Text(
-                      notes,
-                      style: const TextStyle(
-                        color: kTextColor,
-                        fontSize: 14,
-                      ),
-                      maxLines: 6,
-                      overflow: TextOverflow.ellipsis,
+                Padding(
+                  padding: const EdgeInsets.only(
+                    left: 40,
+                    bottom: 8,
+                  ), // REDUCED from 44,12
+                  child: Text(
+                    notes,
+                    style: TextStyle(
+                      color: kTextSecondary,
+                      fontSize: 13, // REDUCED from 14
+                      height: 1.3, // REDUCED from 1.4
                     ),
                   ),
-                )
+                ),
               ],
             ),
-            const Divider(height: 1, color: kBGColor),
-            ExpansionTile(
-              tilePadding: const EdgeInsets.symmetric(horizontal: 13),
-              leading: const Icon(Icons.contact_emergency_outlined, color: kAccentColor),
+          ),
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              leading: Container(
+                padding: const EdgeInsets.all(4), // REDUCED from 6
+                decoration: BoxDecoration(
+                  color: kSoftOrange.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.contact_emergency_rounded,
+                  color: kSoftOrange,
+                  size: 14,
+                ), // REDUCED from 16
+              ),
               title: const Text(
                 "Emergency Contact",
                 style: TextStyle(
-                  color: kPrimaryColor,
                   fontWeight: FontWeight.w600,
-                  fontSize: 15.6,
+                  color: kTextPrimary,
+                  fontSize: 14, // REDUCED from 15
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
               children: [
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 6.0, right: 12, bottom: 13, top: 3),
-                    child: Text(
-                      emergency,
-                      style: const TextStyle(
-                        color: kTextColor,
-                        fontSize: 14,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                Padding(
+                  padding: const EdgeInsets.only(
+                    left: 40,
+                    bottom: 8,
+                  ), // REDUCED from 44,12
+                  child: Text(
+                    emergency,
+                    style: TextStyle(
+                      color: kTextSecondary,
+                      fontSize: 13, // REDUCED from 14
+                      height: 1.3, // REDUCED from 1.4
                     ),
                   ),
-                )
+                ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
-

@@ -1,16 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-import 'package:kobac/services/local_auth_service.dart';
 import 'package:kobac/models/dummy_user.dart';
-
-import 'package:kobac/shared/pages/splash_screen.dart';
+import 'package:kobac/parent/pages/parent_dashboard.dart';
+import 'package:kobac/school_admin/pages/school_admin_screen.dart';
+import 'package:kobac/services/local_auth_service.dart';
 import 'package:kobac/shared/pages/login_screen.dart';
-
+import 'package:kobac/shared/pages/splash_screen.dart';
 import 'package:kobac/student/pages/student_dashboard.dart';
 import 'package:kobac/teacher/pages/teacher_dashboard.dart';
-import 'package:kobac/school_admin/pages/school_admin_screen.dart';
-import 'package:kobac/parent/pages/parent_dashboard.dart';
 
 /// =========================
 /// AUTH UTILITIES
@@ -24,7 +20,6 @@ Future<bool> isLoggedIn() async {
 Future<void> logout() async {
   await LocalAuthService().logout();
 }
-
 
 /// =========================
 /// ENTRY POINT
@@ -138,7 +133,7 @@ class _RoleRouterState extends State<RoleRouter> {
           case UserRole.student:
             return StudentDashboardScreen();
           case UserRole.parent:
-            return const ParentDashboard();
+            return const ParentDashboardScreen();
           case UserRole.teacher:
             return TeacherDashboardScreen();
           case UserRole.schoolAdmin:

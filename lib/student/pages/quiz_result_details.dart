@@ -1,5 +1,34 @@
 import 'package:flutter/material.dart';
 
+// ---------- COLOR PALETTE (Only two colors) ----------
+const Color kPrimaryBlue = Color(0xFF023471); // Dark blue
+const Color kPrimaryGreen = Color(0xFF5AB04B); // Green
+
+// Derived colors (shades/tints of the two main colors)
+const Color kSoftBlue = Color(0xFFE6F0FF); // Light tint of blue
+const Color kSoftGreen = Color(0xFFEDF7EB); // Light tint of green
+const Color kDarkGreen = Color(
+  0xFF4A8F3C,
+); // Darker shade of green (adjusted from original green)
+const Color kDarkBlue = Color(
+  0xFF012255,
+); // Darker shade of blue (adjusted from original blue)
+const Color kTextPrimary = Color(0xFF2D3436); // Dark gray (keep neutral)
+const Color kTextSecondary = Color(0xFF636E72); // Medium gray (keep neutral)
+const Color kSurfaceColor = Colors.white;
+const Color kBackgroundColor = Color(0xFFF8FAFC); // Light background
+
+// GRADIENT COLORS
+const List<Color> kPrimaryGradient = [kPrimaryBlue, kPrimaryGreen];
+const List<Color> kSuccessGradient = [
+  kPrimaryGreen,
+  Color(0xFF7CCF6A),
+]; // Lighter green (adjusted)
+const List<Color> kWarningGradient = [
+  Color(0xFFF59E0B),
+  Color(0xFFFBBF24),
+]; // Keep amber for warning
+
 // Dummy Data Models
 class QuizResult {
   final String quizName;
@@ -21,7 +50,25 @@ class QuizResult {
   double get percentage =>
       totalMarks == 0 ? 0 : (obtainedMarks / totalMarks) * 100;
 
-  bool get isPassed => percentage >= 40.0; // Example pass rule
+  bool get isPassed => percentage >= 40.0;
+
+  String get grade {
+    if (percentage >= 90) return "A+";
+    if (percentage >= 80) return "A";
+    if (percentage >= 70) return "B+";
+    if (percentage >= 60) return "B";
+    if (percentage >= 50) return "C";
+    if (percentage >= 40) return "D";
+    return "F";
+  }
+
+  String get performanceLevel {
+    if (percentage >= 90) return "Outstanding";
+    if (percentage >= 75) return "Excellent";
+    if (percentage >= 60) return "Good";
+    if (percentage >= 40) return "Satisfactory";
+    return "Needs Improvement";
+  }
 }
 
 class QuestionResult {
@@ -57,411 +104,738 @@ final QuizResult kDummyResult = QuizResult(
     QuestionResult(number: 10, obtained: 2, max: 2, isCorrect: true),
   ],
   teacherRemarks:
-      "Excellent job overall! Revise your approach to the incorrect answers for better understanding.",
+      "Excellent work! Your understanding of core concepts is strong. Practice more on calculus problems to improve further.",
 );
 
 class StudentQuizResultScreen extends StatelessWidget {
   final QuizResult result;
 
   StudentQuizResultScreen({Key? key, QuizResult? result})
-      : result = result ?? kDummyResult,
-        super(key: key);
-
-  Color get _darkBlue => const Color(0xFF023471);
-  Color get _orange => const Color(0xFF5AB04B);
+    : result = result ?? kDummyResult,
+      super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: _darkBlue,
-        title: const Text(
-          'Quiz Result',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            overflow: TextOverflow.ellipsis,
-            fontSize: 22,
-          ),
-          maxLines: 1,
-        ),
-        iconTheme: const IconThemeData(color: Colors.white),
-        elevation: 1,
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // SECTION 1: Quiz Summary Card
-              _QuizSummaryCard(result: result, darkBlue: _darkBlue, orange: _orange),
-              const SizedBox(height: 24),
-
-              // SECTION 2: Result Table
-              const Text(
-                "Question-wise Breakdown",
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF023471),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                maxLines: 1,
+      backgroundColor: kBackgroundColor,
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          // ---------------- BEAUTIFUL APP BAR ----------------
+          SliverAppBar(
+            expandedHeight: 120,
+            pinned: true,
+            backgroundColor: kPrimaryBlue,
+            flexibleSpace: FlexibleSpaceBar(
+              titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.emoji_events_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    "Quiz Result",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 24,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 6),
-              _ResultTable(result: result, darkBlue: _darkBlue, orange: _orange),
-              const SizedBox(height: 24),
-
-              // SECTION 3: Teacher Remarks
-              const Text(
-                "Teacher's Remarks",
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF023471),
-                  overflow: TextOverflow.ellipsis,
+              background: Container(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [kPrimaryBlue, kPrimaryGreen],
+                  ),
                 ),
-                maxLines: 1,
               ),
-              const SizedBox(height: 6),
-              _TeacherRemarksCard(remarks: result.teacherRemarks, orange: _orange),
-            ],
+            ),
+            leading: IconButton(
+              icon: const Icon(
+                Icons.arrow_back_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
+              onPressed: () => Navigator.pop(context),
+            ),
           ),
-        ),
+
+          // ---------------- MAIN CONTENT ----------------
+          SliverPadding(
+            padding: const EdgeInsets.all(20),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                // ---------------- ACHIEVEMENT BANNER ----------------
+                _buildAchievementBanner(result),
+
+                const SizedBox(height: 20),
+
+                // ---------------- PERFORMANCE CARD ----------------
+                _buildPerformanceCard(result),
+
+                const SizedBox(height: 20),
+
+                // ---------------- STATISTICS GRID ----------------
+                _buildStatisticsGrid(result),
+
+                const SizedBox(height: 24),
+
+                // ---------------- SECTION HEADER ----------------
+                _buildSectionHeader(
+                  icon: Icons.analytics_rounded,
+                  title: "Question Analysis",
+                  subtitle: "Detailed breakdown of your answers",
+                ),
+
+                const SizedBox(height: 16),
+
+                // ---------------- QUESTION CARDS ----------------
+                ...List.generate(
+                  result.questionResults.length,
+                  (index) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildQuestionCard(
+                      question: result.questionResults[index],
+                      index: index + 1,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // ---------------- SECTION HEADER ----------------
+                _buildSectionHeader(
+                  icon: Icons.feedback_rounded,
+                  title: "Teacher's Feedback",
+                  subtitle: "Personalized remarks for improvement",
+                ),
+
+                const SizedBox(height: 16),
+
+                // ---------------- FEEDBACK CARD ----------------
+                _buildFeedbackCard(result.teacherRemarks),
+
+                const SizedBox(height: 30),
+              ]),
+            ),
+          ),
+        ],
       ),
     );
   }
-}
 
-// Quiz Summary Card
-class _QuizSummaryCard extends StatelessWidget {
-  final QuizResult result;
-  final Color darkBlue;
-  final Color orange;
+  // ACHIEVEMENT BANNER
+  Widget _buildAchievementBanner(QuizResult result) {
+    final level = result.performanceLevel;
+    final color = result.percentage >= 75
+        ? kPrimaryGreen
+        : result.percentage >= 40
+        ? kPrimaryBlue
+        : Colors.red; // Keep red for very low scores
 
-  const _QuizSummaryCard({
-    Key? key,
-    required this.result,
-    required this.darkBlue,
-    required this.orange,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    final bool passed = result.isPassed;
-    String statusText = passed ? "Pass" : "Fail";
-    Color statusColor = passed ? darkBlue : orange;
-
-    return Card(
-      color: darkBlue.withOpacity(0.045),
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Quiz Name
-            Text(
-              result.quizName,
-              style: TextStyle(
-                color: darkBlue,
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                overflow: TextOverflow.ellipsis,
-              ),
-              maxLines: 1,
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [color.withOpacity(0.1), color.withOpacity(0.05)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.3), width: 1.5),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              shape: BoxShape.circle,
             ),
-            const SizedBox(height: 4),
-            // Subject
-            Text(
-              "Subject: ${result.subject}",
-              style: TextStyle(
-                color: darkBlue.withOpacity(0.75),
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                overflow: TextOverflow.ellipsis,
-              ),
-              maxLines: 1,
+            child: Icon(
+              result.percentage >= 75
+                  ? Icons.emoji_events_rounded
+                  : result.percentage >= 40
+                  ? Icons.trending_up_rounded
+                  : Icons.auto_graph_rounded,
+              color: color,
+              size: 28,
             ),
-            const SizedBox(height: 8),
-            // Marks, percentage & status row
-            Wrap(
-              runSpacing: 8,
-              spacing: 32,
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _summaryChip(
-                  icon: Icons.score,
-                  label: 'Total Marks',
-                  value: "${result.totalMarks}",
-                  color: darkBlue,
+                Text(
+                  level,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
                 ),
-                _summaryChip(
-                  icon: Icons.assignment_turned_in_outlined,
-                  label: 'Obtained',
-                  value: "${result.obtainedMarks}",
-                  color: orange,
-                ),
-                _summaryChip(
-                  icon: Icons.percent,
-                  label: 'Percent',
-                  value: "${result.percentage.toStringAsFixed(1)}%",
-                  color: darkBlue,
-                ),
-                _summaryChip(
-                  icon: passed
-                      ? Icons.check_circle_outline
-                      : Icons.cancel_outlined,
-                  label: 'Status',
-                  value: statusText,
-                  color: statusColor,
+                const SizedBox(height: 4),
+                Text(
+                  "You scored ${result.percentage.toStringAsFixed(1)}% overall",
+                  style: TextStyle(color: kTextSecondary, fontSize: 14),
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _summaryChip(
-      {required IconData icon,
-      required String label,
-      required String value,
-      required Color color}) {
+  // PERFORMANCE CARD
+  Widget _buildPerformanceCard(QuizResult result) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [kSurfaceColor, kBackgroundColor],
+        ),
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 25,
+            offset: const Offset(0, 10),
+          ),
+        ],
+        border: Border.all(color: Colors.white, width: 2),
+      ),
+      child: Column(
+        children: [
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: kPrimaryBlue.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.quiz_rounded, color: kPrimaryBlue, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      result.quizName,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: kTextPrimary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: kPrimaryGreen.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        result.subject,
+                        style: TextStyle(
+                          color: kPrimaryGreen,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
+          // Score and Grade
+          Row(
+            children: [
+              // Circular Progress
+              Expanded(
+                flex: 3,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color:
+                                (result.isPassed ? kPrimaryGreen : kPrimaryBlue)
+                                    .withOpacity(0.2),
+                            blurRadius: 15,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(
+                      width: 90,
+                      height: 90,
+                      child: CircularProgressIndicator(
+                        value: result.percentage / 100,
+                        strokeWidth: 8,
+                        backgroundColor: Colors.grey.shade200,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          result.isPassed ? kPrimaryGreen : kPrimaryBlue,
+                        ),
+                      ),
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          "${result.percentage.toStringAsFixed(0)}%",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: result.isPassed
+                                ? kPrimaryGreen
+                                : kPrimaryBlue,
+                          ),
+                        ),
+                        Text(
+                          "Score",
+                          style: TextStyle(fontSize: 9, color: kTextSecondary),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(width: 16),
+
+              // Grade and Marks
+              Expanded(
+                flex: 4,
+                child: Column(
+                  children: [
+                    _buildInfoRow(
+                      icon: Icons.grade_rounded,
+                      label: "Grade",
+                      value: result.grade,
+                      color: kPrimaryBlue,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildInfoRow(
+                      icon: Icons.stars_rounded,
+                      label: "Marks",
+                      value: "${result.obtainedMarks}/${result.totalMarks}",
+                      color: kPrimaryGreen,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.2), width: 1),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 14),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(color: kTextSecondary, fontSize: 12),
+                ),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // STATISTICS GRID
+  Widget _buildStatisticsGrid(QuizResult result) {
+    final correct = result.questionResults.where((q) => q.isCorrect).length;
+    final wrong = result.questionResults.length - correct;
+    final accuracy = (correct / result.questionResults.length * 100)
+        .toStringAsFixed(0);
+
     return Row(
-      mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: color.withOpacity(0.82), size: 19),
-        const SizedBox(width: 5),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                color: color.withOpacity(0.73),
-                fontWeight: FontWeight.w400,
-                fontSize: 13,
-                overflow: TextOverflow.ellipsis,
-              ),
-              maxLines: 1,
-            ),
-            Text(
-              value,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.bold,
-                fontSize: 15,
-                overflow: TextOverflow.ellipsis,
-              ),
-              maxLines: 1,
-            ),
-          ],
+        Expanded(
+          child: _buildStatItem(
+            icon: Icons.check_circle_rounded,
+            value: "$correct",
+            label: "Correct",
+            color: kPrimaryGreen,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatItem(
+            icon: Icons.cancel_rounded,
+            value: "$wrong",
+            label: "Wrong",
+            color: kPrimaryBlue,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatItem(
+            icon: Icons.trending_up_rounded,
+            value: "$accuracy%",
+            label: "Accuracy",
+            color: kPrimaryGreen,
+          ),
         ),
       ],
     );
   }
-}
 
-// Question-wise Result Table
-class _ResultTable extends StatelessWidget {
-  final QuizResult result;
-  final Color darkBlue;
-  final Color orange;
+  Widget _buildStatItem({
+    required IconData icon,
+    required String value,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: kSurfaceColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 16),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          Text(label, style: TextStyle(color: kTextSecondary, fontSize: 10)),
+        ],
+      ),
+    );
+  }
 
-  const _ResultTable({
-    Key? key,
-    required this.result,
-    required this.darkBlue,
-    required this.orange,
-  }) : super(key: key);
+  // SECTION HEADER
+  Widget _buildSectionHeader({
+    required IconData icon,
+    required String title,
+    String? subtitle,
+  }) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [kPrimaryBlue, kPrimaryGreen],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: kTextPrimary,
+                ),
+              ),
+              if (subtitle != null)
+                Text(
+                  subtitle,
+                  style: TextStyle(color: kTextSecondary, fontSize: 12),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    // Table: Horizontal scroll is always enabled by wrapping with SingleChildScrollView(horizontal)
-    return Card(
-      color: darkBlue.withOpacity(0.025),
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      margin: EdgeInsets.zero,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          columns: [
-            DataColumn(
-              label: Text(
-                'Q No',
-                style: TextStyle(
-                  color: darkBlue,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                maxLines: 1,
-              ),
-            ),
-            DataColumn(
-              label: Text(
-                'Marks Obtained',
-                style: TextStyle(
-                  color: darkBlue,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                maxLines: 1,
-              ),
-            ),
-            DataColumn(
-              label: Text(
-                'Max Marks',
-                style: TextStyle(
-                  color: darkBlue,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                maxLines: 1,
-              ),
-            ),
-            DataColumn(
-              label: Text(
-                'Status',
-                style: TextStyle(
-                  color: darkBlue,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                maxLines: 1,
-              ),
-            ),
-          ],
-          rows: result.questionResults.map((q) {
-            return DataRow(
-              cells: [
-                DataCell(
-                  Text(
-                    "${q.number}",
-                    style: TextStyle(
-                      color: darkBlue,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 12.5,
-                      overflow: TextOverflow.ellipsis,
+  // QUESTION CARD
+  Widget _buildQuestionCard({
+    required QuestionResult question,
+    required int index,
+  }) {
+    final isCorrect = question.isCorrect;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: kSurfaceColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {},
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                // Question Number
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: isCorrect
+                          ? [kPrimaryGreen, Color(0xFF7CCF6A)] // Lighter green
+                          : [kPrimaryBlue, kPrimaryGreen],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                    maxLines: 1,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                ),
-                DataCell(
-                  Text(
-                    "${q.obtained}",
-                    style: TextStyle(
-                      color: q.isCorrect ? darkBlue : orange,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 12.5,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    maxLines: 1,
-                  ),
-                ),
-                DataCell(
-                  Text(
-                    "${q.max}",
-                    style: TextStyle(
-                      color: darkBlue.withOpacity(0.75),
-                      fontWeight: FontWeight.w500,
-                      fontSize: 12.5,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    maxLines: 1,
-                  ),
-                ),
-                DataCell(
-                  Row(
-                    children: [
-                      Icon(
-                        q.isCorrect ?
-                          Icons.check_circle_outline :
-                          Icons.cancel_outlined,
-                        color: q.isCorrect ? darkBlue : orange,
-                        size: 17,
+                  child: Center(
+                    child: Text(
+                      "$index",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
                       ),
-                      const SizedBox(width: 3),
-                      Text(
-                        q.isCorrect ? "Correct" : "Wrong",
-                        style: TextStyle(
-                          color: q.isCorrect ? darkBlue : orange,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                          overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+
+                // Details
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            "Marks: ",
+                            style: TextStyle(
+                              color: kTextSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                          Text(
+                            "${question.obtained}/${question.max}",
+                            style: TextStyle(
+                              color: isCorrect ? kPrimaryGreen : kPrimaryBlue,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
                         ),
-                        maxLines: 1,
+                        decoration: BoxDecoration(
+                          color: (isCorrect ? kPrimaryGreen : kPrimaryBlue)
+                              .withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              isCorrect
+                                  ? Icons.check_circle_rounded
+                                  : Icons.cancel_rounded,
+                              color: isCorrect ? kPrimaryGreen : kPrimaryBlue,
+                              size: 12,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              isCorrect ? "Correct" : "Incorrect",
+                              style: TextStyle(
+                                color: isCorrect ? kPrimaryGreen : kPrimaryBlue,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
                 ),
+
+                // Arrow
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: kPrimaryBlue.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    color: kPrimaryBlue,
+                    size: 12,
+                  ),
+                ),
               ],
-            );
-          }).toList(),
-          // No fixed column spacing, allows tight responsive table
-          headingRowColor: MaterialStateProperty.resolveWith<Color?>(
-              (states) => Colors.transparent),
-          dataRowColor: MaterialStateProperty.resolveWith<Color?>(
-            (states) => Colors.transparent,
+            ),
           ),
-          dividerThickness: 0.5,
         ),
       ),
     );
   }
-}
 
-// Teacher Remarks Card
-class _TeacherRemarksCard extends StatelessWidget {
-  final String remarks;
-  final Color orange;
-
-  const _TeacherRemarksCard({
-    Key? key,
-    required this.remarks,
-    required this.orange,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: orange.withOpacity(0.07),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 0,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              Icons.comment_outlined,
-              color: orange,
-              size: 24,
-            ),
-            const SizedBox(width: 8),
-            // Constrained to avoid overflow on ultra-long remarks
-            Expanded(
-              child: Text(
-                remarks,
-                style: TextStyle(
-                  color: orange,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14.5,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                maxLines: 4,
-              ),
-            ),
+  // FEEDBACK CARD
+  Widget _buildFeedbackCard(String remarks) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            kPrimaryBlue.withOpacity(0.05),
+            kPrimaryGreen.withOpacity(0.08),
           ],
         ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white, width: 2),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: kPrimaryBlue.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.format_quote_rounded,
+              color: kPrimaryBlue,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Feedback",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: kTextPrimary,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  remarks,
+                  style: TextStyle(
+                    color: kTextSecondary,
+                    fontSize: 14,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

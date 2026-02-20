@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
 
-// ==== BRAND COLORS ====
-const Color kPrimaryDarkBlue = Color(0xFF023471);
-const Color kAccentOrange = Color(0xFF5AB04B);
-const Color kBackground = Color(0xFFF9F9F9); // Soft offwhite
-const Color kTextDarkBlue = Color(0xFF023471);
+// ---------- WONDERFUL COLOR PALETTE (Matching Student Dashboard) ----------
+const Color kPrimaryColor = Color(0xFF2A2E45); // Deep charcoal
+const Color kSecondaryColor = Color(0xFF6C5CE7); // Rich purple
+const Color kAccentColor = Color(0xFF00B894); // Mint green
+const Color kSoftPurple = Color(0xFFA29BFE); // Light purple
+const Color kSoftPink = Color(0xFFFF7675); // Soft pink
+const Color kSoftOrange = Color(0xFFFDCB6E); // Warm orange
+const Color kSoftBlue = Color(0xFF74B9FF); // Sky blue
+const Color kBackgroundStart = Color(0xFFE8EEF9); // Light blue-gray
+const Color kBackgroundEnd = Color(0xFFF5F0FF); // Light purple
+const Color kCardColor = Colors.white;
+const Color kTextPrimary = Color(0xFF2D3436); // Dark gray
+const Color kTextSecondary = Color(0xFF64748B); // Medium slate
 
 // ================================
 // QUIZ MODELS + DUMMY DATA
@@ -17,11 +25,12 @@ class Quiz {
   final String className;
   final String subject;
   final int totalQuestions;
-  final String timeLimit; // '30 min', '1 hr' etc.
+  final String timeLimit;
   final QuizStatus status;
   final String instructions;
   final String scoringRules;
   final String? notes;
+  final IconData icon;
 
   Quiz({
     required this.id,
@@ -34,68 +43,77 @@ class Quiz {
     required this.instructions,
     required this.scoringRules,
     this.notes,
+    required this.icon,
   });
 }
 
 final List<Quiz> dummyQuizzes = [
   Quiz(
-      id: 'q1',
-      title: 'Mid-Term Algebra Quiz',
-      className: 'Class 9A',
-      subject: 'Mathematics',
-      totalQuestions: 15,
-      timeLimit: '40 min',
-      status: QuizStatus.active,
-      instructions:
-          'Answer all questions. No calculators allowed. Read each question carefully.',
-      scoringRules:
-          '1 mark for each correct answer. No negative marking. Partial marks for partially correct steps.',
-      notes: 'Review trigonometry basics before quiz.'),
+    id: 'q1',
+    title: 'Mid-Term Algebra Quiz',
+    className: 'Class 9A',
+    subject: 'Mathematics',
+    totalQuestions: 15,
+    timeLimit: '40 min',
+    status: QuizStatus.active,
+    instructions:
+        'Answer all questions. No calculators allowed. Read each question carefully.',
+    scoringRules: '1 mark for each correct answer. No negative marking.',
+    notes: 'Review trigonometry basics before quiz.',
+    icon: Icons.calculate_rounded,
+  ),
   Quiz(
-      id: 'q2',
-      title: 'Periodic Table Assessment',
-      className: 'Class 9B',
-      subject: 'Science',
-      totalQuestions: 10,
-      timeLimit: '25 min',
-      status: QuizStatus.completed,
-      instructions: 'Multiple choice format. Choose the most appropriate answer.',
-      scoringRules: 'Correct = 2 marks. Incorrect = 0 marks.',
-      notes: null),
+    id: 'q2',
+    title: 'Periodic Table Assessment',
+    className: 'Class 9B',
+    subject: 'Science',
+    totalQuestions: 10,
+    timeLimit: '25 min',
+    status: QuizStatus.completed,
+    instructions: 'Multiple choice format. Choose the most appropriate answer.',
+    scoringRules: 'Correct = 2 marks. Incorrect = 0 marks.',
+    notes: null,
+    icon: Icons.science_rounded,
+  ),
   Quiz(
-      id: 'q3',
-      title: 'Grammar Check',
-      className: 'Class 8A',
-      subject: 'English',
-      totalQuestions: 20,
-      timeLimit: '30 min',
-      status: QuizStatus.draft,
-      instructions:
-          'Fill in the blanks, and rewrite sentences as instructed in the questions.',
-      scoringRules: 'Each correct blank = 0.5 mark. Each correct sentence = 1 mark.',
-      notes: 'Remind students about subject-verb agreement rules.'),
+    id: 'q3',
+    title: 'Grammar Check',
+    className: 'Class 8A',
+    subject: 'English',
+    totalQuestions: 20,
+    timeLimit: '30 min',
+    status: QuizStatus.draft,
+    instructions: 'Fill in the blanks, and rewrite sentences as instructed.',
+    scoringRules: 'Each correct blank = 0.5 mark.',
+    notes: 'Remind students about subject-verb agreement rules.',
+    icon: Icons.menu_book_rounded,
+  ),
   Quiz(
-      id: 'q4',
-      title: 'Geography Map Lab',
-      className: 'Class 10C',
-      subject: 'Geography',
-      totalQuestions: 5,
-      timeLimit: '20 min',
-      status: QuizStatus.active,
-      instructions: 'Label the map features as per instructions.',
-      scoringRules: 'Each correct label = 2 marks.',
-      notes: null),
+    id: 'q4',
+    title: 'Geography Map Lab',
+    className: 'Class 10C',
+    subject: 'Geography',
+    totalQuestions: 5,
+    timeLimit: '20 min',
+    status: QuizStatus.active,
+    instructions: 'Label the map features as per instructions.',
+    scoringRules: 'Each correct label = 2 marks.',
+    notes: null,
+    icon: Icons.map_rounded,
+  ),
   Quiz(
-      id: 'q5',
-      title: 'Chapter 4 Physics Quiz',
-      className: 'Class 10B',
-      subject: 'Physics',
-      totalQuestions: 12,
-      timeLimit: '35 min',
-      status: QuizStatus.completed,
-      instructions: 'Attempt all questions. Diagrams are not mandatory.',
-      scoringRules: 'Each correct = 1 mark. No negatives.',
-      notes: null),
+    id: 'q5',
+    title: 'Chapter 4 Physics Quiz',
+    className: 'Class 10B',
+    subject: 'Physics',
+    totalQuestions: 12,
+    timeLimit: '35 min',
+    status: QuizStatus.completed,
+    instructions: 'Attempt all questions. Diagrams are not mandatory.',
+    scoringRules: 'Each correct = 1 mark.',
+    notes: null,
+    icon: Icons.bolt_rounded,
+  ),
 ];
 
 // =============================================================
@@ -109,7 +127,6 @@ class TeacherQuizzesScreen extends StatefulWidget {
 }
 
 class _TeacherQuizzesScreenState extends State<TeacherQuizzesScreen> {
-  // Filter state: 'All', 'Active', 'Completed', 'Draft'
   String _selectedFilter = 'All';
 
   List<Quiz> get filteredQuizzes {
@@ -123,102 +140,843 @@ class _TeacherQuizzesScreenState extends State<TeacherQuizzesScreen> {
             .where((q) => q.status == QuizStatus.completed)
             .toList();
       case 'Draft':
-        return dummyQuizzes
-            .where((q) => q.status == QuizStatus.draft)
-            .toList();
+        return dummyQuizzes.where((q) => q.status == QuizStatus.draft).toList();
       default:
         return dummyQuizzes;
     }
   }
 
-  // ============== BUILD ==============
+  Color _getStatusColor(QuizStatus status) {
+    switch (status) {
+      case QuizStatus.active:
+        return kSoftBlue;
+      case QuizStatus.completed:
+        return kAccentColor;
+      case QuizStatus.draft:
+        return kSoftOrange;
+    }
+  }
+
+  String _getStatusText(QuizStatus status) {
+    switch (status) {
+      case QuizStatus.active:
+        return 'Active';
+      case QuizStatus.completed:
+        return 'Completed';
+      case QuizStatus.draft:
+        return 'Draft';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final filtered = filteredQuizzes;
+
     return Scaffold(
-      backgroundColor: kBackground,
-      appBar: AppBar(
-        backgroundColor: kPrimaryDarkBlue,
-        centerTitle: true,
-        elevation: 1.5,
-        title: const Text(
-          "Quizzes",
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.15,
-            fontSize: 20,
-            overflow: TextOverflow.ellipsis,
+      backgroundColor: kBackgroundEnd,
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          // ---------------- APP BAR (SMALLER SIZE, NO SEARCH) ----------------
+          SliverAppBar(
+            expandedHeight: 90, // REDUCED from 120
+            pinned: true,
+            backgroundColor: kPrimaryColor,
+            flexibleSpace: FlexibleSpaceBar(
+              titlePadding: const EdgeInsets.only(
+                left: 16,
+                bottom: 10,
+              ), // REDUCED padding
+              title: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(5), // REDUCED padding
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8), // REDUCED radius
+                    ),
+                    child: const Icon(
+                      Icons.quiz_rounded,
+                      color: Colors.white,
+                      size: 16, // REDUCED icon size
+                    ),
+                  ),
+                  const SizedBox(width: 6), // REDUCED spacing
+                  const Text(
+                    "Quizzes",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16, // REDUCED font size
+                    ),
+                  ),
+                ],
+              ),
+              background: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [kPrimaryColor, kSecondaryColor, kSoftPurple],
+                    stops: const [0.1, 0.6, 1.0],
+                  ),
+                ),
+              ),
+            ),
+            leading: IconButton(
+              icon: const Icon(
+                Icons.arrow_back_rounded,
+                color: Colors.white,
+                size: 20,
+              ), // REDUCED size
+              onPressed: () => Navigator.pop(context),
+            ),
+            // NO SEARCH ICON - REMOVED
           ),
-          maxLines: 1,
+
+          // ---------------- MAIN CONTENT ----------------
+          SliverPadding(
+            padding: const EdgeInsets.all(16), // REDUCED from 20
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                // ---------------- SUMMARY CARD ----------------
+                _QuizSummaryCard(quizzes: dummyQuizzes),
+
+                const SizedBox(height: 20), // REDUCED from 24
+                // ---------------- FILTER SECTION ----------------
+                _buildFilterSection(),
+
+                const SizedBox(height: 16), // REDUCED from 20
+                // ---------------- QUIZZES HEADER ----------------
+                _buildQuizzesHeader(filtered.length),
+
+                const SizedBox(height: 12), // REDUCED from 16
+                // ---------------- QUIZ CARDS ----------------
+                if (filtered.isNotEmpty)
+                  ...List.generate(
+                    filtered.length,
+                    (index) => Padding(
+                      padding: const EdgeInsets.only(
+                        bottom: 14,
+                      ), // REDUCED from 16
+                      child: _QuizCard(quiz: filtered[index]),
+                    ),
+                  )
+                else
+                  _buildEmptyState(),
+
+                const SizedBox(height: 20), // REDUCED from 24
+                // ---------------- CREATE BUTTON ----------------
+                _CreateQuizCTAButton(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("Create New Quiz"),
+                        backgroundColor: kAccentColor,
+                      ),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 16), // REDUCED from 20
+              ]),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterSection() {
+    final filters = ['All', 'Active', 'Completed', 'Draft'];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(4), // REDUCED padding
+              decoration: BoxDecoration(
+                color: kSoftPurple.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(6), // REDUCED radius
+              ),
+              child: const Icon(
+                Icons.filter_list_rounded,
+                color: kSoftPurple,
+                size: 14, // REDUCED icon size
+              ),
+            ),
+            const SizedBox(width: 6), // REDUCED spacing
+            const Text(
+              "Filter by Status",
+              style: TextStyle(
+                fontSize: 13, // REDUCED font size
+                fontWeight: FontWeight.w600,
+                color: kTextPrimary,
+              ),
+            ),
+          ],
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.maybePop(context),
+        const SizedBox(height: 8), // REDUCED from 12
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: filters.map((filter) {
+              final bool isSelected = _selectedFilter == filter;
+              final Color filterColor = _getFilterColor(filter);
+
+              return Padding(
+                padding: const EdgeInsets.only(right: 6), // REDUCED spacing
+                child: FilterChip(
+                  label: Text(
+                    filter,
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : kTextPrimary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11, // REDUCED font size
+                    ),
+                  ),
+                  selected: isSelected,
+                  onSelected: (_) {
+                    setState(() {
+                      _selectedFilter = filter;
+                    });
+                  },
+                  backgroundColor: Colors.white,
+                  selectedColor: filterColor,
+                  checkmarkColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16), // REDUCED radius
+                  ),
+                  side: BorderSide(
+                    color: isSelected ? filterColor : Colors.grey.shade300,
+                    width: 1,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ), // REDUCED padding
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuizzesHeader(int count) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(4), // REDUCED padding
+              decoration: BoxDecoration(
+                color: kSoftOrange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(6), // REDUCED radius
+              ),
+              child: const Icon(
+                Icons.quiz_rounded,
+                color: kSoftOrange,
+                size: 14, // REDUCED icon size
+              ),
+            ),
+            const SizedBox(width: 6), // REDUCED spacing
+            const Text(
+              "Quiz List",
+              style: TextStyle(
+                fontSize: 14, // REDUCED font size
+                fontWeight: FontWeight.bold,
+                color: kTextPrimary,
+              ),
+            ),
+          ],
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 3,
+          ), // REDUCED padding
+          decoration: BoxDecoration(
+            color: kSoftPurple.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(16), // REDUCED radius
+          ),
+          child: Text(
+            '$count items',
+            style: TextStyle(
+              color: kSoftPurple,
+              fontWeight: FontWeight.w600,
+              fontSize: 10, // REDUCED font size
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 30), // REDUCED padding
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12), // REDUCED padding
+              decoration: BoxDecoration(
+                color: kSoftPurple.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.quiz_rounded,
+                color: kSoftPurple,
+                size: 36, // REDUCED icon size
+              ),
+            ),
+            const SizedBox(height: 12), // REDUCED spacing
+            const Text(
+              'No quizzes',
+              style: TextStyle(
+                color: kTextPrimary,
+                fontSize: 14, // REDUCED font size
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Create your first quiz',
+              style: TextStyle(
+                color: kTextSecondary,
+                fontSize: 12, // REDUCED font size
+              ),
+            ),
+          ],
         ),
       ),
-      // ====== BODY WRAPPED IN SAFE SCROLL CONTAINER ======
-      body: SingleChildScrollView(
-        // Prevents ALL vertical space/column overflow
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    );
+  }
+
+  Color _getFilterColor(String filter) {
+    switch (filter) {
+      case 'All':
+        return kSoftPurple;
+      case 'Active':
+        return kSoftBlue;
+      case 'Completed':
+        return kAccentColor;
+      case 'Draft':
+        return kSoftOrange;
+      default:
+        return kSecondaryColor;
+    }
+  }
+}
+
+// ---------------- SUMMARY CARD ----------------
+class _QuizSummaryCard extends StatelessWidget {
+  final List<Quiz> quizzes;
+  const _QuizSummaryCard({required this.quizzes});
+
+  @override
+  Widget build(BuildContext context) {
+    int total = quizzes.length;
+    int active = quizzes.where((q) => q.status == QuizStatus.active).length;
+    int completed = quizzes
+        .where((q) => q.status == QuizStatus.completed)
+        .length;
+
+    return Container(
+      padding: const EdgeInsets.all(16), // REDUCED from 20
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20), // REDUCED radius
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 15, // REDUCED blur
+            offset: const Offset(0, 5), // REDUCED offset
+          ),
+        ],
+        border: Border.all(
+          color: Colors.white,
+          width: 1.5,
+        ), // REDUCED border width
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
             children: [
-              // ---- SECTION 1: QUIZ SUMMARY CARD ----
-              _QuizSummaryCard(quizzes: dummyQuizzes),
-              const SizedBox(height: 22),
-
-              // ---- SECTION 2: QUIZ FILTER BAR ----
-              _QuizFilterBar(
-                selected: _selectedFilter,
-                onSelected: (val) {
-                  setState(() => _selectedFilter = val);
-                },
+              Container(
+                padding: const EdgeInsets.all(6), // REDUCED padding
+                decoration: BoxDecoration(
+                  color: kSoftPurple.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.analytics_rounded,
+                  color: kSoftPurple,
+                  size: 16,
+                ), // REDUCED icon size
               ),
-              const SizedBox(height: 20),
+              const SizedBox(width: 8), // REDUCED spacing
+              const Text(
+                'Quiz Overview',
+                style: TextStyle(
+                  color: kTextPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15, // REDUCED font size
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16), // REDUCED from 20
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildStatItem(
+                icon: Icons.list_alt_rounded,
+                label: "Total",
+                value: "$total",
+                color: kSoftPurple,
+              ),
+              _buildStatItem(
+                icon: Icons.flash_on_rounded,
+                label: "Active",
+                value: "$active",
+                color: kSoftBlue,
+              ),
+              _buildStatItem(
+                icon: Icons.check_circle_rounded,
+                label: "Completed",
+                value: "$completed",
+                color: kAccentColor,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
-              // ---- SECTION 3: QUIZ LIST ----
-              filteredQuizzes.isEmpty
-                  ? Padding(
-                      padding: const EdgeInsets.only(top: 40.0, bottom: 30),
-                      child: Center(
-                        child: Text(
-                          "No quizzes found for selected filter.",
-                          style: TextStyle(
-                            color: kTextDarkBlue.withOpacity(0.7),
-                            fontWeight: FontWeight.w600,
-                            fontSize: 15,
-                            overflow: TextOverflow.ellipsis,
+  Widget _buildStatItem({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Expanded(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(4), // REDUCED padding
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 12), // REDUCED icon size
+          ),
+          const SizedBox(height: 4), // REDUCED spacing
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 14, // REDUCED font size
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            label,
+            style: TextStyle(
+              color: kTextSecondary,
+              fontSize: 9, // REDUCED font size
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------- QUIZ CARD ----------------
+class _QuizCard extends StatelessWidget {
+  final Quiz quiz;
+  const _QuizCard({required this.quiz});
+
+  Color _getStatusColor(QuizStatus status) {
+    switch (status) {
+      case QuizStatus.active:
+        return kSoftBlue;
+      case QuizStatus.completed:
+        return kAccentColor;
+      case QuizStatus.draft:
+        return kSoftOrange;
+    }
+  }
+
+  String _getStatusText(QuizStatus status) {
+    switch (status) {
+      case QuizStatus.active:
+        return 'Active';
+      case QuizStatus.completed:
+        return 'Completed';
+      case QuizStatus.draft:
+        return 'Draft';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final statusColor = _getStatusColor(quiz.status);
+    final statusText = _getStatusText(quiz.status);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16), // REDUCED radius
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10, // REDUCED blur
+            offset: const Offset(0, 3), // REDUCED offset
+          ),
+        ],
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.all(12), // REDUCED padding
+          childrenPadding: const EdgeInsets.fromLTRB(
+            12,
+            0,
+            12,
+            12,
+          ), // REDUCED padding
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          collapsedShape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          leading: Container(
+            width: 42, // REDUCED size
+            height: 42, // REDUCED size
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [statusColor, statusColor.withOpacity(0.7)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12), // REDUCED radius
+              boxShadow: [
+                BoxShadow(
+                  color: statusColor.withOpacity(0.3),
+                  blurRadius: 5, // REDUCED blur
+                  offset: const Offset(0, 2), // REDUCED offset
+                ),
+              ],
+            ),
+            child: Icon(
+              quiz.icon,
+              color: Colors.white,
+              size: 22, // REDUCED icon size
+            ),
+          ),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      quiz.title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: kTextPrimary,
+                        fontSize: 14, // REDUCED font size
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 6), // REDUCED spacing
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 3,
+                    ), // REDUCED padding
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12), // REDUCED radius
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 5, // REDUCED size
+                          height: 5, // REDUCED size
+                          decoration: BoxDecoration(
+                            color: statusColor,
+                            shape: BoxShape.circle,
                           ),
-                          maxLines: 1,
                         ),
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: filteredQuizzes.length,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemBuilder: (ctx, i) => Padding(
-                        padding: const EdgeInsets.only(bottom: 18.0),
-                        child: _QuizCard(quiz: filteredQuizzes[i]),
-                      ),
+                        const SizedBox(width: 3), // REDUCED spacing
+                        Text(
+                          statusText,
+                          style: TextStyle(
+                            color: statusColor,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 9, // REDUCED font size
+                          ),
+                        ),
+                      ],
                     ),
-
-              // ---- SECTION 6: CREATE QUIZ CTA ----
-              const SizedBox(height: 38),
-              _CreateQuizCTAButton(
-                onPressed: () {
-                  // TODO: Implement navigation to quiz creation
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Create Quiz tapped!"),
-                      backgroundColor: kAccentOrange,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
+                  ),
+                ],
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 3), // REDUCED spacing
+              Text(
+                "${quiz.className} • ${quiz.subject}",
+                style: TextStyle(
+                  color: kTextSecondary,
+                  fontSize: 12, // REDUCED font size
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 6), // REDUCED spacing
+              Wrap(
+                spacing: 8, // REDUCED spacing
+                runSpacing: 6, // REDUCED spacing
+                children: [
+                  _buildInfoChip(
+                    icon: Icons.format_list_numbered_rounded,
+                    value: "${quiz.totalQuestions}",
+                    label: "Qns",
+                    color: kSoftPurple,
+                  ),
+                  _buildInfoChip(
+                    icon: Icons.timer_rounded,
+                    value: quiz.timeLimit,
+                    label: "Time",
+                    color: kSoftOrange,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          trailing: Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: statusColor,
+            size: 20, // REDUCED size
+          ),
+          children: [
+            const Divider(height: 1),
+            const SizedBox(height: 8), // REDUCED spacing
+            _buildDetailRow(
+              icon: Icons.info_rounded,
+              label: "Instructions",
+              value: quiz.instructions,
+              color: kSoftPurple,
+            ),
+            const SizedBox(height: 6), // REDUCED spacing
+            _buildDetailRow(
+              icon: Icons.rule_rounded,
+              label: "Scoring",
+              value: quiz.scoringRules,
+              color: kSoftBlue,
+            ),
+            if (quiz.notes != null) ...[
+              const SizedBox(height: 6), // REDUCED spacing
+              _buildDetailRow(
+                icon: Icons.note_alt_rounded,
+                label: "Notes",
+                value: quiz.notes!,
+                color: kSoftOrange,
+              ),
+            ],
+            const SizedBox(height: 8), // REDUCED spacing
+            Wrap(
+              spacing: 6, // REDUCED spacing
+              runSpacing: 6, // REDUCED spacing
+              children: [
+                _buildActionChip(
+                  icon: Icons.list_alt_rounded,
+                  label: "Questions",
+                  color: kSoftPurple,
+                ),
+                _buildActionChip(
+                  icon: Icons.edit_rounded,
+                  label: "Edit",
+                  color: kSoftBlue,
+                ),
+                _buildActionChip(
+                  icon: Icons.assignment_return_rounded,
+                  label: "Assign",
+                  color: kAccentColor,
+                ),
+                _buildActionChip(
+                  icon: Icons.bar_chart_rounded,
+                  label: "Results",
+                  color: kSoftOrange,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoChip({
+    required IconData icon,
+    required String value,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 6,
+        vertical: 3,
+      ), // REDUCED padding
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(10), // REDUCED radius
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 12), // REDUCED icon size
+          const SizedBox(width: 3), // REDUCED spacing
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                value,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11, // REDUCED font size
+                ),
+              ),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color.withOpacity(0.7),
+                  fontSize: 8, // REDUCED font size
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 1),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(3), // REDUCED padding
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 12), // REDUCED icon size
+          ),
+          const SizedBox(width: 6), // REDUCED spacing
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: kTextSecondary,
+                    fontSize: 10, // REDUCED font size
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: kTextPrimary,
+                    fontSize: 11, // REDUCED font size
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionChip({
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {},
+        borderRadius: BorderRadius.circular(14), // REDUCED radius
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 4,
+          ), // REDUCED padding
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [color, color.withOpacity(0.8)],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+            borderRadius: BorderRadius.circular(14), // REDUCED radius
+            boxShadow: [
+              BoxShadow(
+                color: color.withOpacity(0.3),
+                blurRadius: 3, // REDUCED blur
+                offset: const Offset(0, 1), // REDUCED offset
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: Colors.white, size: 11), // REDUCED icon size
+              const SizedBox(width: 3), // REDUCED spacing
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9, // REDUCED font size
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
         ),
@@ -227,695 +985,55 @@ class _TeacherQuizzesScreenState extends State<TeacherQuizzesScreen> {
   }
 }
 
-// =====================================================================
-// SECTION 1: Quiz Summary Card (Total / Active / Completed Tallies)
-// =====================================================================
-class _QuizSummaryCard extends StatelessWidget {
-  final List<Quiz> quizzes;
-  const _QuizSummaryCard({required this.quizzes, Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    final total = quizzes.length;
-    final active = quizzes.where((q) => q.status == QuizStatus.active).length;
-    final completed = quizzes.where((q) => q.status == QuizStatus.completed).length;
-
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 550),
-        child: Card(
-          margin: EdgeInsets.zero,
-          elevation: 2.3,
-          color: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 18),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                // Total Quizzes
-                _SummaryCol(
-                  icon: Icons.library_books_outlined,
-                  label: "Total",
-                  value: total.toString(),
-                  color: kPrimaryDarkBlue,
-                  accent: false,
-                ),
-                // Orange divider
-                Container(
-                  height: 35,
-                  width: 1.2,
-                  color: kAccentOrange.withOpacity(0.45),
-                ),
-                // Active Quizzes
-                _SummaryCol(
-                  icon: Icons.flash_on,
-                  label: "Active",
-                  value: active.toString(),
-                  color: kAccentOrange,
-                  accent: true,
-                ),
-                // Orange divider
-                Container(
-                  height: 35,
-                  width: 1.2,
-                  color: kAccentOrange.withOpacity(0.45),
-                ),
-                // Completed
-                _SummaryCol(
-                  icon: Icons.check_circle_outline,
-                  label: "Completed",
-                  value: completed.toString(),
-                  color: kPrimaryDarkBlue,
-                  accent: false,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SummaryCol extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-  final bool accent;
-
-  const _SummaryCol({
-    Key? key,
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-    this.accent = false,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        CircleAvatar(
-          backgroundColor:
-              accent ? kAccentOrange.withOpacity(0.17) : kPrimaryDarkBlue.withOpacity(0.09),
-          radius: 18,
-          child: Icon(icon, size: 22, color: color),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: TextStyle(
-            color: color,
-            fontWeight: FontWeight.w800,
-            fontSize: 18,
-            letterSpacing: 0.1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          maxLines: 1,
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: TextStyle(
-            color: kTextDarkBlue.withOpacity(0.68),
-            fontWeight: FontWeight.w600,
-            fontSize: 13.5,
-            overflow: TextOverflow.ellipsis,
-            letterSpacing: 0.03,
-          ),
-          maxLines: 1,
-        ),
-      ],
-    );
-  }
-}
-
-// ====================================================================
-// SECTION 2: Filter Chips (All / Active / Completed / Draft)
-// ====================================================================
-class _QuizFilterBar extends StatelessWidget {
-  final String selected;
-  final Function(String) onSelected;
-  static const filters = ['All', 'Active', 'Completed', 'Draft'];
-
-  const _QuizFilterBar({
-    Key? key,
-    required this.selected,
-    required this.onSelected,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    // Ensures chips always wrap and never overflow horizontally
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2.0),
-      child: Wrap(
-        spacing: 10,
-        runSpacing: 8,
-        children: filters
-            .map(
-              (f) => ChoiceChip(
-                label: Text(
-                  f,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: selected == f ? Colors.white : kPrimaryDarkBlue,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13.5,
-                  ),
-                ),
-                selected: selected == f,
-                backgroundColor: Colors.white,
-                selectedColor: kAccentOrange,
-                side: BorderSide(
-                  color: selected == f ? Colors.transparent : kPrimaryDarkBlue.withOpacity(0.23),
-                  width: 1.0,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(17),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 5),
-                onSelected: (val) {
-                  if (!val) return;
-                  onSelected(f);
-                },
-              ),
-            )
-            .toList(),
-      ),
-    );
-  }
-}
-
-// ====================================================================
-// SECTION 3: Quiz Card List (Card + ExpansionTile)
-// ====================================================================
-class _QuizCard extends StatelessWidget {
-  final Quiz quiz;
-  const _QuizCard({required this.quiz, Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    // Safe card with shadow, no fixed width/height
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 540),
-        child: Card(
-          elevation: 2.0,
-          color: Colors.white,
-          margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ---- TITLE & STATUS CHIP ----
-                Row(
-                  children: [
-                    // Title (never overflow)
-                    Expanded(
-                      child: Text(
-                        quiz.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: kTextDarkBlue,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 16.5,
-                          letterSpacing: 0.05,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    _QuizStatusChip(status: quiz.status),
-                  ],
-                ),
-                const SizedBox(height: 7),
-
-                // ---- Class / Subject / Questions / Time (Row) ----
-                Wrap(
-                  spacing: 13,
-                  runSpacing: 6,
-                  children: [
-                    _InfoChip(
-                      icon: Icons.class_outlined,
-                      label: quiz.className,
-                    ),
-                    _InfoChip(
-                      icon: Icons.menu_book_outlined,
-                      label: quiz.subject,
-                    ),
-                    _InfoChip(
-                      icon: Icons.format_list_numbered,
-                      label: "${quiz.totalQuestions} Qn",
-                    ),
-                    _InfoChip(
-                      icon: Icons.timer,
-                      label: quiz.timeLimit,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-
-                // ---- ACTION BUTTONS (safe in Wrap) ----
-                _QuizCardActions(
-                  onViewQuestions: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        backgroundColor: kAccentOrange,
-                        content: Text('View Questions tapped'),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
-                  onEditQuiz: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        backgroundColor: kAccentOrange,
-                        content: Text('Edit Quiz tapped'),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
-                  onAssign: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        backgroundColor: kAccentOrange,
-                        content: Text('Assign to Class tapped'),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
-                  onResults: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        backgroundColor: kAccentOrange,
-                        content: Text('Results tapped'),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
-                ),
-
-                // ---- EXPANDABLE DETAILS ----
-                _QuizExpandableDetails(
-                  instructions: quiz.instructions,
-                  scoringRules: quiz.scoringRules,
-                  notes: quiz.notes,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ====================================================================
-// CARD STATUS CHIP
-// ====================================================================
-class _QuizStatusChip extends StatelessWidget {
-  final QuizStatus status;
-  const _QuizStatusChip({required this.status, Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    String label;
-    Color textColor = kPrimaryDarkBlue;
-    Color bgColor;
-
-    switch (status) {
-      case QuizStatus.active:
-        label = 'Active';
-        textColor = Colors.white;
-        bgColor = kAccentOrange;
-        break;
-      case QuizStatus.completed:
-        label = 'Completed';
-        textColor = kPrimaryDarkBlue;
-        bgColor = kAccentOrange.withOpacity(0.18);
-        break;
-      case QuizStatus.draft:
-        label = 'Draft';
-        textColor = kPrimaryDarkBlue;
-        bgColor = kPrimaryDarkBlue.withOpacity(0.09);
-        break;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 5),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(20),
-        border: status == QuizStatus.draft
-            ? Border.all(color: kPrimaryDarkBlue.withOpacity(0.14), width: 1.0)
-            : null,
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: textColor,
-          fontWeight: FontWeight.w700,
-          fontSize: 13.2,
-        ),
-      ),
-    );
-  }
-}
-
-// ====================================================================
-// INFO "CHIP" (class, subject, etc.)
-// ====================================================================
-class _InfoChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _InfoChip({required this.icon, required this.label, Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 120),
-      margin: const EdgeInsets.only(bottom: 1),
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        color: kPrimaryDarkBlue.withOpacity(0.08),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 15, color: kAccentOrange.withOpacity(0.85)),
-          const SizedBox(width: 5.5),
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: kPrimaryDarkBlue,
-                fontWeight: FontWeight.w700,
-                fontSize: 12.7,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ====================================================================
-// QUIZ CARD ACTION BUTTONS (All inside Wrap, no overflow)
-// ====================================================================
-class _QuizCardActions extends StatelessWidget {
-  final VoidCallback onViewQuestions;
-  final VoidCallback onEditQuiz;
-  final VoidCallback onAssign;
-  final VoidCallback onResults;
-
-  const _QuizCardActions({
-    required this.onViewQuestions,
-    required this.onEditQuiz,
-    required this.onAssign,
-    required this.onResults,
-    Key? key,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    // Wrap prevents horizontal overflows!
-    return Padding(
-      padding: const EdgeInsets.only(top: 6, bottom: 1),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 7,
-        children: [
-          _ActionButton(
-            label: 'View Questions',
-            icon: Icons.list_alt,
-            onTap: onViewQuestions,
-          ),
-          _ActionButton(
-            label: 'Edit Quiz',
-            icon: Icons.edit_outlined,
-            onTap: onEditQuiz,
-          ),
-          _ActionButton(
-            label: 'Assign to Class',
-            icon: Icons.assignment_return,
-            accent: true,
-            onTap: onAssign,
-          ),
-          _ActionButton(
-            label: 'Results',
-            icon: Icons.bar_chart_outlined,
-            onTap: onResults,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActionButton extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool accent;
-
-  const _ActionButton({
-    required this.label,
-    required this.icon,
-    required this.onTap,
-    this.accent = false,
-    Key? key,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return ElevatedButton.icon(
-      icon: Icon(
-        icon,
-        size: 19,
-        color: accent ? Colors.white : kAccentOrange,
-      ),
-      label: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontWeight: FontWeight.w700,
-          color: accent ? Colors.white : kPrimaryDarkBlue,
-          fontSize: 13.3,
-        ),
-      ),
-      onPressed: onTap,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: accent ? kAccentOrange : Colors.white,
-        foregroundColor: accent ? Colors.white : kPrimaryDarkBlue,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(11),
-          side: accent
-              ? BorderSide.none
-              : BorderSide(color: kAccentOrange.withOpacity(0.44), width: 1.1),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        minimumSize: Size.zero, // remove any min width/height constraints
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        shadowColor: Colors.transparent,
-      ),
-    );
-  }
-}
-
-// =====================================================================
-// SECTION 5: EXPANDABLE DETAILS (ExpansionTile, no fixed height)
-// =====================================================================
-class _QuizExpandableDetails extends StatelessWidget {
-  final String instructions;
-  final String scoringRules;
-  final String? notes;
-
-  const _QuizExpandableDetails({
-    required this.instructions,
-    required this.scoringRules,
-    this.notes,
-    Key? key,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    // ExpansionTile never overflows vertically due to natural wrapping
-    return Theme(
-      // Remove ExpansionTile top/bottom padding for cleaner look
-      data: Theme.of(context).copyWith(
-        dividerColor: Colors.transparent,
-        visualDensity: VisualDensity.compact,
-        splashColor: Colors.transparent,
-        highlightColor: Colors.transparent,
-      ),
-      child: ExpansionTile(
-        tilePadding: EdgeInsets.zero,
-        childrenPadding: EdgeInsets.zero,
-        collapsedIconColor: kAccentOrange,
-        iconColor: kAccentOrange,
-        title: Text(
-          "Details",
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: kAccentOrange,
-            fontWeight: FontWeight.w700,
-            fontSize: 14.3,
-            letterSpacing: 0.1,
-          ),
-        ),
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 7, top: 1, left: 2, right: 2),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _DetailRow(
-                  title: "Instructions",
-                  content: instructions,
-                  icon: Icons.info_outline,
-                ),
-                _DetailRow(
-                  title: "Scoring Rules",
-                  content: scoringRules,
-                  icon: Icons.rule_folder_outlined,
-                ),
-                if ((notes ?? '').trim().isNotEmpty)
-                  _DetailRow(
-                    title: "Notes",
-                    content: notes!,
-                    icon: Icons.note_alt_outlined,
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  final String title;
-  final String content;
-  final IconData icon;
-
-  const _DetailRow({
-    required this.title,
-    required this.content,
-    required this.icon,
-    Key? key,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    // Always uses vertical arrangement, text wraps freely
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.5, left: 2, right: 2),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Icon
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Icon(icon, color: kPrimaryDarkBlue.withOpacity(0.85), size: 19),
-          ),
-          const SizedBox(width: 9),
-          // Expanded content
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: kPrimaryDarkBlue,
-                    fontSize: 13.2,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  content,
-                  maxLines: 6,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w500,
-                    color: kPrimaryDarkBlue,
-                    fontSize: 12.7,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// =====================================================================
-// SECTION 6: CREATE QUIZ BUTTON (Safe, scrollable placement)
-// =====================================================================
+// ---------------- CREATE BUTTON ----------------
 class _CreateQuizCTAButton extends StatelessWidget {
   final VoidCallback onPressed;
-  const _CreateQuizCTAButton({Key? key, required this.onPressed}) : super(key: key);
+  const _CreateQuizCTAButton({required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
-    // Button is inside SingleChildScrollView, so always visible.
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 500),
-        child: SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            icon: const Icon(Icons.add, color: Colors.white, size: 23),
-            label: const Text(
-              "Create New Quiz",
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.1,
-                fontSize: 16.2,
-                color: Colors.white,
-              ),
-            ),
-            onPressed: onPressed,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: kAccentOrange,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(13),
-              ),
-              padding: const EdgeInsets.symmetric(vertical: 15),
-              elevation: 2,
-              textStyle: const TextStyle(fontWeight: FontWeight.w700),
-              shadowColor: kAccentOrange.withOpacity(0.18),
+    return Container(
+      width: double.infinity,
+      height: 44, // REDUCED height
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [kAccentColor, kAccentColor.withOpacity(0.8)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(14), // REDUCED radius
+        boxShadow: [
+          BoxShadow(
+            color: kAccentColor.withOpacity(0.3),
+            blurRadius: 5, // REDUCED blur
+            offset: const Offset(0, 2), // REDUCED offset
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(14),
+          child: Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Icon(
+                  Icons.add_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ), // REDUCED icon size
+                SizedBox(width: 6), // REDUCED spacing
+                Text(
+                  "Create New Quiz",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13, // REDUCED font size
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
           ),
         ),

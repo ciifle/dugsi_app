@@ -1,14 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
-// BRAND COLORS (MANDATORY)
-const Color _kPrimaryColor = Color(0xFF023471); // Dark Blue
-const Color _kAccentColor = Color(0xFF5AB04B);  // Orange
-const Color _kBackgroundColor = Color(0xFFF8F9FA); // Very light grey
+// ---------- WONDERFUL COLOR PALETTE ----------
+const Color kPrimaryColor = Color(0xFF1E3A8A); // Deep indigo
+const Color kSecondaryColor = Color(0xFF3B82F6); // Bright blue
+const Color kAccentColor = Color(0xFF10B981); // Emerald green
+const Color kSoftPurple = Color(0xFF8B5CF6); // Light purple
+const Color kSoftPink = Color(0xFFEC4899); // Pink
+const Color kSoftOrange = Color(0xFFF59E0B); // Amber
+const Color kSoftBlue = Color(0xFF3B82F6); // Sky blue
+const Color kSuccessColor = Color(0xFF059669); // Dark green
+const Color kWarningColor = Color(0xFFF59E0B); // Amber
+const Color kErrorColor = Color(0xFFEF4444); // Red
+const Color kBackgroundColor = Color(0xFFF8FAFC); // Light background
+const Color kSurfaceColor = Colors.white;
+const Color kTextPrimaryColor = Color(0xFF1E293B); // Dark slate
+const Color kTextSecondaryColor = Color(0xFF64748B); // Medium slate
+
+// GRADIENT COLORS
+const List<Color> kPrimaryGradient = [Color(0xFF1E3A8A), Color(0xFF3B82F6)];
+const List<Color> kSuccessGradient = [Color(0xFF10B981), Color(0xFF34D399)];
+const List<Color> kWarningGradient = [Color(0xFFF59E0B), Color(0xFFFBBF24)];
 
 class StudentExamScheduleScreen extends StatelessWidget {
   StudentExamScheduleScreen({Key? key}) : super(key: key);
 
-  // Dummy exam data, each exam MUST have a unique timestamp for date grouping.
+  // Dummy exam data
   final List<Map<String, dynamic>> _exams = [
     {
       "name": "Midterm Examination",
@@ -19,9 +36,10 @@ class StudentExamScheduleScreen extends StatelessWidget {
       "room": "Room A201",
       "isOnline": false,
       "status": "Upcoming",
-      "instructions": "Arrive 10 minutes early. Bring calculator and ID card. Mobile phones not allowed.",
-      "syllabus": "Chapters 1-6: Algebra, Trigonometry, Calculus. Practice previous year papers.",
+      "instructions": "Arrive 10 minutes early. Bring calculator and ID card.",
+      "syllabus": "Chapters 1-6: Algebra, Trigonometry, Calculus.",
       "teacher": "Ms. Evelyn Harper",
+      "color": kSoftPurple,
     },
     {
       "name": "Final Exam",
@@ -32,9 +50,10 @@ class StudentExamScheduleScreen extends StatelessWidget {
       "room": "Online",
       "isOnline": true,
       "status": "Upcoming",
-      "instructions": "Stable internet connection required. Webcam must be ON throughout.",
+      "instructions": "Stable internet connection required. Webcam must be ON.",
       "syllabus": "World Wars, Industrial Revolution, Colonialism.",
       "teacher": "Mr. Alan Shepherd",
+      "color": kSoftBlue,
     },
     {
       "name": "Quiz 2",
@@ -45,9 +64,10 @@ class StudentExamScheduleScreen extends StatelessWidget {
       "room": "Room B102",
       "isOnline": false,
       "status": "Completed",
-      "instructions": "No electronic devices allowed. Carry only transparent stationery.",
+      "instructions": "No electronic devices allowed.",
       "syllabus": "Chapter 4: Newton's Laws. Chapter 5: Energy.",
       "teacher": "Dr. Wendy Lin",
+      "color": kSoftOrange,
     },
     {
       "name": "Assignment Assessment",
@@ -58,287 +78,319 @@ class StudentExamScheduleScreen extends StatelessWidget {
       "room": "Online",
       "isOnline": true,
       "status": "Completed",
-      "instructions": "Individual work only. Code must be submitted before end time.",
+      "instructions":
+          "Individual work only. Code must be submitted before end time.",
       "syllabus": "Unit 3: Data structures. Unit 4: Algorithms.",
       "teacher": "Ms. Rebecca Storm",
+      "color": kSoftPink,
     },
   ];
 
   @override
   Widget build(BuildContext context) {
-    // Calculate summary counts
     final int totalCount = _exams.length;
-    final int upcomingCount = _exams.where((e) => e['status'] == 'Upcoming').length;
-    final int completedCount = _exams.where((e) => e['status'] == 'Completed').length;
+    final int upcomingCount = _exams
+        .where((e) => e['status'] == 'Upcoming')
+        .length;
+    final int completedCount = _exams
+        .where((e) => e['status'] == 'Completed')
+        .length;
 
-    // Group exams by date (YYYY-MM-DD)
+    // Group exams by date
     final Map<DateTime, List<Map<String, dynamic>>> examsByDate = {};
     for (final exam in _exams) {
       final dt = exam['date'] as DateTime;
-      final grouped = DateTime(dt.year, dt.month, dt.day); // strip time part
+      final grouped = DateTime(dt.year, dt.month, dt.day);
       examsByDate.putIfAbsent(grouped, () => []).add(exam);
     }
-    // Sort by (latest upcoming on top)
+
     final List<DateTime> sortedDates = examsByDate.keys.toList()
       ..sort((a, b) => b.compareTo(a));
 
     return Scaffold(
-      backgroundColor: _kBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: _kPrimaryColor,
-        elevation: 1,
-        centerTitle: true,
-        automaticallyImplyLeading: true,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text(
-          "Exam Schedule",
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.2,
-            fontSize: 20,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ),
-      body: SingleChildScrollView(
-        // ABSOLUTE SAFETY RULE: Always wraps everything.
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // SECTION 1: HEADER SUMMARY CARD
-              _SummaryHeaderCard(
-                total: totalCount,
-                upcoming: upcomingCount,
-                completed: completedCount,
+      backgroundColor: kBackgroundColor,
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          // ---------------- STUNNING APP BAR ----------------
+          SliverAppBar(
+            expandedHeight: 120,
+            pinned: true,
+            backgroundColor: kPrimaryColor,
+            flexibleSpace: FlexibleSpaceBar(
+              titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.calendar_month_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    "Exam Schedule",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 24,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 24),
-
-              // SECTION 2 & 3: DATE GROUPING + EXAM CARDS/EXPANDABLE
-              ...sortedDates.map((date) => _ExamDateSection(
-                    date: date,
-                    exams: examsByDate[date]!,
-                  )),
+              background: Container(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [kPrimaryColor, kSecondaryColor],
+                  ),
+                ),
+              ),
+            ),
+            leading: IconButton(
+              icon: const Icon(
+                Icons.arrow_back_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
+              onPressed: () => Navigator.pop(context),
+            ),
+            actions: [
+              Container(
+                margin: const EdgeInsets.only(right: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: IconButton(
+                  icon: const Icon(
+                    Icons.calendar_today_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                  onPressed: () {},
+                ),
+              ),
             ],
           ),
-        ),
+
+          // ---------------- MAIN CONTENT ----------------
+          SliverPadding(
+            padding: const EdgeInsets.all(20),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                // ---------------- STATS CARD ----------------
+                _buildStatsCard(totalCount, upcomingCount, completedCount),
+
+                const SizedBox(height: 24),
+
+                // ---------------- EXAMS BY DATE ----------------
+                ...sortedDates.map(
+                  (date) =>
+                      _ExamDateSection(date: date, exams: examsByDate[date]!),
+                ),
+              ]),
+            ),
+          ),
+        ],
       ),
     );
   }
-}
 
-/// ------------------------
-/// Section 1: Header Summary Card
-/// ------------------------
-class _SummaryHeaderCard extends StatelessWidget {
-  final int total, upcoming, completed;
-  const _SummaryHeaderCard({
-    required this.total,
-    required this.upcoming,
-    required this.completed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // Use Safe Row & Expanded to guarantee no overflow.
-    return Card(
-      color: Colors.white,
-      elevation: 3,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 16.0),
-        child: Row(
-          // Wrap not needed unless many, but 3 summary items is safe in Row if we use Expanded!
-          children: [
-            Expanded(
-              child: _SummaryItem(
+  Widget _buildStatsCard(int total, int upcoming, int completed) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: kSurfaceColor,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+        border: Border.all(color: Colors.white, width: 2),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: kSoftPurple.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.analytics_rounded,
+                  color: kSoftPurple,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'Exam Overview',
+                style: TextStyle(
+                  color: kTextPrimaryColor,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildStatItem(
                 icon: Icons.list_alt_rounded,
                 label: "Total",
-                value: total.toString(),
-                color: _kPrimaryColor,
-                accent: false,
+                value: "$total",
+                color: kSoftPurple,
               ),
-            ),
-            Container(
-              width: 1,
-              height: 46,
-              color: _kBackgroundColor,
-              margin: const EdgeInsets.symmetric(horizontal: 6),
-            ),
-            Expanded(
-              child: _SummaryItem(
+              _buildStatItem(
                 icon: Icons.upcoming_rounded,
                 label: "Upcoming",
-                value: upcoming.toString(),
-                color: _kAccentColor,
-                accent: true,
+                value: "$upcoming",
+                color: kSuccessColor,
               ),
-            ),
-            Container(
-              width: 1,
-              height: 46,
-              color: _kBackgroundColor,
-              margin: const EdgeInsets.symmetric(horizontal: 6),
-            ),
-            Expanded(
-              child: _SummaryItem(
-                icon: Icons.check_circle_outline_rounded,
+              _buildStatItem(
+                icon: Icons.check_circle_rounded,
                 label: "Completed",
-                value: completed.toString(),
-                color: _kPrimaryColor,
-                accent: false,
+                value: "$completed",
+                color: kSoftOrange,
               ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Expanded(
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              shape: BoxShape.circle,
             ),
-          ],
-        ),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              color: kTextSecondaryColor,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _SummaryItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-  final bool accent;
-  const _SummaryItem({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-    required this.accent,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // Guarantee vertical layout, no risk of overflow
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        CircleAvatar(
-          radius: 17,
-          backgroundColor: accent ? _kAccentColor.withOpacity(0.12) : _kPrimaryColor.withOpacity(0.10),
-          child: Icon(icon, color: color, size: 21),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          value,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 22,
-            color: color,
-            letterSpacing: 0.3,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: TextStyle(
-            color: _kPrimaryColor.withOpacity(0.65),
-            fontWeight: FontWeight.w500,
-            fontSize: 13.5,
-            letterSpacing: 0.05,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
-    );
-  }
-}
-
-/// ------------------------
-/// Section 2: Date Group Heading
-/// Section 3: ExamCards
-/// ------------------------
-
+// ---------------- EXAM DATE SECTION ----------------
 class _ExamDateSection extends StatelessWidget {
   final DateTime date;
   final List<Map<String, dynamic>> exams;
+
   const _ExamDateSection({required this.date, required this.exams});
 
-  String get _humanDate {
-    // Example: "18 June 2024"
-    final months = [
-      "January", "February", "March", "April", "May", "June",
-      "July", "August", "September", "October", "November", "December"
-    ];
-    return "${date.day} ${months[date.month - 1]} ${date.year}";
+  String get _formattedDate {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final tomorrow = today.add(const Duration(days: 1));
+    final yesterday = today.subtract(const Duration(days: 1));
+
+    if (date.isAtSameMomentAs(today)) return "Today";
+    if (date.isAtSameMomentAs(tomorrow)) return "Tomorrow";
+    if (date.isAtSameMomentAs(yesterday)) return "Yesterday";
+
+    return DateFormat('EEEE, MMMM d, yyyy').format(date);
   }
 
   @override
   Widget build(BuildContext context) {
-    // Date header with orange underline indicator
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 10),
         Row(
           children: [
-            Text(
-              _humanDate,
-              style: const TextStyle(
-                fontSize: 16.5,
-                fontWeight: FontWeight.w600,
-                color: _kPrimaryColor,
-                letterSpacing: 0.1,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(width: 7),
             Container(
-              width: 8,
-              height: 8,
-              decoration: const BoxDecoration(
-                color: _kAccentColor,
-                shape: BoxShape.circle,
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [kSoftOrange, kSoftPink],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.calendar_today_rounded,
+                color: Colors.white,
+                size: 16,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              _formattedDate,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: kTextPrimaryColor,
               ),
             ),
           ],
         ),
-        Container(
-          margin: const EdgeInsets.only(top: 3, bottom: 10),
-          height: 2,
-          width: 40,
-          color: _kAccentColor,
+        const SizedBox(height: 16),
+        ...exams.map(
+          (exam) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _ExamCard(exam: exam),
+          ),
         ),
-        // List of exams under this date
-        ListView.builder(
-          itemCount: exams.length,
-          shrinkWrap: true, // SAFETY RULE
-          physics: const NeverScrollableScrollPhysics(), // SAFETY RULE
-          itemBuilder: (context, idx) {
-            final exam = exams[idx];
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6.0),
-              child: _ExamCard(exam: exam),
-            );
-          },
-        ),
+        const SizedBox(height: 8),
       ],
     );
   }
 }
 
-/// SECTION 3: Modern Exam Card ─ Safe, touch-friendly
-
+// ---------------- EXAM CARD ----------------
 class _ExamCard extends StatelessWidget {
   final Map<String, dynamic> exam;
+
   const _ExamCard({required this.exam});
 
   String _formatTime(DateTime dt) {
-    // 09:00 or 14:30 (24-hr, removes seconds)
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    return "$h:$m";
+    return DateFormat('h:mm a').format(dt);
   }
 
   @override
@@ -346,314 +398,243 @@ class _ExamCard extends StatelessWidget {
     final DateTime date = exam['date'];
     final DateTime? endTime = exam['endTime'];
     final bool isUpcoming = exam['status'] == 'Upcoming';
+    final Color cardColor = exam['color'] ?? kSoftPurple;
 
-    // All text labels set appropriately
-    String location;
-    IconData locationIcon;
-    if (exam['isOnline'] == true) {
-      location = "Online";
-      locationIcon = Icons.laptop_chromebook_rounded;
-    } else {
-      location = exam['room'] ?? "TBA";
-      locationIcon = Icons.meeting_room_rounded;
-    }
+    String location = exam['isOnline'] ? "Online" : (exam['room'] ?? "TBA");
+    IconData locationIcon = exam['isOnline']
+        ? Icons.laptop_rounded
+        : Icons.meeting_room_rounded;
 
-    final status = exam['status'];
-    String badgeText;
-    Color badgeColor, borderColor, textColor;
-    if (isUpcoming) {
-      badgeText = "Upcoming";
-      badgeColor = _kAccentColor;
-      borderColor = _kAccentColor;
-      textColor = Colors.white;
-    } else {
-      badgeText = "Completed";
-      badgeColor = Colors.transparent;
-      borderColor = _kPrimaryColor;
-      textColor = _kPrimaryColor;
-    }
-
-    return Card(
-      color: Colors.white,
-      elevation: 3,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      child: Padding(
-        padding: const EdgeInsets.only(left: 12, top: 13, right: 10, bottom: 0),
-        child: Stack(
-          children: [
-            // Main Content
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Title Row + Status badge
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Main info block -- use Expanded for no overflow
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            exam['name'] ?? "-",
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16.2,
-                              color: _kPrimaryColor,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            exam['subject'] ?? "-",
-                            style: const TextStyle(
-                              color: _kPrimaryColor,
-                              fontWeight: FontWeight.w500,
-                              fontSize: 13.5,
-                              letterSpacing: 0.1,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 10),
-                          // Time, Duration, Location as a Wrap to prevent overflow
-                          Wrap(
-                            spacing: 14,
-                            runSpacing: 2,
-                            children: [
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.access_time_rounded,
-                                      size: 15,
-                                      color: _kAccentColor),
-                                  const SizedBox(width: 3),
-                                  Text(
-                                    _formatTime(date) +
-                                        (endTime != null
-                                            ? " – ${_formatTime(endTime)}"
-                                            : ""),
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: _kAccentColor,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.timer_rounded,
-                                      size: 15, color: _kPrimaryColor),
-                                  const SizedBox(width: 3),
-                                  Text(
-                                    exam['duration'] ?? "-",
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: _kPrimaryColor,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    locationIcon,
-                                    size: 15,
-                                    color: _kPrimaryColor.withOpacity(.7),
-                                  ),
-                                  const SizedBox(width: 3),
-                                  Text(
-                                    location,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: _kPrimaryColor.withOpacity(
-                                          (exam['isOnline'] == true) ? 0.82 : 0.90),
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 5),
-                        ],
-                      ),
-                    ),
-                    // Status Badge (top-right), always SAFE since not inside a Row with text
-                    _ExamStatusBadge(
-                      isUpcoming: isUpcoming,
-                      badgeText: badgeText,
-                      badgeColor: badgeColor,
-                      borderColor: borderColor,
-                      textColor: textColor,
-                    ),
-                  ],
+    return Container(
+      decoration: BoxDecoration(
+        color: kSurfaceColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+        border: Border.all(
+          color: isUpcoming ? cardColor.withOpacity(0.3) : Colors.grey.shade200,
+          width: 1.5,
+        ),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          dividerColor: Colors.transparent,
+          splashColor: cardColor.withOpacity(0.07),
+        ),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.all(16),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          collapsedShape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          leading: Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [cardColor, cardColor.withOpacity(0.7)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: cardColor.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
                 ),
-                // ExpansionTile for details - no fixed height
-                Padding(
-                  padding: const EdgeInsets.only(right: 2.0),
-                  child: Theme(
-                    // Minimize ExpansionTile icon size for subtle look
-                    data: Theme.of(context).copyWith(
-                      dividerColor: Colors.transparent,
-                      visualDensity: VisualDensity.compact,
-                      listTileTheme: const ListTileThemeData(
-                        dense: true,
-                        horizontalTitleGap: 0,
-                        minVerticalPadding: 0,
-                        minLeadingWidth: 20,
+              ],
+            ),
+            child: Center(
+              child: Text(
+                exam['subject'][0],
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                ),
+              ),
+            ),
+          ),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      exam['name'],
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: kTextPrimaryColor,
+                        fontSize: 16,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    child: ExpansionTile(
-                      tilePadding: EdgeInsets.zero,
-                      childrenPadding: const EdgeInsets.only(
-                        left: 4, right: 4, bottom: 13, top: 0,
-                      ),
-                      title: Text(
-                        "Details",
-                        style: TextStyle(
-                          fontSize: 14.4,
-                          color: _kPrimaryColor.withOpacity(.93),
-                          fontWeight: FontWeight.w500,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      trailing: const Icon(Icons.keyboard_arrow_down_rounded,
-                          color: _kPrimaryColor, size: 22),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isUpcoming
+                          ? kSuccessColor.withOpacity(0.1)
+                          : kSoftOrange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        _ExamDetailRow(
-                          icon: Icons.info_outline_rounded,
-                          label: "Instructions",
-                          content: exam['instructions'] ?? "-",
+                        Icon(
+                          isUpcoming
+                              ? Icons.access_time_rounded
+                              : Icons.check_circle_rounded,
+                          color: isUpcoming ? kSuccessColor : kSoftOrange,
+                          size: 12,
                         ),
-                        const SizedBox(height: 10),
-                        _ExamDetailRow(
-                          icon: Icons.menu_book_outlined,
-                          label: "Syllabus",
-                          content: exam['syllabus'] ?? "-",
-                        ),
-                        const SizedBox(height: 10),
-                        _ExamDetailRow(
-                          icon: Icons.person_outline_rounded,
-                          label: "Teacher",
-                          content: exam['teacher'] ?? "-",
+                        const SizedBox(width: 4),
+                        Text(
+                          exam['status'],
+                          style: TextStyle(
+                            color: isUpcoming ? kSuccessColor : kSoftOrange,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 10,
+                          ),
                         ),
                       ],
                     ),
                   ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                exam['subject'],
+                style: TextStyle(
+                  color: cardColor,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
                 ),
-              ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(
+                    Icons.access_time_rounded,
+                    size: 14,
+                    color: kTextSecondaryColor,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    _formatTime(date),
+                    style: TextStyle(color: kTextSecondaryColor, fontSize: 12),
+                  ),
+                  if (endTime != null) ...[
+                    const SizedBox(width: 4),
+                    Text(
+                      "- ${_formatTime(endTime)}",
+                      style: TextStyle(
+                        color: kTextSecondaryColor,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(width: 12),
+                  Icon(locationIcon, size: 14, color: kTextSecondaryColor),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      location,
+                      style: TextStyle(
+                        color: kTextSecondaryColor,
+                        fontSize: 12,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          trailing: Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: cardColor,
+            size: 24,
+          ),
+          children: [
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            _buildDetailRow(
+              icon: Icons.info_outline_rounded,
+              label: "Instructions",
+              value: exam['instructions'],
+              color: kSoftBlue,
+            ),
+            const SizedBox(height: 10),
+            _buildDetailRow(
+              icon: Icons.menu_book_rounded,
+              label: "Syllabus",
+              value: exam['syllabus'],
+              color: kSoftPurple,
+            ),
+            const SizedBox(height: 10),
+            _buildDetailRow(
+              icon: Icons.person_rounded,
+              label: "Teacher",
+              value: exam['teacher'],
+              color: kSoftOrange,
             ),
           ],
         ),
       ),
     );
   }
-}
 
-/// Status Chip
-class _ExamStatusBadge extends StatelessWidget {
-  final bool isUpcoming;
-  final String badgeText;
-  final Color badgeColor;
-  final Color borderColor;
-  final Color textColor;
-  const _ExamStatusBadge({
-    required this.isUpcoming,
-    required this.badgeText,
-    required this.badgeColor,
-    required this.borderColor,
-    required this.textColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // Always safe: Container in a Stack, not inside Row/Column with text
-    return Container(
-      margin: const EdgeInsets.only(left: 8, right: 3, top: 3),
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 5),
-      decoration: BoxDecoration(
-        color: badgeColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: borderColor,
-          width: 1.3,
-        ),
-      ),
-      child: Text(
-        badgeText,
-        style: TextStyle(
-          color: textColor,
-          fontWeight: FontWeight.w700,
-          fontSize: 12.6,
-          letterSpacing: 0.15,
-        ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-    );
-  }
-}
-
-/// ------------------------
-/// Section 4: Expandable Exam Details
-/// (Each in a Row, but the right part is Expanded)
-/// ------------------------
-class _ExamDetailRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String content;
-  const _ExamDetailRow({
-    required this.icon,
-    required this.label,
-    required this.content,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // ABSOLUTE SAFETY: ROW → Expanded on Column (for texts), never overflows
+  Widget _buildDetailRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: _kPrimaryColor, size: 18),
-        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: color, size: 16),
+        ),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 label,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14.1,
-                  color: _kPrimaryColor,
+                style: TextStyle(
+                  color: kTextSecondaryColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 3),
+              const SizedBox(height: 2),
               Text(
-                content,
-                style: const TextStyle(
-                  fontSize: 13.3,
-                  color: _kPrimaryColor,
-                  fontWeight: FontWeight.w400,
-                ),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
+                value,
+                style: TextStyle(color: kTextPrimaryColor, fontSize: 13),
               ),
             ],
           ),
@@ -662,4 +643,3 @@ class _ExamDetailRow extends StatelessWidget {
     );
   }
 }
-

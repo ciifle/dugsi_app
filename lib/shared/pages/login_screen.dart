@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:kobac/models/dummy_user.dart';
 import 'package:kobac/school_admin/pages/school_admin_screen.dart';
+import 'package:kobac/services/local_auth_service.dart';
 import 'package:kobac/student/pages/student_dashboard.dart';
 import 'package:kobac/teacher/pages/teacher_dashboard.dart';
-import 'package:kobac/services/local_auth_service.dart';
-import 'package:kobac/models/dummy_user.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -31,29 +31,28 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(seconds: 4),
     );
-    _topCircleOffset = Tween<Offset>(
-      begin: const Offset(0.8, -1.1),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _topCircleController,
-        curve: Curves.easeOutCubic,
-      ),
-    );
+    _topCircleOffset =
+        Tween<Offset>(begin: const Offset(0.8, -1.1), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _topCircleController,
+            curve: Curves.easeOutCubic,
+          ),
+        );
 
     _bottomCircleController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 4),
     );
-    _bottomCircleOffset = Tween<Offset>(
-      begin: const Offset(-1.05, 1.2),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _bottomCircleController,
-        curve: Curves.easeOutCubic,
-      ),
-    );
+    _bottomCircleOffset =
+        Tween<Offset>(
+          begin: const Offset(-1.05, 1.2),
+          end: Offset.zero,
+        ).animate(
+          CurvedAnimation(
+            parent: _bottomCircleController,
+            curve: Curves.easeOutCubic,
+          ),
+        );
 
     _topCircleController.forward();
     _bottomCircleController.forward();
@@ -67,7 +66,6 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     _passwordController.dispose();
     super.dispose();
   }
-
 
   Future<void> _login(BuildContext context) async {
     setState(() {
@@ -97,7 +95,9 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           targetScreen = StudentDashboardScreen();
           break;
         case UserRole.parent: // Added parent handling
-          targetScreen = const Scaffold(body: Center(child: Text("Parent Dashboard Placeholder"))); // TODO: Create Parent Dashboard
+          targetScreen = const Scaffold(
+            body: Center(child: Text("Parent Dashboard Placeholder")),
+          ); // TODO: Create Parent Dashboard
           break;
         default:
           setState(() {
@@ -114,7 +114,6 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       });
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -142,7 +141,10 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                   decoration: BoxDecoration(
                     color: orange,
                     shape: BoxShape.circle,
-                    border: Border.all(color: darkBlue, width: circleBorderWidth),
+                    border: Border.all(
+                      color: darkBlue,
+                      width: circleBorderWidth,
+                    ),
                   ),
                 ),
               ),
@@ -158,7 +160,10 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                   decoration: BoxDecoration(
                     color: orange,
                     shape: BoxShape.circle,
-                    border: Border.all(color: darkBlue, width: circleBorderWidth),
+                    border: Border.all(
+                      color: darkBlue,
+                      width: circleBorderWidth,
+                    ),
                   ),
                 ),
               ),
@@ -318,7 +323,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                             onPressed: _isLoading
                                 ? null
                                 : () {
-                                    if (_formKey.currentState?.validate() ?? false) {
+                                    if (_formKey.currentState?.validate() ??
+                                        false) {
                                       _login(context);
                                     }
                                   },
@@ -328,7 +334,9 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                     height: 28,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2.4,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white,
+                                      ),
                                     ),
                                   )
                                 : const Text(

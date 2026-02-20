@@ -1,12 +1,28 @@
 import 'package:flutter/material.dart';
 
-// ===== BRAND COLORS =====
-const Color _kPrimaryColor = Color(0xFF023471); // Dark Blue
-const Color _kAccentColor = Color(0xFF5AB04B);  // Orange
-const Color _kBackgroundColor = Color(0xFFF8F9FA); // Very Light Gray
+// ---------- WONDERFUL COLOR PALETTE (Matching Dashboard) ----------
+const Color kPrimaryColor = Color(0xFF1E3A8A); // Deep indigo
+const Color kSecondaryColor = Color(0xFF3B82F6); // Bright blue
+const Color kAccentColor = Color(0xFF10B981); // Emerald green
+const Color kSoftPurple = Color(0xFF8B5CF6); // Light purple
+const Color kSoftPink = Color(0xFFEC4899); // Pink
+const Color kSoftOrange = Color(0xFFF59E0B); // Amber
+const Color kSoftBlue = Color(0xFF3B82F6); // Sky blue
+const Color kSuccessColor = Color(0xFF059669); // Dark green
+const Color kWarningColor = Color(0xFFF59E0B); // Amber
+const Color kErrorColor = Color(0xFFEF4444); // Red
+const Color kBackgroundColor = Color(0xFFF8FAFC); // Light background
+const Color kSurfaceColor = Colors.white;
+const Color kTextPrimaryColor = Color(0xFF1E293B); // Dark slate
+const Color kTextSecondaryColor = Color(0xFF64748B); // Medium slate
 
-class StudentProfileScreenV1 extends StatelessWidget {
-  StudentProfileScreenV1({Key? key}) : super(key: key);
+// GRADIENT COLORS
+const List<Color> kPrimaryGradient = [Color(0xFF1E3A8A), Color(0xFF3B82F6)];
+const List<Color> kSuccessGradient = [Color(0xFF10B981), Color(0xFF34D399)];
+const List<Color> kWarningGradient = [Color(0xFFF59E0B), Color(0xFFFBBF24)];
+
+class StudentProfileScreen extends StatelessWidget {
+  StudentProfileScreen({Key? key}) : super(key: key);
 
   // Dummy data
   final Map<String, String> student = const {
@@ -29,85 +45,185 @@ class StudentProfileScreenV1 extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _kBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: _kPrimaryColor,
-        centerTitle: true,
-        elevation: 1,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text(
-          "Student Profile",
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 22,
-            overflow: TextOverflow.ellipsis,
-          ),
-          maxLines: 1,
-        ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _ProfileHeaderCard(student: student),
-              const SizedBox(height: 22),
-              _InfoCard(
-                title: "Personal Info",
-                data: [
-                  _CardRow(label: "Date of Birth", value: student['dob'] ?? ''),
-                  _CardRow(label: "Gender", value: student['gender'] ?? ''),
-                  _CardRow(label: "Phone", value: student['phone'] ?? ''),
-                  _CardRow(label: "Email", value: student['email'] ?? ''),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _InfoCard(
-                title: "Academic Info",
-                data: [
-                  _CardRow(label: "School", value: student['schoolName'] ?? ''),
-                  _CardRow(label: "Class", value: student['class'] ?? ''),
-                  _CardRow(label: "Section", value: student['section'] ?? ''),
-                  _CardRow(label: "Roll Number", value: student['rollNumber'] ?? ''),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _InfoCard(
-                title: "Guardian Info",
-                data: [
-                  _CardRow(label: "Name", value: student['guardianName'] ?? ''),
-                  _CardRow(label: "Relationship", value: student['guardianRelation'] ?? ''),
-                  _CardRow(label: "Phone", value: student['guardianPhone'] ?? ''),
-                ],
-              ),
-              const SizedBox(height: 28),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {},
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _kAccentColor,
-                    foregroundColor: Colors.white,
-                    elevation: 1,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(9),
+      backgroundColor: kBackgroundColor,
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          // ---------------- STUNNING APP BAR ----------------
+          SliverAppBar(
+            expandedHeight: 100,
+            pinned: true,
+            backgroundColor: kPrimaryColor,
+            flexibleSpace: FlexibleSpaceBar(
+              titlePadding: const EdgeInsets.only(left: 16, bottom: 12),
+              title: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.person_rounded,
+                      color: Colors.white,
+                      size: 18,
                     ),
                   ),
-                  child: const Text(
-                    "Edit Profile",
+                  const SizedBox(width: 8),
+                  const Text(
+                    "Profile",
                     style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                      overflow: TextOverflow.ellipsis,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
                     ),
-                    maxLines: 1,
+                  ),
+                ],
+              ),
+              background: Container(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [kPrimaryColor, kSecondaryColor],
                   ),
                 ),
               ),
-            ],
+            ),
+            leading: IconButton(
+              icon: const Icon(
+                Icons.arrow_back_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+
+          // ---------------- MAIN CONTENT ----------------
+          SliverPadding(
+            padding: const EdgeInsets.all(16),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                // ---------------- PROFILE HEADER CARD ----------------
+                _ProfileHeaderCard(student: student),
+
+                const SizedBox(height: 20),
+
+                // ---------------- PERSONAL INFO ----------------
+                _InfoCard(
+                  title: "Personal Information",
+                  icon: Icons.person_outline_rounded,
+                  gradientColor: kSoftPurple,
+                  data: [
+                    _CardRow(
+                      label: "Date of Birth",
+                      value: student['dob'] ?? '',
+                    ),
+                    _CardRow(label: "Gender", value: student['gender'] ?? ''),
+                    _CardRow(label: "Phone", value: student['phone'] ?? ''),
+                    _CardRow(label: "Email", value: student['email'] ?? ''),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                // ---------------- ACADEMIC INFO ----------------
+                _InfoCard(
+                  title: "Academic Information",
+                  icon: Icons.school_rounded,
+                  gradientColor: kSoftBlue,
+                  data: [
+                    _CardRow(
+                      label: "School",
+                      value: student['schoolName'] ?? '',
+                    ),
+                    _CardRow(label: "Class", value: student['class'] ?? ''),
+                    _CardRow(label: "Section", value: student['section'] ?? ''),
+                    _CardRow(
+                      label: "Roll Number",
+                      value: student['rollNumber'] ?? '',
+                    ),
+                    _CardRow(
+                      label: "Academic Year",
+                      value: student['academicYear'] ?? '',
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                // ---------------- GUARDIAN INFO ----------------
+                _InfoCard(
+                  title: "Guardian Information",
+                  icon: Icons.family_restroom_rounded,
+                  gradientColor: kSoftOrange,
+                  data: [
+                    _CardRow(
+                      label: "Name",
+                      value: student['guardianName'] ?? '',
+                    ),
+                    _CardRow(
+                      label: "Relationship",
+                      value: student['guardianRelation'] ?? '',
+                    ),
+                    _CardRow(
+                      label: "Phone",
+                      value: student['guardianPhone'] ?? '',
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 24),
+
+                // ---------------- EDIT PROFILE BUTTON ----------------
+                _buildEditButton(),
+
+                const SizedBox(height: 20),
+              ]),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEditButton() {
+    return Container(
+      width: double.infinity,
+      height: 50,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [kPrimaryColor, kSecondaryColor],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [
+          BoxShadow(
+            color: kPrimaryColor.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {},
+          borderRadius: BorderRadius.circular(25),
+          child: const Center(
+            child: Text(
+              "Edit Profile",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
+            ),
           ),
         ),
       ),
@@ -120,7 +236,11 @@ class _ProfileHeaderCard extends StatelessWidget {
   const _ProfileHeaderCard({required this.student});
 
   String _getInitials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
+    final parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((e) => e.isNotEmpty)
+        .toList();
     if (parts.isEmpty) return "";
     if (parts.length == 1) return parts[0][0].toUpperCase();
     return (parts[0][0] + parts.last[0]).toUpperCase();
@@ -133,91 +253,155 @@ class _ProfileHeaderCard extends StatelessWidget {
     final className = student['class'] ?? "";
     final section = student['section'] ?? "";
 
-    return Card(
-      color: Colors.white,
-      elevation: 2,
-      shadowColor: Colors.black.withOpacity(0.05),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 26, horizontal: 18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            CircleAvatar(
-              radius: 40,
-              backgroundColor: _kPrimaryColor.withOpacity(0.07),
-              child: Text(
-                _getInitials(name),
-                style: const TextStyle(
-                  color: _kPrimaryColor,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 32,
-                  overflow: TextOverflow.ellipsis,
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [kSurfaceColor, kBackgroundColor],
+        ),
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+        border: Border.all(color: Colors.white, width: 2),
+      ),
+      child: Column(
+        children: [
+          // Profile Image with Gradient Border
+          Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [kSoftPurple, kSoftBlue],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: kSoftPurple.withOpacity(0.3),
+                  blurRadius: 15,
+                  spreadRadius: 2,
                 ),
-                maxLines: 1,
-              ),
+              ],
             ),
-            const SizedBox(height: 14),
-            Text(
-              name,
-              style: const TextStyle(
-                color: _kPrimaryColor,
-                fontWeight: FontWeight.w700,
-                fontSize: 20,
-                letterSpacing: 0.2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              maxLines: 1,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              "ID: $id",
-              style: const TextStyle(
-                color: _kPrimaryColor,
-                fontWeight: FontWeight.w400,
-                fontSize: 15,
-                overflow: TextOverflow.ellipsis,
-              ),
-              maxLines: 1,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.school, size: 18, color: _kAccentColor),
-                const SizedBox(width: 8),
-                Flexible(
+            child: Padding(
+              padding: const EdgeInsets.all(3), // Border width
+              child: Container(
+                width: 90,
+                height: 90,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
                   child: Text(
-                    "Class $className",
-                    style: const TextStyle(
-                      color: _kPrimaryColor,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                      overflow: TextOverflow.ellipsis,
+                    _getInitials(name),
+                    style: TextStyle(
+                      color: kPrimaryColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 36,
                     ),
-                    maxLines: 1,
                   ),
                 ),
-                const SizedBox(width: 12),
-                Flexible(
-                  child: Text(
-                    "Section $section",
-                    style: const TextStyle(
-                      color: _kPrimaryColor,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    maxLines: 1,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Name
+          Text(
+            name,
+            style: const TextStyle(
+              color: kTextPrimaryColor,
+              fontWeight: FontWeight.bold,
+              fontSize: 22,
+            ),
+          ),
+          const SizedBox(height: 4),
+
+          // Student ID Badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: kSoftPurple.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(30),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.badge_rounded, size: 14, color: kSoftPurple),
+                const SizedBox(width: 6),
+                Text(
+                  "ID: $id",
+                  style: TextStyle(
+                    color: kSoftPurple,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
                   ),
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 12),
+
+          // Class and Section Row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [kSoftOrange, kSoftPink],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  "Class $className",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [kSoftBlue, kSoftPurple],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  "Section $section",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -225,57 +409,80 @@ class _ProfileHeaderCard extends StatelessWidget {
 
 class _InfoCard extends StatelessWidget {
   final String title;
+  final IconData icon;
+  final Color gradientColor;
   final List<_CardRow> data;
-  const _InfoCard({required this.title, required this.data, Key? key}) : super(key: key);
+
+  const _InfoCard({
+    required this.title,
+    required this.icon,
+    required this.gradientColor,
+    required this.data,
+    Key? key,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: Colors.white,
-      elevation: 1,
-      margin: EdgeInsets.zero,
-      shadowColor: Colors.black12,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 4,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: _kAccentColor,
-                    borderRadius: BorderRadius.circular(4),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: kSurfaceColor,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [gradientColor, gradientColor.withOpacity(0.7)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      color: _kPrimaryColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15.5,
-                      overflow: TextOverflow.ellipsis,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: gradientColor.withOpacity(0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
                     ),
-                    maxLines: 1,
-                  ),
+                  ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ...List.generate(
-              data.length,
-              (i) => Padding(
-                padding: EdgeInsets.only(bottom: i == data.length - 1 ? 0 : 10),
-                child: data[i],
+                child: Icon(icon, color: Colors.white, size: 18),
               ),
+              const SizedBox(width: 12),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: kTextPrimaryColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Content
+          ...List.generate(
+            data.length,
+            (i) => Padding(
+              padding: EdgeInsets.only(bottom: i == data.length - 1 ? 0 : 12),
+              child: data[i],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -284,45 +491,42 @@ class _InfoCard extends StatelessWidget {
 class _CardRow extends StatelessWidget {
   final String label;
   final String value;
-  const _CardRow({
-    required this.label,
-    required this.value,
-    Key? key,
-  }) : super(key: key);
+
+  const _CardRow({required this.label, required this.value, Key? key})
+    : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    // Ensures NO overflow even for long strings or small screens.
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ConstrainedBox(
-          constraints: const BoxConstraints(
-            minWidth: 78,
-            maxWidth: 110,
-          ),
+        // Label
+        Container(
+          width: 100,
           child: Text(
             label,
-            style: const TextStyle(
-              color: _kPrimaryColor,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: kTextSecondaryColor,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
             ),
             maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
+
+        // Value
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(
-              color: _kPrimaryColor,
+            style: TextStyle(
+              color: kTextPrimaryColor,
               fontSize: 14,
-              fontWeight: FontWeight.w400,
-              overflow: TextOverflow.ellipsis,
+              fontWeight: FontWeight.w500,
             ),
             maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
