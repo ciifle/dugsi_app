@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 
-// ---------- WONDERFUL COLOR PALETTE ----------
-const Color kPrimaryColor = Color(0xFF2A2E45);
-const Color kSecondaryColor = Color(0xFF6C5CE7);
-const Color kAccentColor = Color(0xFF00B894);
-const Color kSoftPurple = Color(0xFFA29BFE);
-const Color kSoftPink = Color(0xFFFF7675);
-const Color kSoftOrange = Color(0xFFFDCB6E);
-const Color kSoftBlue = Color(0xFF74B9FF);
-const Color kBackgroundEnd = Color(0xFFF5F0FF);
-const Color kTextPrimary = Color(0xFF2D3436);
-const Color kTextSecondary = Color(0xFF64748B);
+// ---------- COLOR PALETTE (Matching Student Dashboard) ----------
+const Color kPrimaryBlue = Color(0xFF023471); // Dark blue
+const Color kPrimaryGreen = Color(0xFF5AB04B); // Green
+
+// Derived colors (shades/tints of the two main colors)
+const Color kSoftBlue = Color(0xFFE6F0FF); // Light tint of blue
+const Color kSoftGreen = Color(0xFFEDF7EB); // Light tint of green
+const Color kDarkGreen = Color(0xFF3A7A30); // Darker shade of green
+const Color kDarkBlue = Color(0xFF01255C); // Darker shade of blue
+const Color kTextPrimary = Color(0xFF2D3436); // Dark gray
+const Color kTextSecondary = Color(0xFF636E72); // Medium gray
+const Color kErrorColor = Color(0xFFEF4444); // Red
+const Color kSoftOrange = Color(0xFFF59E0B); // Amber
+const Color kSuccessColor = Color(0xFF5AB04B); // Green for present
+const Color kCardColor = Colors.white;
 
 enum NoticeStatus { active, draft, expired }
 
@@ -117,13 +121,27 @@ class TeacherNoticesScreen extends StatefulWidget {
 
 class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
   String _selectedFilter = "all";
+  bool _isSearching = false;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
   List<Notice> _notices = List.from(dummyNotices);
 
   List<Notice> get _filteredNotices {
+    List<Notice> searchFiltered = _notices;
+    if (_searchQuery.isNotEmpty) {
+      searchFiltered = _notices.where((n) {
+        final query = _searchQuery.toLowerCase();
+        return n.title.toLowerCase().contains(query) ||
+            n.description.toLowerCase().contains(query) ||
+            n.targetAudience.toLowerCase().contains(query);
+      }).toList();
+    }
+
     if (_selectedFilter == "all") {
-      return _notices;
+      return searchFiltered;
     } else {
-      return _notices.where((n) => n.type == _selectedFilter).toList();
+      return searchFiltered.where((n) => n.type == _selectedFilter).toList();
     }
   }
 
@@ -132,6 +150,32 @@ class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
       _notices.where((n) => n.status == NoticeStatus.active).length;
   int get _draftCount =>
       _notices.where((n) => n.status == NoticeStatus.draft).length;
+
+  void _startSearch() {
+    setState(() {
+      _isSearching = true;
+    });
+  }
+
+  void _stopSearch() {
+    setState(() {
+      _isSearching = false;
+      _searchQuery = '';
+      _searchController.clear();
+    });
+  }
+
+  void _updateSearchQuery(String query) {
+    setState(() {
+      _searchQuery = query;
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   void _deleteNotice(String id) {
     showDialog(
@@ -158,7 +202,7 @@ class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
-              color: kSoftPink.withOpacity(0.2),
+              color: kErrorColor.withOpacity(0.2),
               blurRadius: 30,
               offset: const Offset(0, 10),
             ),
@@ -174,12 +218,12 @@ class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: kSoftPink.withOpacity(0.1),
+                      color: kErrorColor.withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
                       Icons.delete_rounded,
-                      color: kSoftPink,
+                      color: kErrorColor,
                       size: 40,
                     ),
                   ),
@@ -229,12 +273,12 @@ class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
                     child: Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [kSoftPink, kSoftPink.withOpacity(0.8)],
+                          colors: [kErrorColor, kErrorColor.withOpacity(0.8)],
                         ),
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: kSoftPink.withOpacity(0.3),
+                            color: kErrorColor.withOpacity(0.3),
                             blurRadius: 8,
                             offset: const Offset(0, 4),
                           ),
@@ -322,20 +366,14 @@ class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Colors.white, kBackgroundEnd],
+                colors: [Colors.white, kSoftBlue],
               ),
               borderRadius: BorderRadius.circular(30),
               boxShadow: [
                 BoxShadow(
-                  color: kSoftPurple.withOpacity(0.2),
+                  color: kPrimaryBlue.withOpacity(0.2),
                   blurRadius: 30,
                   offset: const Offset(0, 10),
-                  spreadRadius: 0,
-                ),
-                BoxShadow(
-                  color: Colors.white,
-                  blurRadius: 0,
-                  offset: const Offset(-2, -2),
                   spreadRadius: 0,
                 ),
               ],
@@ -359,14 +397,14 @@ class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [kSoftPurple, kSoftBlue],
+                            colors: [kPrimaryBlue, kPrimaryGreen],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: kSoftPurple.withOpacity(0.3),
+                              color: kPrimaryBlue.withOpacity(0.3),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
                             ),
@@ -404,21 +442,21 @@ class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
                           controller: titleController,
                           label: "Title",
                           icon: Icons.title_rounded,
-                          color: kSoftPurple,
+                          color: kPrimaryBlue,
                         ),
                         const SizedBox(height: 12),
                         _buildDialogField(
                           controller: descController,
                           label: "Description",
                           icon: Icons.description_rounded,
-                          color: kSoftBlue,
+                          color: kPrimaryGreen,
                         ),
                         const SizedBox(height: 12),
                         _buildDialogField(
                           controller: contentController,
                           label: "Full Content",
                           icon: Icons.note_alt_rounded,
-                          color: kAccentColor,
+                          color: kSoftOrange,
                           maxLines: 3,
                         ),
                         const SizedBox(height: 12),
@@ -426,21 +464,21 @@ class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
                           controller: audienceController,
                           label: "Target Audience",
                           icon: Icons.person_rounded,
-                          color: kSoftOrange,
+                          color: kDarkBlue,
                         ),
                         const SizedBox(height: 12),
                         _buildDialogField(
                           controller: attachedInfoController,
                           label: "Attached Info",
                           icon: Icons.attach_file_rounded,
-                          color: kSoftPink,
+                          color: kPrimaryGreen,
                         ),
                         const SizedBox(height: 12),
                         _buildDialogField(
                           controller: notesController,
                           label: "Notes",
                           icon: Icons.note_rounded,
-                          color: kSoftPurple,
+                          color: kSoftOrange,
                         ),
                         const SizedBox(height: 12),
                       ],
@@ -483,17 +521,14 @@ class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
                         child: Container(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
-                              colors: [
-                                kAccentColor,
-                                kAccentColor.withOpacity(0.8),
-                              ],
+                              colors: [kPrimaryBlue, kPrimaryGreen],
                               begin: Alignment.centerLeft,
                               end: Alignment.centerRight,
                             ),
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
                               BoxShadow(
-                                color: kAccentColor.withOpacity(0.3),
+                                color: kPrimaryBlue.withOpacity(0.3),
                                 blurRadius: 8,
                                 offset: const Offset(0, 4),
                               ),
@@ -635,6 +670,8 @@ class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
   }
 
   Widget _buildViewDialog(Notice notice) {
+    final statusColor = _getStatusColor(notice.status);
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
       elevation: 0,
@@ -649,12 +686,12 @@ class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Colors.white, kBackgroundEnd],
+            colors: [Colors.white, kSoftBlue],
           ),
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
-              color: kSoftPurple.withOpacity(0.2),
+              color: kPrimaryBlue.withOpacity(0.2),
               blurRadius: 30,
               offset: const Offset(0, 10),
             ),
@@ -673,14 +710,14 @@ class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [kSoftPurple, kSoftBlue],
+                        colors: [kPrimaryBlue, kPrimaryGreen],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: kSoftPurple.withOpacity(0.3),
+                          color: kPrimaryBlue.withOpacity(0.3),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -690,15 +727,39 @@ class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
                   ),
                   const SizedBox(width: 14),
                   Expanded(
-                    child: Text(
-                      notice.title,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: kTextPrimary,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          notice.title,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: kTextPrimary,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: statusColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            _getStatusText(notice.status),
+                            style: TextStyle(
+                              color: statusColor,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -715,13 +776,13 @@ class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
                     _buildViewInfoRow(
                       "Description",
                       notice.description,
-                      kSoftPurple,
+                      kPrimaryBlue,
                     ),
                     const SizedBox(height: 12),
                     _buildViewInfoRow(
                       "Full Content",
                       notice.fullContent,
-                      kSoftBlue,
+                      kPrimaryGreen,
                     ),
                     const SizedBox(height: 12),
                     _buildViewInfoRow(
@@ -730,18 +791,18 @@ class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
                       kSoftOrange,
                     ),
                     const SizedBox(height: 12),
-                    _buildViewInfoRow("Date", notice.createdDate, kAccentColor),
+                    _buildViewInfoRow("Date", notice.createdDate, kDarkBlue),
                     if (notice.attachedInfo != null) ...[
                       const SizedBox(height: 12),
                       _buildViewInfoRow(
                         "Attached Info",
                         notice.attachedInfo!,
-                        kSoftPink,
+                        kPrimaryBlue,
                       ),
                     ],
                     if (notice.notes != null) ...[
                       const SizedBox(height: 12),
-                      _buildViewInfoRow("Notes", notice.notes!, kSoftPurple),
+                      _buildViewInfoRow("Notes", notice.notes!, kSoftOrange),
                     ],
                     const SizedBox(height: 12),
                   ],
@@ -756,11 +817,13 @@ class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
                 width: double.infinity,
                 height: 44,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: [kSoftPurple, kSoftBlue]),
+                  gradient: LinearGradient(
+                    colors: [kPrimaryBlue, kPrimaryGreen],
+                  ),
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: kSoftPurple.withOpacity(0.3),
+                      color: kPrimaryBlue.withOpacity(0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
@@ -854,7 +917,7 @@ class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
           ],
         ),
       ),
-      backgroundColor: kAccentColor,
+      backgroundColor: kPrimaryGreen,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 0,
@@ -865,11 +928,11 @@ class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
   Color _getStatusColor(NoticeStatus status) {
     switch (status) {
       case NoticeStatus.active:
-        return kAccentColor;
+        return kPrimaryGreen;
       case NoticeStatus.draft:
         return kSoftOrange;
       case NoticeStatus.expired:
-        return kSoftPink;
+        return kErrorColor;
     }
   }
 
@@ -889,63 +952,159 @@ class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
     final filtered = _filteredNotices;
 
     return Scaffold(
-      backgroundColor: kBackgroundEnd,
+      backgroundColor: kSoftBlue,
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
+          // ---------------- APP BAR WITH GRADIENT ----------------
           SliverAppBar(
-            expandedHeight: 90,
+            expandedHeight: _isSearching ? 100 : 120,
             pinned: true,
-            backgroundColor: kPrimaryColor,
-            flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.only(left: 16, bottom: 10),
-              title: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(5),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.campaign_rounded,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  const Text(
-                    "Notices",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                ],
-              ),
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [kPrimaryColor, kSecondaryColor, kSoftPurple],
-                    stops: const [0.1, 0.6, 1.0],
-                  ),
+            backgroundColor: kPrimaryBlue,
+            flexibleSpace: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
+                  stops: const [0.3, 0.7, 1.0],
+                ),
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(30),
+                  bottomRight: Radius.circular(30),
                 ),
               ),
-            ),
-            leading: IconButton(
-              icon: const Icon(
-                Icons.arrow_back_rounded,
-                color: Colors.white,
-                size: 20,
+              child: FlexibleSpaceBar(
+                titlePadding: const EdgeInsets.only(bottom: 20),
+                centerTitle: true,
+                title: _isSearching
+                    ? null
+                    : const Text(
+                        "Notices",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 28,
+                        ),
+                      ),
               ),
-              onPressed: () => Navigator.pop(context),
             ),
+            leading: Container(
+              margin: const EdgeInsets.only(left: 12, top: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: IconButton(
+                icon: const Icon(
+                  Icons.arrow_back_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
+                onPressed: () => Navigator.pop(context),
+                padding: const EdgeInsets.all(10),
+              ),
+            ),
+            actions: [
+              if (_isSearching)
+                Container(
+                  margin: const EdgeInsets.only(right: 12, top: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                    onPressed: _stopSearch,
+                    padding: const EdgeInsets.all(10),
+                  ),
+                )
+              else
+                Container(
+                  margin: const EdgeInsets.only(right: 12, top: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.search_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                    onPressed: _startSearch,
+                    padding: const EdgeInsets.all(10),
+                  ),
+                ),
+            ],
+            bottom: _isSearching
+                ? PreferredSize(
+                    preferredSize: const Size.fromHeight(60),
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: TextField(
+                          controller: _searchController,
+                          autofocus: true,
+                          onChanged: _updateSearchQuery,
+                          decoration: InputDecoration(
+                            hintText: 'Search notices...',
+                            hintStyle: TextStyle(
+                              color: kTextSecondary,
+                              fontSize: 15,
+                            ),
+                            prefixIcon: Icon(
+                              Icons.search_rounded,
+                              color: kPrimaryBlue,
+                              size: 22,
+                            ),
+                            suffixIcon: _searchQuery.isNotEmpty
+                                ? IconButton(
+                                    icon: Icon(
+                                      Icons.clear,
+                                      color: kTextSecondary,
+                                      size: 20,
+                                    ),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      _updateSearchQuery('');
+                                    },
+                                    padding: EdgeInsets.zero,
+                                  )
+                                : null,
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                          ),
+                          style: const TextStyle(
+                            color: kTextPrimary,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                : null,
           ),
 
+          // ---------------- MAIN CONTENT ----------------
           SliverPadding(
             padding: const EdgeInsets.all(16),
             sliver: SliverList(
@@ -958,13 +1117,32 @@ class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
                 const SizedBox(height: 20),
                 _buildFilterSection(),
                 const SizedBox(height: 16),
-                _buildNoticesHeader(filtered.length),
+
+                // ---------------- SEARCH RESULT COUNT ----------------
+                if (_searchQuery.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4, bottom: 6),
+                    child: Text(
+                      'Found ${filtered.length} notice${filtered.length != 1 ? 's' : ''}',
+                      style: TextStyle(
+                        color: kTextSecondary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+
+                // ---------------- NOTICES HEADER ----------------
+                if (_searchQuery.isEmpty) _buildNoticesHeader(filtered.length),
+
                 const SizedBox(height: 12),
+
+                // ---------------- NOTICE CARDS ----------------
                 if (filtered.isNotEmpty)
                   ...List.generate(
                     filtered.length,
                     (index) => Padding(
-                      padding: const EdgeInsets.only(bottom: 14),
+                      padding: const EdgeInsets.only(bottom: 12),
                       child: _NoticeCard(
                         notice: filtered[index],
                         onView: () => _viewNotice(filtered[index]),
@@ -977,7 +1155,10 @@ class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
                   )
                 else
                   _buildEmptyState(),
+
                 const SizedBox(height: 20),
+
+                // ---------------- CREATE BUTTON ----------------
                 _CreateNoticeCTAButton(
                   onPressed: () {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -985,6 +1166,7 @@ class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
                     );
                   },
                 ),
+
                 const SizedBox(height: 16),
               ]),
             ),
@@ -1004,29 +1186,33 @@ class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
         Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(4),
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: kSoftPurple.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6),
+                gradient: LinearGradient(
+                  colors: [kPrimaryBlue, kPrimaryGreen],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(
                 Icons.filter_list_rounded,
-                color: kSoftPurple,
-                size: 14,
+                color: Colors.white,
+                size: 16,
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             const Text(
               "Filter by Type",
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 15,
                 fontWeight: FontWeight.w600,
                 color: kTextPrimary,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
@@ -1035,14 +1221,14 @@ class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
               final Color filterColor = _getFilterColor(filter.value);
 
               return Padding(
-                padding: const EdgeInsets.only(right: 6),
+                padding: const EdgeInsets.only(right: 8),
                 child: FilterChip(
                   label: Text(
                     filter.label,
                     style: TextStyle(
                       color: isSelected ? Colors.white : kTextPrimary,
                       fontWeight: FontWeight.w600,
-                      fontSize: 11,
+                      fontSize: 13,
                     ),
                   ),
                   selected: isSelected,
@@ -1055,15 +1241,15 @@ class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
                   selectedColor: filterColor,
                   checkmarkColor: Colors.white,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   side: BorderSide(
                     color: isSelected ? filterColor : Colors.grey.shade300,
                     width: 1,
                   ),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
+                    horizontal: 12,
+                    vertical: 6,
                   ),
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
@@ -1082,22 +1268,26 @@ class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
         Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(4),
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: kSoftOrange.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6),
+                gradient: LinearGradient(
+                  colors: [kPrimaryBlue, kPrimaryGreen],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(
                 Icons.campaign_rounded,
-                color: kSoftOrange,
-                size: 14,
+                color: Colors.white,
+                size: 16,
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             const Text(
               "Notice List",
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: kTextPrimary,
               ),
@@ -1105,17 +1295,17 @@ class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
           ],
         ),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: kSoftPurple.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(16),
+            color: kPrimaryGreen.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
             '$count items',
             style: TextStyle(
-              color: kSoftPurple,
+              color: kPrimaryGreen,
               fontWeight: FontWeight.w600,
-              fontSize: 10,
+              fontSize: 12,
             ),
           ),
         ),
@@ -1125,36 +1315,40 @@ class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
 
   Widget _buildEmptyState() {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 30),
+      padding: const EdgeInsets.symmetric(vertical: 40),
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: kSoftPurple.withOpacity(0.1),
+                color: kSoftBlue,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.campaign_rounded,
-                color: kSoftPurple,
-                size: 36,
+              child: Icon(
+                _searchQuery.isNotEmpty
+                    ? Icons.search_off_rounded
+                    : Icons.campaign_rounded,
+                color: kPrimaryBlue,
+                size: 56,
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
-              'No notices',
+            Text(
+              _searchQuery.isNotEmpty ? 'No notices found' : 'No notices',
               style: TextStyle(
                 color: kTextPrimary,
-                fontSize: 14,
+                fontSize: 18,
                 fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'Create your first notice',
-              style: TextStyle(color: kTextSecondary, fontSize: 12),
+            Text(
+              _searchQuery.isNotEmpty
+                  ? 'Try different search terms'
+                  : 'Create your first notice',
+              style: TextStyle(color: kTextSecondary, fontSize: 14),
             ),
           ],
         ),
@@ -1165,15 +1359,15 @@ class _TeacherNoticesScreenState extends State<TeacherNoticesScreen> {
   Color _getFilterColor(String filter) {
     switch (filter) {
       case 'all':
-        return kSoftPurple;
+        return kPrimaryBlue;
       case 'class':
-        return kSoftBlue;
+        return kPrimaryBlue;
       case 'exam':
-        return kAccentColor;
+        return kPrimaryGreen;
       case 'general':
         return kSoftOrange;
       default:
-        return kSecondaryColor;
+        return kPrimaryBlue;
     }
   }
 }
@@ -1199,12 +1393,12 @@ class _NoticeSummaryCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: kPrimaryBlue.withOpacity(0.08),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
         ],
-        border: Border.all(color: Colors.white, width: 1.5),
+        border: Border.all(color: Colors.grey.shade100, width: 1.5),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1212,29 +1406,33 @@ class _NoticeSummaryCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(6),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: kSoftPurple.withOpacity(0.1),
-                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [kPrimaryBlue, kPrimaryGreen],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
                   Icons.analytics_rounded,
-                  color: kSoftPurple,
-                  size: 16,
+                  color: Colors.white,
+                  size: 18,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               const Text(
                 'Notice Overview',
                 style: TextStyle(
                   color: kTextPrimary,
                   fontWeight: FontWeight.w700,
-                  fontSize: 15,
+                  fontSize: 16,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -1242,13 +1440,13 @@ class _NoticeSummaryCard extends StatelessWidget {
                 icon: Icons.list_alt_rounded,
                 label: "Total",
                 value: "$total",
-                color: kSoftPurple,
+                color: kPrimaryBlue,
               ),
               _buildStatItem(
                 icon: Icons.campaign_rounded,
                 label: "Active",
                 value: "$active",
-                color: kAccentColor,
+                color: kPrimaryGreen,
               ),
               _buildStatItem(
                 icon: Icons.edit_note_rounded,
@@ -1274,24 +1472,23 @@ class _NoticeSummaryCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            padding: const EdgeInsets.all(4),
+            padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: color, size: 12),
+            child: Icon(icon, color: color, size: 16),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
             value,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 16,
               fontWeight: FontWeight.bold,
               color: color,
             ),
           ),
-          const SizedBox(height: 1),
-          Text(label, style: TextStyle(color: kTextSecondary, fontSize: 9)),
+          Text(label, style: TextStyle(color: kTextSecondary, fontSize: 11)),
         ],
       ),
     );
@@ -1317,11 +1514,11 @@ class _NoticeCard extends StatelessWidget {
   Color _getStatusColor(NoticeStatus status) {
     switch (status) {
       case NoticeStatus.active:
-        return kAccentColor;
+        return kPrimaryGreen;
       case NoticeStatus.draft:
         return kSoftOrange;
       case NoticeStatus.expired:
-        return kSoftPink;
+        return kErrorColor;
     }
   }
 
@@ -1362,8 +1559,8 @@ class _NoticeCard extends StatelessWidget {
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          tilePadding: const EdgeInsets.all(12),
-          childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          tilePadding: const EdgeInsets.all(14),
+          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -1371,24 +1568,24 @@ class _NoticeCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
           ),
           leading: Container(
-            width: 42,
-            height: 42,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [statusColor, statusColor.withOpacity(0.7)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               boxShadow: [
                 BoxShadow(
                   color: statusColor.withOpacity(0.3),
-                  blurRadius: 5,
+                  blurRadius: 6,
                   offset: const Offset(0, 2),
                 ),
               ],
             ),
-            child: Icon(notice.icon, color: Colors.white, size: 22),
+            child: Icon(notice.icon, color: Colors.white, size: 24),
           ),
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1402,40 +1599,40 @@ class _NoticeCard extends StatelessWidget {
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: kTextPrimary,
-                        fontSize: 14,
+                        fontSize: 16,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 3,
+                      horizontal: 8,
+                      vertical: 4,
                     ),
                     decoration: BoxDecoration(
                       color: statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          width: 5,
-                          height: 5,
+                          width: 6,
+                          height: 6,
                           decoration: BoxDecoration(
                             color: statusColor,
                             shape: BoxShape.circle,
                           ),
                         ),
-                        const SizedBox(width: 3),
+                        const SizedBox(width: 4),
                         Text(
                           statusText,
                           style: TextStyle(
                             color: statusColor,
                             fontWeight: FontWeight.w600,
-                            fontSize: 9,
+                            fontSize: 11,
                           ),
                         ),
                       ],
@@ -1443,22 +1640,22 @@ class _NoticeCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 3),
+              const SizedBox(height: 4),
               Text(
                 notice.description,
-                style: TextStyle(color: kTextSecondary, fontSize: 12),
+                style: TextStyle(color: kTextSecondary, fontSize: 13),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Wrap(
-                spacing: 8,
-                runSpacing: 6,
+                spacing: 10,
+                runSpacing: 8,
                 children: [
                   _buildInfoChip(
                     icon: Icons.person_rounded,
                     value: notice.targetAudience,
-                    color: kSoftPurple,
+                    color: kPrimaryBlue,
                   ),
                   _buildInfoChip(
                     icon: Icons.calendar_today_rounded,
@@ -1472,28 +1669,28 @@ class _NoticeCard extends StatelessWidget {
           trailing: Icon(
             Icons.keyboard_arrow_down_rounded,
             color: statusColor,
-            size: 20,
+            size: 24,
           ),
           children: [
-            const Divider(height: 1),
-            const SizedBox(height: 8),
+            Divider(height: 1, color: Colors.grey.shade200),
+            const SizedBox(height: 12),
             _buildDetailRow(
               icon: Icons.info_rounded,
               label: "Full Notice",
               value: notice.fullContent,
-              color: kSoftPurple,
+              color: kPrimaryBlue,
             ),
             if (notice.attachedInfo != null) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               _buildDetailRow(
                 icon: Icons.attach_file_rounded,
                 label: "Attachment",
                 value: notice.attachedInfo!,
-                color: kSoftBlue,
+                color: kPrimaryGreen,
               ),
             ],
             if (notice.notes != null) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               _buildDetailRow(
                 icon: Icons.note_alt_rounded,
                 label: "Notes",
@@ -1501,21 +1698,21 @@ class _NoticeCard extends StatelessWidget {
                 color: kSoftOrange,
               ),
             ],
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Wrap(
-              spacing: 6,
-              runSpacing: 6,
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 _buildActionChip(
                   icon: Icons.visibility_rounded,
                   label: "View",
-                  color: kSoftPurple,
+                  color: kPrimaryBlue,
                   onTap: onView,
                 ),
                 _buildActionChip(
                   icon: Icons.edit_rounded,
                   label: "Edit",
-                  color: kSoftBlue,
+                  color: kPrimaryGreen,
                   onTap: onEdit,
                 ),
                 _buildActionChip(
@@ -1525,13 +1722,13 @@ class _NoticeCard extends StatelessWidget {
                   label: notice.status == NoticeStatus.active
                       ? "Unpublish"
                       : "Publish",
-                  color: kAccentColor,
+                  color: kSoftOrange,
                   onTap: onTogglePublish,
                 ),
                 _buildActionChip(
                   icon: Icons.delete_rounded,
                   label: "Delete",
-                  color: kSoftPink,
+                  color: kErrorColor,
                   onTap: onDelete,
                 ),
               ],
@@ -1548,22 +1745,22 @@ class _NoticeCard extends StatelessWidget {
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: 12),
-          const SizedBox(width: 3),
+          Icon(icon, color: color, size: 14),
+          const SizedBox(width: 4),
           Text(
             value,
             style: TextStyle(
               color: color,
               fontWeight: FontWeight.w600,
-              fontSize: 11,
+              fontSize: 12,
             ),
           ),
         ],
@@ -1583,14 +1780,14 @@ class _NoticeCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(3),
+            padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: color, size: 12),
+            child: Icon(icon, color: color, size: 14),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1600,14 +1797,14 @@ class _NoticeCard extends StatelessWidget {
                   label,
                   style: TextStyle(
                     color: kTextSecondary,
-                    fontSize: 10,
+                    fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 1),
+                const SizedBox(height: 2),
                 Text(
                   value,
-                  style: TextStyle(color: kTextPrimary, fontSize: 11),
+                  style: TextStyle(color: kTextPrimary, fontSize: 13),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1629,34 +1826,34 @@ class _NoticeCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [color, color.withOpacity(0.8)],
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
             ),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
                 color: color.withOpacity(0.3),
-                blurRadius: 3,
-                offset: const Offset(0, 1),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: Colors.white, size: 11),
-              const SizedBox(width: 3),
+              Icon(icon, color: Colors.white, size: 14),
+              const SizedBox(width: 4),
               Text(
                 label,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 9,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -1677,19 +1874,19 @@ class _CreateNoticeCTAButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      height: 44,
+      height: 55,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [kAccentColor, kAccentColor.withOpacity(0.8)],
+          colors: [kPrimaryBlue, kPrimaryGreen],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: kAccentColor.withOpacity(0.3),
-            blurRadius: 5,
-            offset: const Offset(0, 2),
+            color: kPrimaryBlue.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -1697,18 +1894,18 @@ class _CreateNoticeCTAButton extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onPressed,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(18),
           child: Center(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: const [
-                Icon(Icons.add_rounded, color: Colors.white, size: 18),
-                SizedBox(width: 6),
+                Icon(Icons.add_rounded, color: Colors.white, size: 22),
+                SizedBox(width: 8),
                 Text(
                   "Create New Notice",
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 13,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),

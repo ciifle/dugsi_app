@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
 
-// ---------- WONDERFUL COLOR PALETTE (Matching Student Dashboard) ----------
-const Color kPrimaryColor = Color(0xFF2A2E45); // Deep charcoal
-const Color kSecondaryColor = Color(0xFF6C5CE7); // Rich purple
-const Color kAccentColor = Color(0xFF00B894); // Mint green
-const Color kSoftPurple = Color(0xFFA29BFE); // Light purple
-const Color kSoftPink = Color(0xFFFF7675); // Soft pink
-const Color kSoftOrange = Color(0xFFFDCB6E); // Warm orange
-const Color kSoftBlue = Color(0xFF74B9FF); // Sky blue
-const Color kBackgroundStart = Color(0xFFE8EEF9); // Light blue-gray
-const Color kBackgroundEnd = Color(0xFFF5F0FF); // Light purple
-const Color kCardColor = Colors.white;
+// ---------- COLOR PALETTE (Matching Student Dashboard) ----------
+const Color kPrimaryBlue = Color(0xFF023471); // Dark blue
+const Color kPrimaryGreen = Color(0xFF5AB04B); // Green
+
+// Derived colors (shades/tints of the two main colors)
+const Color kSoftBlue = Color(0xFFE6F0FF); // Light tint of blue
+const Color kSoftGreen = Color(0xFFEDF7EB); // Light tint of green
+const Color kDarkGreen = Color(0xFF3A7A30); // Darker shade of green
+const Color kDarkBlue = Color(0xFF01255C); // Darker shade of blue
 const Color kTextPrimary = Color(0xFF2D3436); // Dark gray
 const Color kTextSecondary = Color(0xFF636E72); // Medium gray
+const Color kErrorColor = Color(0xFFEF4444); // Red
+const Color kSoftOrange = Color(0xFFF59E0B); // Amber
+const Color kSuccessColor = Color(0xFF5AB04B); // Green for present
+const Color kCardColor = Colors.white;
 
 class TeacherWeeklyScheduleScreen extends StatefulWidget {
   const TeacherWeeklyScheduleScreen({Key? key}) : super(key: key);
@@ -122,17 +124,17 @@ class _TeacherWeeklyScheduleScreenState
   Color _getDayColor(String day) {
     switch (day) {
       case 'Mon':
-        return kSoftPurple;
+        return kPrimaryBlue;
       case 'Tue':
-        return kSoftBlue;
+        return kPrimaryGreen;
       case 'Wed':
-        return kAccentColor;
-      case 'Thu':
         return kSoftOrange;
+      case 'Thu':
+        return kDarkBlue;
       case 'Fri':
-        return kSoftPink;
+        return kPrimaryBlue;
       default:
-        return kSecondaryColor;
+        return kPrimaryGreen;
     }
   }
 
@@ -142,72 +144,64 @@ class _TeacherWeeklyScheduleScreenState
     final daySchedule = weeklySchedule[selectedDay] ?? [];
 
     return Scaffold(
-      backgroundColor: kBackgroundEnd,
+      backgroundColor: kSoftBlue,
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          // ---------------- APP BAR (SMALLER SIZE) ----------------
+          // ---------------- APP BAR WITH GRADIENT ----------------
           SliverAppBar(
-            expandedHeight: 90, // REDUCED from 120
+            expandedHeight: 120,
             pinned: true,
-            backgroundColor: kPrimaryColor,
-            flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.only(
-                left: 16,
-                bottom: 10,
-              ), // REDUCED padding
-              title: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(5), // REDUCED padding
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8), // REDUCED radius
-                    ),
-                    child: const Icon(
-                      Icons.calendar_month_rounded,
-                      color: Colors.white,
-                      size: 16, // REDUCED icon size
-                    ),
-                  ),
-                  const SizedBox(width: 6), // REDUCED spacing
-                  const Text(
-                    "Weekly Schedule",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16, // REDUCED font size
-                    ),
-                  ),
-                ],
+            backgroundColor: kPrimaryBlue,
+            flexibleSpace: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
+                  stops: const [0.3, 0.7, 1.0],
+                ),
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(30),
+                  bottomRight: Radius.circular(30),
+                ),
               ),
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [kPrimaryColor, kSecondaryColor, kSoftPurple],
-                    stops: const [0.1, 0.6, 1.0],
+              child: FlexibleSpaceBar(
+                titlePadding: const EdgeInsets.only(bottom: 20),
+                centerTitle: true,
+                title: const Text(
+                  "Weekly Schedule",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 24,
                   ),
                 ),
               ),
             ),
-            leading: IconButton(
-              icon: const Icon(
-                Icons.arrow_back_rounded,
-                color: Colors.white,
-                size: 20,
-              ), // REDUCED size
-              onPressed: () => Navigator.pop(context),
+            leading: Container(
+              margin: const EdgeInsets.only(left: 12, top: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: IconButton(
+                icon: const Icon(
+                  Icons.arrow_back_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
+                onPressed: () => Navigator.pop(context),
+                padding: const EdgeInsets.all(10),
+              ),
             ),
             actions: [
               // ---------------- WORKING NOTIFICATION ICON ----------------
               Container(
-                margin: const EdgeInsets.only(right: 12), // REDUCED margin
+                margin: const EdgeInsets.only(right: 12, top: 8),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.2),
-                  shape: BoxShape.circle,
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Stack(
                   clipBehavior: Clip.none,
@@ -216,33 +210,33 @@ class _TeacherWeeklyScheduleScreenState
                       icon: const Icon(
                         Icons.notifications_rounded,
                         color: Colors.white,
-                        size: 18,
-                      ), // REDUCED size
+                        size: 24,
+                      ),
                       onPressed: _showNotifications,
-                      padding: const EdgeInsets.all(6), // REDUCED padding
+                      padding: const EdgeInsets.all(10),
                       constraints: const BoxConstraints(),
                     ),
                     if (notificationCount > 0)
                       Positioned(
-                        top: 4,
-                        right: 4,
+                        top: 6,
+                        right: 6,
                         child: Container(
-                          padding: const EdgeInsets.all(2),
+                          padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                            color: kSoftPink,
+                            color: kErrorColor,
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 1.5),
+                            border: Border.all(color: Colors.white, width: 2),
                           ),
                           constraints: const BoxConstraints(
-                            minWidth: 14,
-                            minHeight: 14,
+                            minWidth: 18,
+                            minHeight: 18,
                           ),
                           child: Center(
                             child: Text(
                               '$notificationCount',
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 8,
+                                fontSize: 10,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -257,17 +251,19 @@ class _TeacherWeeklyScheduleScreenState
 
           // ---------------- MAIN CONTENT ----------------
           SliverPadding(
-            padding: const EdgeInsets.all(16), // REDUCED from 20
+            padding: const EdgeInsets.all(16),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 // ---------------- DAY SELECTOR SECTION ----------------
                 _buildDaySelector(),
 
-                const SizedBox(height: 20), // REDUCED from 24
+                const SizedBox(height: 20),
+
                 // ---------------- SCHEDULE HEADER ----------------
                 _buildScheduleHeader(selectedDay, daySchedule.length),
 
-                const SizedBox(height: 14), // REDUCED from 16
+                const SizedBox(height: 16),
+
                 // ---------------- CLASS CARDS ----------------
                 if (daySchedule.isEmpty)
                   _buildEmptyState()
@@ -275,9 +271,7 @@ class _TeacherWeeklyScheduleScreenState
                   ...List.generate(
                     daySchedule.length,
                     (index) => Padding(
-                      padding: const EdgeInsets.only(
-                        bottom: 14,
-                      ), // REDUCED from 16
+                      padding: const EdgeInsets.only(bottom: 12),
                       child: _ClassCard(classData: daySchedule[index]),
                     ),
                   ),
@@ -297,29 +291,33 @@ class _TeacherWeeklyScheduleScreenState
         Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(4), // REDUCED padding
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: kSoftPurple.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6), // REDUCED radius
+                gradient: LinearGradient(
+                  colors: [kPrimaryBlue, kPrimaryGreen],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(
                 Icons.calendar_view_day_rounded,
-                color: kSoftPurple,
-                size: 14, // REDUCED icon size
+                color: Colors.white,
+                size: 16,
               ),
             ),
-            const SizedBox(width: 6), // REDUCED spacing
+            const SizedBox(width: 8),
             const Text(
               "Select Day",
               style: TextStyle(
-                fontSize: 13, // REDUCED font size
+                fontSize: 15,
                 fontWeight: FontWeight.w600,
                 color: kTextPrimary,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 10), // REDUCED from 12
+        const SizedBox(height: 12),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
@@ -329,14 +327,14 @@ class _TeacherWeeklyScheduleScreenState
               final Color dayColor = _getDayColor(day);
 
               return Padding(
-                padding: const EdgeInsets.only(right: 6), // REDUCED spacing
+                padding: const EdgeInsets.only(right: 8),
                 child: FilterChip(
                   label: Text(
                     day,
                     style: TextStyle(
                       color: isSelected ? Colors.white : kTextPrimary,
                       fontWeight: FontWeight.w600,
-                      fontSize: 11, // REDUCED font size
+                      fontSize: 13,
                     ),
                   ),
                   selected: isSelected,
@@ -349,16 +347,16 @@ class _TeacherWeeklyScheduleScreenState
                   selectedColor: dayColor,
                   checkmarkColor: Colors.white,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16), // REDUCED radius
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   side: BorderSide(
                     color: isSelected ? dayColor : Colors.grey.shade300,
                     width: 1,
                   ),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ), // REDUCED padding
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
               );
@@ -378,25 +376,29 @@ class _TeacherWeeklyScheduleScreenState
         Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(4), // REDUCED padding
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: dayColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6), // REDUCED radius
+                gradient: LinearGradient(
+                  colors: [kPrimaryBlue, kPrimaryGreen],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
                 day,
-                style: TextStyle(
-                  color: dayColor,
+                style: const TextStyle(
+                  color: Colors.white,
                   fontWeight: FontWeight.bold,
-                  fontSize: 14, // REDUCED font size
+                  fontSize: 14,
                 ),
               ),
             ),
-            const SizedBox(width: 6), // REDUCED spacing
-            Text(
+            const SizedBox(width: 8),
+            const Text(
               "Schedule",
-              style: const TextStyle(
-                fontSize: 14, // REDUCED font size
+              style: TextStyle(
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: kTextPrimary,
               ),
@@ -404,20 +406,17 @@ class _TeacherWeeklyScheduleScreenState
           ],
         ),
         Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 3,
-          ), // REDUCED padding
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: kSoftPurple.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(16), // REDUCED radius
+            color: kPrimaryGreen.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
             '$count class${count != 1 ? 'es' : ''}',
             style: TextStyle(
-              color: kSoftPurple,
+              color: kPrimaryGreen,
               fontWeight: FontWeight.w600,
-              fontSize: 10, // REDUCED font size
+              fontSize: 12,
             ),
           ),
         ),
@@ -427,39 +426,36 @@ class _TeacherWeeklyScheduleScreenState
 
   Widget _buildEmptyState() {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 30), // REDUCED padding
+      padding: const EdgeInsets.symmetric(vertical: 40),
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(12), // REDUCED padding
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: kSoftPurple.withOpacity(0.1),
+                color: kSoftBlue,
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.calendar_month_rounded,
-                color: kSoftPurple,
-                size: 36, // REDUCED icon size
+                color: kPrimaryBlue,
+                size: 56,
               ),
             ),
-            const SizedBox(height: 12), // REDUCED spacing
+            const SizedBox(height: 12),
             const Text(
               "No classes scheduled",
               style: TextStyle(
                 color: kTextPrimary,
-                fontSize: 14, // REDUCED font size
+                fontSize: 18,
                 fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               "Enjoy your day off!",
-              style: TextStyle(
-                color: kTextSecondary,
-                fontSize: 12, // REDUCED font size
-              ),
+              style: TextStyle(color: kTextSecondary, fontSize: 14),
             ),
           ],
         ),
@@ -479,110 +475,141 @@ class _ClassCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16), // REDUCED radius
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
-            blurRadius: 10, // REDUCED blur
-            offset: const Offset(0, 3), // REDUCED offset
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
+        border: Border.all(color: Colors.grey.shade100, width: 1.5),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(14), // REDUCED padding
+        padding: const EdgeInsets.all(16),
         child: Row(
           children: [
             // Left side - Icon with gradient
             Container(
-              width: 42, // REDUCED size
-              height: 42, // REDUCED size
+              width: 50,
+              height: 50,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [kSoftPurple, kSoftBlue],
+                  colors: [kPrimaryBlue, kPrimaryGreen],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(12), // REDUCED radius
+                borderRadius: BorderRadius.circular(14),
                 boxShadow: [
                   BoxShadow(
-                    color: kSoftPurple.withOpacity(0.3),
-                    blurRadius: 5, // REDUCED blur
-                    offset: const Offset(0, 2), // REDUCED offset
+                    color: kPrimaryBlue.withOpacity(0.3),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
               child: Icon(
                 classData['icon'] ?? Icons.class_rounded,
                 color: Colors.white,
-                size: 22, // REDUCED icon size
+                size: 26,
               ),
             ),
-            const SizedBox(width: 12), // REDUCED spacing
+            const SizedBox(width: 14),
+
             // Right side - Class details
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    classData['class'],
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: kTextPrimary,
-                      fontSize: 14, // REDUCED font size
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          classData['class'],
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: kTextPrimary,
+                            fontSize: 16,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: kPrimaryGreen.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          classData['subject'],
+                          style: TextStyle(
+                            color: kPrimaryGreen,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 3), // REDUCED spacing
-                  Text(
-                    classData['subject'],
-                    style: TextStyle(
-                      color: kSoftPurple,
-                      fontSize: 12, // REDUCED font size
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 6), // REDUCED spacing
+                  const SizedBox(height: 8),
                   Wrap(
-                    spacing: 12, // REDUCED spacing
-                    runSpacing: 4,
+                    spacing: 16,
+                    runSpacing: 8,
                     children: [
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            Icons.access_time_rounded,
-                            size: 12,
-                            color: kTextSecondary,
-                          ), // REDUCED size
-                          const SizedBox(width: 3), // REDUCED spacing
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: kPrimaryBlue.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Icon(
+                              Icons.access_time_rounded,
+                              size: 14,
+                              color: kPrimaryBlue,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
                           Text(
                             classData['time'],
                             style: TextStyle(
                               color: kTextSecondary,
-                              fontSize: 11, // REDUCED font size
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(width: 8), // REDUCED spacing
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            Icons.meeting_room_rounded,
-                            size: 12,
-                            color: kTextSecondary,
-                          ), // REDUCED size
-                          const SizedBox(width: 3), // REDUCED spacing
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: kSoftOrange.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Icon(
+                              Icons.meeting_room_rounded,
+                              size: 14,
+                              color: kSoftOrange,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
                           Text(
                             "Room ${classData['room']}",
                             style: TextStyle(
                               color: kTextSecondary,
-                              fontSize: 11, // REDUCED font size
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
@@ -612,12 +639,12 @@ class _NotificationSheet extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
+          topLeft: Radius.circular(30),
+          topRight: Radius.circular(30),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: kPrimaryBlue.withOpacity(0.1),
             blurRadius: 20,
             offset: const Offset(0, -5),
           ),
@@ -628,36 +655,47 @@ class _NotificationSheet extends StatelessWidget {
           // Handle bar
           Container(
             margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
+            width: 50,
+            height: 5,
             decoration: BoxDecoration(
               color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: BorderRadius.circular(3),
             ),
           ),
 
           // Header
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: kSoftPurple.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
+                    gradient: LinearGradient(
+                      colors: [kPrimaryBlue, kPrimaryGreen],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: kPrimaryBlue.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: const Icon(
                     Icons.notifications_rounded,
-                    color: kSoftPurple,
-                    size: 18,
+                    color: Colors.white,
+                    size: 20,
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 const Text(
                   "Notifications",
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: kTextPrimary,
                   ),
@@ -665,18 +703,18 @@ class _NotificationSheet extends StatelessWidget {
                 const Spacer(),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
+                    horizontal: 10,
+                    vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: kSoftPink.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
+                    color: kErrorColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: Text(
                     '$notificationCount new',
                     style: TextStyle(
-                      color: kSoftPink,
-                      fontSize: 11,
+                      color: kErrorColor,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -685,38 +723,42 @@ class _NotificationSheet extends StatelessWidget {
             ),
           ),
 
-          const Divider(height: 1),
+          Divider(height: 1, color: Colors.grey.shade200),
 
           // Notifications list
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               itemCount: notificationCount,
               itemBuilder: (context, index) {
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.only(bottom: 12),
                   child: Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: kBackgroundEnd,
-                      borderRadius: BorderRadius.circular(12),
+                      color: kSoftBlue,
+                      borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: Colors.grey.shade200),
                     ),
                     child: Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(6),
+                          padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: kSoftPurple.withOpacity(0.1),
-                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              colors: [kPrimaryBlue, kPrimaryGreen],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(
                             Icons.info_rounded,
-                            color: kSoftPurple,
-                            size: 14,
+                            color: Colors.white,
+                            size: 16,
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -726,7 +768,7 @@ class _NotificationSheet extends StatelessWidget {
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: kTextPrimary,
-                                  fontSize: 13,
+                                  fontSize: 14,
                                 ),
                               ),
                               const SizedBox(height: 2),
@@ -734,7 +776,7 @@ class _NotificationSheet extends StatelessWidget {
                                 'This is a sample notification message.',
                                 style: TextStyle(
                                   color: kTextSecondary,
-                                  fontSize: 11,
+                                  fontSize: 12,
                                 ),
                               ),
                             ],

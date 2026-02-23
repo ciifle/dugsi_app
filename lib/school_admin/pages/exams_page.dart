@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'exam_details_page.dart';
 
-// Color palette
-const Color kDarkBlue = Color(0xFF023471);
-const Color kOrange = Color(0xFF5AB04B);
-const Color kBg = Color(0xFFF7F8FA);
+// --- Premium 3D Design Constants ---
+const Color kPrimaryBlue = Color(0xFF023471);
+const Color kPrimaryGreen = Color(0xFF5AB04B);
+const Color kBgColor = Color(0xFFF0F3F7);
+const double kCardRadius = 28.0;
 
 // Dummy exam data model
 class Exam {
@@ -23,50 +24,16 @@ class Exam {
   });
 }
 
-// Dummy data
 final List<Exam> _exams = [
-  Exam(
-    name: "Midterm Exam",
-    subject: "Mathematics",
-    grade: "Class 7A",
-    date: DateTime(2024, 6, 21),
-    isCompleted: false,
-  ),
-  Exam(
-    name: "Final Exam",
-    subject: "History",
-    grade: "Class 8B",
-    date: DateTime(2024, 3, 15),
-    isCompleted: true,
-  ),
-  Exam(
-    name: "Quarterly Test",
-    subject: "Physics",
-    grade: "Grade 10",
-    date: DateTime(2024, 7, 13),
-    isCompleted: false,
-  ),
-  Exam(
-    name: "Unit Test I",
-    subject: "English",
-    grade: "Grade 9",
-    date: DateTime(2024, 2, 7),
-    isCompleted: true,
-  ),
-  Exam(
-    name: "Pre-Board",
-    subject: "Chemistry",
-    grade: "Grade 12",
-    date: DateTime(2024, 8, 20),
-    isCompleted: false,
-  ),
+  Exam(name: "Midterm Exam", subject: "Mathematics", grade: "Class 7A", date: DateTime(2024, 6, 21), isCompleted: false),
+  Exam(name: "Final Exam", subject: "History", grade: "Class 8B", date: DateTime(2024, 3, 15), isCompleted: true),
+  Exam(name: "Quarterly Test", subject: "Physics", grade: "Grade 10", date: DateTime(2024, 7, 13), isCompleted: false),
+  Exam(name: "Unit Test I", subject: "English", grade: "Grade 9", date: DateTime(2024, 2, 7), isCompleted: true),
 ];
 
-// Main ExamsPage widget
 class ExamsPage extends StatelessWidget {
   const ExamsPage({Key? key}) : super(key: key);
 
-  // Format date for display
   String _formatDate(DateTime date) {
     return "${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}";
   }
@@ -74,202 +41,178 @@ class ExamsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kBg,
-      appBar: AppBar(
-        backgroundColor: kDarkBlue,
-        elevation: 0,
-        title: const Text(
-          "Exams",
-          style: TextStyle(
-            color: Colors.white, fontWeight: FontWeight.w600, fontSize: 22,
-            letterSpacing: 0.5,
-          ),
-        ),
-        centerTitle: false,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          color: Colors.white,
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
-        iconTheme: const IconThemeData(
-          color: Colors.white, // Ensures all icons (including back arrow) are white
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              Icons.add_circle,
-              color: kOrange,
-              size: 28,
-            ),
-            tooltip: "Add Exam",
-            onPressed: () {
-              // TODO: Implement add exam action
-              ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Add Exam tapped!'), duration: Duration(seconds: 1),)
-              );
-            },
-          ),
-        ],
-      ),
+      backgroundColor: kBgColor,
       body: SafeArea(
-        child: ListView.separated(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          itemCount: _exams.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 14),
-          itemBuilder: (context, index) {
-            final exam = _exams[index];
-            return ExamTile(
-              exam: exam,
-              formattedDate: _formatDate(exam.date),
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => ExamDetailsPage(), // Navigate to the "real" ExamDetailsPage
-                  ),
-                );
-              },
-            );
-          },
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [kBgColor, kPrimaryBlue.withOpacity(0.02)],
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                child: Row(
+                  children: [
+                    _BackButton(onPressed: () => Navigator.pop(context)),
+                    const SizedBox(width: 16),
+                    const Expanded(
+                      child: Text(
+                        "Exams",
+                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                      ),
+                    ),
+                    _AddButton(onPressed: () {}),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  itemCount: _exams.length,
+                  itemBuilder: (context, index) {
+                    final exam = _exams[index];
+                    return _ExamCard(exam: exam, formatDate: _formatDate);
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-// Reusable widget for each exam card
-class ExamTile extends StatelessWidget {
-  final Exam exam;
-  final String formattedDate;
-  final VoidCallback onTap;
+class _BackButton extends StatelessWidget {
+  final VoidCallback onPressed;
+  const _BackButton({required this.onPressed});
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+        ),
+        child: const Icon(Icons.arrow_back_rounded, color: kPrimaryBlue, size: 24),
+      ),
+    );
+  }
+}
 
-  const ExamTile({
-    Key? key,
-    required this.exam,
-    required this.formattedDate,
-    required this.onTap,
-  }) : super(key: key);
+class _AddButton extends StatelessWidget {
+  final VoidCallback onPressed;
+  const _AddButton({required this.onPressed});
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: kPrimaryGreen.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [BoxShadow(color: kPrimaryGreen.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))],
+        ),
+        child: const Icon(Icons.add_rounded, color: kPrimaryGreen, size: 24),
+      ),
+    );
+  }
+}
+
+class _ExamCard extends StatelessWidget {
+  final Exam exam;
+  final String Function(DateTime) formatDate;
+
+  const _ExamCard({required this.exam, required this.formatDate});
 
   @override
   Widget build(BuildContext context) {
-    // Card color and border is very minimal/subtle
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: onTap,
-      child: Card(
-        elevation: 2,
-        shadowColor: Colors.black12,
-        color: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: BorderSide(
-            color: exam.isCompleted ? Colors.grey[300]! : kOrange.withOpacity(0.12),
-            width: 1.1,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ExamDetailsPage())),
+        borderRadius: BorderRadius.circular(kCardRadius),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(kCardRadius),
+            boxShadow: [
+              BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 6)),
+              BoxShadow(color: kPrimaryBlue.withOpacity(0.03), blurRadius: 32, offset: const Offset(0, 12)),
+            ],
           ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
           child: Row(
             children: [
-              // Leading icon
               Container(
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: kOrange.withOpacity(0.075),
-                  borderRadius: BorderRadius.circular(10),
+                  color: kPrimaryBlue.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(18),
                 ),
-                padding: const EdgeInsets.all(10),
                 child: Icon(
-                  Icons.school_rounded,
-                  color: kOrange,
-                  size: 27,
+                  Icons.assignment_rounded,
+                  color: exam.isCompleted ? Colors.grey : kPrimaryBlue,
+                  size: 28,
                 ),
               ),
               const SizedBox(width: 16),
-              // Exam description
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Exam name
                     Text(
                       exam.name,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16.7,
-                        color: kDarkBlue,
-                      ),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kPrimaryBlue),
                     ),
-                    const SizedBox(height: 2),
-                    // Subject + Grade Row
+                    const SizedBox(height: 6),
                     Row(
                       children: [
+                        Icon(Icons.book_rounded, size: 16, color: Colors.grey[600]),
+                        const SizedBox(width: 4),
                         Text(
-                          exam.subject,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14.2,
-                            color: kDarkBlue.withOpacity(0.80),
-                          ),
-                        ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 6),
-                          child: Text("•", style: TextStyle(fontSize: 13, color: Colors.grey)),
-                        ),
-                        Text(
-                          exam.grade,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w400,
-                            fontSize: 13.7,
-                            color: Colors.black54,
-                          ),
+                          "${exam.subject} • ${exam.grade}",
+                          style: TextStyle(fontSize: 13, color: Colors.grey[700]),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
-                    // Date + Status Row
+                    const SizedBox(height: 4),
                     Row(
                       children: [
-                        Icon(Icons.calendar_today_rounded, size: 15, color: kOrange.withOpacity(0.9)),
-                        const SizedBox(width: 5),
-                        Text(
-                          formattedDate,
-                          style: const TextStyle(
-                            fontSize: 12.8,
-                            color: Colors.black54,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Icon(
-                          exam.isCompleted
-                              ? Icons.check_circle_rounded
-                              : Icons.schedule_rounded,
-                          size: 15,
-                          color: kOrange.withOpacity(0.82),
-                        ),
+                        Icon(Icons.calendar_today_rounded, size: 16, color: Colors.grey[600]),
                         const SizedBox(width: 4),
                         Text(
-                          exam.isCompleted ? "Completed" : "Upcoming",
-                          style: TextStyle(
-                            color: exam.isCompleted
-                                ? kDarkBlue.withOpacity(0.50)
-                                : kDarkBlue,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 12.5,
-                            letterSpacing: 0.1,
-                          ),
+                          formatDate(exam.date),
+                          style: TextStyle(fontSize: 13, color: Colors.grey[700]),
                         ),
                       ],
                     ),
                   ],
                 ),
               ),
-              // Chevron arrow
-              Padding(
-                padding: const EdgeInsets.only(left: 6.0),
-                child: Icon(
-                  Icons.chevron_right_rounded,
-                  color: kOrange,
-                  size: 28,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: exam.isCompleted ? Colors.grey.withOpacity(0.1) : kPrimaryGreen.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  exam.isCompleted ? "Completed" : "Active",
+                  style: TextStyle(
+                    color: exam.isCompleted ? Colors.grey : kPrimaryGreen,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],

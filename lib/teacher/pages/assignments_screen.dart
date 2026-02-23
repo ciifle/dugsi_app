@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
 
-// ---------- WONDERFUL COLOR PALETTE (Matching Student Dashboard) ----------
-const Color kPrimaryColor = Color(0xFF2A2E45); // Deep charcoal
-const Color kSecondaryColor = Color(0xFF6C5CE7); // Rich purple
-const Color kAccentColor = Color(0xFF00B894); // Mint green
-const Color kSoftPurple = Color(0xFFA29BFE); // Light purple
-const Color kSoftPink = Color(0xFFFF7675); // Soft pink
-const Color kSoftOrange = Color(0xFFFDCB6E); // Warm orange
-const Color kSoftBlue = Color(0xFF74B9FF); // Sky blue
-const Color kBackgroundStart = Color(0xFFE8EEF9); // Light blue-gray
-const Color kBackgroundEnd = Color(0xFFF5F0FF); // Light purple
-const Color kCardColor = Colors.white;
+// ---------- COLOR PALETTE (Matching Student Dashboard) ----------
+const Color kPrimaryBlue = Color(0xFF023471); // Dark blue
+const Color kPrimaryGreen = Color(0xFF5AB04B); // Green
+
+// Derived colors (shades/tints of the two main colors)
+const Color kSoftBlue = Color(0xFFE6F0FF); // Light tint of blue
+const Color kSoftGreen = Color(0xFFEDF7EB); // Light tint of green
+const Color kDarkGreen = Color(0xFF3A7A30); // Darker shade of green
+const Color kDarkBlue = Color(0xFF01255C); // Darker shade of blue
 const Color kTextPrimary = Color(0xFF2D3436); // Dark gray
-const Color kTextSecondary = Color(0xFF636E72); // Medium slate
+const Color kTextSecondary = Color(0xFF636E72); // Medium gray
+const Color kErrorColor = Color(0xFFEF4444); // Red
+const Color kSoftOrange = Color(0xFFF59E0B); // Amber
+const Color kSuccessColor = Color(0xFF5AB04B); // Green for present
+const Color kCardColor = Colors.white;
 
 // ================
 //  ENUMS & MODELS
@@ -135,7 +137,6 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
   String _searchQuery = '';
 
   List<Assignment> get filteredAssignments {
-    // First apply search
     List<Assignment> searchFiltered = dummyAssignments;
     if (_searchQuery.isNotEmpty) {
       searchFiltered = dummyAssignments.where((a) {
@@ -146,7 +147,6 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
       }).toList();
     }
 
-    // Then apply category filter
     if (_selectedFilter == 'All') return searchFiltered;
     switch (_selectedFilter) {
       case 'Active':
@@ -199,13 +199,13 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
   Color _getStatusColor(AssignmentStatus status) {
     switch (status) {
       case AssignmentStatus.active:
-        return kSoftBlue;
+        return kPrimaryBlue;
       case AssignmentStatus.submitted:
-        return kSoftPurple;
+        return kSoftOrange;
       case AssignmentStatus.reviewed:
-        return kAccentColor;
+        return kPrimaryGreen;
       case AssignmentStatus.overdue:
-        return kSoftPink;
+        return kErrorColor;
     }
   }
 
@@ -222,133 +222,188 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
     }
   }
 
+  // Navigation methods for action buttons
+  void _viewSubmissions(Assignment assignment) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Viewing submissions for: ${assignment.title}'),
+        backgroundColor: kPrimaryBlue,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+    // TODO: Navigate to submissions screen
+    // Navigator.push(context, MaterialPageRoute(builder: (context) => SubmissionsScreen(assignment: assignment)));
+  }
+
+  void _gradeAssignment(Assignment assignment) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Grading: ${assignment.title}'),
+        backgroundColor: kPrimaryGreen,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+    // TODO: Navigate to grade screen
+    // Navigator.push(context, MaterialPageRoute(builder: (context) => GradeScreen(assignment: assignment)));
+  }
+
+  void _editAssignment(Assignment assignment) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Editing: ${assignment.title}'),
+        backgroundColor: kSoftOrange,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+    // TODO: Navigate to edit screen
+    // Navigator.push(context, MaterialPageRoute(builder: (context) => EditAssignmentScreen(assignment: assignment)));
+  }
+
+  void _extendDeadline(Assignment assignment) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Extending deadline for: ${assignment.title}'),
+        backgroundColor: kErrorColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+    // TODO: Show date picker or navigate to extend screen
+    // _showDatePicker(context, assignment);
+  }
+
+  void _showDatePicker(BuildContext context, Assignment assignment) {
+    showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    ).then((selectedDate) {
+      if (selectedDate != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Deadline extended to: ${selectedDate.toString().split(' ')[0]}',
+            ),
+            backgroundColor: kPrimaryGreen,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final filtered = filteredAssignments;
 
     return Scaffold(
-      backgroundColor: kBackgroundEnd,
+      backgroundColor: kSoftBlue,
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          // ---------------- APP BAR WITH SEARCH (SMALLER SIZE) ----------------
+          // ---------------- APP BAR WITH GRADIENT ----------------
           SliverAppBar(
-            expandedHeight: _isSearching ? 90 : 100, // REDUCED from 120
+            expandedHeight: _isSearching ? 100 : 120,
             pinned: true,
-            backgroundColor: kPrimaryColor,
-            flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.only(
-                left: 16,
-                bottom: 10,
-              ), // REDUCED padding
-              title: _isSearching
-                  ? null
-                  : Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(5), // REDUCED padding
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(
-                              8,
-                            ), // REDUCED radius
-                          ),
-                          child: const Icon(
-                            Icons.assignment_rounded,
-                            color: Colors.white,
-                            size: 16, // REDUCED icon size
-                          ),
-                        ),
-                        const SizedBox(width: 6), // REDUCED spacing
-                        const Text(
-                          "Assignments",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16, // REDUCED font size
-                          ),
-                        ),
-                      ],
-                    ),
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [kPrimaryColor, kSecondaryColor, kSoftPurple],
-                    stops: const [0.1, 0.6, 1.0],
-                  ),
+            backgroundColor: kPrimaryBlue,
+            flexibleSpace: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
+                  stops: const [0.3, 0.7, 1.0],
+                ),
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(30),
+                  bottomRight: Radius.circular(30),
                 ),
               ),
+              child: FlexibleSpaceBar(
+                titlePadding: const EdgeInsets.only(bottom: 20),
+                centerTitle: true,
+                title: _isSearching
+                    ? null
+                    : const Text(
+                        "Assignments",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 28,
+                        ),
+                      ),
+              ),
             ),
-            leading: IconButton(
-              icon: const Icon(
-                Icons.arrow_back_rounded,
-                color: Colors.white,
-                size: 20,
-              ), // REDUCED size
-              onPressed: () => Navigator.pop(context),
+            leading: Container(
+              margin: const EdgeInsets.only(left: 12, top: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: IconButton(
+                icon: const Icon(
+                  Icons.arrow_back_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
+                onPressed: () => Navigator.pop(context),
+                padding: const EdgeInsets.all(10),
+              ),
             ),
             actions: [
               if (_isSearching)
                 Container(
-                  margin: const EdgeInsets.only(right: 12), // REDUCED margin
+                  margin: const EdgeInsets.only(right: 12, top: 8),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.2),
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: IconButton(
                     icon: const Icon(
                       Icons.close,
                       color: Colors.white,
-                      size: 18,
-                    ), // REDUCED size
+                      size: 24,
+                    ),
                     onPressed: _stopSearch,
-                    padding: const EdgeInsets.all(6), // REDUCED padding
-                    constraints: const BoxConstraints(),
+                    padding: const EdgeInsets.all(10),
                   ),
                 )
               else
                 Container(
-                  margin: const EdgeInsets.only(right: 12), // REDUCED margin
+                  margin: const EdgeInsets.only(right: 12, top: 8),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.2),
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: IconButton(
                     icon: const Icon(
                       Icons.search_rounded,
                       color: Colors.white,
-                      size: 18,
-                    ), // REDUCED size
+                      size: 24,
+                    ),
                     onPressed: _startSearch,
-                    padding: const EdgeInsets.all(6), // REDUCED padding
-                    constraints: const BoxConstraints(),
+                    padding: const EdgeInsets.all(10),
                   ),
                 ),
             ],
             bottom: _isSearching
                 ? PreferredSize(
-                    preferredSize: const Size.fromHeight(50), // REDUCED height
+                    preferredSize: const Size.fromHeight(60),
                     child: Container(
-                      padding: const EdgeInsets.fromLTRB(
-                        12,
-                        4,
-                        12,
-                        8,
-                      ), // REDUCED padding
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                       child: Container(
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(
-                            8,
-                          ), // REDUCED radius
+                          borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withOpacity(0.1),
-                              blurRadius: 4,
-                              offset: const Offset(0, 1),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
                             ),
                           ],
                         ),
@@ -360,37 +415,36 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
                             hintText: 'Search assignments...',
                             hintStyle: TextStyle(
                               color: kTextSecondary,
-                              fontSize: 12, // REDUCED font size
+                              fontSize: 15,
                             ),
                             prefixIcon: Icon(
                               Icons.search_rounded,
-                              color: kSoftPurple,
-                              size: 16, // REDUCED icon size
+                              color: kPrimaryBlue,
+                              size: 22,
                             ),
                             suffixIcon: _searchQuery.isNotEmpty
                                 ? IconButton(
                                     icon: Icon(
                                       Icons.clear,
                                       color: kTextSecondary,
-                                      size: 14, // REDUCED size
+                                      size: 20,
                                     ),
                                     onPressed: () {
                                       _searchController.clear();
                                       _updateSearchQuery('');
                                     },
                                     padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
                                   )
                                 : null,
                             border: InputBorder.none,
                             contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12, // REDUCED padding
-                              vertical: 8, // REDUCED padding
+                              horizontal: 16,
+                              vertical: 14,
                             ),
                           ),
                           style: const TextStyle(
                             color: kTextPrimary,
-                            fontSize: 12, // REDUCED font size
+                            fontSize: 15,
                           ),
                         ),
                       ),
@@ -401,17 +455,19 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
 
           // ---------------- MAIN CONTENT ----------------
           SliverPadding(
-            padding: const EdgeInsets.all(16), // REDUCED from 20
+            padding: const EdgeInsets.all(16),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 // ---------------- SUMMARY CARD ----------------
                 _AssignmentSummaryCard(assignments: dummyAssignments),
 
-                const SizedBox(height: 20), // REDUCED from 24
+                const SizedBox(height: 20),
+
                 // ---------------- FILTER SECTION ----------------
                 _buildFilterSection(),
 
-                const SizedBox(height: 16), // REDUCED from 20
+                const SizedBox(height: 16),
+
                 // ---------------- SEARCH RESULT COUNT ----------------
                 if (_searchQuery.isNotEmpty)
                   Padding(
@@ -420,7 +476,7 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
                       'Found ${filtered.length} assignment${filtered.length != 1 ? 's' : ''}',
                       style: TextStyle(
                         color: kTextSecondary,
-                        fontSize: 12, // REDUCED font size
+                        fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -430,35 +486,42 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
                 if (_searchQuery.isEmpty)
                   _buildAssignmentsHeader(filtered.length),
 
-                const SizedBox(height: 12), // REDUCED from 16
+                const SizedBox(height: 12),
+
                 // ---------------- ASSIGNMENT CARDS ----------------
                 if (filtered.isNotEmpty)
                   ...List.generate(
                     filtered.length,
                     (index) => Padding(
-                      padding: const EdgeInsets.only(
-                        bottom: 14,
-                      ), // REDUCED from 16
-                      child: _AssignmentCard(assignment: filtered[index]),
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _AssignmentCard(
+                        assignment: filtered[index],
+                        onSubmissionsTap: () =>
+                            _viewSubmissions(filtered[index]),
+                        onGradeTap: () => _gradeAssignment(filtered[index]),
+                        onEditTap: () => _editAssignment(filtered[index]),
+                        onExtendTap: () => _extendDeadline(filtered[index]),
+                      ),
                     ),
                   )
                 else
                   _buildEmptyState(),
 
-                const SizedBox(height: 20), // REDUCED from 24
+                const SizedBox(height: 20),
+
                 // ---------------- CREATE BUTTON ----------------
                 _CreateAssignmentCTAButton(
                   onPressed: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text("Create New Assignment"),
-                        backgroundColor: kAccentColor,
+                        backgroundColor: kPrimaryGreen,
                       ),
                     );
                   },
                 ),
 
-                const SizedBox(height: 16), // REDUCED from 20
+                const SizedBox(height: 16),
               ]),
             ),
           ),
@@ -477,29 +540,33 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
         Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(4), // REDUCED padding
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: kSoftPurple.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6), // REDUCED radius
+                gradient: LinearGradient(
+                  colors: [kPrimaryBlue, kPrimaryGreen],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(
                 Icons.filter_list_rounded,
-                color: kSoftPurple,
-                size: 14, // REDUCED icon size
+                color: Colors.white,
+                size: 16,
               ),
             ),
-            const SizedBox(width: 6), // REDUCED spacing
+            const SizedBox(width: 8),
             const Text(
               "Filter by Status",
               style: TextStyle(
-                fontSize: 13, // REDUCED font size
+                fontSize: 15,
                 fontWeight: FontWeight.w600,
                 color: kTextPrimary,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8), // REDUCED from 12
+        const SizedBox(height: 12),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
@@ -508,14 +575,14 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
               final Color filterColor = _getFilterColor(filter);
 
               return Padding(
-                padding: const EdgeInsets.only(right: 6), // REDUCED spacing
+                padding: const EdgeInsets.only(right: 8),
                 child: FilterChip(
                   label: Text(
                     filter,
                     style: TextStyle(
                       color: isSelected ? Colors.white : kTextPrimary,
                       fontWeight: FontWeight.w600,
-                      fontSize: 11, // REDUCED font size
+                      fontSize: 13,
                     ),
                   ),
                   selected: isSelected,
@@ -528,16 +595,16 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
                   selectedColor: filterColor,
                   checkmarkColor: Colors.white,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16), // REDUCED radius
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   side: BorderSide(
                     color: isSelected ? filterColor : Colors.grey.shade300,
                     width: 1,
                   ),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ), // REDUCED padding
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
               );
@@ -555,22 +622,26 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
         Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(4), // REDUCED padding
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: kSoftOrange.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6), // REDUCED radius
+                gradient: LinearGradient(
+                  colors: [kPrimaryBlue, kPrimaryGreen],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(
                 Icons.assignment_rounded,
-                color: kSoftOrange,
-                size: 14, // REDUCED icon size
+                color: Colors.white,
+                size: 16,
               ),
             ),
-            const SizedBox(width: 6), // REDUCED spacing
+            const SizedBox(width: 8),
             const Text(
               "Assignment List",
               style: TextStyle(
-                fontSize: 14, // REDUCED font size
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: kTextPrimary,
               ),
@@ -578,20 +649,17 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
           ],
         ),
         Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 3,
-          ), // REDUCED padding
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: kSoftPurple.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(16), // REDUCED radius
+            color: kPrimaryGreen.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
             '$count items',
             style: TextStyle(
-              color: kSoftPurple,
+              color: kPrimaryGreen,
               fontWeight: FontWeight.w600,
-              fontSize: 10, // REDUCED font size
+              fontSize: 12,
             ),
           ),
         ),
@@ -601,33 +669,33 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
 
   Widget _buildEmptyState() {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 30), // REDUCED padding
+      padding: const EdgeInsets.symmetric(vertical: 40),
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(12), // REDUCED padding
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: kSoftPurple.withOpacity(0.1),
+                color: kSoftBlue,
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 _searchQuery.isNotEmpty
                     ? Icons.search_off_rounded
                     : Icons.assignment_rounded,
-                color: kSoftPurple,
-                size: 36, // REDUCED icon size
+                color: kPrimaryBlue,
+                size: 56,
               ),
             ),
-            const SizedBox(height: 12), // REDUCED spacing
+            const SizedBox(height: 12),
             Text(
               _searchQuery.isNotEmpty
                   ? 'No assignments found'
                   : 'No assignments',
               style: TextStyle(
                 color: kTextPrimary,
-                fontSize: 14, // REDUCED font size
+                fontSize: 18,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -636,10 +704,7 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
               _searchQuery.isNotEmpty
                   ? 'Try different search terms'
                   : 'Create your first assignment',
-              style: TextStyle(
-                color: kTextSecondary,
-                fontSize: 12, // REDUCED font size
-              ),
+              style: TextStyle(color: kTextSecondary, fontSize: 14),
             ),
           ],
         ),
@@ -650,17 +715,17 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
   Color _getFilterColor(String filter) {
     switch (filter) {
       case 'All':
-        return kSoftPurple;
+        return kPrimaryBlue;
       case 'Active':
-        return kSoftBlue;
+        return kPrimaryBlue;
       case 'Submitted':
-        return kAccentColor;
-      case 'Reviewed':
         return kSoftOrange;
+      case 'Reviewed':
+        return kPrimaryGreen;
       case 'Overdue':
-        return kSoftPink;
+        return kErrorColor;
       default:
-        return kSecondaryColor;
+        return kPrimaryBlue;
     }
   }
 }
@@ -684,21 +749,18 @@ class _AssignmentSummaryCard extends StatelessWidget {
         .length;
 
     return Container(
-      padding: const EdgeInsets.all(16), // REDUCED from 20
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20), // REDUCED radius
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 15, // REDUCED blur
-            offset: const Offset(0, 5), // REDUCED offset
+            color: kPrimaryBlue.withOpacity(0.08),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
         ],
-        border: Border.all(
-          color: Colors.white,
-          width: 1.5,
-        ), // REDUCED border width
+        border: Border.all(color: Colors.grey.shade100, width: 1.5),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -706,29 +768,33 @@ class _AssignmentSummaryCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(6), // REDUCED padding
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: kSoftPurple.withOpacity(0.1),
-                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [kPrimaryBlue, kPrimaryGreen],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
                   Icons.analytics_rounded,
-                  color: kSoftPurple,
-                  size: 16,
-                ), // REDUCED icon size
+                  color: Colors.white,
+                  size: 18,
+                ),
               ),
-              const SizedBox(width: 8), // REDUCED spacing
+              const SizedBox(width: 10),
               const Text(
                 'Assignment Overview',
                 style: TextStyle(
                   color: kTextPrimary,
                   fontWeight: FontWeight.w700,
-                  fontSize: 15, // REDUCED font size
+                  fontSize: 16,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16), // REDUCED from 20
+          const SizedBox(height: 20),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -736,25 +802,25 @@ class _AssignmentSummaryCard extends StatelessWidget {
                 icon: Icons.list_alt_rounded,
                 label: "Total",
                 value: "$total",
-                color: kSoftPurple,
+                color: kPrimaryBlue,
               ),
               _buildStatItem(
                 icon: Icons.pending_rounded,
                 label: "Active",
                 value: "$active",
-                color: kSoftBlue,
+                color: kPrimaryBlue,
               ),
               _buildStatItem(
                 icon: Icons.check_circle_rounded,
                 label: "Reviewed",
                 value: "$reviewed",
-                color: kAccentColor,
+                color: kPrimaryGreen,
               ),
               _buildStatItem(
                 icon: Icons.warning_rounded,
                 label: "Overdue",
                 value: "$overdue",
-                color: kSoftPink,
+                color: kErrorColor,
               ),
             ],
           ),
@@ -774,30 +840,23 @@ class _AssignmentSummaryCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            padding: const EdgeInsets.all(4), // REDUCED padding
+            padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: color, size: 12), // REDUCED icon size
+            child: Icon(icon, color: color, size: 16),
           ),
-          const SizedBox(height: 4), // REDUCED spacing
+          const SizedBox(height: 6),
           Text(
             value,
             style: TextStyle(
-              fontSize: 14, // REDUCED font size
+              fontSize: 16,
               fontWeight: FontWeight.bold,
               color: color,
             ),
           ),
-          const SizedBox(height: 1),
-          Text(
-            label,
-            style: TextStyle(
-              color: kTextSecondary,
-              fontSize: 9, // REDUCED font size
-            ),
-          ),
+          Text(label, style: TextStyle(color: kTextSecondary, fontSize: 11)),
         ],
       ),
     );
@@ -807,7 +866,18 @@ class _AssignmentSummaryCard extends StatelessWidget {
 // ---------------- ASSIGNMENT CARD ----------------
 class _AssignmentCard extends StatefulWidget {
   final Assignment assignment;
-  const _AssignmentCard({required this.assignment});
+  final VoidCallback onSubmissionsTap;
+  final VoidCallback onGradeTap;
+  final VoidCallback onEditTap;
+  final VoidCallback onExtendTap;
+
+  const _AssignmentCard({
+    required this.assignment,
+    required this.onSubmissionsTap,
+    required this.onGradeTap,
+    required this.onEditTap,
+    required this.onExtendTap,
+  });
 
   @override
   State<_AssignmentCard> createState() => _AssignmentCardState();
@@ -819,13 +889,13 @@ class _AssignmentCardState extends State<_AssignmentCard> {
   Color _getStatusColor(AssignmentStatus status) {
     switch (status) {
       case AssignmentStatus.active:
-        return kSoftBlue;
+        return kPrimaryBlue;
       case AssignmentStatus.submitted:
-        return kSoftPurple;
+        return kSoftOrange;
       case AssignmentStatus.reviewed:
-        return kAccentColor;
+        return kPrimaryGreen;
       case AssignmentStatus.overdue:
-        return kSoftPink;
+        return kErrorColor;
     }
   }
 
@@ -851,25 +921,21 @@ class _AssignmentCardState extends State<_AssignmentCard> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16), // REDUCED radius
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
-            blurRadius: 10, // REDUCED blur
-            offset: const Offset(0, 3), // REDUCED offset
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
+        border: Border.all(color: Colors.grey.shade100, width: 1.5),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          tilePadding: const EdgeInsets.all(12), // REDUCED padding
-          childrenPadding: const EdgeInsets.fromLTRB(
-            12,
-            0,
-            12,
-            12,
-          ), // REDUCED padding
+          tilePadding: const EdgeInsets.all(14),
+          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -878,28 +944,24 @@ class _AssignmentCardState extends State<_AssignmentCard> {
           ),
           onExpansionChanged: (v) => setState(() => _expanded = v),
           leading: Container(
-            width: 42, // REDUCED size
-            height: 42, // REDUCED size
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [statusColor, statusColor.withOpacity(0.7)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(12), // REDUCED radius
+              borderRadius: BorderRadius.circular(14),
               boxShadow: [
                 BoxShadow(
                   color: statusColor.withOpacity(0.3),
-                  blurRadius: 5, // REDUCED blur
-                  offset: const Offset(0, 2), // REDUCED offset
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
-            child: Icon(
-              a.icon,
-              color: Colors.white,
-              size: 22, // REDUCED icon size
-            ),
+            child: Icon(a.icon, color: Colors.white, size: 24),
           ),
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -913,40 +975,40 @@ class _AssignmentCardState extends State<_AssignmentCard> {
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: kTextPrimary,
-                        fontSize: 14, // REDUCED font size
+                        fontSize: 16,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(width: 6), // REDUCED spacing
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 3,
-                    ), // REDUCED padding
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12), // REDUCED radius
+                      borderRadius: BorderRadius.circular(16),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          width: 5, // REDUCED size
-                          height: 5, // REDUCED size
+                          width: 6,
+                          height: 6,
                           decoration: BoxDecoration(
                             color: statusColor,
                             shape: BoxShape.circle,
                           ),
                         ),
-                        const SizedBox(width: 3), // REDUCED spacing
+                        const SizedBox(width: 4),
                         Text(
                           statusText,
                           style: TextStyle(
                             color: statusColor,
                             fontWeight: FontWeight.w600,
-                            fontSize: 9, // REDUCED font size
+                            fontSize: 11,
                           ),
                         ),
                       ],
@@ -954,26 +1016,23 @@ class _AssignmentCardState extends State<_AssignmentCard> {
                   ),
                 ],
               ),
-              const SizedBox(height: 3), // REDUCED spacing
+              const SizedBox(height: 4),
               Text(
                 "${a.className} • ${a.subject}",
-                style: TextStyle(
-                  color: kTextSecondary,
-                  fontSize: 12, // REDUCED font size
-                ),
+                style: TextStyle(color: kTextSecondary, fontSize: 13),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 6), // REDUCED spacing
+              const SizedBox(height: 8),
               Wrap(
-                spacing: 8, // REDUCED spacing
-                runSpacing: 6, // REDUCED spacing
+                spacing: 10,
+                runSpacing: 8,
                 children: [
                   _buildInfoChip(
                     icon: Icons.event_rounded,
                     value: a.dueDate,
                     label: "Due",
-                    color: kSoftPurple,
+                    color: kPrimaryBlue,
                   ),
                   _buildInfoChip(
                     icon: Icons.people_rounded,
@@ -990,35 +1049,35 @@ class _AssignmentCardState extends State<_AssignmentCard> {
                 ? Icons.keyboard_arrow_up_rounded
                 : Icons.keyboard_arrow_down_rounded,
             color: statusColor,
-            size: 20, // REDUCED size
+            size: 24,
           ),
           children: [
-            const Divider(height: 1),
-            const SizedBox(height: 8), // REDUCED spacing
+            Divider(height: 1, color: Colors.grey.shade200),
+            const SizedBox(height: 12),
             _buildDetailRow(
               icon: Icons.description_rounded,
               label: "Description",
               value: a.description,
-              color: kSoftPurple,
+              color: kPrimaryBlue,
             ),
-            const SizedBox(height: 6), // REDUCED spacing
+            const SizedBox(height: 8),
             _buildDetailRow(
               icon: Icons.assignment_rounded,
               label: "Instructions",
               value: a.instructions,
-              color: kSoftBlue,
+              color: kPrimaryBlue,
             ),
             if (a.attachedInfo != null) ...[
-              const SizedBox(height: 6), // REDUCED spacing
+              const SizedBox(height: 8),
               _buildDetailRow(
                 icon: Icons.attach_file_rounded,
                 label: "Attached Info",
                 value: a.attachedInfo!,
-                color: kAccentColor,
+                color: kPrimaryGreen,
               ),
             ],
             if (a.teacherNotes != null) ...[
-              const SizedBox(height: 6), // REDUCED spacing
+              const SizedBox(height: 8),
               _buildDetailRow(
                 icon: Icons.note_alt_rounded,
                 label: "Teacher Notes",
@@ -1026,30 +1085,34 @@ class _AssignmentCardState extends State<_AssignmentCard> {
                 color: kSoftOrange,
               ),
             ],
-            const SizedBox(height: 8), // REDUCED spacing
+            const SizedBox(height: 12),
             Wrap(
-              spacing: 6, // REDUCED spacing
-              runSpacing: 6, // REDUCED spacing
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 _buildActionChip(
                   icon: Icons.visibility_rounded,
                   label: "Submissions",
-                  color: kSoftPurple,
+                  color: kPrimaryBlue,
+                  onTap: widget.onSubmissionsTap,
                 ),
                 _buildActionChip(
                   icon: Icons.grade_rounded,
                   label: "Grade",
-                  color: kSoftBlue,
+                  color: kPrimaryGreen,
+                  onTap: widget.onGradeTap,
                 ),
                 _buildActionChip(
                   icon: Icons.edit_rounded,
                   label: "Edit",
-                  color: kAccentColor,
+                  color: kSoftOrange,
+                  onTap: widget.onEditTap,
                 ),
                 _buildActionChip(
                   icon: Icons.update_rounded,
                   label: "Extend",
-                  color: kSoftOrange,
+                  color: kErrorColor,
+                  onTap: widget.onExtendTap,
                 ),
               ],
             ),
@@ -1066,19 +1129,16 @@ class _AssignmentCardState extends State<_AssignmentCard> {
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 6,
-        vertical: 3,
-      ), // REDUCED padding
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(10), // REDUCED radius
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: 12), // REDUCED icon size
-          const SizedBox(width: 3), // REDUCED spacing
+          Icon(icon, color: color, size: 14),
+          const SizedBox(width: 4),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -1088,15 +1148,12 @@ class _AssignmentCardState extends State<_AssignmentCard> {
                 style: TextStyle(
                   color: color,
                   fontWeight: FontWeight.bold,
-                  fontSize: 11, // REDUCED font size
+                  fontSize: 12,
                 ),
               ),
               Text(
                 label,
-                style: TextStyle(
-                  color: color.withOpacity(0.7),
-                  fontSize: 8, // REDUCED font size
-                ),
+                style: TextStyle(color: color.withOpacity(0.7), fontSize: 9),
               ),
             ],
           ),
@@ -1111,48 +1168,42 @@ class _AssignmentCardState extends State<_AssignmentCard> {
     required String value,
     required Color color,
   }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 1),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(3), // REDUCED padding
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 12), // REDUCED icon size
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            shape: BoxShape.circle,
           ),
-          const SizedBox(width: 6), // REDUCED spacing
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: kTextSecondary,
-                    fontSize: 10, // REDUCED font size
-                    fontWeight: FontWeight.w500,
-                  ),
+          child: Icon(icon, color: color, size: 14),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: kTextSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
                 ),
-                const SizedBox(height: 1),
-                Text(
-                  value,
-                  style: TextStyle(
-                    color: kTextPrimary,
-                    fontSize: 11, // REDUCED font size
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: TextStyle(color: kTextPrimary, fontSize: 13),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -1160,42 +1211,40 @@ class _AssignmentCardState extends State<_AssignmentCard> {
     required IconData icon,
     required String label,
     required Color color,
+    required VoidCallback onTap,
   }) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () {},
-        borderRadius: BorderRadius.circular(14), // REDUCED radius
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 4,
-          ), // REDUCED padding
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [color, color.withOpacity(0.8)],
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
             ),
-            borderRadius: BorderRadius.circular(14), // REDUCED radius
+            borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
                 color: color.withOpacity(0.3),
-                blurRadius: 3, // REDUCED blur
-                offset: const Offset(0, 1), // REDUCED offset
+                blurRadius: 4,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: Colors.white, size: 12), // REDUCED icon size
-              const SizedBox(width: 3), // REDUCED spacing
+              Icon(icon, color: Colors.white, size: 14),
+              const SizedBox(width: 4),
               Text(
                 label,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 10, // REDUCED font size
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -1216,19 +1265,19 @@ class _CreateAssignmentCTAButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      height: 44, // REDUCED height
+      height: 55,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [kAccentColor, kAccentColor.withOpacity(0.8)],
+          colors: [kPrimaryBlue, kPrimaryGreen],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
-        borderRadius: BorderRadius.circular(14), // REDUCED radius
+        borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: kAccentColor.withOpacity(0.3),
-            blurRadius: 6, // REDUCED blur
-            offset: const Offset(0, 3), // REDUCED offset
+            color: kPrimaryBlue.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -1236,22 +1285,18 @@ class _CreateAssignmentCTAButton extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onPressed,
-          borderRadius: BorderRadius.circular(14), // REDUCED radius
+          borderRadius: BorderRadius.circular(18),
           child: Center(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: const [
-                Icon(
-                  Icons.add_rounded,
-                  color: Colors.white,
-                  size: 18,
-                ), // REDUCED icon size
-                SizedBox(width: 6), // REDUCED spacing
+                Icon(Icons.add_rounded, color: Colors.white, size: 22),
+                SizedBox(width: 8),
                 Text(
                   "Create New Assignment",
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 13, // REDUCED font size
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),

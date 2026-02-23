@@ -3,10 +3,12 @@ import 'package:kobac/student/pages/academic_activity.dart';
 import 'package:kobac/student/pages/exam_schedule.dart';
 import 'package:kobac/student/pages/student_attendance.dart';
 import 'package:kobac/student/pages/student_fees.dart';
+import 'package:kobac/student/pages/student_notices.dart';
 import 'package:kobac/student/pages/student_profile.dart';
 import 'package:kobac/student/pages/student_quizzes.dart';
 import 'package:kobac/student/pages/student_result.dart';
 import 'package:kobac/student/widgets/student_drawer.dart';
+// Import the AllNoticesScreen
 
 // ---------- COLOR PALETTE (Only two colors) ----------
 const Color kPrimaryBlue = Color(0xFF023471); // Dark blue
@@ -52,7 +54,7 @@ class _NoticeData {
 
 // ---------------- DASHBOARD SCREEN ----------------
 class StudentDashboardScreen extends StatefulWidget {
-  StudentDashboardScreen({Key? key}) : super(key: key);
+  const StudentDashboardScreen({Key? key}) : super(key: key);
 
   @override
   State<StudentDashboardScreen> createState() => _StudentDashboardScreenState();
@@ -66,7 +68,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
   late final List<Widget> _screens = [
     const _DashboardHomeContent(),
     StudentExamScheduleScreen(),
-    const _AllNoticesScreen(),
+    const AllNoticesScreen(), // This now shows the actual AllNoticesScreen
     StudentProfileScreen(),
   ];
 
@@ -126,29 +128,6 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
         context,
         MaterialPageRoute(builder: (_) => StudentExamScheduleScreen()),
       ),
-    ),
-  ];
-
-  final List<_NoticeData> _notices = const [
-    _NoticeData(
-      title: "🏛️ Campus Closure",
-      description:
-          "University will be closed for maintenance this Friday, June 12th.",
-      time: "2 hours ago",
-      date: "12 Jun",
-    ),
-    _NoticeData(
-      title: "📝 Exam Registration",
-      description:
-          "Last date to submit exam forms is June 18th. Late fee applies after.",
-      time: "Yesterday",
-      date: "10 Jun",
-    ),
-    _NoticeData(
-      title: "📚 New Arrivals",
-      description: "Check out 50+ new books added to the library this week.",
-      time: "2 days ago",
-      date: "08 Jun",
     ),
   ];
 
@@ -331,12 +310,7 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
             // ---------------- HEADER (Blue background) ----------------
             SliverToBoxAdapter(
               child: Container(
-                padding: const EdgeInsets.fromLTRB(
-                  24,
-                  16,
-                  24,
-                  40,
-                ), // Reduced top padding from 32 to 16
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 40),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
@@ -551,7 +525,7 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
                     ),
                     TextButton(
                       onPressed: () {
-                        // Switch to notices tab
+                        // Navigate to notices tab (index 2)
                         final parentState = context
                             .findAncestorStateOfType<
                               _StudentDashboardScreenState
@@ -1118,92 +1092,6 @@ class _NoticeCard extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ---------------- ALL NOTICES SCREEN ----------------
-class _AllNoticesScreen extends StatelessWidget {
-  const _AllNoticesScreen({Key? key}) : super(key: key);
-
-  final List<_NoticeData> _notices = const [
-    _NoticeData(
-      title: "🏛️ Campus Closure",
-      description:
-          "University will be closed for maintenance this Friday, June 12th.",
-      time: "2 hours ago",
-      date: "12 Jun",
-    ),
-    _NoticeData(
-      title: "📝 Exam Registration",
-      description:
-          "Last date to submit exam forms is June 18th. Late fee applies after.",
-      time: "Yesterday",
-      date: "10 Jun",
-    ),
-    _NoticeData(
-      title: "📚 New Arrivals",
-      description: "Check out 50+ new books added to the library this week.",
-      time: "2 days ago",
-      date: "08 Jun",
-    ),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [kSoftBlue, kSoftGreen],
-          stops: [0.0, 1.0],
-        ),
-      ),
-      child: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverAppBar(
-              expandedHeight: 100,
-              floating: true,
-              backgroundColor: kPrimaryBlue,
-              flexibleSpace: FlexibleSpaceBar(
-                title: const Text(
-                  "All Notices",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                background: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
-                      stops: const [0.3, 0.7, 1.0],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.all(16),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _NoticeCard(
-                      notice: _notices[index % _notices.length],
-                    ),
-                  ),
-                  childCount: _notices.length * 3,
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

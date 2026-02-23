@@ -72,12 +72,18 @@ class _AppStartRouterState extends State<AppStartRouter> {
   }
 
   Future<void> _initialize() async {
-    await Future.delayed(const Duration(seconds: 2)); // splash delay
+    // Simulate splash screen delay
+    await Future.delayed(const Duration(seconds: 2));
 
     final loggedIn = await isLoggedIn();
+    print('🔐 AppStartRouter - isLoggedIn: $loggedIn');
 
     setState(() {
-      _startScreen = loggedIn ? const RoleRouter() : const LoginPage();
+      if (loggedIn) {
+        _startScreen = const RoleRouter();
+      } else {
+        _startScreen = const LoginPage();
+      }
       _initialized = true;
     });
   }
@@ -112,8 +118,14 @@ class _RoleRouterState extends State<RoleRouter> {
   }
 
   Future<UserRole?> _getRole() async {
-    final user = await LocalAuthService().getCurrentUser();
-    return user?.role;
+    try {
+      final user = await LocalAuthService().getCurrentUser();
+      print('👤 Current user: ${user?.email}, Role: ${user?.role}');
+      return user?.role;
+    } catch (e) {
+      print('Error getting user role: $e');
+      return null;
+    }
   }
 
   @override
@@ -121,24 +133,35 @@ class _RoleRouterState extends State<RoleRouter> {
     return FutureBuilder<UserRole?>(
       future: _roleFuture,
       builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return const LoginPage();
-        }
-
-        if (!snapshot.hasData) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const SplashScreen();
         }
 
-        switch (snapshot.data) {
+        if (snapshot.hasError) {
+          print('Error in RoleRouter: ${snapshot.error}');
+          return const LoginPage();
+        }
+
+        if (!snapshot.hasData || snapshot.data == null) {
+          print('No user data found, redirecting to login');
+          return const LoginPage();
+        }
+
+        final userRole = snapshot.data;
+        print('Routing to role: $userRole');
+
+        // Navigate based on role
+        switch (userRole) {
           case UserRole.student:
-            return StudentDashboardScreen();
+            return const StudentDashboardScreen();
           case UserRole.parent:
             return const ParentDashboardScreen();
           case UserRole.teacher:
-            return TeacherDashboardScreen();
+            return const TeacherDashboardScreen();
           case UserRole.schoolAdmin:
             return const SchoolAdminScreen();
           default:
+            print('Unknown role: $userRole');
             return const LoginPage();
         }
       },

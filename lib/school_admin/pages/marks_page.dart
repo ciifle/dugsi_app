@@ -1,20 +1,10 @@
 import 'package:flutter/material.dart';
 
-// ----- Color Constants -----
-const Color kDarkBlue = Color(0xFF023471);
-const Color kOrange = Color(0xFF5AB04B);
-const Color kBgLight = Color(0xFFF7F8FA);
-
-// Dummy data for demonstration
-final List<StudentMark> dummyStudentMarks = [
-  StudentMark(name: "Amina Farouk", studentId: "STU1023", marks: 84),
-  StudentMark(name: "Yusuf Khaled", studentId: "STU1059", marks: 77),
-  StudentMark(name: "Layla Omar", studentId: "STU1091", marks: 95),
-  StudentMark(name: "Ahmed Saleh", studentId: "STU0998", marks: 62),
-  StudentMark(name: "Rania Mostafa", studentId: "STU1045", marks: 48),
-  StudentMark(name: "Kareem Nabil", studentId: "STU1122", marks: 56),
-  StudentMark(name: "Fatima Noor", studentId: "STU1087", marks: 91),
-];
+// --- Premium 3D Design Constants ---
+const Color kPrimaryBlue = Color(0xFF023471);
+const Color kPrimaryGreen = Color(0xFF5AB04B);
+const Color kBgColor = Color(0xFFF0F3F7);
+const double kCardRadius = 28.0;
 
 class StudentMark {
   String name;
@@ -23,6 +13,13 @@ class StudentMark {
 
   StudentMark({required this.name, required this.studentId, required this.marks});
 }
+
+final List<StudentMark> dummyStudentMarks = [
+  StudentMark(name: "Amina Farouk", studentId: "STU1023", marks: 84),
+  StudentMark(name: "Yusuf Khaled", studentId: "STU1059", marks: 77),
+  StudentMark(name: "Layla Omar", studentId: "STU1091", marks: 95),
+  StudentMark(name: "Ahmed Saleh", studentId: "STU0998", marks: 62),
+];
 
 class MarksPage extends StatefulWidget {
   final String? examName;
@@ -43,195 +40,197 @@ class MarksPage extends StatefulWidget {
 }
 
 class _MarksPageState extends State<MarksPage> {
-  List<StudentMark> studentMarks = []; // Ensure this is initialized (not late)
-
-  // Provide safe fallback values for all possibly-null fields
-  String get _examName => widget.examName ?? "Mid Term Examination";
-  String get _subject => widget.subject ?? "Mathematics";
-  String get _classGrade => widget.classGrade ?? "Grade 8";
-  int get _totalMarks => widget.totalMarks ?? 100;
+  late List<StudentMark> studentMarks;
 
   @override
   void initState() {
     super.initState();
-    studentMarks = dummyStudentMarks
-        .map((s) => StudentMark(
-              name: s.name,
-              studentId: s.studentId,
-              marks: s.marks,
-            ))
-        .toList();
+    studentMarks = dummyStudentMarks.map((s) => StudentMark(name: s.name, studentId: s.studentId, marks: s.marks)).toList();
   }
 
   void _saveMarks() {
-    // Dummy save logic (could be replaced by real backend)
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Marks saved successfully!'),
-        backgroundColor: kOrange,
-        duration: Duration(seconds: 1),
-      ),
+      const SnackBar(content: Text('Marks saved successfully!'), backgroundColor: kPrimaryGreen),
     );
-    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
+    String examName = widget.examName ?? "Mid Term Examination";
+    String subject = widget.subject ?? "Mathematics";
+    String grade = widget.classGrade ?? "Grade 8";
+    int total = widget.totalMarks ?? 100;
+
     return Scaffold(
-      backgroundColor: kBgLight,
-      appBar: AppBar(
-        backgroundColor: kDarkBlue,
-        elevation: 2,
-        title: const Text(
-          "Student Marks",
-          style: TextStyle(
-            color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22),
-        ),
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
-          onPressed: () => Navigator.of(context).maybePop(),
-          tooltip: "Back",
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.save_alt_rounded, color: kOrange, size: 26),
-            tooltip: "Save",
-            onPressed: _saveMarks,
-          ),
-        ],
-      ),
+      backgroundColor: kBgColor,
       body: SafeArea(
-        child: Column(
-          children: [
-            // Exam Summary Card (visually engaging)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
-              child: Card(
-                color: Colors.white,
-                elevation: 6,
-                shadowColor: kDarkBlue.withOpacity(0.12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(22),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [kBgColor, kPrimaryBlue.withOpacity(0.02)],
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+                        ),
+                        child: const Icon(Icons.arrow_back_rounded, color: kPrimaryBlue, size: 24),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    const Expanded(
+                      child: Text(
+                        "Student Marks",
+                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: _saveMarks,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(colors: [kPrimaryGreen, kPrimaryGreen.withOpacity(0.85)]),
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [BoxShadow(color: kPrimaryGreen.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))],
+                        ),
+                        child: const Text("Save", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                      ),
+                    ),
+                  ],
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 21),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [kPrimaryBlue, kPrimaryBlue.withOpacity(0.9)]),
+                    borderRadius: BorderRadius.circular(kCardRadius),
+                    boxShadow: [
+                      BoxShadow(color: kPrimaryBlue.withOpacity(0.25), blurRadius: 16, offset: const Offset(0, 6)),
+                      BoxShadow(color: kPrimaryBlue.withOpacity(0.12), blurRadius: 32, offset: const Offset(0, 12)),
+                    ],
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _ExamInfoRow(
-                        icon: Icons.assignment_turned_in_rounded,
-                        label: _examName,
-                        iconColor: kOrange,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 19,
+                      Text(
+                        examName,
+                        style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 15),
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Flexible(
-                            child: _ExamInfoRow(
-                              icon: Icons.menu_book_rounded,
-                              label: _subject,
-                              iconColor: kDarkBlue,
-                              fontWeight: FontWeight.w500,
-                              fontSize: 15.5,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Flexible(
-                            child: _ExamInfoRow(
-                              icon: Icons.class_rounded,
-                              label: _classGrade,
-                              iconColor: kDarkBlue,
-                              fontWeight: FontWeight.w500,
-                              fontSize: 15.5,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Flexible(
-                            child: _ExamInfoRow(
-                              icon: Icons.grade_rounded,
-                              label: "${_totalMarks} marks",
-                              iconColor: kDarkBlue,
-                              fontWeight: FontWeight.w500,
-                              fontSize: 15.5,
-                            ),
-                          ),
+                          _InfoBadge(icon: Icons.book_rounded, text: subject),
+                          _InfoBadge(icon: Icons.class_rounded, text: grade),
+                          _InfoBadge(icon: Icons.grade_rounded, text: "$total Marks"),
                         ],
                       ),
                     ],
                   ),
                 ),
               ),
-            ),
-            // Marks list title
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 2),
-              child: Row(
-                children: [
-                  Text(
-                    "Enter or Update Student Marks:",
-                    style: TextStyle(
-                      color: kDarkBlue,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16.4,
-                      letterSpacing: 0.1,
-                      shadows: [
-                        Shadow(
-                          blurRadius: 2,
-                          color: Colors.black12,
-                          offset: Offset(1, 1),
-                        )
-                      ]
-                    ),
+              const SizedBox(height: 20),
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  itemCount: studentMarks.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 14),
+                  itemBuilder: (context, index) {
+                    final student = studentMarks[index];
+                    return Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(kCardRadius),
+                        boxShadow: [
+                          BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 6)),
+                          BoxShadow(color: kPrimaryBlue.withOpacity(0.03), blurRadius: 32, offset: const Offset(0, 12)),
+                        ],
+                      ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: kPrimaryBlue.withOpacity(0.05),
+                        child: Text(
+                          student.name[0],
+                          style: const TextStyle(color: kPrimaryBlue, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              student.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: kPrimaryBlue,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              "#${student.studentId}",
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      // Marks Input
+                      Container(
+                        width: 80,
+                        height: 45,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: kBgColor,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: TextField(
+                          keyboardType: TextInputType.number,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.only(bottom: 2), // vertically center
+                          ),
+                          controller: TextEditingController(text: student.marks.toString())
+                            ..selection = TextSelection.collapsed(offset: student.marks.toString().length),
+                          onChanged: (val) {
+                            if (val.isNotEmpty) {
+                              student.marks = int.tryParse(val) ?? 0;
+                            }
+                          },
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                );
+                  },
+                ),
               ),
-            ),
-            // Student Marks List with beautiful UI
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(14, 6, 14, 12),
-                itemCount: studentMarks.length,
-                itemBuilder: (context, idx) {
-                  final student = studentMarks[idx];
-                  return StudentMarkRow(
-                    student: student,
-                    totalMarks: _totalMarks,
-                    onChanged: (newValue) {
-                      setState(() {
-                        student.marks = newValue;
-                      });
-                    },
-                  );
-                },
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-              ),
-            ),
-          ],
-        ),
-      ),
-      // Save button at bottom (inside SafeArea)
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        child: SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            icon: const Icon(Icons.save_rounded, color: Colors.white, size: 22),
-            label: const Text(
-              "Save Marks",
-              style: TextStyle(fontSize: 17.5, color: Colors.white, fontWeight: FontWeight.w700),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: kOrange,
-              foregroundColor: Colors.white,
-              minimumSize: const Size(0, 50),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-              elevation: 4,
-              shadowColor: kDarkBlue.withOpacity(0.18)
-            ),
-            onPressed: _saveMarks,
+            ],
           ),
         ),
       ),
@@ -239,254 +238,34 @@ class _MarksPageState extends State<MarksPage> {
   }
 }
 
-//----------------- REUSABLE WIDGETS ------------------------
-
-// Exam info row for details card
-class _ExamInfoRow extends StatelessWidget {
+class _InfoBadge extends StatelessWidget {
   final IconData icon;
-  final String label;
-  final Color iconColor;
-  final FontWeight fontWeight;
-  final double fontSize;
-  const _ExamInfoRow({
-    required this.icon,
-    required this.label,
-    required this.iconColor,
-    this.fontWeight = FontWeight.w500,
-    this.fontSize = 14.8,
-    Key? key,
-  }) : super(key: key);
+  final String text;
+
+  const _InfoBadge({required this.icon, required this.text});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, color: iconColor, size: 22),
-        const SizedBox(width: 9),
-        Flexible(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: kDarkBlue,
-              fontWeight: fontWeight,
-              fontSize: fontSize,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Row widget for a single student's marks entry
-class StudentMarkRow extends StatefulWidget {
-  final StudentMark student;
-  final int totalMarks;
-  final ValueChanged<int> onChanged;
-  const StudentMarkRow({
-    required this.student,
-    required this.totalMarks,
-    required this.onChanged,
-    Key? key,
-  }) : super(key: key);
-
-  @override
-  State<StudentMarkRow> createState() => _StudentMarkRowState();
-}
-
-class _StudentMarkRowState extends State<StudentMarkRow> {
-  late TextEditingController _controller;
-  late FocusNode _focusNode;
-  bool hasError = false;
-  
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.student.marks.toString());
-    _focusNode = FocusNode();
-  }
-
-  @override
-  void didUpdateWidget(covariant StudentMarkRow oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.student.marks.toString() != _controller.text) {
-      _controller.text = widget.student.marks.toString();
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  bool get isPass => widget.student.marks >= (widget.totalMarks * 0.5).ceil();
-
-  void _onChanged(String value) {
-    int? val = int.tryParse(value);
-    if (val == null) {
-      setState(() {
-        hasError = true;
-      });
-      return;
-    }
-    if (val < 0) {
-      setState(() {
-        hasError = true;
-      });
-      widget.onChanged(0); // Optionally clamp to zero
-      _controller.text = "0";
-      _controller.selection = TextSelection.collapsed(offset: _controller.text.length);
-      return;
-    }
-    if (val > widget.totalMarks) {
-      setState(() {
-        hasError = true;
-      });
-      widget.onChanged(widget.totalMarks);
-      _controller.text = widget.totalMarks.toString();
-      _controller.selection = TextSelection.collapsed(offset: _controller.text.length);
-      return;
-    }
-    setState(() {
-      hasError = false;
-    });
-    widget.onChanged(val);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final student = widget.student;
-    final totalMarks = widget.totalMarks;
-
     return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F8FA),
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: kDarkBlue.withOpacity(0.045),
-            blurRadius: 6,
-            offset: const Offset(0,1.5),
-          ),
-        ],
+        color: Colors.white.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(10),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Student info column (name + ID)
-          Expanded(
-            flex: 6,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  student.name,
-                  style: const TextStyle(
-                    color: kDarkBlue,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  maxLines: 1,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  "#${student.studentId}",
-                  style: const TextStyle(
-                    color: Colors.black54,
-                    fontSize: 12.2,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ],
+          Icon(icon, color: Colors.white, size: 14),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(width: 10),
-          // MARKS TEXT FIELD
-          Expanded(
-            flex: 4,
-            child: Row(
-              children: [
-                Container(
-                  width: 64,
-                  child: TextField(
-                    controller: _controller,
-                    focusNode: _focusNode,
-                    keyboardType: TextInputType.number,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: kDarkBlue,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15.8,
-                    ),
-                    decoration: InputDecoration(
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 5),
-                      hintText: "0",
-                      suffixText: "/$totalMarks",
-                      suffixStyle: const TextStyle(color: Colors.grey, fontSize: 13),
-                      fillColor: Colors.white,
-                      filled: true,
-                      errorText: hasError ? "Invalid" : null,
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Colors.transparent, width: 1.1),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: kOrange, width: 2),
-                      ),
-                    ),
-                    onChanged: (val) {
-                      // Only allow numbers within limit
-                      if (val.isNotEmpty) {
-                        int? v = int.tryParse(val);
-                        if (v != null && v > totalMarks) {
-                          _controller.text = totalMarks.toString();
-                          _controller.selection = TextSelection(
-                            baseOffset: _controller.text.length,
-                            extentOffset: _controller.text.length,
-                          );
-                          _onChanged(_controller.text);
-                          return;
-                        }
-                      }
-                      _onChanged(val);
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          // STATUS: Pass/Fail
-          Expanded(
-            flex: 3,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-              decoration: BoxDecoration(
-                color: isPass ? kOrange.withOpacity(0.14) : Colors.red.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                isPass ? "Pass" : "Fail",
-                style: TextStyle(
-                  color: isPass ? kOrange : Colors.red[600],
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13.5,
-                  letterSpacing: 0.2,
-                ),
-              ),
-            ),
-          )
         ],
       ),
     );
   }
 }
-

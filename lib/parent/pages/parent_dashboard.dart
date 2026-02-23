@@ -1,27 +1,36 @@
 import 'package:flutter/material.dart';
+import 'package:kobac/parent/Widget/parent_drawer.dart';
+import 'package:kobac/parent/pages/parent_attendance_screen.dart';
+import 'package:kobac/parent/pages/parent_child_details_screen.dart';
+import 'package:kobac/parent/pages/parent_children_list_screen.dart';
+import 'package:kobac/parent/pages/parent_fee_payment_screen.dart';
+import 'package:kobac/parent/pages/parent_notifications.dart';
+import 'package:kobac/parent/pages/parent_profile_screen.dart';
+import 'package:kobac/parent/pages/parent_result_screen.dart';
+import 'package:kobac/services/local_auth_service.dart';
+import 'package:kobac/shared/pages/login_screen.dart';
 
-// Comment out these imports if the files don't exist yet
-// import 'package:kobac/parent/pages/children_list_screen.dart';
-// import 'package:kobac/parent/pages/parent_fees_screen.dart';
-// import 'package:kobac/parent/pages/parent_notifications.dart';
-// import 'package:kobac/parent/pages/parent_profile.dart';
-
-// ==================== COLOR CONSTANTS (DEFINED HERE) ====================
-const Color kPrimaryColor = Color(0xFF2A2E45); // Deep charcoal
-const Color kSecondaryColor = Color(0xFF6C5CE7); // Rich purple
-const Color kAccentColor = Color(0xFF00B894); // Mint green
-const Color kSoftPurple = Color(0xFFA29BFE); // Light purple
-const Color kSoftPink = Color(0xFFFF7675); // Soft pink
-const Color kSoftOrange = Color(0xFFFDCB6E); // Warm orange
-const Color kSoftBlue = Color(0xFF74B9FF); // Sky blue
-const Color kBackgroundStart = Color(0xFFE8EEF9); // Light blue-gray
-const Color kBackgroundEnd = Color(0xFFF5F0FF); // Light purple
+// ---------- COLOR PALETTE ----------
+const Color kPrimaryBlue = Color(0xFF023471);
+const Color kPrimaryGreen = Color(0xFF5AB04B);
+const Color kSoftBlue = Color(0xFFE6F0FF);
+const Color kSoftGreen = Color(0xFFEDF7EB);
+const Color kDarkGreen = Color(0xFF3A7A30);
+const Color kDarkBlue = Color(0xFF01255C);
+const Color kTextPrimary = Color(0xFF2D3436);
+const Color kTextSecondary = Color(0xFF636E72);
+const Color kErrorColor = Color(0xFFEF4444);
+const Color kSoftOrange = Color(0xFFF59E0B);
+const Color kSuccessColor = Color(0xFF5AB04B);
 const Color kCardColor = Colors.white;
-const Color kTextPrimary = Color(0xFF2D3436); // Dark gray
-const Color kTextSecondary = Color(0xFF636E72); // Medium gray
-const Color kSuccessColor = Color(0xFF059669); // Dark green
-const Color kWarningColor = Color(0xFFF59E0B); // Amber
-const Color kErrorColor = Color(0xFFEF4444); // Red
+
+// Additional color constants
+const Color kSoftPurple = Color(0xFFA29BFE);
+const Color kSecondaryColor = Color(0xFF6C5CE7);
+const Color kAccentColor = Color(0xFF00B894);
+const Color kSoftPink = Color(0xFFFF7675);
+const Color kBackgroundEnd = Color(0xFFF5F0FF);
+const Color kPrimaryColor = Color(0xFF2A2E45);
 
 class ParentDashboardScreen extends StatefulWidget {
   const ParentDashboardScreen({Key? key}) : super(key: key);
@@ -37,28 +46,172 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     'name': "Mr. & Mrs. Carter",
     'email': "carter.family@email.com",
     'initials': "FC",
+    'phone': "+1 234 567 890",
+    'address': "123 Family Street, City",
+    'occupation': "Business",
+    'childrenCount': "3",
   };
 
   final List<Map<String, dynamic>> children = [
     {
+      'id': '1',
       'name': 'Ava Carter',
       'className': 'Grade 6 - A',
       'rollNo': '101',
       'attendance': 95,
       'progress': 'Excellent',
+      'fee': {
+        'totalFee': 2500.00,
+        'paidAmount': 1800.00,
+        'dueAmount': 700.00,
+        'dueDate': '2024-06-15',
+        'status': 'partial',
+        'feeType': 'Tuition Fee',
+        'lateFee': 50.00,
+      },
+      'subjects': [
+        {'name': 'Mathematics', 'marks': 92, 'grade': 'A', 'total': 100},
+        {'name': 'Science', 'marks': 88, 'grade': 'A-', 'total': 100},
+        {'name': 'English', 'marks': 95, 'grade': 'A+', 'total': 100},
+        {'name': 'History', 'marks': 85, 'grade': 'B+', 'total': 100},
+      ],
+      'average': 90.0,
     },
     {
+      'id': '2',
       'name': 'Liam Carter',
       'className': 'Grade 8 - B',
       'rollNo': '205',
       'attendance': 88,
       'progress': 'Good',
+      'fee': {
+        'totalFee': 2800.00,
+        'paidAmount': 2800.00,
+        'dueAmount': 0.00,
+        'dueDate': '2024-06-10',
+        'status': 'paid',
+        'feeType': 'Tuition Fee',
+        'lateFee': 0.00,
+      },
+      'subjects': [
+        {'name': 'Mathematics', 'marks': 85, 'grade': 'B+', 'total': 100},
+        {'name': 'Physics', 'marks': 82, 'grade': 'B', 'total': 100},
+        {'name': 'Chemistry', 'marks': 88, 'grade': 'A-', 'total': 100},
+        {'name': 'English', 'marks': 90, 'grade': 'A', 'total': 100},
+      ],
+      'average': 86.25,
+    },
+    {
+      'id': '3',
+      'name': 'Emma Carter',
+      'className': 'Grade 4 - C',
+      'rollNo': '302',
+      'attendance': 92,
+      'progress': 'Excellent',
+      'fee': {
+        'totalFee': 2200.00,
+        'paidAmount': 1100.00,
+        'dueAmount': 1100.00,
+        'dueDate': '2024-06-20',
+        'status': 'partial',
+        'feeType': 'Tuition Fee + Activities',
+        'lateFee': 25.00,
+      },
+      'subjects': [
+        {'name': 'English', 'marks': 94, 'grade': 'A+', 'total': 100},
+        {'name': 'Math', 'marks': 91, 'grade': 'A', 'total': 100},
+        {'name': 'Science', 'marks': 89, 'grade': 'A-', 'total': 100},
+        {'name': 'Art', 'marks': 96, 'grade': 'A+', 'total': 100},
+      ],
+      'average': 92.5,
     },
   ];
 
   final int notificationCount = 3;
 
-  // Helper method to get initials
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  void _logout(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text(
+            'Logout',
+            style: TextStyle(fontWeight: FontWeight.bold, color: kPrimaryBlue),
+          ),
+          content: const Text(
+            'Are you sure you want to logout?',
+            style: TextStyle(color: kTextSecondary),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+              child: Text('Cancel', style: TextStyle(color: kTextSecondary)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(dialogContext).pop();
+
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (loadingContext) {
+                    return const Center(
+                      child: CircularProgressIndicator(color: kPrimaryBlue),
+                    );
+                  },
+                );
+
+                try {
+                  await LocalAuthService().logout();
+
+                  if (context.mounted) {
+                    Navigator.of(context).pop();
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(
+                        builder: (context) => const LoginPage(),
+                      ),
+                      (route) => false,
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Logout failed: $e'),
+                        backgroundColor: kErrorColor,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kErrorColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('Logout'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   String _getInitials(String name) {
     if (name.isEmpty) return '';
     List<String> parts = name.trim().split(' ');
@@ -67,134 +220,684 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     return (parts[0][0] + parts.last[0]).toUpperCase();
   }
 
-  // Safe navigation method
   void _navigateTo(Widget screen) {
     Navigator.push(context, MaterialPageRoute(builder: (context) => screen));
+  }
+
+  void _navigateToChildDetails(Map<String, dynamic> child) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ParentChildDetailsScreen(child: child),
+      ),
+    );
+  }
+
+  void _navigateToFeePayment() {
+    if (children.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No children found'),
+          backgroundColor: kErrorColor,
+        ),
+      );
+      return;
+    }
+
+    if (children.length > 1) {
+      _showChildSelectionDialog();
+    } else {
+      final child = children.first;
+      final feeData = {
+        'childName': child['name'],
+        'className': child['className'],
+        'totalFee': child['fee']['totalFee'],
+        'paidAmount': child['fee']['paidAmount'],
+        'dueAmount': child['fee']['dueAmount'],
+        'dueDate': child['fee']['dueDate'],
+        'status': child['fee']['status'],
+        'feeType': child['fee']['feeType'],
+        'lateFee': child['fee']['lateFee'],
+      };
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ParentFeePaymentScreen(fee: feeData),
+        ),
+      );
+    }
+  }
+
+  void _navigateToResults() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const ParentResultsScreen()),
+    );
+  }
+
+  void _navigateToAttendance() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const ParentAttendanceScreen()),
+    );
+  }
+
+  void _navigateToNotifications() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const ParentNotificationsScreen(),
+      ),
+    );
+  }
+
+  void _navigateToProfile() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ParentProfileScreen(parent: parent),
+      ),
+    );
+  }
+
+  void _showChildSelectionDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withOpacity(0.5),
+      builder: (BuildContext dialogContext) {
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 24,
+          ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.white, kSoftBlue],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(32),
+              boxShadow: [
+                BoxShadow(
+                  color: kPrimaryBlue.withOpacity(0.2),
+                  blurRadius: 30,
+                  offset: const Offset(0, 15),
+                  spreadRadius: 0,
+                ),
+                BoxShadow(
+                  color: kPrimaryGreen.withOpacity(0.1),
+                  blurRadius: 20,
+                  offset: const Offset(-5, 5),
+                ),
+              ],
+              border: Border.all(
+                color: Colors.white.withOpacity(0.8),
+                width: 2,
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [kPrimaryBlue, kPrimaryGreen],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(32),
+                      topRight: Radius.circular(32),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(
+                          Icons.family_restroom_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Select Child',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            color: Colors.white,
+                          ),
+                          onPressed: () => Navigator.pop(dialogContext),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: kSoftBlue,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: kPrimaryBlue.withOpacity(0.2),
+                          ),
+                        ),
+                        child: TextField(
+                          decoration: InputDecoration(
+                            hintText: 'Search child...',
+                            hintStyle: TextStyle(color: kTextSecondary),
+                            prefixIcon: Icon(
+                              Icons.search_rounded,
+                              color: kPrimaryBlue,
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                          ),
+                        ),
+                      ),
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: children.length,
+                        itemBuilder: (context, index) {
+                          final child = children[index];
+                          final initials = _getInitials(child['name']);
+                          final fee = child['fee'] as Map<String, dynamic>;
+                          final dueAmount = fee['dueAmount'] as double;
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.03),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                              border: Border.all(
+                                color: dueAmount > 0
+                                    ? kErrorColor.withOpacity(0.3)
+                                    : kSuccessColor.withOpacity(0.3),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () {
+                                  Navigator.pop(dialogContext);
+                                  final feeData = {
+                                    'childName': child['name'],
+                                    'className': child['className'],
+                                    'totalFee': fee['totalFee'],
+                                    'paidAmount': fee['paidAmount'],
+                                    'dueAmount': fee['dueAmount'],
+                                    'dueDate': fee['dueDate'],
+                                    'status': fee['status'],
+                                    'feeType': fee['feeType'],
+                                    'lateFee': fee['lateFee'],
+                                  };
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          ParentFeePaymentScreen(fee: feeData),
+                                    ),
+                                  );
+                                },
+                                borderRadius: BorderRadius.circular(20),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 50,
+                                        height: 50,
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: dueAmount > 0
+                                                ? [kErrorColor, kSoftOrange]
+                                                : [
+                                                    kSuccessColor,
+                                                    kPrimaryGreen,
+                                                  ],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: dueAmount > 0
+                                                  ? kErrorColor.withOpacity(0.3)
+                                                  : kSuccessColor.withOpacity(
+                                                      0.3,
+                                                    ),
+                                              blurRadius: 6,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            initials,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 18,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 14),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    child['name'],
+                                                    style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 16,
+                                                      color: kTextPrimary,
+                                                    ),
+                                                  ),
+                                                ),
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 10,
+                                                        vertical: 4,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color: dueAmount > 0
+                                                        ? kErrorColor
+                                                              .withOpacity(0.1)
+                                                        : kSuccessColor
+                                                              .withOpacity(0.1),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          20,
+                                                        ),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      Icon(
+                                                        dueAmount > 0
+                                                            ? Icons
+                                                                  .warning_rounded
+                                                            : Icons
+                                                                  .check_circle_rounded,
+                                                        color: dueAmount > 0
+                                                            ? kErrorColor
+                                                            : kSuccessColor,
+                                                        size: 12,
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                      Text(
+                                                        '\$${dueAmount.toStringAsFixed(0)}',
+                                                        style: TextStyle(
+                                                          color: dueAmount > 0
+                                                              ? kErrorColor
+                                                              : kSuccessColor,
+                                                          fontSize: 11,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              child['className'],
+                                              style: TextStyle(
+                                                color: kTextSecondary,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.event_available_rounded,
+                                                  size: 12,
+                                                  color: dueAmount > 0
+                                                      ? kErrorColor
+                                                      : kSuccessColor,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  'Due: ${fee['dueDate']}',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: dueAmount > 0
+                                                        ? kErrorColor
+                                                        : kSuccessColor,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: dueAmount > 0
+                                              ? kErrorColor.withOpacity(0.1)
+                                              : kSuccessColor.withOpacity(0.1),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          Icons.arrow_forward_ios_rounded,
+                                          color: dueAmount > 0
+                                              ? kErrorColor
+                                              : kSuccessColor,
+                                          size: 14,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      top: BorderSide(color: Colors.grey.shade200),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: kErrorColor.withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.warning_rounded,
+                              color: kErrorColor,
+                              size: 14,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${children.where((c) => c['fee']['dueAmount'] > 0).length} unpaid',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: kTextSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogContext),
+                        style: TextButton.styleFrom(
+                          foregroundColor: kPrimaryBlue,
+                        ),
+                        child: const Text('Cancel'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: kBackgroundEnd,
-      drawer: _ParentDrawer(parent: parent, onNavigate: _navigateTo),
+      backgroundColor: kSoftBlue,
+      drawer: ParentDrawer(
+        parent: parent,
+        onNavigate: _navigateTo,
+        onLogout: () => _logout(context),
+        children: children,
+        getInitials: _getInitials,
+        onResultsTap: _navigateToResults,
+        onAttendanceTap: _navigateToAttendance,
+        onNotificationsTap: _navigateToNotifications,
+        onProfileTap: _navigateToProfile,
+      ),
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          // App Bar
+          // Fixed AppBar - No overflow issue
           SliverAppBar(
-            expandedHeight: 100,
+            expandedHeight: 120,
             pinned: true,
-            backgroundColor: kPrimaryColor,
-            flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.only(left: 16, bottom: 12),
-              title: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.family_restroom_rounded,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    "Family Dashboard",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
+            backgroundColor: Colors.transparent,
+            flexibleSpace: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [kPrimaryBlue, kSecondaryColor, kPrimaryGreen],
+                  stops: const [0.2, 0.6, 1.0],
+                ),
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(30),
+                  bottomRight: Radius.circular(30),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: kPrimaryBlue.withOpacity(0.3),
+                    blurRadius: 15,
+                    offset: const Offset(0, 5),
                   ),
                 ],
               ),
-              background: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [kPrimaryColor, kSecondaryColor, kSoftPurple],
-                  ),
+              child: FlexibleSpaceBar(
+                titlePadding: const EdgeInsets.only(bottom: 20),
+                centerTitle: true,
+                title: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Parent Portal Badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.family_restroom_rounded,
+                              color: kPrimaryBlue,
+                              size: 10,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Text(
+                            'PARENT PORTAL',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      "Parent Dashboard",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-            leading: IconButton(
-              icon: const Icon(
-                Icons.menu_rounded,
-                color: Colors.white,
-                size: 22,
+            leading: Container(
+              margin: const EdgeInsets.only(left: 12, top: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.3),
+                  width: 1.2,
+                ),
               ),
-              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+              child: IconButton(
+                icon: const Icon(
+                  Icons.menu_rounded,
+                  color: Colors.white,
+                  size: 24,
+                ),
+                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                padding: const EdgeInsets.all(8),
+                constraints: const BoxConstraints(),
+              ),
             ),
             actions: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  IconButton(
-                    icon: const Icon(
-                      Icons.notifications_rounded,
-                      color: Colors.white,
-                      size: 22,
-                    ),
-                    onPressed: () {
-                      // Show placeholder if screen doesn't exist
-                      _showComingSoon(context, 'Notifications');
-                    },
+              Container(
+                margin: const EdgeInsets.only(right: 12, top: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.3),
+                    width: 1.2,
                   ),
-                  if (notificationCount > 0)
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: kSoftPink,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 1.5),
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: 16,
-                          minHeight: 16,
-                        ),
-                        child: Center(
-                          child: Text(
-                            '$notificationCount',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
+                ),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    IconButton(
+                      icon: const Icon(
+                        Icons.notifications_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                      onPressed: _navigateToNotifications,
+                      padding: const EdgeInsets.all(8),
+                      constraints: const BoxConstraints(),
+                    ),
+                    if (notificationCount > 0)
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            color: kErrorColor,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 1.5),
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
+                          child: Center(
+                            child: Text(
+                              '$notificationCount',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
-
-          // Main Content
           SliverPadding(
             padding: const EdgeInsets.all(16),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                // Welcome Card
+                const SizedBox(height: 8),
                 _WelcomeCard(parent: parent),
-
-                const SizedBox(height: 20),
-
-                // Quick Stats
+                const SizedBox(height: 16),
                 _QuickStats(childrenCount: children.length),
-
-                const SizedBox(height: 24),
-
-                // Children Section Header
+                const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -203,12 +906,16 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                         Container(
                           padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
-                            color: kSoftOrange.withOpacity(0.1),
+                            gradient: LinearGradient(
+                              colors: [kPrimaryBlue, kPrimaryGreen],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Icon(
                             Icons.family_restroom_rounded,
-                            color: kSoftOrange,
+                            color: Colors.white,
                             size: 16,
                           ),
                         ),
@@ -225,49 +932,52 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                     ),
                     TextButton(
                       onPressed: () {
-                        _showComingSoon(context, 'Children List');
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ParentChildrenListScreen(),
+                          ),
+                        );
                       },
-                      child: const Text("View All"),
+                      style: TextButton.styleFrom(
+                        foregroundColor: kPrimaryGreen,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text(
+                        "View All",
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 12),
-
-                // Children Cards
                 ...List.generate(
                   children.length,
                   (index) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.only(bottom: 10),
                     child: _ChildCard(
                       child: children[index],
                       getInitials: _getInitials,
+                      onTap: () => _navigateToChildDetails(children[index]),
                     ),
                   ),
                 ),
-
-                const SizedBox(height: 24),
-
-                // Quick Actions
+                const SizedBox(height: 20),
                 _QuickActions(
                   context: context,
-                  onPayFees: () => _showComingSoon(context, 'Pay Fees'),
-                  onResults: () => _showComingSoon(context, 'Results'),
-                  onAttendance: () => _showComingSoon(context, 'Attendance'),
+                  onPayFees: _navigateToFeePayment,
+                  onResults: _navigateToResults,
+                  onAttendance: _navigateToAttendance,
                 ),
-
-                const SizedBox(height: 20),
-
-                // Debug info - remove in production
-                if (children.isEmpty)
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    color: Colors.yellow.shade100,
-                    child: const Text(
-                      'No children data available',
-                      style: TextStyle(color: Colors.black),
-                    ),
-                  ),
+                const SizedBox(height: 16),
               ]),
             ),
           ),
@@ -277,24 +987,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   }
 }
 
-// Helper function to show "Coming Soon" dialog
-void _showComingSoon(BuildContext context, String feature) {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text(feature),
-      content: Text('$feature screen is coming soon!'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('OK'),
-        ),
-      ],
-    ),
-  );
-}
-
-// Welcome Card
+// Welcome Card Widget
 class _WelcomeCard extends StatelessWidget {
   final Map<String, String> parent;
 
@@ -303,33 +996,46 @@ class _WelcomeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [kPrimaryColor, kSecondaryColor],
+          colors: [kPrimaryBlue, kPrimaryGreen],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: kSecondaryColor.withOpacity(0.3),
+            color: kPrimaryBlue.withOpacity(0.3),
             blurRadius: 15,
-            offset: const Offset(0, 5),
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 30,
-            backgroundColor: Colors.white,
-            child: Text(
-              parent['initials'] ?? 'FC',
-              style: TextStyle(
-                color: kPrimaryColor,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
+          Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 3),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.white.withOpacity(0.3),
+                  blurRadius: 10,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+            child: CircleAvatar(
+              radius: 35,
+              backgroundColor: Colors.white,
+              child: Text(
+                parent['initials'] ?? 'FC',
+                style: TextStyle(
+                  color: kPrimaryBlue,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
@@ -340,21 +1046,31 @@ class _WelcomeCard extends StatelessWidget {
               children: [
                 const Text(
                   "Welcome back! 👋",
-                  style: TextStyle(color: Colors.white70, fontSize: 13),
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   parent['name'] ?? 'Family',
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 18,
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  parent['email'] ?? '',
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    parent['email'] ?? '',
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
                 ),
               ],
             ),
@@ -365,7 +1081,7 @@ class _WelcomeCard extends StatelessWidget {
   }
 }
 
-// Quick Stats
+// Quick Stats Widget
 class _QuickStats extends StatelessWidget {
   final int childrenCount;
 
@@ -374,38 +1090,40 @@ class _QuickStats extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: kPrimaryBlue.withOpacity(0.08),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
         ],
+        border: Border.all(color: Colors.grey.shade100, width: 1.5),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _buildStatItem(
             icon: Icons.family_restroom_rounded,
             label: "Children",
             value: "$childrenCount",
-            color: kSoftPurple,
+            color: kPrimaryBlue,
           ),
+          Container(height: 30, width: 1, color: Colors.grey.shade300),
           _buildStatItem(
             icon: Icons.attach_money_rounded,
             label: "Due Fees",
             value: "\$2,450",
-            color: kWarningColor,
+            color: kSoftOrange,
           ),
+          Container(height: 30, width: 1, color: Colors.grey.shade300),
           _buildStatItem(
             icon: Icons.event_available_rounded,
             label: "Attendance",
             value: "92%",
-            color: kSuccessColor,
+            color: kPrimaryGreen,
           ),
         ],
       ),
@@ -422,167 +1140,215 @@ class _QuickStats extends StatelessWidget {
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(6),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: color, size: 18),
+            child: Icon(icon, color: color, size: 20),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
             value,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
               color: color,
             ),
           ),
-          Text(label, style: TextStyle(fontSize: 10, color: kTextSecondary)),
+          Text(label, style: TextStyle(fontSize: 11, color: kTextSecondary)),
         ],
       ),
     );
   }
 }
 
-// Child Card
+// Child Card Widget
 class _ChildCard extends StatelessWidget {
   final Map<String, dynamic> child;
   final String Function(String) getInitials;
+  final VoidCallback onTap;
 
-  const _ChildCard({required this.child, required this.getInitials});
+  const _ChildCard({
+    required this.child,
+    required this.getInitials,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    // Safe extraction with defaults
     final String childName = child['name'] ?? 'Unknown';
     final String className = child['className'] ?? 'Not Assigned';
     final int attendance = child['attendance'] ?? 0;
     final String progress = child['progress'] ?? 'Good';
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            _showComingSoon(context, 'Child Details - $childName');
-          },
+    // Safe conversion to double
+    final dynamic averageValue = child['average'];
+    final double average = averageValue is int
+        ? averageValue.toDouble()
+        : (averageValue as double?) ?? 0.0;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                // Child Avatar
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [kSoftPurple, kSoftBlue],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: kSoftPurple.withOpacity(0.3),
-                        blurRadius: 5,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Text(
-                      getInitials(childName),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-
-                // Child Details
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        childName,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: kTextPrimary,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        className,
-                        style: TextStyle(color: kTextSecondary, fontSize: 12),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.event_available_rounded,
-                            size: 12,
-                            color: kSuccessColor,
-                          ),
-                          const SizedBox(width: 2),
-                          Text(
-                            '$attendance%',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: kSuccessColor,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: kSoftOrange.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              progress,
-                              style: TextStyle(
-                                fontSize: 9,
-                                color: kSoftOrange,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Arrow Icon
-                Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  color: kSoftPurple,
-                  size: 14,
-                ),
-              ],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
             ),
+          ],
+          border: Border.all(color: Colors.grey.shade100, width: 1.5),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              // Avatar
+              Container(
+                width: 45,
+                height: 45,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [kPrimaryBlue, kPrimaryGreen],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: Text(
+                    getInitials(childName),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              // Details
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      childName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      className,
+                      style: TextStyle(fontSize: 11, color: kTextSecondary),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        // Attendance
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: kSoftBlue.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.event_available_rounded,
+                                size: 10,
+                                color: kPrimaryBlue,
+                              ),
+                              const SizedBox(width: 2),
+                              Text(
+                                '$attendance%',
+                                style: const TextStyle(fontSize: 10),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Average
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: kSuccessColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.analytics_rounded,
+                                size: 10,
+                                color: kSuccessColor,
+                              ),
+                              const SizedBox(width: 2),
+                              Text(
+                                '${average.toStringAsFixed(1)}%',
+                                style: const TextStyle(fontSize: 10),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // Progress Badge and Arrow
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: progress == "Excellent"
+                          ? kPrimaryGreen.withOpacity(0.1)
+                          : kSoftOrange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      progress,
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: progress == "Excellent"
+                            ? kPrimaryGreen
+                            : kSoftOrange,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    color: kPrimaryBlue,
+                    size: 12,
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -590,7 +1356,7 @@ class _ChildCard extends StatelessWidget {
   }
 }
 
-// Quick Actions
+// Quick Actions Widget
 class _QuickActions extends StatelessWidget {
   final BuildContext context;
   final VoidCallback onPayFees;
@@ -609,35 +1375,56 @@ class _QuickActions extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          "Quick Actions",
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: kTextPrimary,
-          ),
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [kPrimaryBlue, kPrimaryGreen],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.bolt_rounded,
+                color: Colors.white,
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              "Quick Actions",
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: kTextPrimary,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         Row(
           children: [
             Expanded(
               child: _ActionCard(
                 icon: Icons.payment_rounded,
                 label: "Pay Fees",
-                color: kAccentColor,
+                color: kPrimaryBlue,
                 onTap: onPayFees,
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             Expanded(
               child: _ActionCard(
                 icon: Icons.assignment_rounded,
                 label: "Results",
-                color: kSoftPurple,
+                color: kPrimaryGreen,
                 onTap: onResults,
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             Expanded(
               child: _ActionCard(
                 icon: Icons.event_available_rounded,
@@ -653,6 +1440,7 @@ class _QuickActions extends StatelessWidget {
   }
 }
 
+// Action Card Widget
 class _ActionCard extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -671,33 +1459,34 @@ class _ActionCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: color.withOpacity(0.1),
-              blurRadius: 5,
-              offset: const Offset(0, 2),
+              color: color.withOpacity(0.15),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
             ),
           ],
+          border: Border.all(color: Colors.grey.shade100, width: 1.5),
         ),
         child: Column(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: color.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: color, size: 20),
+              child: Icon(icon, color: color, size: 22),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Text(
               label,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: kTextPrimary,
               ),
@@ -705,158 +1494,6 @@ class _ActionCard extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-// Parent Drawer
-class _ParentDrawer extends StatelessWidget {
-  final Map<String, String> parent;
-  final Function(Widget) onNavigate;
-
-  const _ParentDrawer({required this.parent, required this.onNavigate});
-
-  @override
-  Widget build(BuildContext context) {
-    return Drawer(
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topRight: Radius.circular(30),
-          bottomRight: Radius.circular(30),
-        ),
-      ),
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          Container(
-            height: 200,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [kPrimaryColor, kSecondaryColor],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    CircleAvatar(
-                      radius: 35,
-                      backgroundColor: Colors.white,
-                      child: Text(
-                        parent['initials'] ?? 'FC',
-                        style: TextStyle(
-                          color: kPrimaryColor,
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      parent['name'] ?? 'Family',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      parent['email'] ?? '',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          _buildDrawerItem(
-            icon: Icons.dashboard_rounded,
-            label: 'Dashboard',
-            color: kSoftPurple,
-            onTap: () => Navigator.pop(context),
-          ),
-          _buildDrawerItem(
-            icon: Icons.family_restroom_rounded,
-            label: 'Children',
-            color: kSoftBlue,
-            onTap: () {
-              Navigator.pop(context);
-              _showComingSoon(context, 'Children List');
-            },
-          ),
-          _buildDrawerItem(
-            icon: Icons.account_balance_wallet_rounded,
-            label: 'Fees',
-            color: kAccentColor,
-            onTap: () {
-              Navigator.pop(context);
-              _showComingSoon(context, 'Fees');
-            },
-          ),
-          _buildDrawerItem(
-            icon: Icons.notifications_rounded,
-            label: 'Notifications',
-            color: kSoftOrange,
-            onTap: () {
-              Navigator.pop(context);
-              _showComingSoon(context, 'Notifications');
-            },
-          ),
-          _buildDrawerItem(
-            icon: Icons.person_rounded,
-            label: 'Profile',
-            color: kSoftPink,
-            onTap: () {
-              Navigator.pop(context);
-              _showComingSoon(context, 'Profile');
-            },
-          ),
-          const Divider(),
-          _buildDrawerItem(
-            icon: Icons.logout_rounded,
-            label: 'Logout',
-            color: Colors.red,
-            onTap: () {
-              _showComingSoon(context, 'Logout');
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDrawerItem({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(icon, color: color, size: 20),
-      ),
-      title: Text(
-        label,
-        style: TextStyle(
-          color: kTextPrimary,
-          fontWeight: FontWeight.w500,
-          fontSize: 15,
-        ),
-      ),
-      onTap: onTap,
     );
   }
 }

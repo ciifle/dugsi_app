@@ -105,73 +105,108 @@ class _NotificationsPageState extends State<NotificationsPage> {
     });
   }
 
+  // Design constants to match admin dashboard (no colored top bar, 3D style)
+  static const Color _kPrimaryBlue = Color(0xFF023471);
+  static const Color _kPrimaryGreen = Color(0xFF5AB04B);
+  static const Color _kBgColor = Color(0xFFF4F6F8);
+  static const double _kPadding = 20.0;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:
-          const Color(0xFFF7F8FA), // Very light grey for a clean look
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF023471), // Dark Blue
-        elevation: 0.5,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          color: Colors.white, // Explicit white back arrow
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
-        ),
-        title: const Text(
-          'Notifications',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.2,
-          ),
-        ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.clear_all),
-            color: const Color(0xFF5AB04B), // Orange
-            tooltip: 'Clear All',
-            onPressed: _notifications.isEmpty
-                ? null
-                : () async {
-                    final confirm = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Clear All Notifications'),
-                        content: const Text(
-                            'Are you sure you want to remove all notifications?'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text('Cancel'),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            child: const Text(
-                              'Clear All',
-                              style: TextStyle(color: Color(0xFF5AB04B)),
-                            ),
+      backgroundColor: _kBgColor,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Top bar: no color, same style as dashboard (3D icon containers)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(_kPadding, _kPadding, _kPadding, 12),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _kPrimaryBlue.withOpacity(0.08),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
                           ),
                         ],
                       ),
-                    );
-                    if (confirm == true) _clearAll();
-                  },
-          ),
-        ],
-        iconTheme: const IconThemeData(
-          color: Colors.white, // Ensure all icons (back) are white
-        ),
-      ),
-      body: SafeArea(
-        child: _notifications.isEmpty
-            ? _buildEmptyState()
-            : ListView.builder(
+                      child: Icon(Icons.arrow_back_rounded, color: _kPrimaryBlue, size: 24),
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    'Notifications',
+                    style: const TextStyle(
+                      color: _kPrimaryBlue,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: _notifications.isEmpty
+                        ? null
+                        : () async {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Clear All Notifications'),
+                                content: const Text(
+                                    'Are you sure you want to remove all notifications?'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, true),
+                                    child: const Text(
+                                      'Clear All',
+                                      style: TextStyle(color: _kPrimaryGreen),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (confirm == true) _clearAll();
+                          },
+                    child: Opacity(
+                      opacity: _notifications.isEmpty ? 0.4 : 1,
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _kPrimaryBlue.withOpacity(0.08),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Icon(Icons.clear_all_rounded, color: _kPrimaryBlue, size: 24),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: _notifications.isEmpty
+                  ? _buildEmptyState()
+                  : ListView.builder(
                 padding: const EdgeInsets.symmetric(
-                    vertical: 12, horizontal: 16), // Comfortable padding
+                    vertical: 12, horizontal: _kPadding),
                 itemCount: _notifications.length,
                 itemBuilder: (context, index) {
                   final notification = _notifications[index];
@@ -188,8 +223,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     ),
                   );
                 },
-                reverse: false, // Newest first in data order
+                reverse: false,
               ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -280,14 +318,14 @@ class NotificationItem extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
-      onLongPress: onDelete, // Long press to delete (optional)
+      onLongPress: onDelete,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 240),
         decoration: BoxDecoration(
           color: notification.isRead
               ? Colors.white
-              : const Color(0xFFF1F4FB), // Tinted background for unread
-          borderRadius: BorderRadius.circular(14),
+              : const Color(0xFFF1F4FB),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: notification.isRead
                 ? Colors.transparent
@@ -296,9 +334,14 @@ class NotificationItem extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
+              color: darkBlue.withOpacity(0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+            BoxShadow(
               color: darkBlue.withOpacity(0.04),
-              blurRadius: 7,
-              offset: const Offset(0, 2),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
             ),
           ],
         ),

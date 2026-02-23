@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
 
-// ---------- WONDERFUL COLOR PALETTE (Matching Student Dashboard) ----------
-const Color kPrimaryColor = Color(0xFF2A2E45); // Deep charcoal
-const Color kSecondaryColor = Color(0xFF6C5CE7); // Rich purple
-const Color kAccentColor = Color(0xFF00B894); // Mint green
-const Color kSoftPurple = Color(0xFFA29BFE); // Light purple
-const Color kSoftPink = Color(0xFFFF7675); // Soft pink
-const Color kSoftOrange = Color(0xFFFDCB6E); // Warm orange
-const Color kSoftBlue = Color(0xFF74B9FF); // Sky blue
-const Color kBackgroundStart = Color(0xFFE8EEF9); // Light blue-gray
-const Color kBackgroundEnd = Color(0xFFF5F0FF); // Light purple
-const Color kCardColor = Colors.white;
+// ---------- COLOR PALETTE (Matching Student Dashboard) ----------
+const Color kPrimaryBlue = Color(0xFF023471); // Dark blue
+const Color kPrimaryGreen = Color(0xFF5AB04B); // Green
+
+// Derived colors (shades/tints of the two main colors)
+const Color kSoftBlue = Color(0xFFE6F0FF); // Light tint of blue
+const Color kSoftGreen = Color(0xFFEDF7EB); // Light tint of green
+const Color kDarkGreen = Color(0xFF3A7A30); // Darker shade of green
+const Color kDarkBlue = Color(0xFF01255C); // Darker shade of blue
 const Color kTextPrimary = Color(0xFF2D3436); // Dark gray
-const Color kTextSecondary = Color(0xFF64748B); // Medium slate
+const Color kTextSecondary = Color(0xFF636E72); // Medium gray
+const Color kErrorColor = Color(0xFFEF4444); // Red
+const Color kSoftOrange = Color(0xFFF59E0B); // Amber
+const Color kSuccessColor = Color(0xFF5AB04B); // Green for present
+const Color kCardColor = Colors.white;
 
 // ================== DATA MODELS ==================
 
@@ -150,6 +152,9 @@ class TeacherExamsResultsScreen extends StatefulWidget {
 
 class _TeacherExamsResultsScreenState extends State<TeacherExamsResultsScreen> {
   TeacherExamsTab _tab = TeacherExamsTab.exams;
+  bool _isSearching = false;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   int get _totalExams => dummyExams.length;
   int get _upcomingExams => dummyExams
@@ -158,103 +163,297 @@ class _TeacherExamsResultsScreenState extends State<TeacherExamsResultsScreen> {
   int get _completedExams => dummyExams.where((e) => e.completed).length;
   int get _publishedResults => dummyResults.where((r) => r.published).length;
 
-  void _showSnackBar(String message) {
+  List<Exam> get filteredExams {
+    if (_searchQuery.isEmpty) return dummyExams;
+    return dummyExams.where((e) {
+      final query = _searchQuery.toLowerCase();
+      return e.name.toLowerCase().contains(query) ||
+          e.className.toLowerCase().contains(query) ||
+          e.subject.toLowerCase().contains(query);
+    }).toList();
+  }
+
+  List<ExamResult> get filteredResults {
+    if (_searchQuery.isEmpty) return dummyResults;
+    return dummyResults.where((r) {
+      final query = _searchQuery.toLowerCase();
+      return r.name.toLowerCase().contains(query) ||
+          r.className.toLowerCase().contains(query) ||
+          r.subject.toLowerCase().contains(query);
+    }).toList();
+  }
+
+  void _startSearch() {
+    setState(() {
+      _isSearching = true;
+    });
+  }
+
+  void _stopSearch() {
+    setState(() {
+      _isSearching = false;
+      _searchQuery = '';
+      _searchController.clear();
+    });
+  }
+
+  void _updateSearchQuery(String query) {
+    setState(() {
+      _searchQuery = query;
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  // Navigation methods for action buttons
+  void _viewStudents(Exam exam) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.check_circle_rounded,
-                color: Colors.white,
-                size: 16,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(child: Text(message)),
-          ],
-        ),
-        backgroundColor: kAccentColor,
+        content: Text('Viewing students for: ${exam.name}'),
+        backgroundColor: kPrimaryBlue,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        duration: const Duration(seconds: 2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
+    // TODO: Navigate to students list screen
+    // Navigator.push(context, MaterialPageRoute(builder: (context) => StudentsScreen(exam: exam)));
+  }
+
+  void _editExam(Exam exam) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Editing: ${exam.name}'),
+        backgroundColor: kPrimaryGreen,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+    // TODO: Navigate to edit exam screen
+    // Navigator.push(context, MaterialPageRoute(builder: (context) => EditExamScreen(exam: exam)));
+  }
+
+  void _enterMarks(Exam exam) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Entering marks for: ${exam.name}'),
+        backgroundColor: kSoftOrange,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+    // TODO: Navigate to marks entry screen
+    // Navigator.push(context, MaterialPageRoute(builder: (context) => MarksEntryScreen(exam: exam)));
+  }
+
+  void _viewResults(ExamResult result) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Viewing results: ${result.name}'),
+        backgroundColor: kPrimaryBlue,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+    // TODO: Navigate to view results screen
+    // Navigator.push(context, MaterialPageRoute(builder: (context) => ViewResultsScreen(result: result)));
+  }
+
+  void _editMarks(ExamResult result) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Editing marks: ${result.name}'),
+        backgroundColor: kPrimaryGreen,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+    // TODO: Navigate to edit marks screen
+    // Navigator.push(context, MaterialPageRoute(builder: (context) => EditMarksScreen(result: result)));
+  }
+
+  void _togglePublish(ExamResult result) {
+    setState(() {
+      // In a real app, you would update the actual data
+      // Here we're just showing a snackbar
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          result.published
+              ? 'Unpublishing: ${result.name}'
+              : 'Publishing: ${result.name}',
+        ),
+        backgroundColor: kSoftOrange,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+    // TODO: Toggle publish status in database
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kBackgroundEnd,
+      backgroundColor: kSoftBlue,
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          // ---------------- APP BAR (SMALLER SIZE, NO SEARCH) ----------------
+          // ---------------- APP BAR WITH GRADIENT ----------------
           SliverAppBar(
-            expandedHeight: 90, // REDUCED from 120
+            expandedHeight: _isSearching ? 100 : 120,
             pinned: true,
-            backgroundColor: kPrimaryColor,
-            flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.only(
-                left: 16,
-                bottom: 10,
-              ), // REDUCED padding
-              title: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(5), // REDUCED padding
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8), // REDUCED radius
-                    ),
-                    child: const Icon(
-                      Icons.assignment_rounded,
-                      color: Colors.white,
-                      size: 16, // REDUCED icon size
-                    ),
-                  ),
-                  const SizedBox(width: 6), // REDUCED spacing
-                  const Text(
-                    "Exams & Results",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16, // REDUCED font size
-                    ),
-                  ),
-                ],
-              ),
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [kPrimaryColor, kSecondaryColor, kSoftPurple],
-                    stops: const [0.1, 0.6, 1.0],
-                  ),
+            backgroundColor: kPrimaryBlue,
+            flexibleSpace: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
+                  stops: const [0.3, 0.7, 1.0],
+                ),
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(30),
+                  bottomRight: Radius.circular(30),
                 ),
               ),
+              child: FlexibleSpaceBar(
+                titlePadding: const EdgeInsets.only(bottom: 20),
+                centerTitle: true,
+                title: _isSearching
+                    ? null
+                    : const Text(
+                        "Exams & Results",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 24,
+                        ),
+                      ),
+              ),
             ),
-            leading: IconButton(
-              icon: const Icon(
-                Icons.arrow_back_rounded,
-                color: Colors.white,
-                size: 20,
-              ), // REDUCED size
-              onPressed: () => Navigator.pop(context),
+            leading: Container(
+              margin: const EdgeInsets.only(left: 12, top: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: IconButton(
+                icon: const Icon(
+                  Icons.arrow_back_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
+                onPressed: () => Navigator.pop(context),
+                padding: const EdgeInsets.all(10),
+              ),
             ),
-            // SEARCH ICON REMOVED
+            actions: [
+              if (_isSearching)
+                Container(
+                  margin: const EdgeInsets.only(right: 12, top: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                    onPressed: _stopSearch,
+                    padding: const EdgeInsets.all(10),
+                  ),
+                )
+              else
+                Container(
+                  margin: const EdgeInsets.only(right: 12, top: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.search_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                    onPressed: _startSearch,
+                    padding: const EdgeInsets.all(10),
+                  ),
+                ),
+            ],
+            bottom: _isSearching
+                ? PreferredSize(
+                    preferredSize: const Size.fromHeight(60),
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: TextField(
+                          controller: _searchController,
+                          autofocus: true,
+                          onChanged: _updateSearchQuery,
+                          decoration: InputDecoration(
+                            hintText: 'Search exams or results...',
+                            hintStyle: TextStyle(
+                              color: kTextSecondary,
+                              fontSize: 15,
+                            ),
+                            prefixIcon: Icon(
+                              Icons.search_rounded,
+                              color: kPrimaryBlue,
+                              size: 22,
+                            ),
+                            suffixIcon: _searchQuery.isNotEmpty
+                                ? IconButton(
+                                    icon: Icon(
+                                      Icons.clear,
+                                      color: kTextSecondary,
+                                      size: 20,
+                                    ),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      _updateSearchQuery('');
+                                    },
+                                    padding: EdgeInsets.zero,
+                                  )
+                                : null,
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                          ),
+                          style: const TextStyle(
+                            color: kTextPrimary,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                : null,
           ),
 
           // ---------------- MAIN CONTENT ----------------
           SliverPadding(
-            padding: const EdgeInsets.all(16), // REDUCED from 20
+            padding: const EdgeInsets.all(16),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 // ---------------- OVERVIEW CARD ----------------
@@ -265,7 +464,8 @@ class _TeacherExamsResultsScreenState extends State<TeacherExamsResultsScreen> {
                   publishedResults: _publishedResults,
                 ),
 
-                const SizedBox(height: 20), // REDUCED from 24
+                const SizedBox(height: 20),
+
                 // ---------------- TOGGLE SECTION ----------------
                 _ExamsResultsToggle(
                   selected: _tab,
@@ -274,48 +474,61 @@ class _TeacherExamsResultsScreenState extends State<TeacherExamsResultsScreen> {
                   },
                 ),
 
-                const SizedBox(height: 16), // REDUCED from 20
-                // ---------------- HEADER ----------------
-                _buildHeader(_tab),
+                const SizedBox(height: 16),
 
-                const SizedBox(height: 12), // REDUCED from 16
+                // ---------------- SEARCH RESULT COUNT ----------------
+                if (_searchQuery.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4, bottom: 6),
+                    child: Text(
+                      _tab == TeacherExamsTab.exams
+                          ? 'Found ${filteredExams.length} exam${filteredExams.length != 1 ? 's' : ''}'
+                          : 'Found ${filteredResults.length} result${filteredResults.length != 1 ? 's' : ''}',
+                      style: TextStyle(
+                        color: kTextSecondary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+
+                // ---------------- HEADER ----------------
+                if (_searchQuery.isEmpty)
+                  _buildHeader(
+                    _tab,
+                    _tab == TeacherExamsTab.exams
+                        ? filteredExams.length
+                        : filteredResults.length,
+                  ),
+
+                const SizedBox(height: 12),
+
                 // ---------------- LIST SECTION ----------------
                 if (_tab == TeacherExamsTab.exams)
                   ...List.generate(
-                    dummyExams.length,
+                    filteredExams.length,
                     (index) => Padding(
-                      padding: const EdgeInsets.only(
-                        bottom: 14,
-                      ), // REDUCED from 16
+                      padding: const EdgeInsets.only(bottom: 12),
                       child: _ExamCard(
-                        exam: dummyExams[index],
+                        exam: filteredExams[index],
                         onStudentsTap: () =>
-                            _showSnackBar('View Students - Coming Soon'),
-                        onEditTap: () =>
-                            _showSnackBar('Edit Exam - Coming Soon'),
-                        onMarksTap: () =>
-                            _showSnackBar('Enter Marks - Coming Soon'),
+                            _viewStudents(filteredExams[index]),
+                        onEditTap: () => _editExam(filteredExams[index]),
+                        onMarksTap: () => _enterMarks(filteredExams[index]),
                       ),
                     ),
                   )
                 else
                   ...List.generate(
-                    dummyResults.length,
+                    filteredResults.length,
                     (index) => Padding(
-                      padding: const EdgeInsets.only(
-                        bottom: 14,
-                      ), // REDUCED from 16
+                      padding: const EdgeInsets.only(bottom: 12),
                       child: _ResultCard(
-                        result: dummyResults[index],
-                        onViewTap: () =>
-                            _showSnackBar('View Results - Coming Soon'),
-                        onEditTap: () =>
-                            _showSnackBar('Edit Marks - Coming Soon'),
-                        onPublishTap: () => _showSnackBar(
-                          dummyResults[index].published
-                              ? 'Unpublish - Coming Soon'
-                              : 'Publish - Coming Soon',
-                        ),
+                        result: filteredResults[index],
+                        onViewTap: () => _viewResults(filteredResults[index]),
+                        onEditTap: () => _editMarks(filteredResults[index]),
+                        onPublishTap: () =>
+                            _togglePublish(filteredResults[index]),
                       ),
                     ),
                   ),
@@ -327,10 +540,7 @@ class _TeacherExamsResultsScreenState extends State<TeacherExamsResultsScreen> {
     );
   }
 
-  Widget _buildHeader(TeacherExamsTab tab) {
-    final count = tab == TeacherExamsTab.exams
-        ? dummyExams.length
-        : dummyResults.length;
+  Widget _buildHeader(TeacherExamsTab tab, int count) {
     final title = tab == TeacherExamsTab.exams ? "Exam List" : "Results List";
     final icon = tab == TeacherExamsTab.exams
         ? Icons.event_available_rounded
@@ -342,22 +552,22 @@ class _TeacherExamsResultsScreenState extends State<TeacherExamsResultsScreen> {
         Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(4), // REDUCED padding
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: kSoftOrange.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6), // REDUCED radius
+                gradient: LinearGradient(
+                  colors: [kPrimaryBlue, kPrimaryGreen],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(
-                icon,
-                color: kSoftOrange,
-                size: 14,
-              ), // REDUCED icon size
+              child: Icon(icon, color: Colors.white, size: 16),
             ),
-            const SizedBox(width: 6), // REDUCED spacing
+            const SizedBox(width: 8),
             Text(
               title,
               style: const TextStyle(
-                fontSize: 14, // REDUCED font size
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: kTextPrimary,
               ),
@@ -365,20 +575,17 @@ class _TeacherExamsResultsScreenState extends State<TeacherExamsResultsScreen> {
           ],
         ),
         Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 3,
-          ), // REDUCED padding
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: kSoftPurple.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(16), // REDUCED radius
+            color: kPrimaryGreen.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
             '$count items',
             style: TextStyle(
-              color: kSoftPurple,
+              color: kPrimaryGreen,
               fontWeight: FontWeight.w600,
-              fontSize: 10, // REDUCED font size
+              fontSize: 12,
             ),
           ),
         ),
@@ -405,21 +612,18 @@ class _ExamResultsOverviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16), // REDUCED from 20
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20), // REDUCED radius
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 15, // REDUCED blur
-            offset: const Offset(0, 5), // REDUCED offset
+            color: kPrimaryBlue.withOpacity(0.08),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
         ],
-        border: Border.all(
-          color: Colors.white,
-          width: 1.5,
-        ), // REDUCED border width
+        border: Border.all(color: Colors.grey.shade100, width: 1.5),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -427,29 +631,33 @@ class _ExamResultsOverviewCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(6), // REDUCED padding
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: kSoftPurple.withOpacity(0.1),
-                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [kPrimaryBlue, kPrimaryGreen],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
                   Icons.analytics_rounded,
-                  color: kSoftPurple,
-                  size: 16,
-                ), // REDUCED icon size
+                  color: Colors.white,
+                  size: 18,
+                ),
               ),
-              const SizedBox(width: 8), // REDUCED spacing
+              const SizedBox(width: 10),
               const Text(
                 'Overview',
                 style: TextStyle(
                   color: kTextPrimary,
                   fontWeight: FontWeight.w700,
-                  fontSize: 15, // REDUCED font size
+                  fontSize: 16,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16), // REDUCED from 20
+          const SizedBox(height: 20),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -457,25 +665,25 @@ class _ExamResultsOverviewCard extends StatelessWidget {
                 icon: Icons.list_alt_rounded,
                 label: "Total",
                 value: "$totalExams",
-                color: kSoftPurple,
+                color: kPrimaryBlue,
               ),
               _buildStatItem(
                 icon: Icons.upcoming_rounded,
                 label: "Upcoming",
                 value: "$upcomingExams",
-                color: kSoftBlue,
+                color: kSoftOrange,
               ),
               _buildStatItem(
                 icon: Icons.check_circle_rounded,
                 label: "Completed",
                 value: "$completedExams",
-                color: kAccentColor,
+                color: kPrimaryGreen,
               ),
               _buildStatItem(
                 icon: Icons.publish_rounded,
                 label: "Published",
                 value: "$publishedResults",
-                color: kSoftOrange,
+                color: kPrimaryBlue,
               ),
             ],
           ),
@@ -495,30 +703,23 @@ class _ExamResultsOverviewCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            padding: const EdgeInsets.all(4), // REDUCED padding
+            padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: color, size: 12), // REDUCED icon size
+            child: Icon(icon, color: color, size: 16),
           ),
-          const SizedBox(height: 4), // REDUCED spacing
+          const SizedBox(height: 6),
           Text(
             value,
             style: TextStyle(
-              fontSize: 14, // REDUCED font size
+              fontSize: 16,
               fontWeight: FontWeight.bold,
               color: color,
             ),
           ),
-          const SizedBox(height: 1),
-          Text(
-            label,
-            style: TextStyle(
-              color: kTextSecondary,
-              fontSize: 9, // REDUCED font size
-            ),
-          ),
+          Text(label, style: TextStyle(color: kTextSecondary, fontSize: 11)),
         ],
       ),
     );
@@ -549,7 +750,7 @@ class _ExamsResultsToggle extends StatelessWidget {
             selected: selected == TeacherExamsTab.exams,
             onTap: () => onChanged(TeacherExamsTab.exams),
           ),
-          const SizedBox(width: 6), // REDUCED spacing
+          const SizedBox(width: 6),
           _ToggleButton(
             text: 'Results',
             selected: selected == TeacherExamsTab.results,
@@ -578,10 +779,14 @@ class _ToggleButton extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 6), // REDUCED padding
+          padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
             gradient: selected
-                ? LinearGradient(colors: [kSecondaryColor, kPrimaryColor])
+                ? LinearGradient(
+                    colors: [kPrimaryBlue, kPrimaryGreen],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  )
                 : null,
             borderRadius: BorderRadius.circular(30),
           ),
@@ -591,7 +796,7 @@ class _ToggleButton extends StatelessWidget {
               style: TextStyle(
                 color: selected ? Colors.white : kTextSecondary,
                 fontWeight: FontWeight.bold,
-                fontSize: 12, // REDUCED font size
+                fontSize: 13,
               ),
             ),
           ),
@@ -617,7 +822,7 @@ class _ExamCard extends StatelessWidget {
   });
 
   Color _getStatusColor(bool completed) {
-    return completed ? kAccentColor : kSoftOrange;
+    return completed ? kPrimaryGreen : kSoftOrange;
   }
 
   String _formatDate(DateTime dt) {
@@ -637,25 +842,21 @@ class _ExamCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16), // REDUCED radius
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
-            blurRadius: 10, // REDUCED blur
-            offset: const Offset(0, 3), // REDUCED offset
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
+        border: Border.all(color: Colors.grey.shade100, width: 1.5),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          tilePadding: const EdgeInsets.all(12), // REDUCED padding
-          childrenPadding: const EdgeInsets.fromLTRB(
-            12,
-            0,
-            12,
-            12,
-          ), // REDUCED padding
+          tilePadding: const EdgeInsets.all(14),
+          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -663,28 +864,24 @@ class _ExamCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
           ),
           leading: Container(
-            width: 42, // REDUCED size
-            height: 42, // REDUCED size
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [statusColor, statusColor.withOpacity(0.7)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(12), // REDUCED radius
+              borderRadius: BorderRadius.circular(14),
               boxShadow: [
                 BoxShadow(
                   color: statusColor.withOpacity(0.3),
-                  blurRadius: 5, // REDUCED blur
-                  offset: const Offset(0, 2), // REDUCED offset
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
-            child: Icon(
-              exam.icon,
-              color: Colors.white,
-              size: 22,
-            ), // REDUCED icon size
+            child: Icon(exam.icon, color: Colors.white, size: 24),
           ),
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -698,40 +895,40 @@ class _ExamCard extends StatelessWidget {
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: kTextPrimary,
-                        fontSize: 14, // REDUCED font size
+                        fontSize: 16,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(width: 6), // REDUCED spacing
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 3,
-                    ), // REDUCED padding
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12), // REDUCED radius
+                      borderRadius: BorderRadius.circular(16),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          width: 5, // REDUCED size
-                          height: 5, // REDUCED size
+                          width: 6,
+                          height: 6,
                           decoration: BoxDecoration(
                             color: statusColor,
                             shape: BoxShape.circle,
                           ),
                         ),
-                        const SizedBox(width: 3), // REDUCED spacing
+                        const SizedBox(width: 4),
                         Text(
                           exam.completed ? "Completed" : "Upcoming",
                           style: TextStyle(
                             color: statusColor,
                             fontWeight: FontWeight.w600,
-                            fontSize: 9, // REDUCED font size
+                            fontSize: 11,
                           ),
                         ),
                       ],
@@ -739,25 +936,22 @@ class _ExamCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 3), // REDUCED spacing
+              const SizedBox(height: 4),
               Text(
                 "${exam.className} • ${exam.subject}",
-                style: TextStyle(
-                  color: kTextSecondary,
-                  fontSize: 12, // REDUCED font size
-                ),
+                style: TextStyle(color: kTextSecondary, fontSize: 13),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 6), // REDUCED spacing
+              const SizedBox(height: 8),
               Wrap(
-                spacing: 8, // REDUCED spacing
-                runSpacing: 6, // REDUCED spacing
+                spacing: 10,
+                runSpacing: 8,
                 children: [
                   _buildInfoChip(
                     icon: Icons.calendar_today_rounded,
                     value: _formatDate(exam.date),
-                    color: kSoftPurple,
+                    color: kPrimaryBlue,
                   ),
                   _buildInfoChip(
                     icon: Icons.timer_rounded,
@@ -771,52 +965,52 @@ class _ExamCard extends StatelessWidget {
           trailing: Icon(
             Icons.keyboard_arrow_down_rounded,
             color: statusColor,
-            size: 20, // REDUCED size
+            size: 24,
           ),
           children: [
-            const Divider(height: 1),
-            const SizedBox(height: 8), // REDUCED spacing
+            Divider(height: 1, color: Colors.grey.shade200),
+            const SizedBox(height: 12),
             _buildDetailRow(
               icon: Icons.menu_book_rounded,
               label: "Syllabus",
               value: exam.syllabus,
-              color: kSoftPurple,
+              color: kPrimaryBlue,
             ),
-            const SizedBox(height: 6), // REDUCED spacing
+            const SizedBox(height: 8),
             _buildDetailRow(
               icon: Icons.note_alt_rounded,
               label: "Notes",
               value: exam.notes,
-              color: kSoftBlue,
+              color: kPrimaryGreen,
             ),
-            const SizedBox(height: 6), // REDUCED spacing
+            const SizedBox(height: 8),
             _buildDetailRow(
               icon: Icons.comment_rounded,
               label: "Remarks",
               value: exam.remarks,
               color: kSoftOrange,
             ),
-            const SizedBox(height: 8), // REDUCED spacing
+            const SizedBox(height: 12),
             Wrap(
-              spacing: 6, // REDUCED spacing
-              runSpacing: 6, // REDUCED spacing
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 _buildActionChip(
                   icon: Icons.people_rounded,
                   label: "Students",
-                  color: kSoftPurple,
+                  color: kPrimaryBlue,
                   onTap: onStudentsTap,
                 ),
                 _buildActionChip(
                   icon: Icons.edit_rounded,
                   label: "Edit",
-                  color: kSoftBlue,
+                  color: kPrimaryGreen,
                   onTap: onEditTap,
                 ),
                 _buildActionChip(
                   icon: Icons.grade_rounded,
                   label: "Marks",
-                  color: kAccentColor,
+                  color: kSoftOrange,
                   onTap: onMarksTap,
                 ),
               ],
@@ -833,25 +1027,22 @@ class _ExamCard extends StatelessWidget {
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 6,
-        vertical: 3,
-      ), // REDUCED padding
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(10), // REDUCED radius
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: 12), // REDUCED icon size
-          const SizedBox(width: 3), // REDUCED spacing
+          Icon(icon, color: color, size: 14),
+          const SizedBox(width: 4),
           Text(
             value,
             style: TextStyle(
               color: color,
               fontWeight: FontWeight.w600,
-              fontSize: 11, // REDUCED font size
+              fontSize: 12,
             ),
           ),
         ],
@@ -871,14 +1062,14 @@ class _ExamCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(3), // REDUCED padding
+            padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: color, size: 12), // REDUCED icon size
+            child: Icon(icon, color: color, size: 14),
           ),
-          const SizedBox(width: 6), // REDUCED spacing
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -888,17 +1079,14 @@ class _ExamCard extends StatelessWidget {
                   label,
                   style: TextStyle(
                     color: kTextSecondary,
-                    fontSize: 10, // REDUCED font size
+                    fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 1),
+                const SizedBox(height: 2),
                 Text(
                   value,
-                  style: TextStyle(
-                    color: kTextPrimary,
-                    fontSize: 11, // REDUCED font size
-                  ),
+                  style: TextStyle(color: kTextPrimary, fontSize: 13),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -920,37 +1108,34 @@ class _ExamCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14), // REDUCED radius
+        borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 4,
-          ), // REDUCED padding
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [color, color.withOpacity(0.8)],
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
             ),
-            borderRadius: BorderRadius.circular(14), // REDUCED radius
+            borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
                 color: color.withOpacity(0.3),
-                blurRadius: 3, // REDUCED blur
-                offset: const Offset(0, 1), // REDUCED offset
+                blurRadius: 4,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: Colors.white, size: 11), // REDUCED icon size
-              const SizedBox(width: 3), // REDUCED spacing
+              Icon(icon, color: Colors.white, size: 14),
+              const SizedBox(width: 4),
               Text(
                 label,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 9, // REDUCED font size
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -979,30 +1164,26 @@ class _ResultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = result.published ? kAccentColor : kSoftOrange;
+    final statusColor = result.published ? kPrimaryGreen : kSoftOrange;
 
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16), // REDUCED radius
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
-            blurRadius: 10, // REDUCED blur
-            offset: const Offset(0, 3), // REDUCED offset
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
+        border: Border.all(color: Colors.grey.shade100, width: 1.5),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          tilePadding: const EdgeInsets.all(12), // REDUCED padding
-          childrenPadding: const EdgeInsets.fromLTRB(
-            12,
-            0,
-            12,
-            12,
-          ), // REDUCED padding
+          tilePadding: const EdgeInsets.all(14),
+          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -1010,28 +1191,24 @@ class _ResultCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
           ),
           leading: Container(
-            width: 42, // REDUCED size
-            height: 42, // REDUCED size
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [statusColor, statusColor.withOpacity(0.7)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(12), // REDUCED radius
+              borderRadius: BorderRadius.circular(14),
               boxShadow: [
                 BoxShadow(
                   color: statusColor.withOpacity(0.3),
-                  blurRadius: 5, // REDUCED blur
-                  offset: const Offset(0, 2), // REDUCED offset
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
-            child: Icon(
-              result.icon,
-              color: Colors.white,
-              size: 22,
-            ), // REDUCED icon size
+            child: Icon(result.icon, color: Colors.white, size: 24),
           ),
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1045,40 +1222,40 @@ class _ResultCard extends StatelessWidget {
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: kTextPrimary,
-                        fontSize: 14, // REDUCED font size
+                        fontSize: 16,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(width: 6), // REDUCED spacing
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 3,
-                    ), // REDUCED padding
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12), // REDUCED radius
+                      borderRadius: BorderRadius.circular(16),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          width: 5, // REDUCED size
-                          height: 5, // REDUCED size
+                          width: 6,
+                          height: 6,
                           decoration: BoxDecoration(
                             color: statusColor,
                             shape: BoxShape.circle,
                           ),
                         ),
-                        const SizedBox(width: 3), // REDUCED spacing
+                        const SizedBox(width: 4),
                         Text(
                           result.published ? "Published" : "Draft",
                           style: TextStyle(
                             color: statusColor,
                             fontWeight: FontWeight.w600,
-                            fontSize: 9, // REDUCED font size
+                            fontSize: 11,
                           ),
                         ),
                       ],
@@ -1086,26 +1263,23 @@ class _ResultCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 3), // REDUCED spacing
+              const SizedBox(height: 4),
               Text(
                 "${result.className} • ${result.subject}",
-                style: TextStyle(
-                  color: kTextSecondary,
-                  fontSize: 12, // REDUCED font size
-                ),
+                style: TextStyle(color: kTextSecondary, fontSize: 13),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 6), // REDUCED spacing
+              const SizedBox(height: 8),
               Wrap(
-                spacing: 8, // REDUCED spacing
-                runSpacing: 6, // REDUCED spacing
+                spacing: 10,
+                runSpacing: 8,
                 children: [
                   _buildInfoChip(
                     icon: Icons.leaderboard_rounded,
                     value: "${result.average.toStringAsFixed(1)}%",
                     label: "Average",
-                    color: kSoftPurple,
+                    color: kPrimaryBlue,
                   ),
                   _buildInfoChip(
                     icon: Icons.percent_rounded,
@@ -1120,46 +1294,46 @@ class _ResultCard extends StatelessWidget {
           trailing: Icon(
             Icons.keyboard_arrow_down_rounded,
             color: statusColor,
-            size: 20, // REDUCED size
+            size: 24,
           ),
           children: [
-            const Divider(height: 1),
-            const SizedBox(height: 8), // REDUCED spacing
+            Divider(height: 1, color: Colors.grey.shade200),
+            const SizedBox(height: 12),
             _buildDetailRow(
               icon: Icons.menu_book_rounded,
               label: "Syllabus",
               value: result.syllabus,
-              color: kSoftPurple,
+              color: kPrimaryBlue,
             ),
-            const SizedBox(height: 6), // REDUCED spacing
+            const SizedBox(height: 8),
             _buildDetailRow(
               icon: Icons.note_alt_rounded,
               label: "Notes",
               value: result.notes,
-              color: kSoftBlue,
+              color: kPrimaryGreen,
             ),
-            const SizedBox(height: 6), // REDUCED spacing
+            const SizedBox(height: 8),
             _buildDetailRow(
               icon: Icons.comment_rounded,
               label: "Remarks",
               value: result.remarks,
               color: kSoftOrange,
             ),
-            const SizedBox(height: 8), // REDUCED spacing
+            const SizedBox(height: 12),
             Wrap(
-              spacing: 6, // REDUCED spacing
-              runSpacing: 6, // REDUCED spacing
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 _buildActionChip(
                   icon: Icons.visibility_rounded,
                   label: "View",
-                  color: kSoftPurple,
+                  color: kPrimaryBlue,
                   onTap: onViewTap,
                 ),
                 _buildActionChip(
                   icon: Icons.edit_rounded,
                   label: "Edit",
-                  color: kSoftBlue,
+                  color: kPrimaryGreen,
                   onTap: onEditTap,
                 ),
                 _buildActionChip(
@@ -1167,7 +1341,7 @@ class _ResultCard extends StatelessWidget {
                       ? Icons.undo_rounded
                       : Icons.publish_rounded,
                   label: result.published ? "Unpublish" : "Publish",
-                  color: kAccentColor,
+                  color: kSoftOrange,
                   onTap: onPublishTap,
                 ),
               ],
@@ -1185,19 +1359,16 @@ class _ResultCard extends StatelessWidget {
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 6,
-        vertical: 3,
-      ), // REDUCED padding
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(10), // REDUCED radius
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: 12), // REDUCED icon size
-          const SizedBox(width: 3), // REDUCED spacing
+          Icon(icon, color: color, size: 14),
+          const SizedBox(width: 4),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -1207,15 +1378,12 @@ class _ResultCard extends StatelessWidget {
                 style: TextStyle(
                   color: color,
                   fontWeight: FontWeight.bold,
-                  fontSize: 11, // REDUCED font size
+                  fontSize: 12,
                 ),
               ),
               Text(
                 label,
-                style: TextStyle(
-                  color: color.withOpacity(0.7),
-                  fontSize: 8, // REDUCED font size
-                ),
+                style: TextStyle(color: color.withOpacity(0.7), fontSize: 9),
               ),
             ],
           ),
@@ -1236,14 +1404,14 @@ class _ResultCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(3), // REDUCED padding
+            padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: color, size: 12), // REDUCED icon size
+            child: Icon(icon, color: color, size: 14),
           ),
-          const SizedBox(width: 6), // REDUCED spacing
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1253,17 +1421,14 @@ class _ResultCard extends StatelessWidget {
                   label,
                   style: TextStyle(
                     color: kTextSecondary,
-                    fontSize: 10, // REDUCED font size
+                    fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 1),
+                const SizedBox(height: 2),
                 Text(
                   value,
-                  style: TextStyle(
-                    color: kTextPrimary,
-                    fontSize: 11, // REDUCED font size
-                  ),
+                  style: TextStyle(color: kTextPrimary, fontSize: 13),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1285,37 +1450,34 @@ class _ResultCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14), // REDUCED radius
+        borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 4,
-          ), // REDUCED padding
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [color, color.withOpacity(0.8)],
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
             ),
-            borderRadius: BorderRadius.circular(14), // REDUCED radius
+            borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
                 color: color.withOpacity(0.3),
-                blurRadius: 3, // REDUCED blur
-                offset: const Offset(0, 1), // REDUCED offset
+                blurRadius: 4,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: Colors.white, size: 11), // REDUCED icon size
-              const SizedBox(width: 3), // REDUCED spacing
+              Icon(icon, color: Colors.white, size: 14),
+              const SizedBox(width: 4),
               Text(
                 label,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 9, // REDUCED font size
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
               ),

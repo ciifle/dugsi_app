@@ -1,30 +1,40 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-// ---------- WONDERFUL COLOR PALETTE ----------
-const Color kPrimaryColor = Color(0xFF1E3A8A); // Deep indigo
-const Color kSecondaryColor = Color(0xFF3B82F6); // Bright blue
-const Color kAccentColor = Color(0xFF10B981); // Emerald green
-const Color kSoftPurple = Color(0xFF8B5CF6); // Light purple
-const Color kSoftPink = Color(0xFFEC4899); // Pink
-const Color kSoftOrange = Color(0xFFF59E0B); // Amber
-const Color kSoftBlue = Color(0xFF3B82F6); // Sky blue
-const Color kSuccessColor = Color(0xFF059669); // Dark green
+// ---------- COLOR PALETTE (Matching Dashboard) ----------
+const Color kPrimaryBlue = Color(0xFF023471); // Dark blue
+const Color kPrimaryGreen = Color(0xFF5AB04B); // Green
+
+// Derived colors (shades/tints of the two main colors)
+const Color kSoftBlue = Color(0xFFE0E9F5); // Light tint of blue
+const Color kSoftGreen = Color(0xFFE4F1E2); // Light tint of green
+const Color kDarkGreen = Color(0xFF3D8C30); // Darker shade of green
+const Color kDarkBlue = Color(0xFF011A3D); // Darker shade of blue
+const Color kSoftPurple = Color(0xFF4A6FA5); // Soft blue-purple
+const Color kSoftPink = Color(0xFF7CB86E); // Soft green-pink
+const Color kSoftOrange = Color(0xFFF59E0B); // Amber for warning
+const Color kSuccessColor = Color(0xFF3D8C30); // Darker green
 const Color kWarningColor = Color(0xFFF59E0B); // Amber
 const Color kErrorColor = Color(0xFFEF4444); // Red
-const Color kBackgroundColor = Color(0xFFF8FAFC); // Light background
+const Color kBackgroundColor = Color(0xFFF5F8FC); // Light background
 const Color kSurfaceColor = Colors.white;
-const Color kTextPrimaryColor = Color(0xFF1E293B); // Dark slate
-const Color kTextSecondaryColor = Color(0xFF64748B); // Medium slate
+const Color kTextPrimaryColor = Color(0xFF1A1E1F); // Dark slate
+const Color kTextSecondaryColor = Color(0xFF4F5A5E); // Medium slate
 
 // GRADIENT COLORS
-const List<Color> kPrimaryGradient = [Color(0xFF1E3A8A), Color(0xFF3B82F6)];
-const List<Color> kSuccessGradient = [Color(0xFF10B981), Color(0xFF34D399)];
+const List<Color> kPrimaryGradient = [kPrimaryBlue, kPrimaryGreen];
+const List<Color> kSuccessGradient = [kPrimaryGreen, kDarkGreen];
 const List<Color> kWarningGradient = [Color(0xFFF59E0B), Color(0xFFFBBF24)];
 
-class StudentExamScheduleScreen extends StatelessWidget {
-  StudentExamScheduleScreen({Key? key}) : super(key: key);
+class StudentExamScheduleScreen extends StatefulWidget {
+  const StudentExamScheduleScreen({Key? key}) : super(key: key);
 
+  @override
+  State<StudentExamScheduleScreen> createState() =>
+      _StudentExamScheduleScreenState();
+}
+
+class _StudentExamScheduleScreenState extends State<StudentExamScheduleScreen> {
   // Dummy exam data
   final List<Map<String, dynamic>> _exams = [
     {
@@ -39,7 +49,7 @@ class StudentExamScheduleScreen extends StatelessWidget {
       "instructions": "Arrive 10 minutes early. Bring calculator and ID card.",
       "syllabus": "Chapters 1-6: Algebra, Trigonometry, Calculus.",
       "teacher": "Ms. Evelyn Harper",
-      "color": kSoftPurple,
+      "color": kPrimaryBlue,
     },
     {
       "name": "Final Exam",
@@ -53,7 +63,7 @@ class StudentExamScheduleScreen extends StatelessWidget {
       "instructions": "Stable internet connection required. Webcam must be ON.",
       "syllabus": "World Wars, Industrial Revolution, Colonialism.",
       "teacher": "Mr. Alan Shepherd",
-      "color": kSoftBlue,
+      "color": kSoftPurple,
     },
     {
       "name": "Quiz 2",
@@ -67,7 +77,7 @@ class StudentExamScheduleScreen extends StatelessWidget {
       "instructions": "No electronic devices allowed.",
       "syllabus": "Chapter 4: Newton's Laws. Chapter 5: Energy.",
       "teacher": "Dr. Wendy Lin",
-      "color": kSoftOrange,
+      "color": kSuccessColor,
     },
     {
       "name": "Assignment Assessment",
@@ -82,23 +92,88 @@ class StudentExamScheduleScreen extends StatelessWidget {
           "Individual work only. Code must be submitted before end time.",
       "syllabus": "Unit 3: Data structures. Unit 4: Algorithms.",
       "teacher": "Ms. Rebecca Storm",
-      "color": kSoftPink,
+      "color": kSoftOrange,
     },
   ];
 
+  DateTime? _selectedDate;
+
+  List<Map<String, dynamic>> getFilteredExams() {
+    if (_selectedDate == null) {
+      return _exams;
+    }
+
+    return _exams.where((exam) {
+      final examDate = exam['date'] as DateTime;
+      return examDate.year == _selectedDate!.year &&
+          examDate.month == _selectedDate!.month &&
+          examDate.day == _selectedDate!.day;
+    }).toList();
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2024, 1, 1),
+      lastDate: DateTime(2025, 12, 31),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: kPrimaryBlue,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: kTextPrimaryColor,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        _selectedDate = picked;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Showing exams for ${DateFormat('MMMM d, yyyy').format(picked)}',
+            style: const TextStyle(color: Colors.white),
+          ),
+          backgroundColor: kPrimaryBlue,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    }
+  }
+
+  void _clearDateFilter() {
+    setState(() {
+      _selectedDate = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final int totalCount = _exams.length;
-    final int upcomingCount = _exams
+    final filteredExams = getFilteredExams();
+
+    final int totalCount = filteredExams.length;
+    final int upcomingCount = filteredExams
         .where((e) => e['status'] == 'Upcoming')
         .length;
-    final int completedCount = _exams
+    final int completedCount = filteredExams
         .where((e) => e['status'] == 'Completed')
         .length;
 
     // Group exams by date
     final Map<DateTime, List<Map<String, dynamic>>> examsByDate = {};
-    for (final exam in _exams) {
+    for (final exam in filteredExams) {
       final dt = exam['date'] as DateTime;
       final grouped = DateTime(dt.year, dt.month, dt.day);
       examsByDate.putIfAbsent(grouped, () => []).add(exam);
@@ -107,166 +182,275 @@ class StudentExamScheduleScreen extends StatelessWidget {
     final List<DateTime> sortedDates = examsByDate.keys.toList()
       ..sort((a, b) => b.compareTo(a));
 
-    return Scaffold(
-      backgroundColor: kBackgroundColor,
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          // ---------------- STUNNING APP BAR ----------------
-          SliverAppBar(
-            expandedHeight: 120,
-            pinned: true,
-            backgroundColor: kPrimaryColor,
-            flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
-              title: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.calendar_month_rounded,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    "Exam Schedule",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 24,
-                    ),
-                  ),
-                ],
-              ),
-              background: Container(
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [kSoftBlue, kSoftGreen],
+          stops: [0.0, 1.0],
+        ),
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            // App Bar with Date Filter
+            SliverToBoxAdapter(
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(24, 50, 24, 40),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [kPrimaryColor, kSecondaryColor],
+                    colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
+                    stops: const [0.3, 0.7, 1.0],
                   ),
-                ),
-              ),
-            ),
-            leading: IconButton(
-              icon: const Icon(
-                Icons.arrow_back_rounded,
-                color: Colors.white,
-                size: 24,
-              ),
-              onPressed: () => Navigator.pop(context),
-            ),
-            actions: [
-              Container(
-                margin: const EdgeInsets.only(right: 16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: IconButton(
-                  icon: const Icon(
-                    Icons.calendar_today_rounded,
-                    color: Colors.white,
-                    size: 22,
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(40),
+                    bottomRight: Radius.circular(40),
                   ),
-                  onPressed: () {},
+                  boxShadow: [
+                    BoxShadow(
+                      color: kPrimaryBlue.withOpacity(0.3),
+                      blurRadius: 30,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        // Back Button
+                        GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: Icon(
+                                Icons.arrow_back_rounded,
+                                color: Colors.white,
+                                size: 28,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        // Title
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Text(
+                                "Exam Schedule",
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.9),
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              const Text(
+                                "Upcoming Exams",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        // Calendar Icon
+                        GestureDetector(
+                          onTap: () => _selectDate(context),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: Icon(
+                                Icons.calendar_month_rounded,
+                                color: Colors.white,
+                                size: 28,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Show active filter if date selected
+                    if (_selectedDate != null) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.filter_alt_rounded,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Filtered: ${DateFormat('MMMM d, yyyy').format(_selectedDate!)}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            GestureDetector(
+                              onTap: _clearDateFilter,
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.3),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.close_rounded,
+                                  color: Colors.white,
+                                  size: 14,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-            ],
-          ),
-
-          // ---------------- MAIN CONTENT ----------------
-          SliverPadding(
-            padding: const EdgeInsets.all(20),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                // ---------------- STATS CARD ----------------
-                _buildStatsCard(totalCount, upcomingCount, completedCount),
-
-                const SizedBox(height: 24),
-
-                // ---------------- EXAMS BY DATE ----------------
-                ...sortedDates.map(
-                  (date) =>
-                      _ExamDateSection(date: date, exams: examsByDate[date]!),
-                ),
-              ]),
             ),
-          ),
-        ],
+
+            // Main Content
+            SliverPadding(
+              padding: const EdgeInsets.all(20),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  // Stats Card
+                  _buildStatsCard(totalCount, upcomingCount, completedCount),
+
+                  const SizedBox(height: 24),
+
+                  // Exams by Date
+                  if (sortedDates.isEmpty)
+                    _buildEmptyState()
+                  else
+                    ...sortedDates.map(
+                      (date) => _ExamDateSection(
+                        date: date,
+                        exams: examsByDate[date]!,
+                      ),
+                    ),
+                ]),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
+  // Stats Card
   Widget _buildStatsCard(int total, int upcoming, int completed) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: kSurfaceColor,
-        borderRadius: BorderRadius.circular(24),
+        gradient: LinearGradient(
+          colors: [Colors.white, kSoftGreen],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+            color: kPrimaryBlue.withOpacity(0.15),
+            blurRadius: 25,
+            offset: const Offset(0, 10),
           ),
         ],
         border: Border.all(color: Colors.white, width: 2),
       ),
       child: Column(
         children: [
+          // Header
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: kSoftPurple.withOpacity(0.1),
-                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [kPrimaryBlue, kPrimaryGreen],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(18),
                 ),
                 child: const Icon(
                   Icons.analytics_rounded,
-                  color: kSoftPurple,
-                  size: 20,
+                  color: Colors.white,
+                  size: 24,
                 ),
               ),
-              const SizedBox(width: 10),
-              const Text(
-                'Exam Overview',
+              const SizedBox(width: 16),
+              Text(
+                _selectedDate != null ? 'Filtered Overview' : 'Exam Overview',
                 style: TextStyle(
                   color: kTextPrimaryColor,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
+
+          // Stats Row
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildStatItem(
+              _buildEnhancedStatItem(
                 icon: Icons.list_alt_rounded,
                 label: "Total",
                 value: "$total",
-                color: kSoftPurple,
+                color: kPrimaryBlue,
+                bgColor: kSoftBlue,
               ),
-              _buildStatItem(
+              const SizedBox(width: 12),
+              _buildEnhancedStatItem(
                 icon: Icons.upcoming_rounded,
                 label: "Upcoming",
                 value: "$upcoming",
-                color: kSuccessColor,
+                color: kPrimaryGreen,
+                bgColor: kSoftGreen,
               ),
-              _buildStatItem(
+              const SizedBox(width: 12),
+              _buildEnhancedStatItem(
                 icon: Icons.check_circle_rounded,
                 label: "Completed",
                 value: "$completed",
                 color: kSoftOrange,
+                bgColor: kSoftOrange.withOpacity(0.1),
               ),
             ],
           ),
@@ -275,48 +459,125 @@ class StudentExamScheduleScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStatItem({
+  Widget _buildEnhancedStatItem({
     required IconData icon,
     required String label,
     required String value,
     required Color color,
+    required Color bgColor,
   }) {
     return Expanded(
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
               color: color.withOpacity(0.1),
-              shape: BoxShape.circle,
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
-            child: Icon(icon, color: color, size: 18),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: color,
+          ],
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
+              child: Icon(icon, color: color, size: 20),
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              color: kTextSecondaryColor,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                color: kTextSecondaryColor,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Empty State
+  Widget _buildEmptyState() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 40),
+      child: Center(
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [kSoftBlue, kSoftGreen],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.event_busy_rounded,
+                color: kPrimaryBlue,
+                size: 48,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _selectedDate != null
+                  ? 'No exams on this date'
+                  : 'No exams found',
+              style: TextStyle(
+                color: kTextPrimaryColor,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _selectedDate != null
+                  ? 'Try selecting a different date'
+                  : 'Check back later for exam schedule',
+              style: TextStyle(color: kTextSecondaryColor, fontSize: 14),
+            ),
+            if (_selectedDate != null) ...[
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _clearDateFilter,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: kPrimaryBlue,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                ),
+                child: const Text('Clear Filter'),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
 }
 
-// ---------------- EXAM DATE SECTION ----------------
+// Exam Date Section
 class _ExamDateSection extends StatelessWidget {
   final DateTime date;
   final List<Map<String, dynamic>> exams;
@@ -341,36 +602,38 @@ class _ExamDateSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [kSoftOrange, kSoftPink],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [kPrimaryBlue, kPrimaryGreen],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                borderRadius: BorderRadius.circular(12),
+                child: const Icon(
+                  Icons.calendar_today_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
               ),
-              child: const Icon(
-                Icons.calendar_today_rounded,
-                color: Colors.white,
-                size: 16,
+              const SizedBox(width: 12),
+              Text(
+                _formattedDate,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: kTextPrimaryColor,
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              _formattedDate,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: kTextPrimaryColor,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
-        const SizedBox(height: 16),
         ...exams.map(
           (exam) => Padding(
             padding: const EdgeInsets.only(bottom: 12),
@@ -383,7 +646,7 @@ class _ExamDateSection extends StatelessWidget {
   }
 }
 
-// ---------------- EXAM CARD ----------------
+// Exam Card
 class _ExamCard extends StatelessWidget {
   final Map<String, dynamic> exam;
 
@@ -398,7 +661,7 @@ class _ExamCard extends StatelessWidget {
     final DateTime date = exam['date'];
     final DateTime? endTime = exam['endTime'];
     final bool isUpcoming = exam['status'] == 'Upcoming';
-    final Color cardColor = exam['color'] ?? kSoftPurple;
+    final Color cardColor = exam['color'] ?? kPrimaryBlue;
 
     String location = exam['isOnline'] ? "Online" : (exam['room'] ?? "TBA");
     IconData locationIcon = exam['isOnline']
@@ -407,11 +670,11 @@ class _ExamCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: kSurfaceColor,
-        borderRadius: BorderRadius.circular(20),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: cardColor.withOpacity(0.1),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -430,21 +693,21 @@ class _ExamCard extends StatelessWidget {
           tilePadding: const EdgeInsets.all(16),
           childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(24),
           ),
           collapsedShape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(24),
           ),
           leading: Container(
-            width: 50,
-            height: 50,
+            width: 56,
+            height: 56,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [cardColor, cardColor.withOpacity(0.7)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(18),
               boxShadow: [
                 BoxShadow(
                   color: cardColor.withOpacity(0.3),
@@ -459,7 +722,7 @@ class _ExamCard extends StatelessWidget {
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
-                  fontSize: 20,
+                  fontSize: 22,
                 ),
               ),
             ),
@@ -489,7 +752,7 @@ class _ExamCard extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: isUpcoming
-                          ? kSuccessColor.withOpacity(0.1)
+                          ? kPrimaryGreen.withOpacity(0.1)
                           : kSoftOrange.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
@@ -500,16 +763,16 @@ class _ExamCard extends StatelessWidget {
                           isUpcoming
                               ? Icons.access_time_rounded
                               : Icons.check_circle_rounded,
-                          color: isUpcoming ? kSuccessColor : kSoftOrange,
+                          color: isUpcoming ? kPrimaryGreen : kSoftOrange,
                           size: 12,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           exam['status'],
                           style: TextStyle(
-                            color: isUpcoming ? kSuccessColor : kSoftOrange,
+                            color: isUpcoming ? kPrimaryGreen : kSoftOrange,
                             fontWeight: FontWeight.w600,
-                            fontSize: 10,
+                            fontSize: 11,
                           ),
                         ),
                       ],
@@ -517,22 +780,29 @@ class _ExamCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               Text(
                 exam['subject'],
                 style: TextStyle(
                   color: cardColor,
                   fontWeight: FontWeight.w600,
-                  fontSize: 13,
+                  fontSize: 14,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Row(
                 children: [
-                  Icon(
-                    Icons.access_time_rounded,
-                    size: 14,
-                    color: kTextSecondaryColor,
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: kPrimaryBlue.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.access_time_rounded,
+                      size: 12,
+                      color: kPrimaryBlue,
+                    ),
                   ),
                   const SizedBox(width: 4),
                   Text(
@@ -550,7 +820,14 @@ class _ExamCard extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(width: 12),
-                  Icon(locationIcon, size: 14, color: kTextSecondaryColor),
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: kPrimaryGreen.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(locationIcon, size: 12, color: kPrimaryGreen),
+                  ),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
@@ -558,6 +835,7 @@ class _ExamCard extends StatelessWidget {
                       style: TextStyle(
                         color: kTextSecondaryColor,
                         fontSize: 12,
+                        fontWeight: FontWeight.w500,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -567,29 +845,36 @@ class _ExamCard extends StatelessWidget {
               ),
             ],
           ),
-          trailing: Icon(
-            Icons.keyboard_arrow_down_rounded,
-            color: cardColor,
-            size: 24,
+          trailing: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: cardColor.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: cardColor,
+              size: 22,
+            ),
           ),
           children: [
             const Divider(height: 1),
-            const SizedBox(height: 12),
-            _buildDetailRow(
+            const SizedBox(height: 16),
+            _buildEnhancedDetailRow(
               icon: Icons.info_outline_rounded,
               label: "Instructions",
               value: exam['instructions'],
-              color: kSoftBlue,
+              color: kPrimaryBlue,
             ),
-            const SizedBox(height: 10),
-            _buildDetailRow(
+            const SizedBox(height: 12),
+            _buildEnhancedDetailRow(
               icon: Icons.menu_book_rounded,
               label: "Syllabus",
               value: exam['syllabus'],
-              color: kSoftPurple,
+              color: kPrimaryGreen,
             ),
-            const SizedBox(height: 10),
-            _buildDetailRow(
+            const SizedBox(height: 12),
+            _buildEnhancedDetailRow(
               icon: Icons.person_rounded,
               label: "Teacher",
               value: exam['teacher'],
@@ -601,7 +886,7 @@ class _ExamCard extends StatelessWidget {
     );
   }
 
-  Widget _buildDetailRow({
+  Widget _buildEnhancedDetailRow({
     required IconData icon,
     required String label,
     required String value,
@@ -611,10 +896,10 @@ class _ExamCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          padding: const EdgeInsets.all(6),
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: color.withOpacity(0.1),
-            shape: BoxShape.circle,
+            borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(icon, color: color, size: 16),
         ),
@@ -631,10 +916,22 @@ class _ExamCard extends StatelessWidget {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: TextStyle(color: kTextPrimaryColor, fontSize: 13),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: kBackgroundColor,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    color: kTextPrimaryColor,
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
+                ),
               ),
             ],
           ),

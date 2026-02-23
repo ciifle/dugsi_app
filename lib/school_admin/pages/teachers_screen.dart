@@ -1,25 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:kobac/school_admin/pages/teacher_screen.dart';
 
-// --- Project Color Palette ---
-const Color kDarkBlue = Color(0xFF023471); // For AppBar, title, teacher names
-const Color kOrange = Color(0xFF5AB04B); // For icons, highlights, accents
-const Color kLightGrey = Color(0xFFF4F6FA); // For page background
+// --- Premium 3D Design Constants ---
+const Color kPrimaryBlue = Color(0xFF023471);
+const Color kPrimaryGreen = Color(0xFF5AB04B);
+const Color kBgColor = Color(0xFFF0F3F7);
+const double kTeacherCardRadius = 28.0;
 
-// Dummy teacher data with images
+// Dummy teacher model
 class Teacher {
   final String name;
   final String subject;
   final String contact;
   final bool isActive;
-  final String? imageUrl; // Made this nullable to prevent type mismatch
+  final String? imageUrl;
 
   const Teacher({
     required this.name,
     required this.subject,
     required this.contact,
     required this.isActive,
-    this.imageUrl, // Make imageUrl optional
+    this.imageUrl,
   });
 }
 
@@ -61,209 +62,53 @@ final List<Teacher> _dummyTeachers = [
   ),
 ];
 
-// Main Teacher List Page
 class TeacherListScreen extends StatelessWidget {
   const TeacherListScreen({super.key});
-
-  void _onAddTeacher(BuildContext context) {
-    // TODO: Implement add teacher flow
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Add Teacher tapped")),
-    );
-  }
-
-  // Accept a Teacher to pass to details page
-  void _openTeacherDetails(BuildContext context, Teacher teacher) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => TeacherDetailsPage(),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kLightGrey,
-      appBar: AppBar(
-        backgroundColor: kDarkBlue,
-        elevation: 3,
-        title: const Text(
-          "Teachers",
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 24,
-            letterSpacing: 0.1,
+      backgroundColor: kBgColor,
+      body: SafeArea(
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [kBgColor, kPrimaryBlue.withOpacity(0.02)],
+            ),
           ),
-        ),
-        centerTitle: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person_add_alt_1),
-            tooltip: "Add Teacher",
-            color: kOrange,
-            onPressed: () => _onAddTeacher(context),
-            splashRadius: 25,
-          ),
-        ],
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
-        child: ListView.separated(
-          itemCount: _dummyTeachers.length,
-          separatorBuilder: (context, idx) => const SizedBox(height: 15),
-          itemBuilder: (context, idx) {
-            final teacher = _dummyTeachers[idx];
-            // Use only InkWell (not wrapped by GestureDetector!) and assign onTap here
-            return TeacherCard(
-              teacher: teacher,
-              onTap: () => _openTeacherDetails(context, teacher),
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-// Reusable widget for displaying teacher info card
-class TeacherCard extends StatelessWidget {
-  final Teacher teacher;
-  final VoidCallback? onTap;
-  const TeacherCard({super.key, required this.teacher, this.onTap});
-
-  static const String defaultAvatar =
-      'https://ui-avatars.com/api/?name=Teacher&background=ccc&color=888';
-
-  @override
-  Widget build(BuildContext context) {
-    // Status badge
-    final statusColor = teacher.isActive ? kOrange : Colors.grey[400];
-    final statusText = teacher.isActive ? 'Active' : 'Inactive';
-
-    // Use a placeholder image if imageUrl is null or empty
-    final String safeImageUrl = (teacher.imageUrl != null && teacher.imageUrl!.isNotEmpty)
-        ? teacher.imageUrl!
-        : defaultAvatar;
-
-    return Card(
-      elevation: 5,
-      color: Colors.white,
-      shadowColor: kDarkBlue.withOpacity(0.08),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(15),
-        onTap: onTap, // << Now handle navigation here
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Profile Avatar
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: kOrange.withOpacity(0.08),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: kOrange.withOpacity(0.07),
-                      blurRadius: 4,
-                      offset: const Offset(1, 2),
-                    ),
-                  ],
-                ),
-                child: ClipOval(
-                  child: _NetworkImageFix(url: safeImageUrl),
-                ),
-              ),
-              const SizedBox(width: 18),
-              // Flexible card middle
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                child: Row(
                   children: [
-                    // Teacher Name (truncate with ...)
-                    Text(
-                      teacher.name,
-                      style: const TextStyle(
-                        color: kDarkBlue,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 18,
-                        letterSpacing: 0.12,
+                    _BackButton(onPressed: () => Navigator.of(context).pop()),
+                    const SizedBox(width: 16),
+                    const Expanded(
+                      child: Text(
+                        "Teachers",
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: kPrimaryBlue,
+                        ),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
-                    // Subject
-                    Row(
-                      children: [
-                        const Icon(Icons.book_rounded, color: kOrange, size: 18),
-                        const SizedBox(width: 5),
-                        Flexible(
-                          child: Text(
-                            teacher.subject,
-                            style: const TextStyle(
-                              color: Colors.black87,
-                              fontWeight: FontWeight.w500,
-                              fontSize: 15.5,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    // Contact info
-                    Row(
-                      children: [
-                        const Icon(Icons.email_outlined, color: kOrange, size: 17),
-                        const SizedBox(width: 5),
-                        Flexible(
-                          child: Text(
-                            teacher.contact,
-                            style: const TextStyle(
-                              color: Colors.black54,
-                              fontSize: 14.5,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    )
+                    _AddButton(onPressed: () {}),
                   ],
                 ),
               ),
-              // Status badge
-              Container(
-                margin: const EdgeInsets.only(left: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                decoration: BoxDecoration(
-                  color: teacher.isActive
-                      ? kOrange.withOpacity(0.11)
-                      : Colors.grey.withOpacity(0.13),
-                  borderRadius: BorderRadius.circular(11),
-                  border: Border.all(
-                      color: statusColor!,
-                      width: 1.2),
-                ),
-                child: Text(
-                  statusText,
-                  style: TextStyle(
-                    color: statusColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13.8,
-                    letterSpacing: 0.1,
-                  ),
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  itemCount: _dummyTeachers.length,
+                  itemBuilder: (context, index) {
+                    final teacher = _dummyTeachers[index];
+                    return _TeacherCard(teacher: teacher);
+                  },
                 ),
               ),
             ],
@@ -274,22 +119,160 @@ class TeacherCard extends StatelessWidget {
   }
 }
 
-// Custom network image widget with fix for non-showing images using NetworkImage as provider
-class _NetworkImageFix extends StatelessWidget {
-  final String url;
-  const _NetworkImageFix({required this.url});
+class _BackButton extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _BackButton({required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
-    return Image(
-      image: NetworkImage(url, scale: 1.0),
-      width: 56,
-      height: 56,
-      fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) => const Icon(
-        Icons.person,
-        color: kOrange,
-        size: 35,
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+        ),
+        child: const Icon(Icons.arrow_back_rounded, color: kPrimaryBlue, size: 24),
+      ),
+    );
+  }
+}
+
+class _AddButton extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _AddButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: kPrimaryGreen.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [BoxShadow(color: kPrimaryGreen.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))],
+        ),
+        child: const Icon(Icons.add_rounded, color: kPrimaryGreen, size: 24),
+      ),
+    );
+  }
+}
+
+class _TeacherCard extends StatelessWidget {
+  final Teacher teacher;
+
+  const _TeacherCard({required this.teacher});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TeacherDetailsPage())),
+        borderRadius: BorderRadius.circular(kTeacherCardRadius),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(kTeacherCardRadius),
+            boxShadow: [
+              BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 6)),
+              BoxShadow(color: kPrimaryBlue.withOpacity(0.03), blurRadius: 32, offset: const Offset(0, 12)),
+            ],
+          ),
+          child: Row(
+            children: [
+              Hero(
+                tag: teacher.name,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: kPrimaryBlue.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: kPrimaryBlue.withOpacity(0.08), width: 1),
+                  ),
+                  child: CircleAvatar(
+                    radius: 30,
+                    backgroundImage: NetworkImage(teacher.imageUrl ?? ''),
+                    backgroundColor: kPrimaryBlue.withOpacity(0.05),
+                    onBackgroundImageError: (_, __) {},
+                    child: teacher.imageUrl == null
+                        ? const Icon(Icons.person, color: kPrimaryBlue)
+                        : null,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        teacher.name,
+                        style: const TextStyle(
+                          fontSize: 18, 
+                          fontWeight: FontWeight.bold,
+                          color: kPrimaryBlue,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: kPrimaryBlue.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          teacher.subject,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: kPrimaryBlue.withOpacity(0.7),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        teacher.contact,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                ),
+              ),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: teacher.isActive ? kPrimaryGreen.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      teacher.isActive ? "Active" : "Inactive",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: teacher.isActive ? kPrimaryGreen : Colors.grey,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Colors.grey),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

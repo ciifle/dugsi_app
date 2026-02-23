@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 
-// ---------- WONDERFUL COLOR PALETTE (Matching Student Dashboard) ----------
-const Color kPrimaryColor = Color(0xFF2A2E45); // Deep charcoal
-const Color kSecondaryColor = Color(0xFF6C5CE7); // Rich purple
-const Color kAccentColor = Color(0xFF00B894); // Mint green
-const Color kSoftPurple = Color(0xFFA29BFE); // Light purple
-const Color kSoftPink = Color(0xFFFF7675); // Soft pink
-const Color kSoftOrange = Color(0xFFFDCB6E); // Warm orange
-const Color kSoftBlue = Color(0xFF74B9FF); // Sky blue
-const Color kBackgroundStart = Color(0xFFE8EEF9); // Light blue-gray
-const Color kBackgroundEnd = Color(0xFFF5F0FF); // Light purple
-const Color kCardColor = Colors.white;
+// ---------- COLOR PALETTE (Matching Student Dashboard) ----------
+const Color kPrimaryBlue = Color(0xFF023471); // Dark blue
+const Color kPrimaryGreen = Color(0xFF5AB04B); // Green
+
+// Derived colors (shades/tints of the two main colors)
+const Color kSoftBlue = Color(0xFFE6F0FF); // Light tint of blue
+const Color kSoftGreen = Color(0xFFEDF7EB); // Light tint of green
+const Color kDarkGreen = Color(0xFF3A7A30); // Darker shade of green
+const Color kDarkBlue = Color(0xFF01255C); // Darker shade of blue
 const Color kTextPrimary = Color(0xFF2D3436); // Dark gray
-const Color kTextSecondary = Color(0xFF64748B); // Medium slate
-const Color kSuccessColor = Color(0xFF059669); // Green for present
-const Color kErrorColor = Color(0xFFDC2626); // Red for absent
+const Color kTextSecondary = Color(0xFF636E72); // Medium gray
+const Color kErrorColor = Color(0xFFEF4444); // Red
+const Color kSoftOrange = Color(0xFFF59E0B); // Amber
+const Color kSuccessColor = Color(0xFF5AB04B); // Green for present
+const Color kCardColor = Colors.white;
 
 // ================== DATA MODEL ======================
 class StudentAttendance {
@@ -206,116 +206,113 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     final filteredPresent = filteredIsPresent;
 
     return Scaffold(
-      backgroundColor: kBackgroundEnd,
+      backgroundColor: kSoftBlue,
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          // ---------------- APP BAR WITH SEARCH (SMALLER SIZE) ----------------
+          // ---------------- APP BAR WITH BIG TEXT ----------------
           SliverAppBar(
-            expandedHeight: _isSearching ? 90 : 100,
+            expandedHeight: _isSearching ? 100 : 120, // Kor u qaaday height
             pinned: true,
-            backgroundColor: kPrimaryColor,
-            flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.only(left: 16, bottom: 10),
-              title: _isSearching
-                  ? null
-                  : Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(5),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.checklist_rounded,
-                            color: Colors.white,
-                            size: 16,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        const Text(
-                          "Attendance",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [kPrimaryColor, kSecondaryColor, kSoftPurple],
-                    stops: const [0.1, 0.6, 1.0],
-                  ),
+            backgroundColor: kPrimaryBlue,
+            flexibleSpace: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
+                  stops: const [0.3, 0.7, 1.0],
+                ),
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(30),
+                  bottomRight: Radius.circular(30),
                 ),
               ),
-            ),
-            leading: IconButton(
-              icon: const Icon(
-                Icons.arrow_back_rounded,
-                color: Colors.white,
-                size: 20,
+              child: FlexibleSpaceBar(
+                titlePadding: const EdgeInsets.only(
+                  bottom: 20,
+                ), // Kor u qaaday text-ka
+                centerTitle: true,
+                title: _isSearching
+                    ? null
+                    : const Text(
+                        "Attendance",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 28, // FONT SIZE AAD U WEYN
+                        ),
+                      ),
               ),
-              onPressed: () => Navigator.pop(context),
+            ),
+            leading: Container(
+              margin: const EdgeInsets.only(left: 12, top: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: IconButton(
+                icon: const Icon(
+                  Icons.arrow_back_rounded,
+                  color: Colors.white,
+                  size: 28, // ICON WEYN
+                ),
+                onPressed: () => Navigator.pop(context),
+                padding: const EdgeInsets.all(10),
+              ),
             ),
             actions: [
               if (_isSearching)
                 Container(
-                  margin: const EdgeInsets.only(right: 12),
+                  margin: const EdgeInsets.only(right: 12, top: 8),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.2),
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: IconButton(
                     icon: const Icon(
                       Icons.close,
                       color: Colors.white,
-                      size: 18,
+                      size: 24,
                     ),
                     onPressed: _stopSearch,
-                    padding: const EdgeInsets.all(6),
+                    padding: const EdgeInsets.all(10),
                     constraints: const BoxConstraints(),
                   ),
                 )
               else
                 Container(
-                  margin: const EdgeInsets.only(right: 12),
+                  margin: const EdgeInsets.only(right: 12, top: 8),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.2),
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: IconButton(
                     icon: const Icon(
                       Icons.search_rounded,
                       color: Colors.white,
-                      size: 18,
+                      size: 24,
                     ),
                     onPressed: _startSearch,
-                    padding: const EdgeInsets.all(6),
+                    padding: const EdgeInsets.all(10),
                     constraints: const BoxConstraints(),
                   ),
                 ),
             ],
             bottom: _isSearching
                 ? PreferredSize(
-                    preferredSize: const Size.fromHeight(50),
+                    preferredSize: const Size.fromHeight(60),
                     child: Container(
-                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                       child: Container(
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withOpacity(0.1),
-                              blurRadius: 4,
-                              offset: const Offset(0, 1),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
                             ),
                           ],
                         ),
@@ -327,19 +324,19 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                             hintText: 'Search students...',
                             hintStyle: TextStyle(
                               color: kTextSecondary,
-                              fontSize: 12,
+                              fontSize: 15,
                             ),
                             prefixIcon: Icon(
                               Icons.search_rounded,
-                              color: kSoftPurple,
-                              size: 16,
+                              color: kPrimaryBlue,
+                              size: 22,
                             ),
                             suffixIcon: _searchQuery.isNotEmpty
                                 ? IconButton(
                                     icon: Icon(
                                       Icons.clear,
                                       color: kTextSecondary,
-                                      size: 14,
+                                      size: 20,
                                     ),
                                     onPressed: () {
                                       _searchController.clear();
@@ -351,13 +348,13 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                                 : null,
                             border: InputBorder.none,
                             contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
+                              horizontal: 16,
+                              vertical: 14,
                             ),
                           ),
                           style: const TextStyle(
                             color: kTextPrimary,
-                            fontSize: 12,
+                            fontSize: 15,
                           ),
                         ),
                       ),
@@ -390,7 +387,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                       'Found ${filtered.length} student${filtered.length != 1 ? 's' : ''}',
                       style: TextStyle(
                         color: kTextSecondary,
-                        fontSize: 12,
+                        fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -406,7 +403,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                   ...List.generate(
                     filtered.length,
                     (index) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.only(bottom: 12),
                       child: _StudentAttendanceCard(
                         name: filtered[index].name,
                         roll: filtered[index].roll,
@@ -434,9 +431,12 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                       SnackBar(
                         content: const Text(
                           'Attendance saved successfully!',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
                         ),
-                        backgroundColor: kAccentColor,
+                        backgroundColor: kPrimaryGreen,
                         behavior: SnackBarBehavior.floating,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
@@ -462,22 +462,26 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
         Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(4),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: kSoftOrange.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6),
+                gradient: LinearGradient(
+                  colors: [kPrimaryBlue, kPrimaryGreen],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(
                 Icons.people_rounded,
-                color: kSoftOrange,
-                size: 14,
+                color: Colors.white,
+                size: 18,
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 10),
             const Text(
               "Student List",
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: kTextPrimary,
               ),
@@ -485,17 +489,17 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
           ],
         ),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: kSoftPurple.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(16),
+            color: kPrimaryGreen.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
             '$count students',
             style: TextStyle(
-              color: kSoftPurple,
+              color: kPrimaryGreen,
               fontWeight: FontWeight.w600,
-              fontSize: 10,
+              fontSize: 13,
             ),
           ),
         ),
@@ -505,23 +509,23 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
 
   Widget _buildEmptyState() {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 30),
+      padding: const EdgeInsets.symmetric(vertical: 40),
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: kSoftPurple.withOpacity(0.1),
+                color: kSoftBlue,
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 _searchQuery.isNotEmpty
                     ? Icons.search_off_rounded
                     : Icons.people_outline_rounded,
-                color: kSoftPurple,
-                size: 36,
+                color: kPrimaryBlue,
+                size: 56,
               ),
             ),
             const SizedBox(height: 12),
@@ -529,7 +533,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
               _searchQuery.isNotEmpty ? 'No students found' : 'No students',
               style: TextStyle(
                 color: kTextPrimary,
-                fontSize: 14,
+                fontSize: 18,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -538,7 +542,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
               _searchQuery.isNotEmpty
                   ? 'Try different search terms'
                   : 'Add students to get started',
-              style: TextStyle(color: kTextSecondary, fontSize: 12),
+              style: TextStyle(color: kTextSecondary, fontSize: 14),
             ),
           ],
         ),
@@ -572,12 +576,12 @@ class _HeaderCardWithDropdown extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: kPrimaryBlue.withOpacity(0.08),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
         ],
-        border: Border.all(color: Colors.white, width: 1.5),
+        border: Border.all(color: Colors.grey.shade100, width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -587,16 +591,16 @@ class _HeaderCardWithDropdown extends StatelessWidget {
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [kSoftPurple, kSoftBlue],
+                colors: [kPrimaryBlue, kPrimaryGreen],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: kSoftPurple.withOpacity(0.3),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
+                  color: kPrimaryBlue.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
                 ),
               ],
             ),
@@ -613,7 +617,7 @@ class _HeaderCardWithDropdown extends StatelessWidget {
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w600,
-                          fontSize: 15,
+                          fontSize: 16,
                         ),
                       ),
                     );
@@ -622,12 +626,13 @@ class _HeaderCardWithDropdown extends StatelessWidget {
                   icon: const Icon(
                     Icons.arrow_drop_down_rounded,
                     color: Colors.white,
+                    size: 28,
                   ),
                   isExpanded: true,
-                  dropdownColor: kPrimaryColor,
+                  dropdownColor: kPrimaryBlue,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 15,
+                    fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -642,22 +647,24 @@ class _HeaderCardWithDropdown extends StatelessWidget {
             children: [
               Icon(
                 Icons.calendar_today_rounded,
-                size: 12,
+                size: 16,
                 color: kTextSecondary,
               ),
-              const SizedBox(width: 3),
+              const SizedBox(width: 4),
               Text(
                 formattedDate,
-                style: TextStyle(color: kTextSecondary, fontSize: 11),
+                style: TextStyle(color: kTextSecondary, fontSize: 13),
               ),
               const SizedBox(width: 12),
-              Icon(Icons.people_rounded, size: 12, color: kTextSecondary),
-              const SizedBox(width: 3),
+              Container(width: 1, height: 16, color: Colors.grey.shade300),
+              const SizedBox(width: 12),
+              Icon(Icons.people_rounded, size: 16, color: kPrimaryGreen),
+              const SizedBox(width: 4),
               Text(
                 "Total: $studentCount",
                 style: TextStyle(
-                  color: kSoftOrange,
-                  fontSize: 11,
+                  color: kPrimaryGreen,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -688,42 +695,43 @@ class _StudentAttendanceCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
+        border: Border.all(color: Colors.grey.shade100, width: 1.5),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: () => onChanged(!present),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           child: Padding(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(14),
             child: Row(
               children: [
                 // Roll number circle
                 Container(
-                  width: 38,
-                  height: 38,
+                  width: 45,
+                  height: 45,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: present
-                          ? [kSuccessColor, kSuccessColor.withOpacity(0.7)]
+                          ? [kPrimaryGreen, kPrimaryGreen.withOpacity(0.7)]
                           : [kErrorColor, kErrorColor.withOpacity(0.7)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                     boxShadow: [
                       BoxShadow(
-                        color: (present ? kSuccessColor : kErrorColor)
+                        color: (present ? kPrimaryGreen : kErrorColor)
                             .withOpacity(0.3),
-                        blurRadius: 4,
+                        blurRadius: 6,
                         offset: const Offset(0, 2),
                       ),
                     ],
@@ -734,12 +742,13 @@ class _StudentAttendanceCard extends StatelessWidget {
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                        fontSize: 18,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 14),
+
                 // Student name and status
                 Expanded(
                   child: Column(
@@ -751,32 +760,43 @@ class _StudentAttendanceCard extends StatelessWidget {
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           color: kTextPrimary,
-                          fontSize: 14,
+                          fontSize: 16,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 3),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            present
-                                ? Icons.check_circle_rounded
-                                : Icons.cancel_rounded,
-                            color: present ? kSuccessColor : kErrorColor,
-                            size: 12,
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            present ? "Present" : "Absent",
-                            style: TextStyle(
-                              color: present ? kSuccessColor : kErrorColor,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 11,
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: (present ? kPrimaryGreen : kErrorColor)
+                              .withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              present
+                                  ? Icons.check_circle_rounded
+                                  : Icons.cancel_rounded,
+                              color: present ? kPrimaryGreen : kErrorColor,
+                              size: 15,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 4),
+                            Text(
+                              present ? "Present" : "Absent",
+                              style: TextStyle(
+                                color: present ? kPrimaryGreen : kErrorColor,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -786,10 +806,10 @@ class _StudentAttendanceCard extends StatelessWidget {
                 Container(
                   decoration: BoxDecoration(
                     border: Border.all(
-                      color: present ? kSuccessColor : kErrorColor,
+                      color: present ? kPrimaryGreen : kErrorColor,
                       width: 1.5,
                     ),
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Checkbox(
                     value: present,
@@ -798,7 +818,7 @@ class _StudentAttendanceCard extends StatelessWidget {
                         onChanged(checked);
                       }
                     },
-                    activeColor: present ? kSuccessColor : kErrorColor,
+                    activeColor: present ? kPrimaryGreen : kErrorColor,
                     checkColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(4),
@@ -827,19 +847,19 @@ class _SaveButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      height: 44,
+      height: 55,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [kAccentColor, kAccentColor.withOpacity(0.8)],
+          colors: [kPrimaryBlue, kPrimaryGreen],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: kAccentColor.withOpacity(0.3),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
+            color: kPrimaryBlue.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -847,18 +867,18 @@ class _SaveButton extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onPressed,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(18),
           child: Center(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: const [
-                Icon(Icons.save_rounded, color: Colors.white, size: 18),
-                SizedBox(width: 6),
+                Icon(Icons.save_rounded, color: Colors.white, size: 22),
+                SizedBox(width: 10),
                 Text(
                   "Save Attendance",
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 14,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),

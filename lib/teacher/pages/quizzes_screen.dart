@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
 
-// ---------- WONDERFUL COLOR PALETTE (Matching Student Dashboard) ----------
-const Color kPrimaryColor = Color(0xFF2A2E45); // Deep charcoal
-const Color kSecondaryColor = Color(0xFF6C5CE7); // Rich purple
-const Color kAccentColor = Color(0xFF00B894); // Mint green
-const Color kSoftPurple = Color(0xFFA29BFE); // Light purple
-const Color kSoftPink = Color(0xFFFF7675); // Soft pink
-const Color kSoftOrange = Color(0xFFFDCB6E); // Warm orange
-const Color kSoftBlue = Color(0xFF74B9FF); // Sky blue
-const Color kBackgroundStart = Color(0xFFE8EEF9); // Light blue-gray
-const Color kBackgroundEnd = Color(0xFFF5F0FF); // Light purple
-const Color kCardColor = Colors.white;
+// ---------- COLOR PALETTE (Matching Student Dashboard) ----------
+const Color kPrimaryBlue = Color(0xFF023471); // Dark blue
+const Color kPrimaryGreen = Color(0xFF5AB04B); // Green
+
+// Derived colors (shades/tints of the two main colors)
+const Color kSoftBlue = Color(0xFFE6F0FF); // Light tint of blue
+const Color kSoftGreen = Color(0xFFEDF7EB); // Light tint of green
+const Color kDarkGreen = Color(0xFF3A7A30); // Darker shade of green
+const Color kDarkBlue = Color(0xFF01255C); // Darker shade of blue
 const Color kTextPrimary = Color(0xFF2D3436); // Dark gray
-const Color kTextSecondary = Color(0xFF64748B); // Medium slate
+const Color kTextSecondary = Color(0xFF636E72); // Medium gray
+const Color kErrorColor = Color(0xFFEF4444); // Red
+const Color kSoftOrange = Color(0xFFF59E0B); // Amber
+const Color kSuccessColor = Color(0xFF5AB04B); // Green for present
+const Color kCardColor = Colors.white;
 
 // ================================
 // QUIZ MODELS + DUMMY DATA
@@ -128,30 +130,71 @@ class TeacherQuizzesScreen extends StatefulWidget {
 
 class _TeacherQuizzesScreenState extends State<TeacherQuizzesScreen> {
   String _selectedFilter = 'All';
+  bool _isSearching = false;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   List<Quiz> get filteredQuizzes {
+    List<Quiz> searchFiltered = dummyQuizzes;
+    if (_searchQuery.isNotEmpty) {
+      searchFiltered = dummyQuizzes.where((q) {
+        final query = _searchQuery.toLowerCase();
+        return q.title.toLowerCase().contains(query) ||
+            q.subject.toLowerCase().contains(query) ||
+            q.className.toLowerCase().contains(query);
+      }).toList();
+    }
+
     switch (_selectedFilter) {
       case 'Active':
-        return dummyQuizzes
+        return searchFiltered
             .where((q) => q.status == QuizStatus.active)
             .toList();
       case 'Completed':
-        return dummyQuizzes
+        return searchFiltered
             .where((q) => q.status == QuizStatus.completed)
             .toList();
       case 'Draft':
-        return dummyQuizzes.where((q) => q.status == QuizStatus.draft).toList();
+        return searchFiltered
+            .where((q) => q.status == QuizStatus.draft)
+            .toList();
       default:
-        return dummyQuizzes;
+        return searchFiltered;
     }
+  }
+
+  void _startSearch() {
+    setState(() {
+      _isSearching = true;
+    });
+  }
+
+  void _stopSearch() {
+    setState(() {
+      _isSearching = false;
+      _searchQuery = '';
+      _searchController.clear();
+    });
+  }
+
+  void _updateSearchQuery(String query) {
+    setState(() {
+      _searchQuery = query;
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Color _getStatusColor(QuizStatus status) {
     switch (status) {
       case QuizStatus.active:
-        return kSoftBlue;
+        return kPrimaryBlue;
       case QuizStatus.completed:
-        return kAccentColor;
+        return kPrimaryGreen;
       case QuizStatus.draft:
         return kSoftOrange;
     }
@@ -173,113 +216,219 @@ class _TeacherQuizzesScreenState extends State<TeacherQuizzesScreen> {
     final filtered = filteredQuizzes;
 
     return Scaffold(
-      backgroundColor: kBackgroundEnd,
+      backgroundColor: kSoftBlue,
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          // ---------------- APP BAR (SMALLER SIZE, NO SEARCH) ----------------
+          // ---------------- APP BAR WITH GRADIENT ----------------
           SliverAppBar(
-            expandedHeight: 90, // REDUCED from 120
+            expandedHeight: _isSearching ? 100 : 120,
             pinned: true,
-            backgroundColor: kPrimaryColor,
-            flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.only(
-                left: 16,
-                bottom: 10,
-              ), // REDUCED padding
-              title: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(5), // REDUCED padding
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8), // REDUCED radius
-                    ),
-                    child: const Icon(
-                      Icons.quiz_rounded,
-                      color: Colors.white,
-                      size: 16, // REDUCED icon size
-                    ),
-                  ),
-                  const SizedBox(width: 6), // REDUCED spacing
-                  const Text(
-                    "Quizzes",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16, // REDUCED font size
-                    ),
-                  ),
-                ],
-              ),
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [kPrimaryColor, kSecondaryColor, kSoftPurple],
-                    stops: const [0.1, 0.6, 1.0],
-                  ),
+            backgroundColor: kPrimaryBlue,
+            flexibleSpace: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
+                  stops: const [0.3, 0.7, 1.0],
+                ),
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(30),
+                  bottomRight: Radius.circular(30),
                 ),
               ),
+              child: FlexibleSpaceBar(
+                titlePadding: const EdgeInsets.only(bottom: 20),
+                centerTitle: true,
+                title: _isSearching
+                    ? null
+                    : const Text(
+                        "Quizzes",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 28,
+                        ),
+                      ),
+              ),
             ),
-            leading: IconButton(
-              icon: const Icon(
-                Icons.arrow_back_rounded,
-                color: Colors.white,
-                size: 20,
-              ), // REDUCED size
-              onPressed: () => Navigator.pop(context),
+            leading: Container(
+              margin: const EdgeInsets.only(left: 12, top: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: IconButton(
+                icon: const Icon(
+                  Icons.arrow_back_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
+                onPressed: () => Navigator.pop(context),
+                padding: const EdgeInsets.all(10),
+              ),
             ),
-            // NO SEARCH ICON - REMOVED
+            actions: [
+              if (_isSearching)
+                Container(
+                  margin: const EdgeInsets.only(right: 12, top: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                    onPressed: _stopSearch,
+                    padding: const EdgeInsets.all(10),
+                  ),
+                )
+              else
+                Container(
+                  margin: const EdgeInsets.only(right: 12, top: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.search_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                    onPressed: _startSearch,
+                    padding: const EdgeInsets.all(10),
+                  ),
+                ),
+            ],
+            bottom: _isSearching
+                ? PreferredSize(
+                    preferredSize: const Size.fromHeight(60),
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: TextField(
+                          controller: _searchController,
+                          autofocus: true,
+                          onChanged: _updateSearchQuery,
+                          decoration: InputDecoration(
+                            hintText: 'Search quizzes...',
+                            hintStyle: TextStyle(
+                              color: kTextSecondary,
+                              fontSize: 15,
+                            ),
+                            prefixIcon: Icon(
+                              Icons.search_rounded,
+                              color: kPrimaryBlue,
+                              size: 22,
+                            ),
+                            suffixIcon: _searchQuery.isNotEmpty
+                                ? IconButton(
+                                    icon: Icon(
+                                      Icons.clear,
+                                      color: kTextSecondary,
+                                      size: 20,
+                                    ),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      _updateSearchQuery('');
+                                    },
+                                    padding: EdgeInsets.zero,
+                                  )
+                                : null,
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                          ),
+                          style: const TextStyle(
+                            color: kTextPrimary,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                : null,
           ),
 
           // ---------------- MAIN CONTENT ----------------
           SliverPadding(
-            padding: const EdgeInsets.all(16), // REDUCED from 20
+            padding: const EdgeInsets.all(16),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 // ---------------- SUMMARY CARD ----------------
                 _QuizSummaryCard(quizzes: dummyQuizzes),
 
-                const SizedBox(height: 20), // REDUCED from 24
+                const SizedBox(height: 20),
+
                 // ---------------- FILTER SECTION ----------------
                 _buildFilterSection(),
 
-                const SizedBox(height: 16), // REDUCED from 20
-                // ---------------- QUIZZES HEADER ----------------
-                _buildQuizzesHeader(filtered.length),
+                const SizedBox(height: 16),
 
-                const SizedBox(height: 12), // REDUCED from 16
+                // ---------------- SEARCH RESULT COUNT ----------------
+                if (_searchQuery.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4, bottom: 6),
+                    child: Text(
+                      'Found ${filtered.length} quiz${filtered.length != 1 ? 'zes' : ''}',
+                      style: TextStyle(
+                        color: kTextSecondary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+
+                // ---------------- QUIZZES HEADER ----------------
+                if (_searchQuery.isEmpty) _buildQuizzesHeader(filtered.length),
+
+                const SizedBox(height: 12),
+
                 // ---------------- QUIZ CARDS ----------------
                 if (filtered.isNotEmpty)
                   ...List.generate(
                     filtered.length,
                     (index) => Padding(
-                      padding: const EdgeInsets.only(
-                        bottom: 14,
-                      ), // REDUCED from 16
+                      padding: const EdgeInsets.only(bottom: 12),
                       child: _QuizCard(quiz: filtered[index]),
                     ),
                   )
                 else
                   _buildEmptyState(),
 
-                const SizedBox(height: 20), // REDUCED from 24
+                const SizedBox(height: 20),
+
                 // ---------------- CREATE BUTTON ----------------
                 _CreateQuizCTAButton(
                   onPressed: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text("Create New Quiz"),
-                        backgroundColor: kAccentColor,
+                        backgroundColor: kPrimaryGreen,
                       ),
                     );
                   },
                 ),
 
-                const SizedBox(height: 16), // REDUCED from 20
+                const SizedBox(height: 16),
               ]),
             ),
           ),
@@ -298,29 +447,33 @@ class _TeacherQuizzesScreenState extends State<TeacherQuizzesScreen> {
         Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(4), // REDUCED padding
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: kSoftPurple.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6), // REDUCED radius
+                gradient: LinearGradient(
+                  colors: [kPrimaryBlue, kPrimaryGreen],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(
                 Icons.filter_list_rounded,
-                color: kSoftPurple,
-                size: 14, // REDUCED icon size
+                color: Colors.white,
+                size: 16,
               ),
             ),
-            const SizedBox(width: 6), // REDUCED spacing
+            const SizedBox(width: 8),
             const Text(
               "Filter by Status",
               style: TextStyle(
-                fontSize: 13, // REDUCED font size
+                fontSize: 15,
                 fontWeight: FontWeight.w600,
                 color: kTextPrimary,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8), // REDUCED from 12
+        const SizedBox(height: 12),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
@@ -329,14 +482,14 @@ class _TeacherQuizzesScreenState extends State<TeacherQuizzesScreen> {
               final Color filterColor = _getFilterColor(filter);
 
               return Padding(
-                padding: const EdgeInsets.only(right: 6), // REDUCED spacing
+                padding: const EdgeInsets.only(right: 8),
                 child: FilterChip(
                   label: Text(
                     filter,
                     style: TextStyle(
                       color: isSelected ? Colors.white : kTextPrimary,
                       fontWeight: FontWeight.w600,
-                      fontSize: 11, // REDUCED font size
+                      fontSize: 13,
                     ),
                   ),
                   selected: isSelected,
@@ -349,16 +502,16 @@ class _TeacherQuizzesScreenState extends State<TeacherQuizzesScreen> {
                   selectedColor: filterColor,
                   checkmarkColor: Colors.white,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16), // REDUCED radius
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   side: BorderSide(
                     color: isSelected ? filterColor : Colors.grey.shade300,
                     width: 1,
                   ),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ), // REDUCED padding
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
               );
@@ -376,22 +529,26 @@ class _TeacherQuizzesScreenState extends State<TeacherQuizzesScreen> {
         Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(4), // REDUCED padding
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: kSoftOrange.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6), // REDUCED radius
+                gradient: LinearGradient(
+                  colors: [kPrimaryBlue, kPrimaryGreen],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(
                 Icons.quiz_rounded,
-                color: kSoftOrange,
-                size: 14, // REDUCED icon size
+                color: Colors.white,
+                size: 16,
               ),
             ),
-            const SizedBox(width: 6), // REDUCED spacing
+            const SizedBox(width: 8),
             const Text(
               "Quiz List",
               style: TextStyle(
-                fontSize: 14, // REDUCED font size
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: kTextPrimary,
               ),
@@ -399,20 +556,17 @@ class _TeacherQuizzesScreenState extends State<TeacherQuizzesScreen> {
           ],
         ),
         Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 3,
-          ), // REDUCED padding
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: kSoftPurple.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(16), // REDUCED radius
+            color: kPrimaryGreen.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
             '$count items',
             style: TextStyle(
-              color: kSoftPurple,
+              color: kPrimaryGreen,
               fontWeight: FontWeight.w600,
-              fontSize: 10, // REDUCED font size
+              fontSize: 12,
             ),
           ),
         ),
@@ -422,39 +576,40 @@ class _TeacherQuizzesScreenState extends State<TeacherQuizzesScreen> {
 
   Widget _buildEmptyState() {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 30), // REDUCED padding
+      padding: const EdgeInsets.symmetric(vertical: 40),
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(12), // REDUCED padding
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: kSoftPurple.withOpacity(0.1),
+                color: kSoftBlue,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.quiz_rounded,
-                color: kSoftPurple,
-                size: 36, // REDUCED icon size
+              child: Icon(
+                _searchQuery.isNotEmpty
+                    ? Icons.search_off_rounded
+                    : Icons.quiz_rounded,
+                color: kPrimaryBlue,
+                size: 56,
               ),
             ),
-            const SizedBox(height: 12), // REDUCED spacing
-            const Text(
-              'No quizzes',
+            const SizedBox(height: 12),
+            Text(
+              _searchQuery.isNotEmpty ? 'No quizzes found' : 'No quizzes',
               style: TextStyle(
                 color: kTextPrimary,
-                fontSize: 14, // REDUCED font size
+                fontSize: 18,
                 fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'Create your first quiz',
-              style: TextStyle(
-                color: kTextSecondary,
-                fontSize: 12, // REDUCED font size
-              ),
+            Text(
+              _searchQuery.isNotEmpty
+                  ? 'Try different search terms'
+                  : 'Create your first quiz',
+              style: TextStyle(color: kTextSecondary, fontSize: 14),
             ),
           ],
         ),
@@ -465,15 +620,15 @@ class _TeacherQuizzesScreenState extends State<TeacherQuizzesScreen> {
   Color _getFilterColor(String filter) {
     switch (filter) {
       case 'All':
-        return kSoftPurple;
+        return kPrimaryBlue;
       case 'Active':
-        return kSoftBlue;
+        return kPrimaryBlue;
       case 'Completed':
-        return kAccentColor;
+        return kPrimaryGreen;
       case 'Draft':
         return kSoftOrange;
       default:
-        return kSecondaryColor;
+        return kPrimaryBlue;
     }
   }
 }
@@ -492,21 +647,18 @@ class _QuizSummaryCard extends StatelessWidget {
         .length;
 
     return Container(
-      padding: const EdgeInsets.all(16), // REDUCED from 20
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20), // REDUCED radius
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 15, // REDUCED blur
-            offset: const Offset(0, 5), // REDUCED offset
+            color: kPrimaryBlue.withOpacity(0.08),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
         ],
-        border: Border.all(
-          color: Colors.white,
-          width: 1.5,
-        ), // REDUCED border width
+        border: Border.all(color: Colors.grey.shade100, width: 1.5),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -514,29 +666,33 @@ class _QuizSummaryCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(6), // REDUCED padding
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: kSoftPurple.withOpacity(0.1),
-                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [kPrimaryBlue, kPrimaryGreen],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
                   Icons.analytics_rounded,
-                  color: kSoftPurple,
-                  size: 16,
-                ), // REDUCED icon size
+                  color: Colors.white,
+                  size: 18,
+                ),
               ),
-              const SizedBox(width: 8), // REDUCED spacing
+              const SizedBox(width: 10),
               const Text(
                 'Quiz Overview',
                 style: TextStyle(
                   color: kTextPrimary,
                   fontWeight: FontWeight.w700,
-                  fontSize: 15, // REDUCED font size
+                  fontSize: 16,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16), // REDUCED from 20
+          const SizedBox(height: 20),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -544,19 +700,19 @@ class _QuizSummaryCard extends StatelessWidget {
                 icon: Icons.list_alt_rounded,
                 label: "Total",
                 value: "$total",
-                color: kSoftPurple,
+                color: kPrimaryBlue,
               ),
               _buildStatItem(
                 icon: Icons.flash_on_rounded,
                 label: "Active",
                 value: "$active",
-                color: kSoftBlue,
+                color: kPrimaryBlue,
               ),
               _buildStatItem(
                 icon: Icons.check_circle_rounded,
                 label: "Completed",
                 value: "$completed",
-                color: kAccentColor,
+                color: kPrimaryGreen,
               ),
             ],
           ),
@@ -576,30 +732,23 @@ class _QuizSummaryCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            padding: const EdgeInsets.all(4), // REDUCED padding
+            padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: color, size: 12), // REDUCED icon size
+            child: Icon(icon, color: color, size: 16),
           ),
-          const SizedBox(height: 4), // REDUCED spacing
+          const SizedBox(height: 6),
           Text(
             value,
             style: TextStyle(
-              fontSize: 14, // REDUCED font size
+              fontSize: 16,
               fontWeight: FontWeight.bold,
               color: color,
             ),
           ),
-          const SizedBox(height: 1),
-          Text(
-            label,
-            style: TextStyle(
-              color: kTextSecondary,
-              fontSize: 9, // REDUCED font size
-            ),
-          ),
+          Text(label, style: TextStyle(color: kTextSecondary, fontSize: 11)),
         ],
       ),
     );
@@ -614,9 +763,9 @@ class _QuizCard extends StatelessWidget {
   Color _getStatusColor(QuizStatus status) {
     switch (status) {
       case QuizStatus.active:
-        return kSoftBlue;
+        return kPrimaryBlue;
       case QuizStatus.completed:
-        return kAccentColor;
+        return kPrimaryGreen;
       case QuizStatus.draft:
         return kSoftOrange;
     }
@@ -641,25 +790,21 @@ class _QuizCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16), // REDUCED radius
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
-            blurRadius: 10, // REDUCED blur
-            offset: const Offset(0, 3), // REDUCED offset
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
+        border: Border.all(color: Colors.grey.shade100, width: 1.5),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          tilePadding: const EdgeInsets.all(12), // REDUCED padding
-          childrenPadding: const EdgeInsets.fromLTRB(
-            12,
-            0,
-            12,
-            12,
-          ), // REDUCED padding
+          tilePadding: const EdgeInsets.all(14),
+          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -667,28 +812,24 @@ class _QuizCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
           ),
           leading: Container(
-            width: 42, // REDUCED size
-            height: 42, // REDUCED size
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [statusColor, statusColor.withOpacity(0.7)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(12), // REDUCED radius
+              borderRadius: BorderRadius.circular(14),
               boxShadow: [
                 BoxShadow(
                   color: statusColor.withOpacity(0.3),
-                  blurRadius: 5, // REDUCED blur
-                  offset: const Offset(0, 2), // REDUCED offset
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
-            child: Icon(
-              quiz.icon,
-              color: Colors.white,
-              size: 22, // REDUCED icon size
-            ),
+            child: Icon(quiz.icon, color: Colors.white, size: 24),
           ),
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -702,40 +843,40 @@ class _QuizCard extends StatelessWidget {
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: kTextPrimary,
-                        fontSize: 14, // REDUCED font size
+                        fontSize: 16,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(width: 6), // REDUCED spacing
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 3,
-                    ), // REDUCED padding
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12), // REDUCED radius
+                      borderRadius: BorderRadius.circular(16),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          width: 5, // REDUCED size
-                          height: 5, // REDUCED size
+                          width: 6,
+                          height: 6,
                           decoration: BoxDecoration(
                             color: statusColor,
                             shape: BoxShape.circle,
                           ),
                         ),
-                        const SizedBox(width: 3), // REDUCED spacing
+                        const SizedBox(width: 4),
                         Text(
                           statusText,
                           style: TextStyle(
                             color: statusColor,
                             fontWeight: FontWeight.w600,
-                            fontSize: 9, // REDUCED font size
+                            fontSize: 11,
                           ),
                         ),
                       ],
@@ -743,26 +884,23 @@ class _QuizCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 3), // REDUCED spacing
+              const SizedBox(height: 4),
               Text(
                 "${quiz.className} • ${quiz.subject}",
-                style: TextStyle(
-                  color: kTextSecondary,
-                  fontSize: 12, // REDUCED font size
-                ),
+                style: TextStyle(color: kTextSecondary, fontSize: 13),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 6), // REDUCED spacing
+              const SizedBox(height: 8),
               Wrap(
-                spacing: 8, // REDUCED spacing
-                runSpacing: 6, // REDUCED spacing
+                spacing: 10,
+                runSpacing: 8,
                 children: [
                   _buildInfoChip(
                     icon: Icons.format_list_numbered_rounded,
                     value: "${quiz.totalQuestions}",
                     label: "Qns",
-                    color: kSoftPurple,
+                    color: kPrimaryBlue,
                   ),
                   _buildInfoChip(
                     icon: Icons.timer_rounded,
@@ -777,26 +915,26 @@ class _QuizCard extends StatelessWidget {
           trailing: Icon(
             Icons.keyboard_arrow_down_rounded,
             color: statusColor,
-            size: 20, // REDUCED size
+            size: 24,
           ),
           children: [
-            const Divider(height: 1),
-            const SizedBox(height: 8), // REDUCED spacing
+            Divider(height: 1, color: Colors.grey.shade200),
+            const SizedBox(height: 12),
             _buildDetailRow(
               icon: Icons.info_rounded,
               label: "Instructions",
               value: quiz.instructions,
-              color: kSoftPurple,
+              color: kPrimaryBlue,
             ),
-            const SizedBox(height: 6), // REDUCED spacing
+            const SizedBox(height: 8),
             _buildDetailRow(
               icon: Icons.rule_rounded,
               label: "Scoring",
               value: quiz.scoringRules,
-              color: kSoftBlue,
+              color: kPrimaryBlue,
             ),
             if (quiz.notes != null) ...[
-              const SizedBox(height: 6), // REDUCED spacing
+              const SizedBox(height: 8),
               _buildDetailRow(
                 icon: Icons.note_alt_rounded,
                 label: "Notes",
@@ -804,30 +942,30 @@ class _QuizCard extends StatelessWidget {
                 color: kSoftOrange,
               ),
             ],
-            const SizedBox(height: 8), // REDUCED spacing
+            const SizedBox(height: 12),
             Wrap(
-              spacing: 6, // REDUCED spacing
-              runSpacing: 6, // REDUCED spacing
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 _buildActionChip(
                   icon: Icons.list_alt_rounded,
                   label: "Questions",
-                  color: kSoftPurple,
+                  color: kPrimaryBlue,
                 ),
                 _buildActionChip(
                   icon: Icons.edit_rounded,
                   label: "Edit",
-                  color: kSoftBlue,
+                  color: kPrimaryGreen,
                 ),
                 _buildActionChip(
                   icon: Icons.assignment_return_rounded,
                   label: "Assign",
-                  color: kAccentColor,
+                  color: kSoftOrange,
                 ),
                 _buildActionChip(
                   icon: Icons.bar_chart_rounded,
                   label: "Results",
-                  color: kSoftOrange,
+                  color: kErrorColor,
                 ),
               ],
             ),
@@ -844,19 +982,16 @@ class _QuizCard extends StatelessWidget {
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 6,
-        vertical: 3,
-      ), // REDUCED padding
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(10), // REDUCED radius
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: 12), // REDUCED icon size
-          const SizedBox(width: 3), // REDUCED spacing
+          Icon(icon, color: color, size: 14),
+          const SizedBox(width: 4),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -866,15 +1001,12 @@ class _QuizCard extends StatelessWidget {
                 style: TextStyle(
                   color: color,
                   fontWeight: FontWeight.bold,
-                  fontSize: 11, // REDUCED font size
+                  fontSize: 12,
                 ),
               ),
               Text(
                 label,
-                style: TextStyle(
-                  color: color.withOpacity(0.7),
-                  fontSize: 8, // REDUCED font size
-                ),
+                style: TextStyle(color: color.withOpacity(0.7), fontSize: 9),
               ),
             ],
           ),
@@ -889,48 +1021,42 @@ class _QuizCard extends StatelessWidget {
     required String value,
     required Color color,
   }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 1),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(3), // REDUCED padding
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 12), // REDUCED icon size
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            shape: BoxShape.circle,
           ),
-          const SizedBox(width: 6), // REDUCED spacing
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: kTextSecondary,
-                    fontSize: 10, // REDUCED font size
-                    fontWeight: FontWeight.w500,
-                  ),
+          child: Icon(icon, color: color, size: 14),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: kTextSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
                 ),
-                const SizedBox(height: 1),
-                Text(
-                  value,
-                  style: TextStyle(
-                    color: kTextPrimary,
-                    fontSize: 11, // REDUCED font size
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: TextStyle(color: kTextPrimary, fontSize: 13),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -943,37 +1069,34 @@ class _QuizCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: () {},
-        borderRadius: BorderRadius.circular(14), // REDUCED radius
+        borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 4,
-          ), // REDUCED padding
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [color, color.withOpacity(0.8)],
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
             ),
-            borderRadius: BorderRadius.circular(14), // REDUCED radius
+            borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
                 color: color.withOpacity(0.3),
-                blurRadius: 3, // REDUCED blur
-                offset: const Offset(0, 1), // REDUCED offset
+                blurRadius: 4,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: Colors.white, size: 11), // REDUCED icon size
-              const SizedBox(width: 3), // REDUCED spacing
+              Icon(icon, color: Colors.white, size: 14),
+              const SizedBox(width: 4),
               Text(
                 label,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 9, // REDUCED font size
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -994,19 +1117,19 @@ class _CreateQuizCTAButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      height: 44, // REDUCED height
+      height: 55,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [kAccentColor, kAccentColor.withOpacity(0.8)],
+          colors: [kPrimaryBlue, kPrimaryGreen],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
-        borderRadius: BorderRadius.circular(14), // REDUCED radius
+        borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: kAccentColor.withOpacity(0.3),
-            blurRadius: 5, // REDUCED blur
-            offset: const Offset(0, 2), // REDUCED offset
+            color: kPrimaryBlue.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -1014,22 +1137,18 @@ class _CreateQuizCTAButton extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onPressed,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(18),
           child: Center(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: const [
-                Icon(
-                  Icons.add_rounded,
-                  color: Colors.white,
-                  size: 18,
-                ), // REDUCED icon size
-                SizedBox(width: 6), // REDUCED spacing
+                Icon(Icons.add_rounded, color: Colors.white, size: 22),
+                SizedBox(width: 8),
                 Text(
                   "Create New Quiz",
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 13, // REDUCED font size
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),

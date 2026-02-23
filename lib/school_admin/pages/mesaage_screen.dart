@@ -1,41 +1,36 @@
 import 'package:flutter/material.dart';
 
+/// Brand / Style (must match your dashboard)
+const Color kPrimaryBlue = Color(0xFF023471);
+const Color kPrimaryGreen = Color(0xFF5AB04B);
+const Color kBgColor = Color(0xFFF0F3F7);
+const Color kCardColor = Colors.white;
+
+const double kPadding = 20.0;
+
 class MessageScreen extends StatefulWidget {
   final String? name;
   final String? message;
   final String? time;
   final String? avatarUrl;
 
-  MessageScreen({
+  /// When true: do NOT render Scaffold / do NOT render bottom nav / just body
+  final bool embedInParent;
+
+  const MessageScreen({
     Key? key,
     this.name,
     this.message,
     this.time,
     this.avatarUrl,
+    this.embedInParent = false,
   }) : super(key: key);
 
   static const List<Map<String, dynamic>> dummyMessages = [
-    {
-      'text': 'Hello, how can I help you today?',
-      'sent': false,
-      'time': '09:30',
-    },
-    {
-      'text': 'I want to know more about the exam schedule.',
-      'sent': true,
-      'time': '09:31',
-    },
-    {
-      'text': "Sure! The schedule will be available in your portal this week.",
-      'sent': false,
-      'time': '09:32',
-    },
-    {
-      'text': "Thank you so much!",
-      'sent': true,
-      'time': '09:33',
-    },
-    // ... Add more as needed
+    {'text': 'Hello, how can I help you today?', 'sent': false, 'time': '09:30'},
+    {'text': 'I want to know more about the exam schedule.', 'sent': true, 'time': '09:31'},
+    {'text': "Sure! The schedule will be available in your portal this week.", 'sent': false, 'time': '09:32'},
+    {'text': "Thank you so much!", 'sent': true, 'time': '09:33'},
   ];
 
   @override
@@ -45,277 +40,387 @@ class MessageScreen extends StatefulWidget {
 class _MessageScreenState extends State<MessageScreen> {
   late List<Map<String, dynamic>> _messages;
   final TextEditingController _controller = TextEditingController();
+  final ScrollController _scroll = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    // If message is passed from user/page, show only that as the single message
+
     final bool hasSingleMessage = widget.message != null && widget.time != null;
     _messages = hasSingleMessage
         ? [
-            {
-              'text': widget.message ?? '',
-              'sent': false, // from the "other" person
-              'time': widget.time ?? '',
-            }
+            {'text': widget.message ?? '', 'sent': false, 'time': widget.time ?? ''},
           ]
         : List<Map<String, dynamic>>.from(MessageScreen.dummyMessages);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
+  void _scrollToBottom() {
+    if (!_scroll.hasClients) return;
+    _scroll.animateTo(
+      _scroll.position.maxScrollExtent,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOut,
+    );
+  }
+
   void _sendMessage() {
-    final String text = _controller.text.trim();
-    if (text.isNotEmpty) {
-      final String nowTime = TimeOfDay.now().format(context);
-      setState(() {
-        _messages.add({
-          'text': text,
-          'sent': true,
-          'time': nowTime,
-        });
-      });
-      _controller.clear();
-    }
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+
+    final now = TimeOfDay.now().format(context);
+    setState(() {
+      _messages.add({'text': text, 'sent': true, 'time': now});
+    });
+
+    _controller.clear();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 
   @override
   Widget build(BuildContext context) {
-    const Color orange = Color(0xFF5AB04B);
-    const Color darkBlue = Color(0xFF023471);
-    const Color lightGrey = Color(0xFFF5F6FA);
-
-    final bool hasSingleMessage = widget.message != null && widget.time != null;
-
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: darkBlue,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 24),
-          onPressed: () => Navigator.of(context).maybePop(),
-          splashRadius: 25,
-        ),
-        // If a sender name is provided, show it. Otherwise, show 'Messages'
-        title: Text(
-          widget.name ?? 'Messages',
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
-            fontSize: 22,
-            letterSpacing: 0.2,
-          ),
-        ),
-        centerTitle: true,
-        actions: [
-          if (widget.avatarUrl != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: CircleAvatar(
-                backgroundImage: NetworkImage(widget.avatarUrl!),
-                radius: 20,
-                backgroundColor: Colors.white24,
-              ),
-            )
-          else
-            IconButton(
-              icon: Icon(Icons.more_vert, color: Colors.white, size: 26),
-              onPressed: () {},
-              splashRadius: 25,
-            ),
-        ],
-      ),
-      backgroundColor: lightGrey,
-      body: SafeArea(
+    final content = Container(
+      color: kBgColor,
+      child: SafeArea(
+        bottom: false,
         child: Column(
           children: [
-            if (hasSingleMessage)
-              SizedBox(height: 8),
+            // 3D header card (no drawer, no notification icon)
+            _MessagesHeaderCard(
+              title: widget.name ?? "Messages",
+              subtitle: null,
+            ),
+
+            // Chat list
             Expanded(
               child: ListView.separated(
-                reverse: false,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
+                controller: _scroll,
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                itemCount: _messages.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
                 itemBuilder: (context, idx) {
                   final msg = _messages[idx];
-                  final isSent = msg['sent'] as bool;
+                  final bool isSent = (msg['sent'] as bool?) ?? false;
+
                   return Align(
-                    alignment: isSent
-                        ? Alignment.centerRight
-                        : Alignment.centerLeft,
+                    alignment: isSent ? Alignment.centerRight : Alignment.centerLeft,
                     child: ConstrainedBox(
                       constraints: BoxConstraints(
-                        maxWidth: MediaQuery.of(context).size.width * 0.74,
+                        maxWidth: MediaQuery.of(context).size.width * 0.78,
                       ),
-                      child: Container(
-                        margin: EdgeInsets.only(
-                          top: 2,
-                          bottom: 2,
-                          left: isSent ? 38 : 0,
-                          right: isSent ? 0 : 38,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isSent ? orange : Colors.white,
-                          borderRadius: BorderRadius.only(
-                            topLeft: const Radius.circular(22),
-                            topRight: const Radius.circular(22),
-                            bottomLeft: Radius.circular(isSent ? 18 : 0),
-                            bottomRight: Radius.circular(isSent ? 0 : 18),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: isSent
-                                  ? orange.withOpacity(0.13)
-                                  : Colors.grey.withOpacity(0.09),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 13),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                msg['text'],
-                                style: TextStyle(
-                                  color: isSent ? Colors.white : darkBlue,
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 16.2,
-                                  height: 1.36,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    msg['time'],
-                                    style: TextStyle(
-                                      color: isSent ? Colors.white : Colors.grey.shade500,
-                                      fontWeight: FontWeight.w400,
-                                      fontSize: 12.1,
-                                      letterSpacing: 0.1,
-                                    ),
-                                  ),
-                                  if (isSent)
-                                    Padding(
-                                      padding: const EdgeInsets.only(left: 4),
-                                      child: Icon(
-                                        Icons.done_all,
-                                        color: Colors.white.withOpacity(0.88),
-                                        size: 16,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
+                      child: _ChatBubble(
+                        text: (msg['text'] ?? '').toString(),
+                        time: (msg['time'] ?? '').toString(),
+                        isSent: isSent,
                       ),
                     ),
                   );
                 },
-                separatorBuilder: (_, idx) => const SizedBox(height: 12),
-                itemCount: _messages.length,
               ),
             ),
-            Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(
-                  top: BorderSide(color: Color(0xFFDFE2E7), width: 1.1),
-                ),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              child: Row(
+
+            // Input bar (3D)
+            _Composer(
+              controller: _controller,
+              onSend: _sendMessage,
+              onAttach: () {},
+            ),
+
+            // IMPORTANT: add bottom padding so it never clashes with parent's bottom nav
+            if (widget.embedInParent) const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+
+    if (widget.embedInParent) return content;
+    return Scaffold(backgroundColor: kBgColor, body: content);
+  }
+}
+
+/// ===== Header Card (same 3D dashboard style, no menu, no notification) =====
+class _MessagesHeaderCard extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+
+  const _MessagesHeaderCard({
+    required this.title,
+    this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final top = MediaQuery.of(context).padding.top;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(kPadding, top + 8, kPadding, 12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: kCardColor,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: Colors.white, width: 1.4),
+          boxShadow: [
+            BoxShadow(color: Colors.white, blurRadius: 14, offset: const Offset(-4, -4)),
+            BoxShadow(color: kPrimaryBlue.withOpacity(0.12), blurRadius: 26, offset: const Offset(8, 10)),
+            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 14, offset: const Offset(4, 6)),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Left: Messages icon (no drawer)
+            const _NeumorphicCircle(
+              child: Icon(Icons.chat_bubble_outline_rounded, color: kPrimaryBlue, size: 22),
+            ),
+            const SizedBox(width: 14),
+
+            // Title + optional subtitle
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(22),
-                      onTap: () {},
-                      child: Padding(
-                        padding: const EdgeInsets.all(6),
-                        child: Icon(
-                          Icons.attach_file,
-                          color: orange,
-                          size: 26,
-                        ),
-                      ),
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: kPrimaryBlue,
                     ),
                   ),
-                  const SizedBox(width: 7),
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
+                  if (subtitle != null && subtitle!.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: darkBlue,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: 'Type your message ...',
-                        hintStyle: TextStyle(
-                          color: Colors.grey.shade400,
-                          fontSize: 16,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 15),
-                        isDense: true,
-                        filled: true,
-                        fillColor: lightGrey,
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(22),
-                          borderSide: BorderSide(
-                              color: Colors.grey.shade300, width: 1.6),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(22),
-                          borderSide: const BorderSide(
-                              color: orange, width: 2.2),
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(22),
-                          borderSide: BorderSide(
-                              color: Colors.grey.shade300, width: 1.6),
-                        ),
-                      ),
-                      cursorColor: orange,
-                      minLines: 1,
-                      maxLines: 5,
-                      onSubmitted: (_) => _sendMessage(),
-                    ),
-                  ),
-                  const SizedBox(width: 7),
-                  Material(
-                    color: orange,
-                    shape: const CircleBorder(),
-                    elevation: 2,
-                    child: InkWell(
-                      customBorder: const CircleBorder(),
-                      onTap: _sendMessage,
-                      child: Padding(
-                        padding: const EdgeInsets.all(13),
-                        child: Icon(
-                          Icons.send,
-                          color: Colors.white,
-                          size: 23,
-                        ),
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// ===== Chat Bubble (3D, brand colors) =====
+class _ChatBubble extends StatelessWidget {
+  final String text;
+  final String time;
+  final bool isSent;
+
+  const _ChatBubble({
+    required this.text,
+    required this.time,
+    required this.isSent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Received: white neumorphic bubble
+    // Sent: subtle blue tint (brand) but still “clean”, not crystal
+    final bg = isSent ? const Color(0xFFEAF2FF) : kCardColor;
+
+    final border = Border.all(
+      color: isSent ? kPrimaryBlue.withOpacity(0.10) : Colors.white.withOpacity(0.9),
+      width: 1.2,
+    );
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.only(
+          topLeft: const Radius.circular(20),
+          topRight: const Radius.circular(20),
+          bottomLeft: Radius.circular(isSent ? 20 : 6),
+          bottomRight: Radius.circular(isSent ? 6 : 20),
+        ),
+        border: border,
+        boxShadow: [
+          BoxShadow(color: Colors.white, blurRadius: 10, offset: const Offset(-3, -3)),
+          BoxShadow(color: kPrimaryBlue.withOpacity(0.10), blurRadius: 18, offset: const Offset(6, 8)),
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(3, 4)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            text,
+            style: TextStyle(
+              color: isSent ? kPrimaryBlue : kPrimaryBlue,
+              fontWeight: FontWeight.w600,
+              fontSize: 15.6,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                time,
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+              if (isSent) ...[
+                const SizedBox(width: 4),
+                Icon(Icons.done_all, size: 16, color: kPrimaryBlue.withOpacity(0.55)),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// ===== Composer (3D input + send button) =====
+class _Composer extends StatelessWidget {
+  final TextEditingController controller;
+  final VoidCallback onSend;
+  final VoidCallback onAttach;
+
+  const _Composer({
+    required this.controller,
+    required this.onSend,
+    required this.onAttach,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+        decoration: BoxDecoration(
+          color: kCardColor,
+          border: const Border(
+            top: BorderSide(color: Color(0xFFDFE2E7), width: 1.1),
+          ),
+          boxShadow: [
+            BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 18, offset: const Offset(0, -6)),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Attach (neumorphic circle)
+            GestureDetector(
+              onTap: onAttach,
+              child: const _NeumorphicCircle(
+                child: Icon(Icons.attach_file_rounded, color: kPrimaryGreen, size: 22),
+              ),
+            ),
+            const SizedBox(width: 10),
+
+            // Input (neumorphic pill)
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF4F6FA),
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: Colors.white.withOpacity(0.9), width: 1),
+                  boxShadow: [
+                    BoxShadow(color: Colors.white, blurRadius: 10, offset: const Offset(-3, -3)),
+                    BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 14, offset: const Offset(4, 6)),
+                  ],
+                ),
+                child: TextField(
+                  controller: controller,
+                  cursorColor: kPrimaryGreen,
+                  minLines: 1,
+                  maxLines: 5,
+                  style: const TextStyle(
+                    color: kPrimaryBlue,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: "Type a message...",
+                    hintStyle: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600),
+                    border: InputBorder.none,
+                  ),
+                  onSubmitted: (_) => onSend(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+
+            // Send (3D brand button)
+            GestureDetector(
+              onTap: onSend,
+              child: Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF0A4A8C), kPrimaryBlue, Color(0xFF022A5C)],
+                  ),
+                  border: Border.all(color: Colors.white.withOpacity(0.35), width: 1.5),
+                  boxShadow: [
+                    BoxShadow(color: Colors.white.withOpacity(0.35), blurRadius: 6, offset: const Offset(-2, -2)),
+                    BoxShadow(color: kPrimaryBlue.withOpacity(0.45), blurRadius: 18, offset: const Offset(0, 8)),
+                    BoxShadow(color: Colors.black.withOpacity(0.18), blurRadius: 10, offset: const Offset(0, 4)),
+                  ],
+                ),
+                child: const Center(
+                  child: Icon(Icons.send_rounded, color: Colors.white, size: 22),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// ===== Neumorphic Circle =====
+class _NeumorphicCircle extends StatelessWidget {
+  final Widget child;
+  const _NeumorphicCircle({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8EEF5),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white.withOpacity(0.9), width: 1.5),
+        boxShadow: [
+          BoxShadow(color: Colors.white, blurRadius: 10, offset: const Offset(-3, -3), spreadRadius: 0.5),
+          BoxShadow(color: kPrimaryBlue.withOpacity(0.18), blurRadius: 14, offset: const Offset(3, 3)),
+          BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 6, offset: const Offset(2, 2)),
+        ],
+      ),
+      child: child,
     );
   }
 }

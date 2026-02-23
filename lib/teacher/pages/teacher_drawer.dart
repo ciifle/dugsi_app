@@ -1,91 +1,47 @@
 import 'package:flutter/material.dart';
 import 'package:kobac/services/local_auth_service.dart';
 import 'package:kobac/shared/pages/login_screen.dart';
-import 'package:kobac/student/pages/academic_activity.dart';
-import 'package:kobac/student/pages/exam_schedule.dart';
-import 'package:kobac/student/pages/student_attendance.dart';
-import 'package:kobac/student/pages/student_fees.dart';
-import 'package:kobac/student/pages/student_notices.dart';
-import 'package:kobac/student/pages/student_profile.dart';
-import 'package:kobac/student/pages/student_quizzes.dart';
-import 'package:kobac/student/pages/student_result.dart';
+import 'package:kobac/teacher/pages/assignments_screen.dart';
+import 'package:kobac/teacher/pages/attendance_mark.dart';
+import 'package:kobac/teacher/pages/exams_results.dart';
+import 'package:kobac/teacher/pages/notices_screen.dart';
+import 'package:kobac/teacher/pages/quizzes_screen.dart';
+import 'package:kobac/teacher/pages/students_screen.dart';
+import 'package:kobac/teacher/pages/teacher_classes.dart';
+import 'package:kobac/teacher/pages/teacher_dashboard.dart';
+import 'package:kobac/teacher/pages/teacher_profile.dart';
+import 'package:kobac/teacher/pages/weakly_schedule.dart';
 
-// ---------- COLOR PALETTE (Matching Dashboard) ----------
+// =======================
+//  TEACHER DRAWER COLORS - MATCHING STUDENT DASHBOARD
+// =======================
 const Color kPrimaryBlue = Color(0xFF023471);
 const Color kPrimaryGreen = Color(0xFF5AB04B);
-const Color kSoftBlue = Color(0xFFE0E9F5);
-const Color kSoftGreen = Color(0xFFE4F1E2);
-const Color kDarkGreen = Color(0xFF3D8C30);
-const Color kDarkBlue = Color(0xFF011A3D);
-const Color kSoftPurple = Color(0xFF4A6FA5);
-const Color kSoftPink = Color(0xFF7CB86E);
-const Color kSoftOrange = Color(0xFFF59E0B);
+const Color kSoftBlue = Color(0xFFE6F0FF);
+const Color kSoftGreen = Color(0xFFEDF7EB);
+const Color kDarkGreen = Color(0xFF3A7A30);
+const Color kDarkBlue = Color(0xFF01255C);
+const Color kTextPrimary = Color(0xFF2D3436);
+const Color kTextSecondary = Color(0xFF636E72);
 const Color kErrorColor = Color(0xFFEF4444);
-const Color kTextPrimary = Color(0xFF1A1E1F);
-const Color kTextSecondary = Color(0xFF4F5A5E);
+const Color kSoftOrange = Color(0xFFF59E0B);
 
-// ==================== DRAWER ITEM MODEL ====================
-class DrawerItem {
-  final String label;
+class _MenuItem {
   final IconData icon;
-  final Widget? screen;
-  final bool isLogout;
-
-  const DrawerItem({
-    required this.label,
+  final String label;
+  final Color color;
+  const _MenuItem({
     required this.icon,
-    this.screen,
-    this.isLogout = false,
+    required this.label,
+    required this.color,
   });
 }
 
-// ==================== CLEAN WHITE APP DRAWER ====================
-class AppDrawer extends StatelessWidget {
-  AppDrawer({Key? key}) : super(key: key);
+// ==================== TEACHER DRAWER ====================
+class TeacherDrawer extends StatelessWidget {
+  final Map<String, String> teacher;
 
-  final List<DrawerItem> _items = const [
-    DrawerItem(label: "Dashboard", icon: Icons.dashboard_rounded),
-    DrawerItem(
-      label: "Results",
-      icon: Icons.stars_rounded,
-      screen: StudentResultsScreen(),
-    ),
-    DrawerItem(
-      label: "Fees",
-      icon: Icons.account_balance_wallet_rounded,
-      screen: StudentFeesScreen(),
-    ),
-    DrawerItem(
-      label: "Attendance",
-      icon: Icons.calendar_month_rounded,
-      screen: StudentAttendanceScreen(),
-    ),
-    DrawerItem(
-      label: "Academic Activity",
-      icon: Icons.auto_stories_rounded,
-      screen: StudentAcademicActivityScreen(),
-    ),
-    DrawerItem(
-      label: "Quizzes",
-      icon: Icons.quiz_rounded,
-      screen: StudentQuizzesScreen(),
-    ),
-    DrawerItem(
-      label: "Exam Schedule",
-      icon: Icons.event_available_rounded,
-      screen: StudentExamScheduleScreen(),
-    ),
-    DrawerItem(
-      label: "Notices",
-      icon: Icons.notifications_rounded,
-      screen: AllNoticesScreen(),
-    ),
-    DrawerItem(
-      label: "Profile",
-      icon: Icons.person_rounded,
-      screen: StudentProfileScreen(),
-    ),
-  ];
+  const TeacherDrawer({Key? key, required this.teacher}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -124,7 +80,75 @@ class AppDrawer extends StatelessWidget {
                 child: Column(
                   children: [
                     const SizedBox(height: 16),
-                    _buildMenuItems(),
+                    _buildMenuSection(
+                      title: "MAIN",
+                      items: const [
+                        _MenuItem(
+                          icon: Icons.dashboard_rounded,
+                          label: 'Dashboard',
+                          color: kPrimaryBlue,
+                        ),
+                        _MenuItem(
+                          icon: Icons.class_rounded,
+                          label: 'My Classes',
+                          color: kPrimaryGreen,
+                        ),
+                        _MenuItem(
+                          icon: Icons.people_rounded,
+                          label: 'Students',
+                          color: kSoftOrange,
+                        ),
+                      ],
+                      context: context,
+                    ),
+                    _buildMenuSection(
+                      title: "ACADEMICS",
+                      items: const [
+                        _MenuItem(
+                          icon: Icons.assignment_turned_in_rounded,
+                          label: 'Attendance',
+                          color: kPrimaryBlue,
+                        ),
+                        _MenuItem(
+                          icon: Icons.assignment_rounded,
+                          label: 'Assignments',
+                          color: kPrimaryGreen,
+                        ),
+                        _MenuItem(
+                          icon: Icons.quiz_rounded,
+                          label: 'Quizzes',
+                          color: kSoftOrange,
+                        ),
+                        _MenuItem(
+                          icon: Icons.assessment_rounded,
+                          label: 'Exams',
+                          color: kDarkBlue,
+                        ),
+                      ],
+                      context: context,
+                    ),
+                    _buildMenuSection(
+                      title: "COMMUNICATION",
+                      items: const [
+                        _MenuItem(
+                          icon: Icons.campaign_rounded,
+                          label: 'Notices',
+                          color: kPrimaryBlue,
+                        ),
+                        _MenuItem(
+                          icon: Icons.calendar_month_rounded,
+                          label: 'Schedule',
+                          color: kPrimaryGreen,
+                        ),
+                        _MenuItem(
+                          icon: Icons.person_rounded,
+                          label: 'Profile',
+                          color: kSoftOrange,
+                        ),
+                      ],
+                      context: context,
+                    ),
+                    const SizedBox(height: 16),
                     _buildLogoutButton(context),
                     const SizedBox(height: 20),
                   ],
@@ -143,11 +167,11 @@ class AppDrawer extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
-          stops: const [0.2, 0.6, 1.0],
+          stops: [0.2, 0.6, 1.0],
         ),
         borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(35),
@@ -177,13 +201,16 @@ class AppDrawer extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: const CircleAvatar(
+                child: CircleAvatar(
                   radius: 38,
                   backgroundColor: Colors.white,
-                  child: Icon(
-                    Icons.person_rounded,
-                    size: 42,
-                    color: kPrimaryBlue,
+                  child: Text(
+                    teacher['initials']!,
+                    style: const TextStyle(
+                      color: kPrimaryBlue,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
@@ -192,9 +219,9 @@ class AppDrawer extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'John Doe',
-                      style: TextStyle(
+                    Text(
+                      teacher['name']!,
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -210,18 +237,18 @@ class AppDrawer extends StatelessWidget {
                         color: Colors.white.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.school_rounded,
                             color: Colors.white,
                             size: 12,
                           ),
-                          SizedBox(width: 4),
+                          const SizedBox(width: 4),
                           Text(
-                            'B.Tech CSE • 3rd Year',
-                            style: TextStyle(
+                            teacher['role']!,
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
@@ -241,7 +268,7 @@ class AppDrawer extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Text(
-                        'ID: STU230017',
+                        'ID: TCH230045',
                         style: TextStyle(
                           color: Colors.white70,
                           fontSize: 10,
@@ -259,111 +286,87 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuItems() {
-    return ListView.builder(
-      padding: EdgeInsets.zero,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: _items.length,
-      itemBuilder: (context, index) {
-        final item = _items[index];
-        return _buildMenuItem(context, item, index);
-      },
+  Widget _buildMenuSection({
+    required String title,
+    required List<_MenuItem> items,
+    required BuildContext context,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 20, top: 12, bottom: 4),
+          child: Text(
+            title,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: kTextSecondary.withOpacity(0.7),
+              letterSpacing: 0.8,
+            ),
+          ),
+        ),
+        ...items.map(
+          (item) => _buildDrawerItem(
+            icon: item.icon,
+            label: item.label,
+            color: item.color,
+            onTap: () {
+              Navigator.pop(context);
+              _navigateToScreen(context, item.label);
+            },
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildMenuItem(BuildContext context, DrawerItem item, int index) {
-    final bool isDashboard = item.label == "Dashboard";
-    final bool isNotices = item.label == "Notices";
-
+  Widget _buildDrawerItem({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {
-            Navigator.pop(context);
-            if (isDashboard) return;
-            if (item.screen != null) {
-              Future.delayed(const Duration(milliseconds: 200), () {
-                if (context.mounted) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (BuildContext context) => item.screen!,
-                    ),
-                  );
-                }
-              });
-            }
-          },
+          onTap: onTap,
           borderRadius: BorderRadius.circular(14),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              color: isDashboard ? kPrimaryGreen.withOpacity(0.08) : null,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             child: Row(
               children: [
                 Container(
-                  width: 38,
-                  height: 38,
+                  width: 36,
+                  height: 36,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [
-                        _getItemColor(index),
-                        _getItemColor(index).withOpacity(0.7),
-                      ],
+                      colors: [color.withOpacity(0.2), color.withOpacity(0.1)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: _getItemColor(index).withOpacity(0.2),
-                        blurRadius: 6,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
                   ),
-                  child: Icon(item.icon, color: Colors.white, size: 20),
+                  child: Icon(icon, color: color, size: 20),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Text(
-                    item.label,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: isDashboard
-                          ? FontWeight.w600
-                          : FontWeight.w500,
-                      color: isDashboard ? kPrimaryBlue : kTextPrimary,
+                    label,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: kTextPrimary,
                     ),
                   ),
                 ),
-                if (isNotices)
-                  Container(
-                    padding: const EdgeInsets.all(5),
-                    decoration: const BoxDecoration(
-                      color: kErrorColor,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Text(
-                      '3',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  )
-                else if (!isDashboard)
-                  Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    color: kTextSecondary.withOpacity(0.4),
-                    size: 12,
-                  ),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: kTextSecondary.withOpacity(0.4),
+                  size: 12,
+                ),
               ],
             ),
           ),
@@ -372,8 +375,7 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  // ==================== FIXED LOGOUT BUTTON ====================
-  // This button now directly navigates to the login page
+  // FIXED LOGOUT BUTTON - DIRECT TO LOGIN PAGE
   Widget _buildLogoutButton(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -381,20 +383,33 @@ class AppDrawer extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            // Simple direct navigation without any complex async handling
-
-            // Close the drawer first
+            // First, close the drawer
             Navigator.pop(context);
 
-            // Call logout service (fire and forget)
-            LocalAuthService().logout();
+            // Use a microtask to ensure the drawer is closed before navigation
+            Future.microtask(() async {
+              try {
+                // Perform logout
+                await LocalAuthService().logout();
 
-            // Navigate directly to login page and clear all previous routes
-            // This will happen even if logout service throws an error
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (context) => const LoginPage()),
-              (route) => false, // This removes all previous routes
-            );
+                // Navigate to login screen and clear all routes
+                if (context.mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => const LoginPage()),
+                    (route) => false,
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Logout failed: $e'),
+                      backgroundColor: kErrorColor,
+                    ),
+                  );
+                }
+              }
+            });
           },
           borderRadius: BorderRadius.circular(14),
           child: Container(
@@ -469,7 +484,7 @@ class AppDrawer extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               gradient: LinearGradient(
                 colors: [kPrimaryBlue, kPrimaryGreen],
                 begin: Alignment.topLeft,
@@ -485,7 +500,7 @@ class AppDrawer extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Text(
-            'Kobac Student v1.0.0',
+            'Kobac Teacher v1.0.0',
             style: TextStyle(
               color: kTextSecondary.withOpacity(0.7),
               fontSize: 10,
@@ -497,14 +512,42 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  Color _getItemColor(int index) {
-    final colors = [
-      kPrimaryBlue,
-      kPrimaryGreen,
-      kSoftOrange,
-      kSoftPurple,
-      kSoftPink,
-    ];
-    return colors[index % colors.length];
+  void _navigateToScreen(BuildContext context, String label) {
+    Widget screen;
+    switch (label) {
+      case 'Dashboard':
+        screen = const TeacherDashboardScreen();
+        break;
+      case 'My Classes':
+        screen = TeacherMyClassesScreen();
+        break;
+      case 'Students':
+        screen = TeacherStudentManagementScreen();
+        break;
+      case 'Attendance':
+        screen = TeacherAttendanceScreen();
+        break;
+      case 'Assignments':
+        screen = TeacherAssignmentsScreen();
+        break;
+      case 'Quizzes':
+        screen = TeacherQuizzesScreen();
+        break;
+      case 'Exams':
+        screen = TeacherExamsResultsScreen();
+        break;
+      case 'Notices':
+        screen = TeacherNoticesScreen();
+        break;
+      case 'Schedule':
+        screen = TeacherWeeklyScheduleScreen();
+        break;
+      case 'Profile':
+        screen = TeacherProfileScreen();
+        break;
+      default:
+        return;
+    }
+    Navigator.push(context, MaterialPageRoute(builder: (context) => screen));
   }
 }

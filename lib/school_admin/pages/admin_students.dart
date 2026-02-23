@@ -3,25 +3,11 @@ import 'admin_student_screen.dart';
 import 'package:kobac/services/dummy_school_service.dart';
 import 'package:kobac/models/dummy_user.dart';
 
-// Color constants
-const Color kPrimaryAccent = Color(0xFF5AB04B);
-const Color kDarkBlue = Color(0xFF023471);
-const Color kLightGrey = Color(0xFFF4F6FA);
-const Color kDividerGrey = Color(0xFFE6EBF1);
-
-// Use only local asset images for student avatars
-const List<String> _localStudentImages = [
-  'assets/student_1.jpg',
-  'assets/student_2.jpg',
-  'assets/student_3.jpg',
-  'assets/student_4.jpg',
-  'assets/student_5.jpg',
-  'assets/student_6.jpg',
-  'assets/student_7.jpg',
-  'assets/student_8.jpg',
-  'assets/student_9.jpg',
-  'assets/student_10.jpg',
-];
+// --- Premium 3D Design Constants ---
+const Color kPrimaryBlue = Color(0xFF023471);
+const Color kPrimaryGreen = Color(0xFF5AB04B);
+const Color kBgColor = Color(0xFFF0F3F7);
+const double kCardRadius = 28.0;
 
 class AdminStudentsScreen extends StatefulWidget {
   const AdminStudentsScreen({Key? key}) : super(key: key);
@@ -33,6 +19,7 @@ class AdminStudentsScreen extends StatefulWidget {
 class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
   late Future<List<DummyUser>> _studentsFuture;
   String searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -42,7 +29,6 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
 
   Future<List<DummyUser>> _loadStudents() async {
     final users = await DummySchoolService().getAllUsersForAdmin();
-    // filter for students only
     return users.where((user) => user.role == UserRole.student).toList();
   }
 
@@ -55,395 +41,214 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
         .toList();
   }
 
-  // Simple mapping to always assign a local image to a student, cycling through available asset images
-  String _getAvatarAsset(int index) {
-    return _localStudentImages[index % _localStudentImages.length];
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kLightGrey,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(65),
-        child: SafeArea(
-          child: Container(
-            color: kDarkBlue,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white, size: 27),
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    tooltip: 'Back',
-                  ),
-                ),
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.only(top: 0.0),
-                    child: Text(
-                      "Students",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 24,
-                        letterSpacing: 0.3,
-                        shadows: [
-                          Shadow(
-                            color: Color(0x22000000),
-                            offset: Offset(0, 1.5),
-                            blurRadius: 4,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 16.0),
-                    child: GestureDetector(
-                      onTap: () {
-                        // Handle add student action here.
-                      },
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: kPrimaryAccent,
-                          boxShadow: [
-                            BoxShadow(
-                              color: kPrimaryAccent.withOpacity(0.14),
-                              blurRadius: 8,
-                              spreadRadius: 0.1,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: const Center(
-                          child: Icon(
-                            Icons.add,
-                            color: Colors.white,
-                            size: 26,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
       body: Container(
-        color: kLightGrey,
-        child: FutureBuilder<List<DummyUser>>(
-          future: _studentsFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              // Loading indicator
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.only(top: 100),
-                  child: CircularProgressIndicator(
-                    color: kPrimaryAccent,
-                  ),
-                ),
-              );
-            } else if (snapshot.hasError) {
-              // Error state
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 80.0),
-                  child: Text(
-                    "Failed to load students.\n${snapshot.error}",
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: kDarkBlue,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 18,
-                    ),
-                  ),
-                ),
-              );
-            } else {
-              List<DummyUser> studentList = snapshot.data ?? [];
-              studentList = _filterStudents(studentList);
-
-              return SingleChildScrollView(
-                child: Column(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFFF2F5F9), Color(0xFFE8ECF2)]),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                child: Row(
                   children: [
-                    const SizedBox(height: 26),
-                    // --- Search Bar ---
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 17),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: kDarkBlue.withOpacity(0.08),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                          border: Border.all(
-                            color: kDividerGrey,
-                            width: 1,
-                          ),
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-                        child: Row(
-                          children: [
-                            Icon(Icons.search,
-                                color: kPrimaryAccent.withOpacity(0.82),
-                                size: 22),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: TextField(
-                                decoration: InputDecoration(
-                                  hintText: "Search students…",
-                                  hintStyle: TextStyle(
-                                    color: kDarkBlue.withOpacity(0.40),
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                    letterSpacing: 0.1,
-                                  ),
-                                  border: InputBorder.none,
-                                ),
-                                style: TextStyle(
-                                  color: kDarkBlue,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 17,
-                                ),
-                                onChanged: (val) {
-                                  setState(() {
-                                    searchQuery = val;
-                                  });
-                                },
-                                cursorColor: kPrimaryAccent,
-                              ),
-                            ),
-                            if (searchQuery.isNotEmpty)
-                              GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    searchQuery = '';
-                                  });
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                                  child: Icon(Icons.close,
-                                      size: 20, color: kPrimaryAccent),
-                                ),
-                              )
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 30),
-                    // --- Section Header with Styled Badge ---
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 19),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            "Student List",
-                            style: TextStyle(
-                              color: kDarkBlue,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 19,
-                              letterSpacing: 0.13,
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 4, horizontal: 14),
-                            decoration: BoxDecoration(
-                              color: kPrimaryAccent.withOpacity(0.13),
-                              borderRadius: BorderRadius.circular(40),
-                              border: Border.all(
-                                color: kPrimaryAccent.withOpacity(0.18),
-                                width: 1,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: kPrimaryAccent.withOpacity(0.09),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.people, size: 17, color: kPrimaryAccent),
-                                const SizedBox(width: 5),
-                                Text(
-                                  "${studentList.length}",
-                                  style: TextStyle(
-                                    color: kPrimaryAccent,
-                                    fontSize: 15.7,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                      child: Divider(
-                        color: kDividerGrey,
-                        thickness: 1.2,
-                        height: 0,
-                      ),
-                    ),
-                    // --- Student List Box ---
-                    if (studentList.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 60.0),
-                        child: Text(
-                          "No students found.",
-                          style: TextStyle(
-                            color: kDarkBlue.withOpacity(0.54),
-                            fontWeight: FontWeight.w600,
-                            fontSize: 17,
-                          ),
-                        ),
-                      )
-                    else
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        child: Column(
-                          children: List.generate(studentList.length, (index) {
-                            final student = studentList[index];
-                            return Container(
-                              margin: const EdgeInsets.symmetric(vertical: 8),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: kDarkBlue.withOpacity(0.07),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 3),
-                                  ),
-                                ],
-                                border: Border.all(
-                                  color: kDividerGrey,
-                                  width: 1.07,
-                                ),
-                              ),
-                              child: ListTile(
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 18, vertical: 13),
-                                leading: Container(
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: kPrimaryAccent.withOpacity(0.13),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: CircleAvatar(
-                                    backgroundColor: kLightGrey,
-                                    radius: 27,
-                                    child: ClipOval(
-                                      child: Builder(
-                                        builder: (context) {
-                                          // Only use local assets. Show fallback if not found.
-                                          return Image.asset(
-                                            _getAvatarAsset(index),
-                                            fit: BoxFit.cover,
-                                            width: 54,
-                                            height: 54,
-                                            errorBuilder: (context, error, stackTrace) {
-                                              return Icon(Icons.person, color: Colors.grey[400], size: 35);
-                                            },
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                title: Text(
-                                  student.name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    color: kDarkBlue,
-                                    fontSize: 17.7,
-                                    letterSpacing: 0.07,
-                                  ),
-                                ),
-                                subtitle: Padding(
-                                  padding: const EdgeInsets.only(top: 3.5),
-                                  child: Text(
-                                    "Email: ${student.email}",
-                                    style: TextStyle(
-                                      color: kDarkBlue.withOpacity(0.50),
-                                      fontSize: 14.4,
-                                      fontWeight: FontWeight.w500,
-                                      letterSpacing: 0.1,
-                                    ),
-                                  ),
-                                ),
-                                onTap: () {
-                                  // Just use a demo screen with one of your student entries
-                                  // Navigator.push(
-                                  //   context,
-                                  //   MaterialPageRoute(
-                                  //     builder: (_) => AdminStudentScreen(student: student),
-                                  //   ),
-                                  // );
-                                },
-                                trailing: Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(15),
-                                    border: Border.all(
-                                      color: kPrimaryAccent.withOpacity(0.32),
-                                      width: 1.1,
-                                    ),
-                                    color: kPrimaryAccent.withOpacity(0.08),
-                                  ),
-                                  child: IconButton(
-                                    icon: Icon(Icons.arrow_forward_ios_rounded,
-                                        color: kPrimaryAccent,
-                                        size: 23),
-                                    splashRadius: 23,
-                                    tooltip: "View Student",
-                                    onPressed: () {
-                                      // Navigator.push(
-                                      //   context,
-                                      //   MaterialPageRoute(
-                                      //     builder: (_) => AdminStudentScreen(student: student),
-                                      //   ),
-                                      // );
-                                    },
-                                  ),
-                                ),
-                              ),
-                            );
-                          }),
-                        ),
-                      ),
-                    const SizedBox(height: 24),
+                    _BackButton(onPressed: () => Navigator.pop(context)),
+                    const SizedBox(width: 16),
+                    const Expanded(child: Text("Students", style: TextStyle(color: kPrimaryBlue, fontWeight: FontWeight.bold, fontSize: 20), textAlign: TextAlign.center)),
+                    _AddButton(onPressed: () {}),
                   ],
                 ),
-              );
-            }
-          },
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 20, offset: const Offset(0, 6)),
+                      BoxShadow(color: kPrimaryBlue.withOpacity(0.03), blurRadius: 40, offset: const Offset(0, 12)),
+                    ],
+                  ),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (val) {
+                  setState(() {
+                    searchQuery = val;
+                  });
+                },
+                decoration: InputDecoration(
+                  hintText: "Search students...",
+                  hintStyle: TextStyle(color: Colors.grey[400]),
+                  prefixIcon: const Icon(Icons.search_rounded, color: kPrimaryBlue),
+                  suffixIcon: searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, color: Colors.grey),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() {
+                              searchQuery = '';
+                            });
+                          },
+                        )
+                      : null,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                ),
+              ),
+            ),
+              ),
+              Expanded(
+            child: FutureBuilder<List<DummyUser>>(
+              future: _studentsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator(color: kPrimaryGreen));
+                }
+                if (snapshot.hasError) {
+                  return const Center(child: Text("Error loading students"));
+                }
+                
+                final students = _filterStudents(snapshot.data ?? []);
+
+                if (students.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.search_off_rounded, size: 60, color: Colors.grey[300]),
+                        const SizedBox(height: 10),
+                        Text(
+                          "No students found",
+                          style: TextStyle(color: Colors.grey[500], fontSize: 16),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  itemCount: students.length,
+                  itemBuilder: (context, index) {
+                    final student = students[index];
+                    return Padding(padding: const EdgeInsets.only(bottom: 14), child: _StudentCard(student: student));
+                  },
+                );
+              },
+            ),
+          ),
+          ],
+        ),
+      ),
+    ),
+    );
+  }
+}
+
+class _BackButton extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _BackButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+        ),
+        child: const Icon(Icons.arrow_back_rounded, color: kPrimaryBlue, size: 24),
+      ),
+    );
+  }
+}
+
+class _AddButton extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _AddButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: kPrimaryGreen,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [BoxShadow(color: kPrimaryGreen.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4))],
+        ),
+        child: const Icon(Icons.add, color: Colors.white, size: 24),
+      ),
+    );
+  }
+}
+
+class _StudentCard extends StatelessWidget {
+  final DummyUser student;
+
+  const _StudentCard({required this.student});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {},
+        borderRadius: BorderRadius.circular(kCardRadius),
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(kCardRadius),
+            boxShadow: [
+              BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 6)),
+              BoxShadow(color: kPrimaryBlue.withOpacity(0.03), blurRadius: 32, offset: const Offset(0, 12)),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: kPrimaryBlue.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Text(
+                  student.name.isNotEmpty ? student.name.substring(0, 1).toUpperCase() : "?",
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(student.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
+                    const SizedBox(height: 4),
+                    Text(student.email, style: TextStyle(fontSize: 13, color: kPrimaryBlue.withOpacity(0.6)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: kPrimaryGreen.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Text("Active", style: TextStyle(color: kPrimaryGreen, fontSize: 12, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
         ),
       ),
     );
