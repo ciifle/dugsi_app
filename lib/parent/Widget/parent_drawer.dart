@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:kobac/parent/pages/parent_children_list_screen.dart';
 import 'package:kobac/parent/pages/parent_fee_payment_screen.dart';
+import 'package:kobac/services/auth_provider.dart';
 
 // ---------- COMPLETE COLOR PALETTE ----------
 const Color kPrimaryBlue = Color(0xFF023471);
@@ -78,7 +80,7 @@ class ParentDrawer extends StatelessWidget {
         ),
         child: Column(
           children: [
-            _buildDrawerHeader(),
+            _buildDrawerHeader(context),
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
@@ -209,7 +211,12 @@ class ParentDrawer extends StatelessWidget {
     return unpaidCount > 0 ? unpaidCount.toString() : null;
   }
 
-  Widget _buildDrawerHeader() {
+  Widget _buildDrawerHeader(BuildContext context) {
+    final user = context.watch<AuthProvider>().user;
+    final name = user?.name ?? parent['name'] ?? 'Parent';
+    final initials = name.isNotEmpty ? name.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase() : 'P';
+    final email = user?.email ?? user?.emisNumber ?? parent['email'] ?? '—';
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
@@ -254,7 +261,7 @@ class ParentDrawer extends StatelessWidget {
                       radius: 38,
                       backgroundColor: Colors.white,
                       child: Text(
-                        parent['initials'] ?? 'FC',
+                        initials.isEmpty ? 'P' : initials,
                         style: const TextStyle(
                           color: kPrimaryBlue,
                           fontSize: 24,
@@ -292,12 +299,14 @@ class ParentDrawer extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      parent['name'] ?? 'Family',
+                      name,
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Container(
@@ -340,12 +349,14 @@ class ParentDrawer extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        parent['email'] ?? '',
+                        email,
                         style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 10,
                           fontWeight: FontWeight.w400,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],

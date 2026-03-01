@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import 'package:kobac/services/auth_provider.dart';
 
 const Color kDarkBlue = Color(0xFF023471);
 const Color kOrange = Color(0xFF5AB04B);
@@ -349,15 +352,8 @@ class _LogoutButton extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-          onPressed: () {
-            // Dummy sign out logic
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text("Logged out."),
-                backgroundColor: kOrange,
-                duration: Duration(seconds: 1),
-              ),
-            );
+          onPressed: () async {
+            await context.read<AuthProvider>().logout();
           },
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,

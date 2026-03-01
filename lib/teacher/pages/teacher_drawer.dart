@@ -1,16 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:kobac/services/local_auth_service.dart';
-import 'package:kobac/shared/pages/login_screen.dart';
+import 'package:provider/provider.dart';
+import 'package:kobac/services/auth_provider.dart';
 import 'package:kobac/teacher/pages/assignments_screen.dart';
 import 'package:kobac/teacher/pages/attendance_mark.dart';
-import 'package:kobac/teacher/pages/exams_results.dart';
-import 'package:kobac/teacher/pages/notices_screen.dart';
-import 'package:kobac/teacher/pages/quizzes_screen.dart';
-import 'package:kobac/teacher/pages/students_screen.dart';
-import 'package:kobac/teacher/pages/teacher_classes.dart';
+import 'package:kobac/teacher/pages/teacher_classes_screen.dart';
 import 'package:kobac/teacher/pages/teacher_dashboard.dart';
+import 'package:kobac/teacher/pages/teacher_marks_screen.dart';
 import 'package:kobac/teacher/pages/teacher_profile.dart';
-import 'package:kobac/teacher/pages/weakly_schedule.dart';
 
 // =======================
 //  TEACHER DRAWER COLORS - MATCHING STUDENT DASHBOARD
@@ -39,9 +35,9 @@ class _MenuItem {
 
 // ==================== TEACHER DRAWER ====================
 class TeacherDrawer extends StatelessWidget {
-  final Map<String, String> teacher;
+  final Map<String, String>? teacher;
 
-  const TeacherDrawer({Key? key, required this.teacher}) : super(key: key);
+  const TeacherDrawer({Key? key, this.teacher}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -73,7 +69,7 @@ class TeacherDrawer extends StatelessWidget {
         ),
         child: Column(
           children: [
-            _buildHeader(),
+            _buildHeader(context),
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
@@ -83,68 +79,12 @@ class TeacherDrawer extends StatelessWidget {
                     _buildMenuSection(
                       title: "MAIN",
                       items: const [
-                        _MenuItem(
-                          icon: Icons.dashboard_rounded,
-                          label: 'Dashboard',
-                          color: kPrimaryBlue,
-                        ),
-                        _MenuItem(
-                          icon: Icons.class_rounded,
-                          label: 'My Classes',
-                          color: kPrimaryGreen,
-                        ),
-                        _MenuItem(
-                          icon: Icons.people_rounded,
-                          label: 'Students',
-                          color: kSoftOrange,
-                        ),
-                      ],
-                      context: context,
-                    ),
-                    _buildMenuSection(
-                      title: "ACADEMICS",
-                      items: const [
-                        _MenuItem(
-                          icon: Icons.assignment_turned_in_rounded,
-                          label: 'Attendance',
-                          color: kPrimaryBlue,
-                        ),
-                        _MenuItem(
-                          icon: Icons.assignment_rounded,
-                          label: 'Assignments',
-                          color: kPrimaryGreen,
-                        ),
-                        _MenuItem(
-                          icon: Icons.quiz_rounded,
-                          label: 'Quizzes',
-                          color: kSoftOrange,
-                        ),
-                        _MenuItem(
-                          icon: Icons.assessment_rounded,
-                          label: 'Exams',
-                          color: kDarkBlue,
-                        ),
-                      ],
-                      context: context,
-                    ),
-                    _buildMenuSection(
-                      title: "COMMUNICATION",
-                      items: const [
-                        _MenuItem(
-                          icon: Icons.campaign_rounded,
-                          label: 'Notices',
-                          color: kPrimaryBlue,
-                        ),
-                        _MenuItem(
-                          icon: Icons.calendar_month_rounded,
-                          label: 'Schedule',
-                          color: kPrimaryGreen,
-                        ),
-                        _MenuItem(
-                          icon: Icons.person_rounded,
-                          label: 'Profile',
-                          color: kSoftOrange,
-                        ),
+                        _MenuItem(icon: Icons.dashboard_rounded, label: 'Dashboard', color: kPrimaryBlue),
+                        _MenuItem(icon: Icons.assignment_rounded, label: 'My Assignments', color: kPrimaryGreen),
+                        _MenuItem(icon: Icons.class_rounded, label: 'Classes', color: kPrimaryBlue),
+                        _MenuItem(icon: Icons.assignment_turned_in_rounded, label: 'Take Attendance', color: kPrimaryBlue),
+                        _MenuItem(icon: Icons.grade_rounded, label: 'Marks', color: kSoftOrange),
+                        _MenuItem(icon: Icons.person_rounded, label: 'Profile', color: kSoftOrange),
                       ],
                       context: context,
                     ),
@@ -162,7 +102,13 @@ class TeacherDrawer extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
+    final user = context.watch<AuthProvider>().user;
+    final name = user?.name ?? teacher?['name'] ?? 'Teacher';
+    final initials = name.isNotEmpty ? name.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase() : 'T';
+    final email = user?.email ?? user?.emisNumber ?? teacher?['email'] ?? '—';
+    final roleLabel = user != null ? user.role.replaceAll('_', ' ') : (teacher?['role'] ?? 'Teacher');
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
@@ -205,7 +151,7 @@ class TeacherDrawer extends StatelessWidget {
                   radius: 38,
                   backgroundColor: Colors.white,
                   child: Text(
-                    teacher['initials']!,
+                    initials.isEmpty ? 'T' : initials,
                     style: const TextStyle(
                       color: kPrimaryBlue,
                       fontSize: 24,
@@ -220,12 +166,14 @@ class TeacherDrawer extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      teacher['name']!,
+                      name,
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Container(
@@ -246,12 +194,15 @@ class TeacherDrawer extends StatelessWidget {
                             size: 12,
                           ),
                           const SizedBox(width: 4),
-                          Text(
-                            teacher['role']!,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
+                          Flexible(
+                            child: Text(
+                              roleLabel,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -267,13 +218,15 @@ class TeacherDrawer extends StatelessWidget {
                         color: Colors.white.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Text(
-                        'ID: TCH230045',
-                        style: TextStyle(
+                      child: Text(
+                        email,
+                        style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 10,
                           fontWeight: FontWeight.w400,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -389,16 +342,7 @@ class TeacherDrawer extends StatelessWidget {
             // Use a microtask to ensure the drawer is closed before navigation
             Future.microtask(() async {
               try {
-                // Perform logout
-                await LocalAuthService().logout();
-
-                // Navigate to login screen and clear all routes
-                if (context.mounted) {
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (context) => const LoginPage()),
-                    (route) => false,
-                  );
-                }
+                await context.read<AuthProvider>().logout();
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -513,41 +457,31 @@ class TeacherDrawer extends StatelessWidget {
   }
 
   void _navigateToScreen(BuildContext context, String label) {
-    Widget screen;
+    Widget? screen;
     switch (label) {
       case 'Dashboard':
         screen = const TeacherDashboardScreen();
         break;
-      case 'My Classes':
-        screen = TeacherMyClassesScreen();
+      case 'My Assignments':
+        screen = const TeacherAssignmentsScreen();
         break;
-      case 'Students':
-        screen = TeacherStudentManagementScreen();
+      case 'Classes':
+        screen = const TeacherClassesScreen();
         break;
-      case 'Attendance':
-        screen = TeacherAttendanceScreen();
+      case 'Take Attendance':
+        screen = const TeacherAttendanceScreen();
         break;
-      case 'Assignments':
-        screen = TeacherAssignmentsScreen();
-        break;
-      case 'Quizzes':
-        screen = TeacherQuizzesScreen();
-        break;
-      case 'Exams':
-        screen = TeacherExamsResultsScreen();
-        break;
-      case 'Notices':
-        screen = TeacherNoticesScreen();
-        break;
-      case 'Schedule':
-        screen = TeacherWeeklyScheduleScreen();
+      case 'Marks':
+        screen = const TeacherMarksScreen();
         break;
       case 'Profile':
-        screen = TeacherProfileScreen();
+        screen = const TeacherProfileScreen();
         break;
       default:
         return;
     }
-    Navigator.push(context, MaterialPageRoute(builder: (context) => screen));
+    if (screen != null) {
+      Navigator.push(context, MaterialPageRoute(builder: (context) => screen!));
+    }
   }
 }

@@ -1,36 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:kobac/school_admin/pages/admin_class_screen.dart';
+import 'package:kobac/services/classes_service.dart';
+import 'package:kobac/services/api_error_helpers.dart';
+import 'package:kobac/school_admin/pages/admin_class_details_screen.dart';
+import 'package:kobac/school_admin/widgets/delete_confirm_dialog.dart';
+import 'package:kobac/widgets/form_3d/form_3d.dart';
 
 // --- Premium 3D Design Constants ---
 const Color kPrimaryBlue = Color(0xFF023471);
 const Color kPrimaryGreen = Color(0xFF5AB04B);
 const Color kBgColor = Color(0xFFF0F3F7);
 const double kCardRadius = 28.0;
-
-class SchoolClass {
-  final String name;
-  final int studentCount;
-  final String teacher;
-  final String performance;
-  final String section;
-  final String academicYear;
-
-  SchoolClass({
-    required this.name,
-    required this.studentCount,
-    required this.teacher,
-    required this.performance,
-    required this.section,
-    required this.academicYear,
-  });
-}
-
-final List<SchoolClass> dummyClasses = [
-  SchoolClass(name: 'Grade 7 - A', studentCount: 35, teacher: 'Mrs. Alice Johnson', performance: 'Excellent', section: 'A', academicYear: '2023-24'),
-  SchoolClass(name: 'Grade 8 - B', studentCount: 32, teacher: 'Mr. Ben Carter', performance: 'Average', section: 'B', academicYear: '2023-24'),
-  SchoolClass(name: 'Grade 9 - C', studentCount: 29, teacher: 'Ms. Mariel Wang', performance: 'Needs Attention', section: 'C', academicYear: '2022-23'),
-  SchoolClass(name: 'Grade 10 - A', studentCount: 27, teacher: 'Dr. Laura Simon', performance: 'Excellent', section: 'A', academicYear: '2022-23'),
-];
 
 class AdminClassesPage extends StatefulWidget {
   const AdminClassesPage({Key? key}) : super(key: key);
@@ -40,17 +19,105 @@ class AdminClassesPage extends StatefulWidget {
 }
 
 class _AdminClassesPageState extends State<AdminClassesPage> {
-  String searchText = '';
-  String? selectedSection;
-  String? selectedYear;
+  late Future<ClassResult<List<ClassModel>>> _classesFuture;
+  String searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
 
-  List<SchoolClass> get filteredClasses {
-    return dummyClasses.where((schoolClass) {
-      final searchMatch = schoolClass.name.toLowerCase().contains(searchText.toLowerCase());
-      final sectionMatch = selectedSection == null || schoolClass.section == selectedSection;
-      final yearMatch = selectedYear == null || schoolClass.academicYear == selectedYear;
-      return searchMatch && sectionMatch && yearMatch;
-    }).toList();
+  @override
+  void initState() {
+    super.initState();
+    _loadClasses();
+  }
+
+  void _loadClasses() {
+    setState(() {
+      _classesFuture = ClassesService().listClasses();
+    });
+  }
+
+  List<ClassModel> _filter(List<ClassModel> list) {
+    if (searchQuery.isEmpty) return list;
+    final q = searchQuery.toLowerCase();
+    return list.where((c) => c.name.toLowerCase().contains(q)).toList();
+  }
+
+  Future<void> _openCreateClass() async {
+    final created = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => _ClassFormDialog(
+        title: 'Add Class',
+        initialName: '',
+        submitLabel: 'Create',
+        onSave: (name) async {
+          final result = await ClassesService().createClass({'name': name});
+          if (result is ClassSuccess) return true;
+          if (ctx.mounted) {
+            ScaffoldMessenger.of(ctx).showSnackBar(
+              SnackBar(content: Text((result as ClassError).message), backgroundColor: Colors.red),
+            );
+          }
+          return false;
+        },
+      ),
+    );
+    if (created == true) {
+      _loadClasses();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Class created'), backgroundColor: kPrimaryGreen),
+        );
+      }
+    }
+  }
+
+  Future<void> _openEditClass(ClassModel classModel) async {
+    final updated = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => _ClassFormDialog(
+        title: 'Edit Class',
+        initialName: classModel.name,
+        submitLabel: 'Save',
+        onSave: (name) async {
+          final result = await ClassesService().updateClass(classModel.id, {'name': name});
+          if (result is ClassSuccess) return true;
+          if (ctx.mounted) {
+            ScaffoldMessenger.of(ctx).showSnackBar(
+              SnackBar(content: Text((result as ClassError).message), backgroundColor: Colors.red),
+            );
+          }
+          return false;
+        },
+      ),
+    );
+    if (updated == true) {
+      _loadClasses();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Updated'), backgroundColor: kPrimaryGreen),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteClass(ClassModel classModel) async {
+    final confirmed = await showDeleteConfirmDialog(
+      context,
+      title: 'Delete class?',
+      message: 'Delete class ${classModel.name}?',
+    );
+    if (confirmed != true) return;
+    final result = await ClassesService().deleteClass(classModel.id);
+    if (!mounted) return;
+    if (result is ClassSuccess) {
+      _loadClasses();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${classModel.name} deleted'), backgroundColor: kPrimaryGreen),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text((result as ClassError).message), backgroundColor: Colors.red),
+      );
+    }
   }
 
   @override
@@ -81,62 +148,247 @@ class _AdminClassesPageState extends State<AdminClassesPage> {
                         style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kPrimaryBlue),
                       ),
                     ),
-                    _AddButton(onPressed: () {}),
+                    _AddButton(onPressed: _openCreateClass),
                   ],
                 ),
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 20, offset: const Offset(0, 6)),
-                            BoxShadow(color: kPrimaryBlue.withOpacity(0.03), blurRadius: 40, offset: const Offset(0, 12)),
-                          ],
-                        ),
-                        child: TextField(
-                          onChanged: (val) => setState(() => searchText = val),
-                          decoration: InputDecoration(
-                            hintText: "Search classes...",
-                            prefixIcon: const Icon(Icons.search_rounded, color: kPrimaryBlue),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(vertical: 15),
-                          ),
-                        ),
-                      ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 20, offset: const Offset(0, 6)),
+                      BoxShadow(color: kPrimaryBlue.withOpacity(0.03), blurRadius: 40, offset: const Offset(0, 12)),
+                    ],
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (val) => setState(() => searchQuery = val),
+                    decoration: InputDecoration(
+                      hintText: "Search classes...",
+                      prefixIcon: const Icon(Icons.search_rounded, color: kPrimaryBlue),
+                      suffixIcon: searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, color: Colors.grey),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => searchQuery = '');
+                              },
+                            )
+                          : null,
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 15),
                     ),
-                    const SizedBox(width: 10),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
-                      ),
-                      child: IconButton(
-                        icon: const Icon(Icons.filter_list_rounded, color: kPrimaryBlue),
-                        onPressed: () {},
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
               Expanded(
-                child: filteredClasses.isEmpty
-                    ? Center(child: Text("No classes found", style: TextStyle(color: Colors.grey[500])))
-                    : ListView.builder(
+                child: RefreshIndicator(
+                  onRefresh: () async => _loadClasses(),
+                  color: kPrimaryGreen,
+                  child: FutureBuilder<ClassResult<List<ClassModel>>>(
+                    future: _classesFuture,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator(color: kPrimaryGreen));
+                      }
+                      if (snapshot.hasError) {
+                        final userMsg = userFriendlyMessage(snapshot.error!, null, 'AdminClassesPage');
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+                                const SizedBox(height: 12),
+                                Text(userMsg, textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.grey[800])),
+                                const SizedBox(height: 16),
+                                TextButton.icon(
+                                  onPressed: _loadClasses,
+                                  icon: const Icon(Icons.refresh),
+                                  label: const Text('Retry'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+                      final result = snapshot.data;
+                      if (result == null) return const Center(child: Text('No data'));
+                      if (result is ClassError) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+                                const SizedBox(height: 12),
+                                Text(result.message, textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.grey[800])),
+                                const SizedBox(height: 16),
+                                TextButton.icon(
+                                  onPressed: _loadClasses,
+                                  icon: const Icon(Icons.refresh),
+                                  label: const Text('Retry'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+                      final classes = _filter((result as ClassSuccess<List<ClassModel>>).data);
+                      if (classes.isEmpty) {
+                        return ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: [
+                            SizedBox(height: MediaQuery.of(context).size.height * 0.25),
+                            Center(
+                              child: Column(
+                                children: [
+                                  Icon(Icons.class_rounded, size: 60, color: Colors.grey[300]),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    searchQuery.isEmpty ? 'No classes yet' : 'No classes match your search',
+                                    style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      }
+                      return ListView.builder(
+                        physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                        itemCount: filteredClasses.length,
-                        itemBuilder: (context, index) => _ClassCard(schoolClass: filteredClasses[index]),
-                      ),
+                        itemCount: classes.length,
+                        itemBuilder: (context, index) {
+                          final classModel = classes[index];
+                          return _ClassCard(
+                            classModel: classModel,
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => AdminClassDetailsScreen(
+                                  classId: classModel.id,
+                                  className: classModel.name,
+                                ),
+                              ),
+                            ),
+                            onEdit: () => _openEditClass(classModel),
+                            onDelete: () => _deleteClass(classModel),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Dialog for Create/Edit class: single "name" field, Save/Create button.
+class _ClassFormDialog extends StatefulWidget {
+  final String title;
+  final String initialName;
+  final String submitLabel;
+  final Future<bool> Function(String name) onSave;
+
+  const _ClassFormDialog({
+    required this.title,
+    required this.initialName,
+    required this.submitLabel,
+    required this.onSave,
+  });
+
+  @override
+  State<_ClassFormDialog> createState() => _ClassFormDialogState();
+}
+
+class _ClassFormDialogState extends State<_ClassFormDialog> {
+  late TextEditingController _nameController;
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.initialName);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Class name is required'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    if (_submitting) return;
+    setState(() => _submitting = true);
+    final ok = await widget.onSave(name);
+    if (!mounted) return;
+    setState(() => _submitting = false);
+    if (ok) Navigator.of(context).pop(true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+      child: FormCard(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              widget.title,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+            ),
+            const SizedBox(height: 20),
+            Input3D(
+              controller: _nameController,
+              label: 'Class name',
+              hint: 'e.g. Grade 7 - A',
+              textCapitalization: TextCapitalization.words,
+              onSubmitted: (_) => _submit(),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: _submitting ? null : () => Navigator.of(context).pop(false),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: PrimaryButton3D(
+                    label: widget.submitLabel,
+                    onPressed: _submit,
+                    loading: _submitting,
+                    height: 48,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -184,97 +436,68 @@ class _AddButton extends StatelessWidget {
 }
 
 class _ClassCard extends StatelessWidget {
-  final SchoolClass schoolClass;
+  final ClassModel classModel;
+  final VoidCallback onTap;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
-  const _ClassCard({required this.schoolClass});
-
-  Color _getStatusColor(String status) {
-    if (status == 'Excellent') return kPrimaryGreen;
-    if (status == 'Average') return Colors.orange;
-    return Colors.redAccent;
-  }
+  const _ClassCard({
+    required this.classModel,
+    required this.onTap,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
-      child: InkWell(
-        onTap: () {},
-        borderRadius: BorderRadius.circular(kCardRadius),
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 14),
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(kCardRadius),
-            boxShadow: [
-              BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 6)),
-              BoxShadow(color: kPrimaryBlue.withOpacity(0.03), blurRadius: 32, offset: const Offset(0, 12)),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: kPrimaryBlue.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(18),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(kCardRadius),
+          boxShadow: [
+            BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 6)),
+            BoxShadow(color: kPrimaryBlue.withOpacity(0.03), blurRadius: 32, offset: const Offset(0, 12)),
+          ],
+        ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(kCardRadius),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: kPrimaryBlue.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: const Icon(Icons.class_rounded, color: kPrimaryBlue, size: 28),
                 ),
-                child: const Icon(Icons.class_rounded, color: kPrimaryBlue, size: 28),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      schoolClass.name,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kPrimaryBlue),
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Icon(Icons.person_outline_rounded, size: 16, color: Colors.grey[600]),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            schoolClass.teacher,
-                            style: TextStyle(fontSize: 13, color: Colors.grey[700]),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(Icons.people_outline_rounded, size: 16, color: Colors.grey[600]),
-                        const SizedBox(width: 4),
-                        Text(
-                          "${schoolClass.studentCount} Students",
-                          style: TextStyle(fontSize: 13, color: Colors.grey[700]),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: _getStatusColor(schoolClass.performance).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  schoolClass.performance,
-                  style: TextStyle(
-                    color: _getStatusColor(schoolClass.performance),
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    classModel.name,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-              ),
-            ],
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, size: 22, color: kPrimaryGreen),
+                  onPressed: onEdit,
+                  tooltip: 'Edit',
+                ),
+                IconButton(
+                  icon: Icon(Icons.delete_outline, size: 22, color: Colors.red[400]),
+                  onPressed: onDelete,
+                  tooltip: 'Delete',
+                ),
+              ],
+            ),
           ),
         ),
       ),

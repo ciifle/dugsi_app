@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:kobac/services/student_service.dart';
+import 'package:kobac/student/pages/student_result_report_screen.dart';
 
 // ---------- COLOR PALETTE (Updated to match Dashboard) ----------
 const Color kPrimaryBlue = Color(0xFF023471); // Dark blue
@@ -962,12 +964,14 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
   final String _remarkText =
       "Great effort this term! Focus on History for improvement next semester. Keep up the excellent work in Mathematics and Science!";
 
+  late Future<StudentResult<List<StudentExamModel>>> _examsFuture;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
+    _examsFuture = StudentService().listExams();
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
@@ -1046,9 +1050,6 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final stats = _overallStats;
-    final currentSubjects = _currentSubjects;
-
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -1060,158 +1061,230 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
       ),
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        body: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            // ---------------- REDESIGNED APP BAR (Matching Dashboard) ----------------
-            SliverToBoxAdapter(
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(24, 50, 24, 40),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
-                    stops: const [0.3, 0.7, 1.0],
-                  ),
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(40),
-                    bottomRight: Radius.circular(40),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: kPrimaryBlue.withOpacity(0.3),
-                      blurRadius: 30,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        // Back Button
-                        GestureDetector(
-                          onTap: () => Navigator.pop(context),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: const Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: Icon(
-                                Icons.arrow_back_rounded,
-                                color: Colors.white,
-                                size: 28,
-                              ),
-                            ),
+        body: FutureBuilder<StudentResult<List<StudentExamModel>>>(
+          future: _examsFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator(color: kPrimaryBlue));
+            }
+            if (snapshot.data is StudentError) {
+              final err = snapshot.data as StudentError;
+              if (err.statusCode == 403) {
+                return CustomScrollView(
+                  slivers: [
+                    _buildResultsAppBar(),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.orange.shade200),
                           ),
-                        ),
-                        const SizedBox(width: 16),
-                        // Title
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.center,
+                          child: Row(
                             children: [
-                              Text(
-                                "Academic Results",
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.9),
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                _selectedTerm,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
+                              Icon(Icons.info_outline_rounded, color: Colors.orange.shade800, size: 28),
+                              const SizedBox(width: 12),
+                              Expanded(child: Text(err.message, style: TextStyle(fontSize: 14, color: Colors.orange.shade900))),
                             ],
                           ),
                         ),
-                        const SizedBox(width: 16),
-                        // Share Button
-                        GestureDetector(
-                          onTap: _showShareDialog,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: const Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: Icon(
-                                Icons.share_rounded,
-                                color: Colors.white,
-                                size: 28,
+                      ),
+                    ),
+                  ],
+                );
+              }
+              return CustomScrollView(
+                slivers: [
+                  _buildResultsAppBar(),
+                  SliverFillRemaining(
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.error_outline, size: 48, color: kErrorColor),
+                            const SizedBox(height: 12),
+                            Text((snapshot.data as StudentError).message, textAlign: TextAlign.center, style: const TextStyle(color: kTextPrimaryColor)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }
+            final exams = snapshot.data is StudentSuccess<List<StudentExamModel>>
+                ? (snapshot.data as StudentSuccess<List<StudentExamModel>>).data
+                : <StudentExamModel>[];
+            if (exams.isEmpty) {
+              return CustomScrollView(
+                slivers: [
+                  _buildResultsAppBar(),
+                  SliverFillRemaining(
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.quiz_rounded, size: 56, color: Colors.grey[400]),
+                          const SizedBox(height: 12),
+                          Text('No exams yet', style: TextStyle(fontSize: 16, color: kTextSecondaryColor)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }
+            return CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                _buildResultsAppBar(),
+                SliverPadding(
+                  padding: const EdgeInsets.all(20),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final e = exams[index];
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 14),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => StudentResultReportScreen(examId: e.id)),
+                              ),
+                              borderRadius: BorderRadius.circular(24),
+                              child: Container(
+                                padding: const EdgeInsets.all(20),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(24),
+                                  boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.1), blurRadius: 14, offset: const Offset(0, 6))],
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: kPrimaryBlue.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: const Icon(Icons.assignment_rounded, color: kPrimaryBlue, size: 28),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Text(
+                                        e.name,
+                                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                                      ),
+                                    ),
+                                    const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: kTextSecondaryColor),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // ---------------- MAIN CONTENT ----------------
-            SliverPadding(
-              padding: const EdgeInsets.all(20),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: Column(
-                      children: [
-                        // ---------------- REDESIGNED OVERALL STATS CARD ----------------
-                        _buildOverallStatsCard(stats),
-
-                        const SizedBox(height: 20),
-
-                        // ---------------- TERM SELECTOR ----------------
-                        _buildTermSelector(),
-
-                        const SizedBox(height: 20),
-
-                        // ---------------- SUBJECTS HEADER ----------------
-                        _buildSubjectsHeader(stats['totalSubjects']),
-
-                        const SizedBox(height: 16),
-
-                        // ---------------- SUBJECT CARDS ----------------
-                        ...List.generate(currentSubjects.length, (index) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _SubjectResultCard(
-                              subject: currentSubjects[index],
-                              index: index,
-                            ),
-                          );
-                        }),
-
-                        const SizedBox(height: 20),
-
-                        // ---------------- PERFORMANCE INDICATOR ----------------
-                        _buildPerformanceIndicator(stats['percent']),
-
-                        const SizedBox(height: 20),
-
-                        // ---------------- REMARKS CARD ----------------
-                        if (_remarkText.isNotEmpty) _buildRemarksCard(),
-
-                        const SizedBox(height: 16),
-                      ],
+                        );
+                      },
+                      childCount: exams.length,
                     ),
                   ),
-                ]),
-              ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResultsAppBar() {
+    return SliverToBoxAdapter(
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(24, 50, 24, 40),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
+            stops: const [0.3, 0.7, 1.0],
+          ),
+          borderRadius: const BorderRadius.only(
+            bottomLeft: Radius.circular(40),
+            bottomRight: Radius.circular(40),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: kPrimaryBlue.withOpacity(0.3),
+              blurRadius: 30,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Icon(Icons.arrow_back_rounded, color: Colors.white, size: 28),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        "Academic Results",
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        "Exam Results",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: Icon(
+                      Icons.stars_rounded,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

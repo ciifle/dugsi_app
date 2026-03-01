@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:kobac/services/student_service.dart';
 
 // ---------- WONDERFUL COLOR PALETTE (Matching Dashboard) ----------
 const Color kPrimaryBlue = Color(0xFF023471); // Dark blue
@@ -50,14 +51,27 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen>
   late DateTime _selectedMonth;
   late List<AttendanceRecord> _attendanceRecords;
   late List<DateTime> _availableMonths;
+  late Future<StudentResult<List<StudentAttendanceRecordModel>>> _attendanceFuture;
 
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
+  static String _dateStr(DateTime d) {
+    final y = d.year;
+    final m = d.month.toString().padLeft(2, '0');
+    final day = d.day.toString().padLeft(2, '0');
+    return '$y-$m-$day';
+  }
+
   @override
   void initState() {
     super.initState();
-
+    final now = DateTime.now();
+    final from = now.subtract(const Duration(days: 30));
+    _attendanceFuture = StudentService().listAttendance(
+      from: _dateStr(from),
+      to: _dateStr(now),
+    );
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
@@ -68,7 +82,7 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen>
     _animationController.forward();
 
     // Only allow months including and prior to current month (up to 12 months back)
-    DateTime now = DateTime.now();
+    // (reuse 'now' from above)
 
     // Calculate available months
     _availableMonths = [];
@@ -267,6 +281,63 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // ---------------- ATTENDANCE FROM API (last 30 days) ----------------
+                        FutureBuilder<StudentResult<List<StudentAttendanceRecordModel>>>(
+                          future: _attendanceFuture,
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return const Padding(
+                                padding: EdgeInsets.only(bottom: 16),
+                                child: Center(child: SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2, color: kPrimaryBlue))),
+                              );
+                            }
+                            if (snapshot.data is! StudentSuccess<List<StudentAttendanceRecordModel>>) {
+                              return const SizedBox.shrink();
+                            }
+                            final list = (snapshot.data as StudentSuccess<List<StudentAttendanceRecordModel>>).data;
+                            if (list.isEmpty) {
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(20),
+                                    boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+                                  ),
+                                  child: const Text('No attendance records', style: TextStyle(color: kTextSecondaryColor)),
+                                ),
+                              );
+                            }
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Recent attendance', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
+                                  const SizedBox(height: 10),
+                                  ...list.take(14).map((r) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 8),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(r.date ?? '—', style: const TextStyle(fontSize: 14, color: kTextPrimaryColor)),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: (r.status?.toUpperCase() == 'PRESENT' ? kPrimaryGreen : Colors.orange).withOpacity(0.15),
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Text(r.status ?? '—', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: r.status?.toUpperCase() == 'PRESENT' ? kDarkGreen : Colors.orange.shade800)),
+                                        ),
+                                      ],
+                                    ),
+                                  )),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
                         // ---------------- REDESIGNED SUMMARY CARD ----------------
                         _buildSummaryCard(
                           totalDays,
@@ -1044,27 +1115,31 @@ class _CalendarDayCell extends StatelessWidget {
             width: 1,
           ),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              dayNum.toString(),
-              style: TextStyle(
-                color: getStatusColor(),
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                dayNum.toString(),
+                style: TextStyle(
+                  color: getStatusColor(),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Container(
-              padding: const EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: _buildStatusIcon(),
               ),
-              child: _buildStatusIcon(),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

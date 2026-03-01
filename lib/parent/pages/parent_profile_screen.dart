@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:kobac/shared/pages/login_screen.dart';
+import 'package:provider/provider.dart';
+import 'package:kobac/services/auth_provider.dart';
 
 // Color constants
 const Color kPrimaryBlue = Color(0xFF023471);
@@ -18,9 +19,9 @@ const Color kSoftPink = Color(0xFFFF7675);
 const Color kDarkBlue = Color(0xFF01255C);
 
 class ParentProfileScreen extends StatelessWidget {
-  final Map<String, String> parent;
+  final Map<String, String>? parent;
 
-  const ParentProfileScreen({Key? key, required this.parent}) : super(key: key);
+  const ParentProfileScreen({Key? key, this.parent}) : super(key: key);
 
   void _logout(BuildContext context) {
     showDialog(
@@ -47,12 +48,9 @@ class ParentProfileScreen extends StatelessWidget {
               child: Text('Cancel', style: TextStyle(color: kTextSecondary)),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.of(dialogContext).pop();
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const LoginPage()),
-                  (route) => false,
-                );
+                await context.read<AuthProvider>().logout();
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: kErrorColor,
@@ -71,6 +69,16 @@ class ParentProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    final user = auth.user;
+    final prof = auth.parentProfile;
+    final base = parent ?? <String, String>{};
+    final display = Map<String, String>.from(base);
+    display['name'] = prof?.name ?? user?.name ?? display['name'] ?? '—';
+    display['email'] = prof?.email ?? user?.email ?? user?.emisNumber ?? display['email'] ?? '—';
+    display['phone'] = prof?.phone ?? display['phone'] ?? '—';
+    final n = display['name'] ?? '';
+    display['initials'] = n.isEmpty ? 'P' : n.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase();
     return Scaffold(
       backgroundColor: kBackgroundEnd,
       body: CustomScrollView(
@@ -166,7 +174,7 @@ class ParentProfileScreen extends StatelessWidget {
                           ),
                           child: Center(
                             child: Text(
-                              parent['initials'] ?? 'FC',
+                              display['initials'] ?? 'FC',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 40,
@@ -183,7 +191,7 @@ class ParentProfileScreen extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                parent['name'] ?? 'Family Name',
+                                display['name'] ?? 'Family Name',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 24,
@@ -220,7 +228,7 @@ class ParentProfileScreen extends StatelessWidget {
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
-                                      parent['email'] ?? 'email@example.com',
+                                      display['email'] ?? 'email@example.com',
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 13,
@@ -311,7 +319,7 @@ class ParentProfileScreen extends StatelessWidget {
                     ),
                     _buildStatCard(
                       icon: Icons.family_restroom_rounded,
-                      value: parent['childrenCount'] ?? '3',
+                      value: display['childrenCount'] ?? '3',
                       label: 'Children',
                       color: kSuccessColor,
                     ),
@@ -381,25 +389,25 @@ class ParentProfileScreen extends StatelessWidget {
                           _buildInfoCard(
                             icon: Icons.phone_rounded,
                             label: 'Phone',
-                            value: parent['phone'] ?? '+1 234 567 890',
+                            value: display['phone'] ?? '+1 234 567 890',
                             color: kSuccessColor,
                           ),
                           _buildInfoCard(
                             icon: Icons.location_on_rounded,
                             label: 'Address',
-                            value: parent['address'] ?? '123 Family St',
+                            value: display['address'] ?? '123 Family St',
                             color: kSoftOrange,
                           ),
                           _buildInfoCard(
                             icon: Icons.work_rounded,
                             label: 'Occupation',
-                            value: parent['occupation'] ?? 'Business',
+                            value: display['occupation'] ?? 'Business',
                             color: kSoftPurple,
                           ),
                           _buildInfoCard(
                             icon: Icons.family_restroom_rounded,
                             label: 'Children',
-                            value: parent['childrenCount'] ?? '3',
+                            value: display['childrenCount'] ?? '3',
                             color: kPrimaryGreen,
                           ),
                         ],

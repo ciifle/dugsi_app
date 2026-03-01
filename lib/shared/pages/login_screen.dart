@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import 'package:kobac/models/auth_user.dart';
 import 'package:kobac/models/dummy_user.dart';
+import 'package:kobac/parent/pages/parent_dashboard.dart';
 import 'package:kobac/school_admin/pages/school_admin_screen.dart';
-import 'package:kobac/services/local_auth_service.dart';
+import 'package:kobac/services/auth_provider.dart';
 import 'package:kobac/student/pages/student_dashboard.dart';
 import 'package:kobac/teacher/pages/teacher_dashboard.dart';
 
@@ -14,8 +18,9 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _identifierController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+
   String? _loginError;
   bool _isLoading = false;
 
@@ -33,12 +38,11 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     );
     _topCircleOffset =
         Tween<Offset>(begin: const Offset(0.8, -1.1), end: Offset.zero).animate(
-          CurvedAnimation(
-            parent: _topCircleController,
-            curve: Curves.easeOutCubic,
-          ),
-        );
-
+      CurvedAnimation(
+        parent: _topCircleController,
+        curve: Curves.easeOutCubic,
+      ),
+    );
     _bottomCircleController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 4),
@@ -53,7 +57,6 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
             curve: Curves.easeOutCubic,
           ),
         );
-
     _topCircleController.forward();
     _bottomCircleController.forward();
   }
@@ -62,9 +65,21 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   void dispose() {
     _topCircleController.dispose();
     _bottomCircleController.dispose();
-    _emailController.dispose();
+    _identifierController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  String? _validateIdentifier(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Please enter your email or EMIS number';
+    }
+    return null;
+  }
+
+  String? _validatePassword(String? value) {
+    if (value == null || value.isEmpty) return 'Please enter your password';
+    return null;
   }
 
   Future<void> _login(BuildContext context) async {
@@ -73,57 +88,33 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       _isLoading = true;
     });
 
-    final identifier = _emailController.text.trim();
-    final password = _passwordController.text;
+    final auth = context.read<AuthProvider>();
+    final error = await auth.loginWithIdentifier(
+      _identifierController.text,
+      _passwordController.text,
+    );
 
-    final user = await LocalAuthService().login(identifier, password);
+    if (!mounted) return;
+    setState(() => _isLoading = false);
 
-    setState(() {
-      _isLoading = false;
-    });
-
-    if (user != null) {
-      Widget targetScreen;
-      switch (user.role) {
-        case UserRole.schoolAdmin:
-          targetScreen = const SchoolAdminScreen();
-          break;
-        case UserRole.teacher:
-          targetScreen = TeacherDashboardScreen();
-          break;
-        case UserRole.student:
-          targetScreen = StudentDashboardScreen();
-          break;
-        case UserRole.parent: // Added parent handling
-          targetScreen = const Scaffold(
-            body: Center(child: Text("Parent Dashboard Placeholder")),
-          ); // TODO: Create Parent Dashboard
-          break;
-        default:
-          setState(() {
-            _loginError = "Unknown user role.";
-          });
-          return;
-      }
-      Navigator.of(
-        context,
-      ).pushReplacement(MaterialPageRoute(builder: (_) => targetScreen));
-    } else {
-      setState(() {
-        _loginError = 'Invalid email or password.';
-      });
+    if (error != null) {
+      setState(() => _loginError = error);
+      return;
     }
+    // Success: navigate to root so AppStartRouter shows the role dashboard
+    if (!mounted) return;
+    Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
   }
 
   @override
   Widget build(BuildContext context) {
     final offWhite = Colors.grey[300];
-    final orange = const Color(0xFF5AB04B);
-    final darkBlue = const Color(0xFF023471);
+    const orange = Color(0xFF5AB04B);
+    const darkBlue = Color(0xFF023471);
 
     final double cardWidth = MediaQuery.of(context).size.width * 0.88;
     final double circleDiameter = MediaQuery.of(context).size.width * 0.55;
-    final double circleBorderWidth = 22;
+    const double circleBorderWidth = 22;
 
     return Scaffold(
       backgroundColor: offWhite,
@@ -198,100 +189,37 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          "Login",
+                          'Login',
                           style: TextStyle(
                             color: darkBlue,
                             fontSize: 35,
                             fontWeight: FontWeight.w700,
-                            fontFamily: Theme.of(
-                              context,
-                            ).textTheme.titleLarge?.fontFamily,
+                            fontFamily: Theme.of(context)
+                                .textTheme.titleLarge?.fontFamily,
                             letterSpacing: 0.2,
                           ),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 28),
                         TextFormField(
-                          controller: _emailController,
+                          controller: _identifierController,
                           keyboardType: TextInputType.emailAddress,
-                          decoration: InputDecoration(
-                            hintText: 'Email / ID',
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 18,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: const BorderSide(
-                                color: Color(0xFFE0E4EC),
-                                width: 1.5,
-                              ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: const BorderSide(
-                                color: Color(0xFFE0E4EC),
-                                width: 1.5,
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide(
-                                color: darkBlue,
-                                width: 1.8,
-                              ),
-                            ),
-                            filled: true,
-                            fillColor: Colors.white,
-                          ),
-                          style: TextStyle(fontSize: 16, color: darkBlue),
+                          decoration: _inputDecoration('Email / EMIS number'),
+                          style: const TextStyle(fontSize: 16, color: darkBlue),
                           autofillHints: const [
                             AutofillHints.username,
                             AutofillHints.email,
                           ],
-                          validator: (value) => value == null || value.isEmpty
-                              ? "Please enter your email/ID"
-                              : null,
+                          validator: _validateIdentifier,
                         ),
                         const SizedBox(height: 16),
                         TextFormField(
                           controller: _passwordController,
                           obscureText: true,
-                          decoration: InputDecoration(
-                            hintText: 'Password',
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 18,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: const BorderSide(
-                                color: Color(0xFFE0E4EC),
-                                width: 1.5,
-                              ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: const BorderSide(
-                                color: Color(0xFFE0E4EC),
-                                width: 1.5,
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide(
-                                color: darkBlue,
-                                width: 1.8,
-                              ),
-                            ),
-                            filled: true,
-                            fillColor: Colors.white,
-                          ),
-                          style: TextStyle(fontSize: 16, color: darkBlue),
+                          decoration: _inputDecoration('Password'),
+                          style: const TextStyle(fontSize: 16, color: darkBlue),
                           autofillHints: const [AutofillHints.password],
-                          validator: (value) => value == null || value.isEmpty
-                              ? "Please enter your password"
-                              : null,
+                          validator: _validatePassword,
                         ),
                         if (_loginError != null) ...[
                           const SizedBox(height: 16),
@@ -360,5 +288,44 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         ),
       ),
     );
+  }
+
+  InputDecoration _inputDecoration(String hint) {
+    const darkBlue = Color(0xFF023471);
+    return InputDecoration(
+      hintText: hint,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Color(0xFFE0E4EC), width: 1.5),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Color(0xFFE0E4EC), width: 1.5),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: darkBlue, width: 1.8),
+      ),
+      filled: true,
+      fillColor: Colors.white,
+    );
+  }
+}
+
+/// Resolves the home screen for the current user role (from API).
+Widget roleToHome(AuthUser? user) {
+  if (user == null) return const LoginPage();
+  switch (user.userRole) {
+    case UserRole.schoolAdmin:
+      return const SchoolAdminScreen();
+    case UserRole.teacher:
+      return const TeacherDashboardScreen();
+    case UserRole.student:
+      return const StudentDashboardScreen();
+    case UserRole.parent:
+      return const ParentDashboardScreen();
+    default:
+      return const LoginPage();
   }
 }

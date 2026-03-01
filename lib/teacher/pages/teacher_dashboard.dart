@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:kobac/school_admin/pages/mesaage_screen.dart';
+import 'package:provider/provider.dart';
 import 'package:kobac/teacher/pages/assignments_screen.dart';
 import 'package:kobac/teacher/pages/attendance_mark.dart';
-import 'package:kobac/teacher/pages/notices_screen.dart';
-import 'package:kobac/teacher/pages/quizzes_screen.dart';
-import 'package:kobac/teacher/pages/teacher_classes.dart';
+import 'package:kobac/teacher/pages/teacher_classes_screen.dart';
+import 'package:kobac/teacher/pages/teacher_marks_screen.dart';
 import 'package:kobac/teacher/pages/teacher_drawer.dart';
+import 'package:kobac/services/teacher_service.dart';
+import 'package:kobac/services/auth_provider.dart';
 
 // =======================
-//  TEACHER DASHBOARD COLORS - MATCHING STUDENT DASHBOARD
+//  TEACHER DASHBOARD — Same layout/colors/widgets as before; dummy sections removed; real data from APIs.
 // =======================
 const Color kPrimaryBlue = Color(0xFF023471);
 const Color kPrimaryGreen = Color(0xFF5AB04B);
@@ -22,7 +23,6 @@ const Color kErrorColor = Color(0xFFEF4444);
 const Color kSoftOrange = Color(0xFFF59E0B);
 const Color kCardColor = Colors.white;
 
-/// Teacher Dashboard Screen
 class TeacherDashboardScreen extends StatefulWidget {
   const TeacherDashboardScreen({Key? key}) : super(key: key);
 
@@ -32,74 +32,57 @@ class TeacherDashboardScreen extends StatefulWidget {
 
 class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  List<TeacherAssignmentModel> _assignments = [];
+  bool _loading = true;
+  String? _error;
 
-  // Teacher Data
-  final Map<String, String> teacher = {
-    'name': "Mr. Imran Yusuf",
-    'role': "Mathematics Teacher",
-    'avatarUrl': "",
-    'initials': "MI",
-  };
+  @override
+  void initState() {
+    super.initState();
+    _loadAssignments();
+  }
 
-  final int totalClasses = 5;
-  final int todayClasses = 2;
-  final int totalStudents = 143;
-  final int pendingTasks = 3;
-  final int notificationCount = 3; // Still keeping this for other uses
+  Future<void> _loadAssignments() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    final result = await TeacherService().listAssignments();
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      if (result is TeacherSuccess<List<TeacherAssignmentModel>>) {
+        _assignments = result.data;
+        _error = null;
+      } else {
+        _assignments = [];
+        _error = (result as TeacherError).message;
+      }
+    });
+  }
 
-  final List<Map<String, String>> todaysClasses = const [
-    {
-      'className': '10 A',
-      'subject': 'Mathematics',
-      'time': '09:00 AM - 09:45 AM',
-      'notes': 'Quiz today (Ch.3)',
-      'room': 'Room 201',
-    },
-    {
-      'className': '11 B',
-      'subject': 'Statistics',
-      'time': '11:15 AM - 12:00 PM',
-      'notes': 'Assignment solution discussion',
-      'room': 'Room 305',
-    },
-  ];
-
-  String _formatDate(DateTime date) {
-    final weekdays = [
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-      'Sunday',
-    ];
-    final months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-    return '${weekdays[date.weekday - 1]}, ${date.day} ${months[date.month - 1]} ${date.year}';
+  int get _uniqueClassesCount {
+    final seen = <int>{};
+    for (final a in _assignments) {
+      seen.add(a.classId);
+    }
+    return seen.length;
   }
 
   @override
   Widget build(BuildContext context) {
-    final String todayStr = _formatDate(DateTime.now());
-    final bool isSmallScreen = MediaQuery.of(context).size.width < 410;
+    final auth = context.watch<AuthProvider>();
+    final user = auth.user;
+    final name = auth.teacherProfile?.fullName?.isNotEmpty == true
+        ? auth.teacherProfile!.fullName!
+        : (user?.name ?? 'Teacher');
+    final initials = name.isNotEmpty ? name.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase() : 'T';
+    final roleLabel = user != null ? user.role.replaceAll('_', ' ') : 'Teacher';
 
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: kSoftBlue,
-      drawer: TeacherDrawer(teacher: teacher),
+      drawer: const TeacherDrawer(),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -113,7 +96,7 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
           child: CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              // Header
+              // ---------- Header (same as original) ----------
               SliverToBoxAdapter(
                 child: Container(
                   padding: const EdgeInsets.fromLTRB(24, 16, 24, 40),
@@ -141,67 +124,43 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          // Hamburger Menu Icon
                           GestureDetector(
-                            onTap: () {
-                              _scaffoldKey.currentState?.openDrawer();
-                            },
+                            onTap: () => _scaffoldKey.currentState?.openDrawer(),
                             child: Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
                                 color: Colors.white.withOpacity(0.2),
                                 borderRadius: BorderRadius.circular(16),
                               ),
-                              child: const Icon(
-                                Icons.menu_rounded,
-                                color: Colors.white,
-                                size: 28,
-                              ),
+                              child: const Icon(Icons.menu_rounded, color: Colors.white, size: 28),
                             ),
                           ),
                           const SizedBox(width: 16),
-
-                          // Welcome Text
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
                                 Text(
                                   "Welcome back! 👋",
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.9),
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                                  style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 18, fontWeight: FontWeight.w500),
                                   textAlign: TextAlign.center,
                                 ),
                                 const SizedBox(height: 2),
                                 const Text(
                                   "Teacher Dashboard",
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                                  style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
                                   textAlign: TextAlign.center,
                                 ),
                                 const SizedBox(height: 4),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 4,
-                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: Colors.white.withOpacity(0.2),
                                     borderRadius: BorderRadius.circular(30),
                                   ),
                                   child: Text(
-                                    teacher['role']!,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                    roleLabel,
+                                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
                                     textAlign: TextAlign.center,
                                   ),
                                 ),
@@ -209,30 +168,18 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
                             ),
                           ),
                           const SizedBox(width: 16),
-
-                          // Circle Avatar - WITHOUT NOTIFICATION NUMBER
                           Container(
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               border: Border.all(color: Colors.white, width: 3),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.2),
-                                  blurRadius: 15,
-                                  spreadRadius: 2,
-                                ),
-                              ],
+                              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 15, spreadRadius: 2)],
                             ),
                             child: CircleAvatar(
                               radius: 32,
                               backgroundColor: Colors.white,
                               child: Text(
-                                teacher['initials']!,
-                                style: TextStyle(
-                                  color: kPrimaryBlue,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                initials.isEmpty ? 'T' : initials,
+                                style: const TextStyle(color: kPrimaryBlue, fontSize: 18, fontWeight: FontWeight.bold),
                               ),
                             ),
                           ),
@@ -243,443 +190,224 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
                 ),
               ),
 
-              // Stats Section
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                  child: _buildStatsGrid(),
-                ),
-              ),
-
-              const SliverPadding(padding: EdgeInsets.only(top: 24)),
-
-              // Quick Actions Header
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [kPrimaryBlue, kPrimaryGreen],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.bolt_rounded,
-                          color: Colors.white,
-                          size: 18,
-                        ),
+              if (_loading) ...[
+                const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator(color: kPrimaryBlue)))),
+              ] else if (_error != null) ...[
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                    child: Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 8))],
                       ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        "✨ Quick Actions",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: kPrimaryBlue,
-                        ),
+                      child: Column(
+                        children: [
+                          Icon(Icons.error_outline_rounded, size: 48, color: kErrorColor.withOpacity(0.8)),
+                          const SizedBox(height: 12),
+                          Text(_error!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 15, color: kTextPrimary)),
+                          const SizedBox(height: 16),
+                          TextButton.icon(onPressed: _loadAssignments, icon: const Icon(Icons.refresh_rounded, size: 20), label: const Text('Retry'), style: TextButton.styleFrom(foregroundColor: kPrimaryBlue)),
+                        ],
                       ),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: kPrimaryGreen.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          "4 items",
-                          style: TextStyle(
-                            color: kPrimaryGreen,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SliverPadding(padding: EdgeInsets.only(top: 16)),
-
-              // Quick Actions Grid
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
-                    childAspectRatio: 1.0,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) => _QuickActionCard(
-                      icon: _quickActions[index]['icon'] as IconData,
-                      label: _quickActions[index]['label'] as String,
-                      color: _getActionColor(index),
-                      onTap: () {
-                        _navigateToScreen(
-                          context,
-                          _quickActions[index]['route'] as Widget,
-                        );
-                      },
                     ),
-                    childCount: _quickActions.length,
                   ),
                 ),
-              ),
-
-              const SliverPadding(padding: EdgeInsets.only(top: 24)),
-
-              // Today's Classes Header
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [kPrimaryBlue, kPrimaryGreen],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.class_rounded,
-                          color: Colors.white,
-                          size: 18,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        "📚 Today's Classes",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+              ] else ...[
+                // ---------- Four touchable cards (Total Classes, Assignments, Students, Schedule) — same layout as admin top cards ----------
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                    child: GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      childAspectRatio: 1.5,
+                      children: [
+                        _StatCard(
+                          icon: Icons.class_rounded,
+                          value: '$_uniqueClassesCount',
+                          label: 'Total Classes',
                           color: kPrimaryBlue,
+                          onTap: () => _navigateToScreen(context, const TeacherClassesScreen()),
                         ),
-                      ),
-                      const Spacer(),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => TeacherMyClassesScreen(),
+                        _StatCard(
+                          icon: Icons.assignment_rounded,
+                          value: '${_assignments.length}',
+                          label: 'Assignments',
+                          color: kPrimaryGreen,
+                          onTap: () => _navigateToScreen(context, const TeacherAssignmentsScreen()),
+                        ),
+                        _StatCard(
+                          icon: Icons.people_rounded,
+                          value: '—',
+                          label: 'Students',
+                          color: kSoftOrange,
+                          onTap: () => _navigateToScreen(context, const TeacherAttendanceScreen()),
+                        ),
+                        _StatCard(
+                          icon: Icons.today_rounded,
+                          value: '—',
+                          label: "Today's",
+                          color: kDarkBlue,
+                          onTap: () => _navigateToScreen(context, const TeacherAttendanceScreen()),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SliverPadding(padding: EdgeInsets.only(top: 24)),
+                // ---------- Quick Actions (admin-style layout: GridView 2 cols, horizontal card per item) ----------
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          "Quick Actions",
+                          style: TextStyle(fontSize: 18, color: kPrimaryBlue, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 14),
+                        GridView.count(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          crossAxisCount: 2,
+                          mainAxisSpacing: 12,
+                          crossAxisSpacing: 12,
+                          childAspectRatio: 2.45,
+                          children: [
+                            _TeacherQuickActionButton(
+                              icon: Icons.how_to_reg_rounded,
+                              label: 'Take Attendance',
+                              color: kPrimaryBlue,
+                              onTap: () => _navigateToScreen(context, const TeacherAttendanceScreen()),
                             ),
-                          );
-                        },
-                        style: TextButton.styleFrom(
-                          foregroundColor: kPrimaryGreen,
-                          minimumSize: Size.zero,
-                          padding: EdgeInsets.zero,
-                        ),
-                        child: const Text(
-                          "View All",
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SliverPadding(padding: EdgeInsets.only(top: 16)),
-
-              // Today's Classes Cards
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) => Padding(
-                    padding: EdgeInsets.only(
-                      left: 20,
-                      right: 20,
-                      bottom: index == todaysClasses.length - 1 ? 12 : 12,
-                    ),
-                    child: _TodayClassCard(
-                      classData: todaysClasses[index],
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => TeacherMyClassesScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  childCount: todaysClasses.length,
-                ),
-              ),
-
-              const SliverPadding(padding: EdgeInsets.only(top: 24)),
-
-              // Notices Header
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [kPrimaryBlue, kPrimaryGreen],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.campaign_rounded,
-                          color: Colors.white,
-                          size: 18,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        "📢 Latest Notices",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: kPrimaryBlue,
-                        ),
-                      ),
-                      const Spacer(),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => TeacherNoticesScreen(),
+                            _TeacherQuickActionButton(
+                              icon: Icons.edit_note_rounded,
+                              label: 'Enter Marks',
+                              color: kPrimaryGreen,
+                              onTap: () => _navigateToScreen(context, const TeacherMarksScreen()),
                             ),
-                          );
-                        },
-                        style: TextButton.styleFrom(
-                          foregroundColor: kPrimaryGreen,
-                          minimumSize: Size.zero,
-                          padding: EdgeInsets.zero,
+                            _TeacherQuickActionButton(
+                              icon: Icons.grade_rounded,
+                              label: 'View Marks',
+                              color: kSoftOrange,
+                              onTap: () => _navigateToScreen(context, const TeacherMarksScreen()),
+                            ),
+                            _TeacherQuickActionButton(
+                              icon: Icons.assignment_rounded,
+                              label: 'My Assignments',
+                              color: kDarkBlue,
+                              onTap: () => _navigateToScreen(context, const TeacherAssignmentsScreen()),
+                            ),
+                          ],
                         ),
-                        child: const Text(
-                          "View All",
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              const SliverPadding(padding: EdgeInsets.only(top: 16)),
+                const SliverToBoxAdapter(child: SizedBox(height: 80)),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-              // Notice Cards
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) => Padding(
-                    padding: EdgeInsets.only(
-                      left: 20,
-                      right: 20,
-                      bottom: index == _notices.length - 1 ? 80 : 12,
+  void _navigateToScreen(BuildContext context, Widget screen) {
+    Navigator.push(context, MaterialPageRoute(builder: (context) => screen)).then((_) => _loadAssignments());
+  }
+}
+
+/// Touchable stat card (4 cards: Total Classes, Assignments, Students, Today's) — admin-style 3D card
+class _StatCard extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _StatCard({
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: kCardColor,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: Colors.white, width: 1.5),
+            boxShadow: [
+              BoxShadow(color: Colors.white, blurRadius: 14, offset: const Offset(-4, -4), spreadRadius: 0.5),
+              BoxShadow(color: kPrimaryBlue.withOpacity(0.12), blurRadius: 24, offset: const Offset(6, 8)),
+              BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 12, offset: const Offset(3, 5)),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white, width: 1.5),
+                      boxShadow: [
+                        BoxShadow(color: Colors.white, blurRadius: 8, offset: const Offset(-2, -2), spreadRadius: 0.5),
+                        BoxShadow(color: color.withOpacity(0.22), blurRadius: 10, offset: const Offset(3, 3)),
+                        BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6, offset: const Offset(2, 2)),
+                      ],
                     ),
-                    child: _NoticeCard(
-                      notice: _notices[index],
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => TeacherNoticesScreen(),
-                          ),
-                        );
-                      },
-                    ),
+                    child: Icon(icon, color: color, size: 22),
                   ),
-                  childCount: _notices.length,
-                ),
+                  const SizedBox(width: 12),
+                  Text(
+                    value,
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                style: const TextStyle(fontSize: 13, color: kTextSecondary, fontWeight: FontWeight.w500),
               ),
             ],
           ),
         ),
       ),
-
-      // Chat FAB
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: kPrimaryGreen,
-        onPressed: () {
-          Navigator.of(
-            context,
-          ).push(MaterialPageRoute(builder: (context) => MessageScreen()));
-        },
-        child: const Icon(
-          Icons.chat_bubble_rounded,
-          color: Colors.white,
-          size: 26,
-        ),
-      ),
     );
-  }
-
-  final List<Map<String, dynamic>> _quickActions = [
-    {
-      'icon': Icons.how_to_reg_rounded,
-      'label': 'Attendance',
-      'route': TeacherAttendanceScreen(),
-    },
-    {
-      'icon': Icons.assignment_rounded,
-      'label': 'Assignments',
-      'route': TeacherAssignmentsScreen(),
-    },
-    {
-      'icon': Icons.quiz_rounded,
-      'label': 'Quizzes',
-      'route': TeacherQuizzesScreen(),
-    },
-    {
-      'icon': Icons.campaign_rounded,
-      'label': 'Notices',
-      'route': TeacherNoticesScreen(),
-    },
-  ];
-
-  final List<Map<String, String>> _notices = const [
-    {
-      'title': 'Staff Meeting',
-      'description': 'Staff meeting this Friday at 2 PM in conference room',
-      'time': '2 hours ago',
-      'date': '12 Jun',
-    },
-    {
-      'title': 'Exam Duty Schedule',
-      'description': 'Exam duty schedule released for final term',
-      'time': 'Yesterday',
-      'date': '10 Jun',
-    },
-    {
-      'title': 'New Curriculum Guidelines',
-      'description': 'Updated curriculum guidelines available for download',
-      'time': '2 days ago',
-      'date': '08 Jun',
-    },
-  ];
-
-  Color _getActionColor(int index) {
-    final colors = [kPrimaryBlue, kPrimaryGreen, kSoftOrange, kDarkBlue];
-    return colors[index % colors.length];
-  }
-
-  Widget _buildStatsGrid() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: kPrimaryBlue.withOpacity(0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          _buildStatItem(
-            icon: Icons.class_rounded,
-            value: '$totalClasses',
-            label: 'Total Classes',
-            color: kPrimaryBlue,
-          ),
-          _buildStatDivider(),
-          _buildStatItem(
-            icon: Icons.people_rounded,
-            value: '$totalStudents',
-            label: 'Students',
-            color: kPrimaryGreen,
-          ),
-          _buildStatDivider(),
-          _buildStatItem(
-            icon: Icons.today_rounded,
-            value: '$todayClasses',
-            label: "Today's",
-            color: kSoftOrange,
-          ),
-          _buildStatDivider(),
-          _buildStatItem(
-            icon: Icons.pending_actions_rounded,
-            value: '$pendingTasks',
-            label: 'Pending',
-            color: kErrorColor,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatItem({
-    required IconData icon,
-    required String value,
-    required String label,
-    required Color color,
-  }) {
-    return Expanded(
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 10, color: kTextSecondary),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatDivider() {
-    return Container(height: 40, width: 1, color: Colors.grey.shade300);
-  }
-
-  void _navigateToScreen(BuildContext context, Widget screen) {
-    Navigator.push(context, MaterialPageRoute(builder: (context) => screen));
   }
 }
 
-// Quick Action Card
-class _QuickActionCard extends StatelessWidget {
+/// Quick action button — same layout as admin (horizontal card, icon + label)
+class _TeacherQuickActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color color;
   final VoidCallback onTap;
 
-  const _QuickActionCard({
+  const _TeacherQuickActionButton({
     required this.icon,
     required this.label,
     required this.color,
@@ -692,304 +420,42 @@ class _QuickActionCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: color.withOpacity(0.15),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, color: color, size: 20),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: kTextPrimary,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Today's Class Card
-class _TodayClassCard extends StatelessWidget {
-  final Map<String, String> classData;
-  final VoidCallback onTap;
-
-  const _TodayClassCard({required this.classData, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
         borderRadius: BorderRadius.circular(20),
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
+            color: kCardColor,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: Colors.white, width: 1.5),
             boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.03),
-                blurRadius: 15,
-                offset: const Offset(0, 5),
-              ),
+              BoxShadow(color: Colors.white, blurRadius: 14, offset: const Offset(-4, -4), spreadRadius: 0.5),
+              BoxShadow(color: kPrimaryBlue.withOpacity(0.12), blurRadius: 24, offset: const Offset(6, 8)),
+              BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 12, offset: const Offset(3, 5)),
             ],
-            border: Border.all(color: Colors.grey.shade100, width: 1.5),
           ),
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [kPrimaryBlue, kPrimaryGreen],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: color.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      classData['time']!.split(' - ')[0],
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Text(
-                      'to',
-                      style: TextStyle(color: Colors.white70, fontSize: 8),
-                    ),
-                    Text(
-                      classData['time']!.split(' - ')[1],
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                  border: Border.all(color: Colors.white, width: 1.5),
+                  boxShadow: [
+                    BoxShadow(color: Colors.white, blurRadius: 8, offset: const Offset(-2, -2), spreadRadius: 0.5),
+                    BoxShadow(color: color.withOpacity(0.22), blurRadius: 10, offset: const Offset(3, 3)),
+                    BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6, offset: const Offset(2, 2)),
                   ],
                 ),
+                child: Icon(icon, color: color, size: 22),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '${classData['className']} - ${classData['subject']}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                              color: kTextPrimary,
-                            ),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: kPrimaryGreen.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            classData['room']!,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: kPrimaryGreen,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.note_alt_rounded,
-                          size: 12,
-                          color: kTextSecondary.withOpacity(0.5),
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            classData['notes']!,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: kTextSecondary,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Notice Card
-class _NoticeCard extends StatelessWidget {
-  final Map<String, String> notice;
-  final VoidCallback onTap;
-
-  const _NoticeCard({required this.notice, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.03),
-                blurRadius: 15,
-                offset: const Offset(0, 5),
-              ),
-            ],
-            border: Border.all(color: Colors.grey.shade100, width: 1.5),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [kSoftBlue, kSoftGreen],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Icon(
-                  Icons.campaign_rounded,
-                  color: kPrimaryBlue,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            notice['title']!,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                              color: kPrimaryBlue,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: kPrimaryGreen.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            notice['date']!,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: kPrimaryGreen,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      notice['description']!,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: kTextSecondary,
-                        height: 1.3,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.access_time_rounded,
-                          size: 12,
-                          color: kTextSecondary.withOpacity(0.5),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          notice['time']!,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: kTextSecondary.withOpacity(0.5),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 14, color: kPrimaryBlue, fontWeight: FontWeight.w700),
                 ),
               ),
             ],

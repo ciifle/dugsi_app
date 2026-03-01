@@ -1,242 +1,244 @@
 import 'package:flutter/material.dart';
-import 'package:kobac/school_admin/pages/mesaage_screen.dart';
+import 'package:kobac/services/teachers_service.dart';
+import 'package:kobac/services/api_error_helpers.dart';
+import 'package:kobac/school_admin/pages/edit_teacher_screen.dart';
+import 'package:kobac/school_admin/widgets/delete_confirm_dialog.dart';
 
-// Project color constants
+// Project color constants (match teachers list / school admin style)
 const Color kDarkBlue = Color(0xFF023471);
 const Color kOrange = Color(0xFF5AB04B);
 const Color kBackground = Color(0xFFF6F8FA);
 
 class TeacherDetailsPage extends StatelessWidget {
-  TeacherDetailsPage({Key? key}) : super(key: key);
+  final int teacherId;
 
-  // Dummy teacher data
-  final Map<String, dynamic> teacher = {
-    'avatar':
-        'https://randomuser.me/api/portraits/men/31.jpg',
-    'name': 'Mr. David Miller',
-    'subject': 'Mathematics',
-    'status': 'Active',
-    'email': 'david.miller@school.edu',
-    'phone': '+1 555 321 0001',
-    'address': '412 Maple Ave, Springfield',
-    'experience': 9,
-    'classes': ['Grade 9A', 'Grade 10B', 'Grade 12C'],
-    'notes': 'Enthusiastic and well-experienced with digital platforms.',
-    'adminRemarks':
-        'Outstanding classroom discipline. Needs to update student records more frequently.'
-  };
+  const TeacherDetailsPage({super.key, required this.teacherId});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kBackground,
-      appBar: AppBar(
-        backgroundColor: kDarkBlue,
-        elevation: 2,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
-        title: Text(
-          'Teacher Details',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.8,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.edit, color: kOrange),
-            onPressed: () {
-              // Edit action stub
-            },
-            tooltip: 'Edit Teacher',
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        physics: ClampingScrollPhysics(),
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Profile Section
-              _ProfileCard(teacher: teacher),
-              SizedBox(height: 24),
-
-              // Details Section
-              Card(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18.0),
-                ),
-                margin: EdgeInsets.zero,
-                color: Colors.white,
-                elevation: 3,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 20.0, vertical: 18.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      InfoRow(
-                        icon: Icons.email_outlined,
-                        label: "Email",
-                        value: teacher['email'],
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              child: Row(
+                children: [
+                  _BackButton(onPressed: () => Navigator.of(context).maybePop()),
+                  const SizedBox(width: 16),
+                  const Expanded(
+                    child: Text(
+                      'Teacher Details',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: kDarkBlue,
                       ),
-                      Divider(height: 24, color: Colors.grey[200]),
-                      InfoRow(
-                        icon: Icons.phone,
-                        label: "Phone",
-                        value: teacher['phone'],
-                      ),
-                      Divider(height: 24, color: Colors.grey[200]),
-                      InfoRow(
-                        icon: Icons.location_on_outlined,
-                        label: "Address",
-                        value: teacher['address'],
-                      ),
-                      Divider(height: 24, color: Colors.grey[200]),
-                      InfoRow(
-                        icon: Icons.timelapse,
-                        label: "Years of Experience",
-                        value: '${teacher['experience']} years',
-                      ),
-                      Divider(height: 24, color: Colors.grey[200]),
-                      InfoRow(
-                        icon: Icons.class_,
-                        label: "Assigned Classes",
-                        value: (teacher['classes'] as List<String>).join(', '),
-                        maxLines: 2,
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 44),
+                ],
               ),
-              SizedBox(height: 28),
-
-              // Redesigned Action Buttons
-              Center(
-                child: Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 20,
-                  runSpacing: 10,
+            ),
+            Expanded(
+              child: FutureBuilder<TeacherResult<TeacherModel>>(
+        future: TeachersService().getTeacher(teacherId),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator(color: kOrange));
+          }
+          if (snapshot.hasError) {
+            final userMsg = userFriendlyMessage(snapshot.error!, null, 'TeacherDetailsPage');
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _BetterActionButton(
-                      icon: Icons.call,
-                      label: "Call Teacher",
-                      onPressed: () {
-                        // Call action (stub)
-                      },
-                    ),
-                    _BetterActionButton(
-                      icon: Icons.message,
-                      label: "Message",
-                      onPressed: () {
-                        // Navigate to external MessageScreen when tapped
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => MessageScreen(), // Assumes MessageScreen defined elsewhere
-                          ),
-                        );
-                      },
-                    ),
-                    _BetterActionButton(
-                      icon: Icons.assignment_ind,
-                      label: "Assign Class",
-                      onPressed: () {
-                        // Assign class (stub)
-                      },
+                    Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+                    const SizedBox(height: 12),
+                    Text(userMsg, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16)),
+                    const SizedBox(height: 16),
+                    TextButton.icon(
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      icon: const Icon(Icons.arrow_back),
+                      label: const Text('Back'),
                     ),
                   ],
                 ),
               ),
-
-              // Optional Notes Section
-              SizedBox(height: 32),
-              if (teacher['notes'] != null && (teacher['notes'] as String).isNotEmpty)
-                Card(
-                  color: Colors.white,
-                  margin: EdgeInsets.zero,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
-                  elevation: 2,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Notes",
-                          style: TextStyle(
-                            color: kDarkBlue,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.1,
-                          ),
-                        ),
-                        SizedBox(height: 7),
-                        Text(
-                          teacher['notes'],
-                          style: TextStyle(
-                            color: kDarkBlue.withOpacity(0.9),
-                            fontSize: 15,
-                          ),
-                        ),
-                      ],
+            );
+          }
+          final result = snapshot.data;
+          if (result == null) {
+            return const Center(child: Text('No data'));
+          }
+          if (result is TeacherError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+                    const SizedBox(height: 12),
+                    Text(result.message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16)),
+                    const SizedBox(height: 16),
+                    TextButton.icon(
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      icon: const Icon(Icons.arrow_back),
+                      label: const Text('Back'),
                     ),
-                  ),
+                  ],
                 ),
-              if (teacher['adminRemarks'] != null &&
-                  (teacher['adminRemarks'] as String).isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 16.0),
-                  child: Card(
-                    color: Colors.white,
-                    margin: EdgeInsets.zero,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16)),
-                    elevation: 2,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Admin Remarks",
-                            style: TextStyle(
-                              color: kDarkBlue,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.1,
-                            ),
-                          ),
-                          SizedBox(height: 7),
-                          Text(
-                            teacher['adminRemarks'],
-                            style: TextStyle(
-                              color: kDarkBlue.withOpacity(0.9),
-                              fontSize: 15,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              SizedBox(height: 24),
-            ],
-          ),
+              ),
+            );
+          }
+          final teacher = (result as TeacherSuccess<TeacherModel>).data;
+          return _TeacherDetailBody(teacher: teacher);
+        },
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-/// Profile Card displaying avatar, name, subject, and status badge
+/// Same style as teachers list: no colored bar, white rounded back button.
+class _BackButton extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _BackButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [BoxShadow(color: kDarkBlue.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+        ),
+        child: const Icon(Icons.arrow_back_rounded, color: kDarkBlue, size: 24),
+      ),
+    );
+  }
+}
+
+class _TeacherDetailBody extends StatelessWidget {
+  final TeacherModel teacher;
+
+  const _TeacherDetailBody({required this.teacher});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _ProfileCard(teacher: teacher),
+          const SizedBox(height: 24),
+          Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            margin: EdgeInsets.zero,
+            color: Colors.white,
+            elevation: 3,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  InfoRow(icon: Icons.email_outlined, label: 'Email', value: teacher.email),
+                  const Divider(height: 24, color: Colors.grey),
+                  InfoRow(icon: Icons.phone, label: 'Phone', value: teacher.phone ?? '—'),
+                  const Divider(height: 24, color: Colors.grey),
+                  InfoRow(icon: Icons.person_outline, label: "Mother's name", value: teacher.motherName ?? '—'),
+                  const Divider(height: 24, color: Colors.grey),
+                  InfoRow(icon: Icons.school_outlined, label: 'Graduated university', value: teacher.graduatedUniversity ?? '—'),
+                  const Divider(height: 24, color: Colors.grey),
+                  InfoRow(icon: Icons.wc, label: 'Gender', value: teacher.gender ?? '—'),
+                  const Divider(height: 24, color: Colors.grey),
+                  InfoRow(icon: Icons.location_on_outlined, label: 'Address', value: teacher.address ?? '—'),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    final result = await Navigator.of(context).push<bool>(
+                      MaterialPageRoute(
+                        builder: (_) => EditTeacherScreen(teacherId: teacher.id),
+                      ),
+                    );
+                    if (result == true && context.mounted) Navigator.of(context).maybePop();
+                  },
+                  icon: const Icon(Icons.edit, size: 20),
+                  label: const Text('Edit'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kOrange,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _confirmDelete(context, teacher),
+                  icon: Icon(Icons.delete_outline, size: 20, color: Colors.red[700]),
+                  label: Text('Delete', style: TextStyle(color: Colors.red[700], fontWeight: FontWeight.w600)),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: Colors.red[400]!),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(BuildContext context, TeacherModel teacher) async {
+    final confirmed = await showDeleteConfirmDialog(
+      context,
+      title: 'Delete teacher?',
+      message: 'Delete teacher ${teacher.fullName}? This will also delete the linked user.',
+    );
+    if (confirmed != true) return;
+    final result = await TeachersService().deleteTeacher(teacher.id);
+    if (!context.mounted) return;
+    if (result is TeacherSuccess) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${teacher.fullName} deleted'), backgroundColor: kOrange),
+      );
+      Navigator.of(context).pop();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text((result as TeacherError).message), backgroundColor: Colors.red),
+      );
+    }
+  }
+}
+
 class _ProfileCard extends StatelessWidget {
-  final Map<String, dynamic> teacher;
+  final TeacherModel teacher;
+
   const _ProfileCard({required this.teacher});
 
   @override
@@ -250,50 +252,38 @@ class _ProfileCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 26, horizontal: 18),
         child: Row(
           children: [
-            // Avatar
-            _NetworkCircleAvatar(
-              imageUrl: teacher['avatar'],
+            CircleAvatar(
               radius: 38,
+              backgroundColor: kOrange.withOpacity(0.1),
+              child: Text(
+                teacher.fullName.isNotEmpty ? teacher.fullName.substring(0, 1).toUpperCase() : '?',
+                style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: kDarkBlue),
+              ),
             ),
-            SizedBox(width: 22),
+            const SizedBox(width: 22),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    teacher['name'],
-                    style: TextStyle(
+                    teacher.fullName,
+                    style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
                       color: kDarkBlue,
                       letterSpacing: 0.2,
                     ),
                   ),
-                  SizedBox(height: 7),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.book_outlined,
-                        size: 18,
-                        color: kOrange,
+                  const SizedBox(height: 7),
+                  if (teacher.gender != null)
+                    Text(
+                      teacher.gender!,
+                      style: TextStyle(
+                        color: kDarkBlue.withOpacity(0.92),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
                       ),
-                      SizedBox(width: 5),
-                      Flexible(
-                        child: Text(
-                          teacher['subject'],
-                          style: TextStyle(
-                            color: kDarkBlue.withOpacity(0.92),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 13),
-                  _StatusBadge(
-                    status: teacher['status'],
-                  ),
+                    ),
                 ],
               ),
             ),
@@ -304,92 +294,6 @@ class _ProfileCard extends StatelessWidget {
   }
 }
 
-/// Custom avatar widget with error and placeholder handling
-class _NetworkCircleAvatar extends StatelessWidget {
-  final String imageUrl;
-  final double radius;
-
-  const _NetworkCircleAvatar({required this.imageUrl, this.radius = 38});
-
-  @override
-  Widget build(BuildContext context) {
-    return CircleAvatar(
-      radius: radius,
-      backgroundColor: kOrange.withOpacity(0.1),
-      child: ClipOval(
-        child: Image.network(
-          imageUrl,
-          fit: BoxFit.cover,
-          width: radius * 2,
-          height: radius * 2,
-          errorBuilder: (context, error, stackTrace) => Icon(
-            Icons.person,
-            size: radius * 1.4,
-            color: kOrange,
-          ),
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return SizedBox(
-              width: radius * 2,
-              height: radius * 2,
-              child: Center(
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.6,
-                  valueColor: AlwaysStoppedAnimation<Color>(kOrange),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-/// Status badge: Orange if active, grey if inactive
-class _StatusBadge extends StatelessWidget {
-  final String status;
-
-  const _StatusBadge({required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    bool isActive = status.toLowerCase() == 'active';
-    Color badgeColor = isActive ? kOrange : Colors.grey[400]!;
-    String badgeText = isActive ? "Active" : "Inactive";
-
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-      decoration: BoxDecoration(
-        color: badgeColor.withOpacity(0.13),
-        border: Border.all(color: badgeColor, width: 1.1),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            isActive ? Icons.check_circle : Icons.remove_circle_outline,
-            color: badgeColor,
-            size: 17,
-          ),
-          SizedBox(width: 5),
-          Text(
-            badgeText,
-            style: TextStyle(
-              color: badgeColor,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.2,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Reusable row for info display with icon, label, and value
 class InfoRow extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -397,6 +301,7 @@ class InfoRow extends StatelessWidget {
   final int maxLines;
 
   const InfoRow({
+    super.key,
     required this.icon,
     required this.label,
     required this.value,
@@ -406,20 +311,18 @@ class InfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      crossAxisAlignment:
-          maxLines > 1 ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+      crossAxisAlignment: maxLines > 1 ? CrossAxisAlignment.start : CrossAxisAlignment.center,
       children: [
         Icon(icon, color: kOrange, size: 22),
-        SizedBox(width: 13),
+        const SizedBox(width: 13),
         SizedBox(
-          width: 120,
+          width: 140,
           child: Text(
             label,
             style: TextStyle(
               color: kDarkBlue.withOpacity(0.92),
               fontWeight: FontWeight.w600,
-              fontSize: 15.8,
-              letterSpacing: 0.05,
+              fontSize: 15,
             ),
           ),
         ),
@@ -428,84 +331,14 @@ class InfoRow extends StatelessWidget {
             value,
             maxLines: maxLines,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
+            style: const TextStyle(
               color: kDarkBlue,
               fontWeight: FontWeight.w400,
               fontSize: 16,
             ),
           ),
-        )
-      ],
-    );
-  }
-}
-
-/// Redesigned Action Button to match modern, visually appealing styles
-class _BetterActionButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onPressed;
-
-  const _BetterActionButton({
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        splashColor: kOrange.withOpacity(0.17),
-        highlightColor: kOrange.withOpacity(0.13),
-        onTap: onPressed,
-        child: Container(
-          constraints: BoxConstraints(
-            minWidth: 110,
-            maxWidth: 148,
-            minHeight: 48,
-          ),
-          padding: EdgeInsets.symmetric(vertical: 11, horizontal: 16),
-          decoration: BoxDecoration(
-            color: kOrange,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: kOrange.withOpacity(0.11),
-                blurRadius: 9,
-                offset: Offset(0, 5),
-              ),
-              BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 2,
-                offset: Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, color: Colors.white, size: 21),
-              SizedBox(width: 10),
-              Flexible(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15.8,
-                    letterSpacing: 0.1,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                ),
-              ),
-            ],
-          ),
         ),
-      ),
+      ],
     );
   }
 }

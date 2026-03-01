@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import 'package:kobac/models/auth_me_models.dart';
+import 'package:kobac/services/auth_provider.dart';
 
 // ---------- COLOR PALETTE (Matching Dashboard) ----------
 const Color kPrimaryBlue = Color(0xFF023471); // Dark blue
@@ -25,29 +29,70 @@ const List<Color> kPrimaryGradient = [kPrimaryBlue, kPrimaryGreen];
 const List<Color> kSuccessGradient = [kPrimaryGreen, kDarkGreen];
 const List<Color> kWarningGradient = [Color(0xFFF59E0B), Color(0xFFFBBF24)];
 
-class StudentProfileScreen extends StatelessWidget {
+class StudentProfileScreen extends StatefulWidget {
   const StudentProfileScreen({Key? key}) : super(key: key);
 
-  // Dummy data
-  final Map<String, String> student = const {
-    'fullName': "Ayesha Khan",
-    'studentID': "STU230017",
-    'class': "10",
-    'section': "B",
-    'rollNumber': "21",
-    'academicYear': "2023-24",
-    'dob': "12 Aug 2008",
-    'gender': "Female",
-    'phone': "+971 55 667 8821",
-    'email': "ayesha.khan@email.com",
-    'schoolName': "Sunrise Model School",
-    'guardianName': "Mariam Khan",
-    'guardianRelation': "Mother",
-    'guardianPhone': "+971 55 909 6612",
-  };
+  @override
+  State<StudentProfileScreen> createState() => _StudentProfileScreenState();
+}
+
+class _StudentProfileScreenState extends State<StudentProfileScreen> {
+  Future<void> _refresh() async {
+    await context.read<AuthProvider>().refreshMe();
+    if (mounted) setState(() {});
+  }
+
+  static const String _dash = '—';
+
+  Map<String, String> _studentMapFromProfile(dynamic prof, dynamic user) {
+    final p = prof is StudentProfile ? prof : null;
+    return {
+      'fullName': p?.studentName ?? user?.name ?? _dash,
+      'studentID': p?.emisNumber ?? user?.emisNumber ?? (user != null ? 'ID ${user.id}' : _dash),
+      'class': p?.className ?? _dash,
+      'dob': p?.birthDate ?? _dash,
+      'gender': p?.sex ?? _dash,
+      'phone': p?.telephone ?? p?.phone ?? _dash,
+      'email': user?.email ?? user?.emisNumber ?? p?.emisNumber ?? _dash,
+      'schoolName': p?.schoolName ?? _dash,
+      'guardianName': p?.guardianName ?? _dash,
+      'guardianPhone': p?.telephone ?? _dash,
+      'motherName': p?.motherName ?? _dash,
+      'birthPlace': p?.birthPlace ?? _dash,
+      'nationality': p?.nationality ?? _dash,
+      'studentState': p?.studentState ?? _dash,
+      'studentDistrict': p?.studentDistrict ?? _dash,
+      'studentVillage': p?.studentVillage ?? _dash,
+      'refugeeStatus': p?.refugeeStatus ?? _dash,
+      'orphanStatus': p?.orphanStatus ?? _dash,
+      'disabilityStatus': p?.disabilityStatus ?? _dash,
+      'age': p?.age != null ? '${p!.age}' : _dash,
+      'absenteeismStatus': p?.absenteeismStatus ?? _dash,
+    };
+  }
+
+  /// Builds card rows only for keys that have a non-empty value (not placeholder).
+  List<_CardRow> _rows(Map<String, String> student, List<({String label, String key})> entries) {
+    return [
+      for (final e in entries)
+        if ((student[e.key] ?? _dash).trim().isNotEmpty && student[e.key] != _dash)
+          _CardRow(label: e.label, value: student[e.key]!),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    final user = auth.user;
+    final prof = auth.studentProfile;
+    if (auth.profileError != null) {
+      return _buildError(context, auth.profileError!, _refresh, is404: true);
+    }
+    final student = _studentMapFromProfile(prof, user);
+    return _buildContent(context, student, onRefresh: _refresh);
+  }
+
+  Widget _buildError(BuildContext context, String message, VoidCallback onRetry, {bool is404 = false}) {
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -59,8 +104,55 @@ class StudentProfileScreen extends StatelessWidget {
       ),
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        body: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  is404 ? Icons.person_off_rounded : Icons.error_outline_rounded,
+                  size: 56,
+                  color: kErrorColor.withOpacity(0.8),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 16, color: kTextPrimaryColor),
+                ),
+                const SizedBox(height: 24),
+                TextButton.icon(
+                  onPressed: onRetry,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Retry'),
+                  style: TextButton.styleFrom(foregroundColor: kPrimaryBlue),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context, Map<String, String> student, {VoidCallback? onRefresh}) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [kSoftBlue, kSoftGreen],
+          stops: [0.0, 1.0],
+        ),
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: RefreshIndicator(
+          onRefresh: () async => onRefresh?.call(),
+          color: kPrimaryBlue,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             // App Bar
             SliverToBoxAdapter(
@@ -89,26 +181,7 @@ class StudentProfileScreen extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        // Back Button
-                        GestureDetector(
-                          onTap: () => Navigator.pop(context),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: const Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: Icon(
-                                Icons.arrow_back_rounded,
-                                color: Colors.white,
-                                size: 28,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        // Title
+                        const SizedBox(width: 44),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.center,
@@ -135,7 +208,6 @@ class StudentProfileScreen extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 16),
-                        // Edit Icon
                         Container(
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.2),
@@ -164,61 +236,101 @@ class StudentProfileScreen extends StatelessWidget {
                 delegate: SliverChildListDelegate([
                   _ProfileHeaderCard(student: student),
                   const SizedBox(height: 20),
-                  _InfoCard(
-                    title: "Personal Information",
-                    icon: Icons.person_outline_rounded,
-                    gradientColor: kPrimaryBlue,
-                    data: [
-                      _CardRow(label: "Date of Birth", value: student['dob']!),
-                      _CardRow(label: "Gender", value: student['gender']!),
-                      _CardRow(label: "Phone", value: student['phone']!),
-                      _CardRow(label: "Email", value: student['email']!),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _InfoCard(
-                    title: "Academic Information",
-                    icon: Icons.school_rounded,
-                    gradientColor: kPrimaryGreen,
-                    data: [
-                      _CardRow(label: "School", value: student['schoolName']!),
-                      _CardRow(label: "Class", value: student['class']!),
-                      _CardRow(label: "Section", value: student['section']!),
-                      _CardRow(
-                        label: "Roll Number",
-                        value: student['rollNumber']!,
-                      ),
-                      _CardRow(
-                        label: "Academic Year",
-                        value: student['academicYear']!,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _InfoCard(
-                    title: "Guardian Information",
-                    icon: Icons.family_restroom_rounded,
-                    gradientColor: kSoftOrange,
-                    data: [
-                      _CardRow(label: "Name", value: student['guardianName']!),
-                      _CardRow(
-                        label: "Relationship",
-                        value: student['guardianRelation']!,
-                      ),
-                      _CardRow(
-                        label: "Phone",
-                        value: student['guardianPhone']!,
-                      ),
-                    ],
-                  ),
+                  if (_rows(student, [
+                    (label: "Date of Birth", key: 'dob'),
+                    (label: "Gender", key: 'gender'),
+                    (label: "Phone", key: 'phone'),
+                    (label: "Email", key: 'email'),
+                    (label: "Mother's name", key: 'motherName'),
+                    (label: "Birth place", key: 'birthPlace'),
+                    (label: "Nationality", key: 'nationality'),
+                  ]).isNotEmpty) ...[
+                    _InfoCard(
+                      title: "Personal Information",
+                      icon: Icons.person_outline_rounded,
+                      gradientColor: kPrimaryBlue,
+                      data: _rows(student, [
+                        (label: "Date of Birth", key: 'dob'),
+                        (label: "Gender", key: 'gender'),
+                        (label: "Phone", key: 'phone'),
+                        (label: "Email", key: 'email'),
+                        (label: "Mother's name", key: 'motherName'),
+                        (label: "Birth place", key: 'birthPlace'),
+                        (label: "Nationality", key: 'nationality'),
+                      ]),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  if (_rows(student, [
+                    (label: "School", key: 'schoolName'),
+                    (label: "Class", key: 'class'),
+                    (label: "EMIS Number", key: 'studentID'),
+                    (label: "Age", key: 'age'),
+                    (label: "Absenteeism status", key: 'absenteeismStatus'),
+                  ]).isNotEmpty) ...[
+                    _InfoCard(
+                      title: "Academic Information",
+                      icon: Icons.school_rounded,
+                      gradientColor: kPrimaryGreen,
+                      data: _rows(student, [
+                        (label: "School", key: 'schoolName'),
+                        (label: "Class", key: 'class'),
+                        (label: "EMIS Number", key: 'studentID'),
+                        (label: "Age", key: 'age'),
+                        (label: "Absenteeism status", key: 'absenteeismStatus'),
+                      ]),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  if (_rows(student, [
+                    (label: "Name", key: 'guardianName'),
+                    (label: "Phone", key: 'guardianPhone'),
+                  ]).isNotEmpty) ...[
+                    _InfoCard(
+                      title: "Guardian Information",
+                      icon: Icons.family_restroom_rounded,
+                      gradientColor: kSoftOrange,
+                      data: _rows(student, [
+                        (label: "Name", key: 'guardianName'),
+                        (label: "Phone", key: 'guardianPhone'),
+                      ]),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  if (_rows(student, [
+                    (label: "State / Region", key: 'studentState'),
+                    (label: "District", key: 'studentDistrict'),
+                    (label: "Village", key: 'studentVillage'),
+                    (label: "Refugee status", key: 'refugeeStatus'),
+                    (label: "Orphan status", key: 'orphanStatus'),
+                    (label: "Disability status", key: 'disabilityStatus'),
+                  ]).isNotEmpty) ...[
+                    _InfoCard(
+                      title: "Address & Status",
+                      icon: Icons.location_on_rounded,
+                      gradientColor: kSoftPurple,
+                      data: _rows(student, [
+                        (label: "State / Region", key: 'studentState'),
+                        (label: "District", key: 'studentDistrict'),
+                        (label: "Village", key: 'studentVillage'),
+                        (label: "Refugee status", key: 'refugeeStatus'),
+                        (label: "Orphan status", key: 'orphanStatus'),
+                        (label: "Disability status", key: 'disabilityStatus'),
+                      ]),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   const SizedBox(height: 24),
                   _buildEditButton(),
                   const SizedBox(height: 20),
+                  _buildLogoutButton(context),
+                  const SizedBox(height: 32),
                 ]),
               ),
             ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -262,6 +374,72 @@ class StudentProfileScreen extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildLogoutButton(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () async {
+          await context.read<AuthProvider>().logout();
+        },
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            gradient: LinearGradient(
+              colors: [
+                kErrorColor.withOpacity(0.05),
+                kErrorColor.withOpacity(0.02),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            border: Border.all(color: kErrorColor.withOpacity(0.2), width: 1),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [kErrorColor, kErrorColor.withOpacity(0.7)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: kErrorColor.withOpacity(0.2),
+                      blurRadius: 6,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.logout_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 14),
+              const Text(
+                'Logout',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: kErrorColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // Profile Header Card
@@ -285,7 +463,6 @@ class _ProfileHeaderCard extends StatelessWidget {
     final name = student['fullName']!;
     final id = student['studentID']!;
     final className = student['class']!;
-    final section = student['section']!;
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -404,36 +581,6 @@ class _ProfileHeaderCard extends StatelessWidget {
                 ),
                 child: Text(
                   "Class $className",
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [kPrimaryGreen, kDarkGreen],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(25),
-                  boxShadow: [
-                    BoxShadow(
-                      color: kPrimaryGreen.withOpacity(0.2),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Text(
-                  "Section $section",
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w600,

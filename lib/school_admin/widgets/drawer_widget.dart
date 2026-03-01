@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:kobac/school_admin/pages/admin_classes.dart';
+import 'package:kobac/school_admin/pages/admin_assignments_screen.dart';
 import 'package:kobac/school_admin/pages/admin_profile.dart';
-import 'package:kobac/school_admin/pages/admin_students.dart';
+import 'package:kobac/school_admin/pages/admin_timetable_screen.dart';
+import 'package:kobac/school_admin/pages/admin_exams_screen.dart';
+import 'package:kobac/school_admin/pages/admin_marks_screen.dart';
+import 'package:kobac/school_admin/pages/admin_notices_screen.dart';
 import 'package:kobac/school_admin/pages/change_password_page.dart';
 import 'package:kobac/school_admin/pages/notifications_page.dart';
 import 'package:kobac/school_admin/pages/school_admin_screen.dart';
-import 'package:kobac/school_admin/pages/teachers_screen.dart';
+import 'package:kobac/school_admin/pages/admin_parents_screen.dart';
+import 'package:kobac/school_admin/pages/admin_fees_screen.dart';
+import 'package:kobac/school_admin/pages/admin_attendance_screen.dart';
 import 'package:kobac/school_admin/pages/messages_inbox_screen.dart';
-import 'package:kobac/shared/pages/login_screen.dart';
-import 'package:kobac/services/local_auth_service.dart';
+import 'package:provider/provider.dart';
+
+import 'package:kobac/services/auth_provider.dart';
 
 const Color kDrawerBlue = Color(0xFF023471);
 const Color kDrawerBlueDark = Color(0xFF012752);
@@ -78,34 +84,51 @@ class AppDrawer extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         children: [
                           _DrawerMenuCard(
-                            icon: Icons.home_outlined,
-                            label: 'Home',
-                            onTap: () => Navigator.pop(context),
-                          ),
-                          const SizedBox(height: 12),
-                          _DrawerMenuCard(
-                          icon: Icons.people_alt_outlined,
-                          label: 'Students',
-                          onTap: () => _navTo(context, const AdminStudentsScreen()),
+                          icon: Icons.schedule_rounded,
+                          label: 'Timetable',
+                          onTap: () => _navTo(context, const AdminTimetableScreen()),
                         ),
                         const SizedBox(height: 12),
                         _DrawerMenuCard(
-                          icon: Icons.school_outlined,
-                          label: 'Teachers',
-                          onTap: () => _navTo(context, const TeacherListScreen()),
+                          icon: Icons.assignment_rounded,
+                          label: 'Assignments',
+                          onTap: () => _navTo(context, const AdminAssignmentsScreen()),
                         ),
                         const SizedBox(height: 12),
                         _DrawerMenuCard(
-                          icon: Icons.class_outlined,
-                          label: 'Classes',
-                          onTap: () => _navTo(context, const AdminClassesPage()),
+                          icon: Icons.quiz_outlined,
+                          label: 'Exams',
+                          onTap: () => _navTo(context, const AdminExamsScreen()),
                         ),
                         const SizedBox(height: 12),
                         _DrawerMenuCard(
-                          icon: Icons.chat_bubble_outline_rounded,
-                          label: 'Message',
-                          badgeCount: 3,
-                          onTap: () => _navTo(context, const MessagesInboxScreen(embedInParent: true)),
+                          icon: Icons.grade_outlined,
+                          label: 'Marks',
+                          onTap: () => _navTo(context, const AdminMarksScreen()),
+                        ),
+                        const SizedBox(height: 12),
+                        _DrawerMenuCard(
+                          icon: Icons.campaign_outlined,
+                          label: 'Notices',
+                          onTap: () => _navTo(context, const AdminNoticesScreen()),
+                        ),
+                        const SizedBox(height: 12),
+                        _DrawerMenuCard(
+                          icon: Icons.family_restroom_outlined,
+                          label: 'Parents',
+                          onTap: () => _navTo(context, const AdminParentsScreen()),
+                        ),
+                        const SizedBox(height: 12),
+                        _DrawerMenuCard(
+                          icon: Icons.payments_outlined,
+                          label: 'Fees',
+                          onTap: () => _navTo(context, const AdminFeesScreen()),
+                        ),
+                        const SizedBox(height: 12),
+                        _DrawerMenuCard(
+                          icon: Icons.event_note_outlined,
+                          label: 'Attendance',
+                          onTap: () => _navTo(context, const AdminAttendanceScreen()),
                         ),
                         const SizedBox(height: 12),
                         _DrawerMenuCard(
@@ -122,19 +145,13 @@ class AppDrawer extends StatelessWidget {
                       ],
                     ),
                   ),
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 36),
                     _LogOutButton(
                       onTap: () async {
-                        await LocalAuthService().logout();
-                        if (context.mounted) {
-                          Navigator.of(context).pushAndRemoveUntil(
-                            MaterialPageRoute(builder: (_) => const LoginPage()),
-                            (route) => false,
-                          );
-                        }
+                        await context.read<AuthProvider>().logout();
                       },
                     ),
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 56),
                   ],
                 ),
               ),
@@ -180,13 +197,11 @@ class _DrawerProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<dynamic>(
-      future: LocalAuthService().getCurrentUser(),
-      builder: (context, snapshot) {
-        final name = snapshot.data?.name ?? 'School Admin';
-        final email = snapshot.data?.email ?? snapshot.data?.emisNumber ?? 'admin@school.com';
+    final user = context.watch<AuthProvider>().user;
+    final name = user?.name ?? 'School Admin';
+    final email = user?.email ?? user?.emisNumber ?? 'admin@school.com';
 
-        return Padding(
+    return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: _NeumorphicPillCard(
             raised: true,
@@ -264,7 +279,7 @@ class _DrawerProfileHeader extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          email,
+                          email ?? '',
                           style: const TextStyle(
                             color: kDrawerTextGray,
                             fontSize: 13,
@@ -286,8 +301,6 @@ class _DrawerProfileHeader extends StatelessWidget {
             ),
           ),
         );
-      },
-    );
   }
 }
 

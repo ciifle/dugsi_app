@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:kobac/services/student_service.dart';
+import 'package:kobac/student/pages/student_pay_fee_screen.dart' show StudentPayFeeScreen;
+import 'package:kobac/student/pages/student_payments_screen.dart' show StudentPaymentsScreen;
 
 // ---------- WONDERFUL COLOR PALETTE (Matching Student Dashboard) ----------
 const Color kPrimaryColor = Color(0xFF023471); // Deep blue (from your palette)
@@ -21,6 +24,7 @@ const Color kTextSecondaryColor = Color(0xFF4F5A5E); // Medium slate
 const List<Color> kPrimaryGradient = [Color(0xFF023471), Color(0xFF5AB04B)];
 const List<Color> kSuccessGradient = [Color(0xFF3D8C30), Color(0xFF5AB04B)];
 const List<Color> kWarningGradient = [Color(0xFFF59E0B), Color(0xFFFBBF24)];
+const Color kPrimaryGreen = Color(0xFF5AB04B);
 
 // FIXED: Dummy Fee Data
 final Map<String, dynamic> dummyFeeSummary = {
@@ -117,6 +121,7 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
     with SingleTickerProviderStateMixin {
   int? _openTerm;
   bool _paymentHistoryOpen = false;
+  late Future<StudentResult<List<StudentFeeModel>>> _feesFuture;
 
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -124,6 +129,7 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
   @override
   void initState() {
     super.initState();
+    _feesFuture = StudentService().listFees();
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
@@ -266,42 +272,181 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
               ),
             ),
 
-            // ---------------- MAIN CONTENT ----------------
-            SliverPadding(
-              padding: const EdgeInsets.all(20),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: Column(
-                      children: [
-                        // ---------------- FEE SUMMARY CARD (Redesigned) ----------------
-                        _buildFeeSummaryCard(dummyFeeSummary),
-
-                        const SizedBox(height: 20),
-
-                        // ---------------- TERM FEES SECTION ----------------
-                        _buildTermFeesSection(),
-
-                        const SizedBox(height: 20),
-
-                        // ---------------- PAYMENT HISTORY SECTION ----------------
-                        _buildPaymentHistorySection(),
-
-                        const SizedBox(height: 20),
-
-                        // ---------------- NOTES CARD ----------------
-                        _buildNotesCard(),
-
-                        const SizedBox(height: 16),
-                      ],
-                    ),
-                  ),
-                ]),
+            // ---------------- MAIN CONTENT (API-driven) ----------------
+            SliverToBoxAdapter(
+              child: RefreshIndicator(
+                onRefresh: () async {
+                  setState(() {
+                    _feesFuture = StudentService().listFees();
+                  });
+                },
+                color: kPrimaryGreen,
+                child: FutureBuilder<StudentResult<List<StudentFeeModel>>>(
+                  future: _feesFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Padding(
+                        padding: EdgeInsets.all(40),
+                        child: Center(child: CircularProgressIndicator(color: kPrimaryColor)),
+                      );
+                    }
+                    if (snapshot.data is StudentError) {
+                      final err = snapshot.data as StudentError;
+                      if (err.statusCode == 403) {
+                        return Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade50,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.orange.shade200),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.info_outline_rounded, color: Colors.orange.shade800, size: 28),
+                                const SizedBox(width: 12),
+                                Expanded(child: Text(err.message, style: TextStyle(fontSize: 14, color: Colors.orange.shade900))),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+                      return Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.error_outline, size: 48, color: kErrorColor),
+                              const SizedBox(height: 12),
+                              Text(err.message, textAlign: TextAlign.center, style: const TextStyle(color: kTextPrimaryColor)),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+                    final fees = snapshot.data is StudentSuccess<List<StudentFeeModel>>
+                        ? (snapshot.data as StudentSuccess<List<StudentFeeModel>>).data
+                        : <StudentFeeModel>[];
+                    num total = 0, paid = 0, remaining = 0;
+                    for (final f in fees) {
+                      total += f.amount;
+                      paid += f.paidAmount;
+                      remaining += f.remainingAmount;
+                    }
+                    final summary = {'total': total, 'paid': paid, 'remaining': remaining, 'status': remaining <= 0 ? 'Paid' : (paid > 0 ? 'Partial' : 'Due')};
+                    return SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(20),
+                      child: FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: Column(
+                          children: [
+                            _buildFeeSummaryCard(summary),
+                            const SizedBox(height: 20),
+                            if (fees.isEmpty)
+                              Container(
+                                padding: const EdgeInsets.all(24),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(24),
+                                  boxShadow: [BoxShadow(color: kPrimaryColor.withOpacity(0.1), blurRadius: 14, offset: const Offset(0, 6))],
+                                ),
+                                child: const Center(child: Text('No fees yet.', style: TextStyle(color: kTextSecondaryColor))),
+                              )
+                            else
+                              ...fees.map((f) => _buildApiFeeCard(f)),
+                            const SizedBox(height: 16),
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StudentPaymentsScreen())).then((_) => setState(() => _feesFuture = StudentService().listFees())),
+                                borderRadius: BorderRadius.circular(16),
+                                child: Container(
+                                  padding: const EdgeInsets.all(18),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [BoxShadow(color: kPrimaryColor.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+                                  ),
+                                  child: const Row(
+                                    children: [
+                                      Icon(Icons.history_rounded, color: kPrimaryColor, size: 24),
+                                      SizedBox(width: 14),
+                                      Text('View Payment History', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: kPrimaryColor)),
+                                      Spacer(),
+                                      Icon(Icons.arrow_forward_ios_rounded, size: 14, color: kTextSecondaryColor),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildApiFeeCard(StudentFeeModel f) {
+    final canPay = f.status == 'UNPAID' || f.status == 'PARTIAL';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [BoxShadow(color: kPrimaryColor.withOpacity(0.1), blurRadius: 14, offset: const Offset(0, 6))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: kPrimaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(Icons.receipt_long_rounded, color: kPrimaryColor, size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Amount: ${f.amount}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimaryColor)),
+                    Text('Paid: ${f.paidAmount} · Remaining: ${f.remainingAmount}', style: const TextStyle(fontSize: 13, color: kTextSecondaryColor)),
+                    if (f.status != null) Text('Status: ${f.status}', style: TextStyle(fontSize: 12, color: f.status == 'PAID' ? kSuccessColor : kTextSecondaryColor)),
+                    if (f.createdAt != null) Text('Created: ${f.createdAt}', style: const TextStyle(fontSize: 11, color: kTextSecondaryColor)),
+                  ],
+                ),
+              ),
+              if (canPay)
+                TextButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => StudentPayFeeScreen(preselectedFeeId: f.id)),
+                  ).then((_) {
+                    if (mounted) setState(() => _feesFuture = StudentService().listFees());
+                  }),
+                  icon: const Icon(Icons.payment_rounded, size: 18),
+                  label: const Text('Pay'),
+                  style: TextButton.styleFrom(foregroundColor: kPrimaryGreen),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -1048,6 +1193,7 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
                   const SizedBox(width: 16),
                   Expanded(
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
@@ -1057,34 +1203,45 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
                           ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
                         ),
                         const SizedBox(height: 4),
                         Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: kSoftPurple.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                p['date']?.toString() ?? "Unknown",
-                                style: TextStyle(
-                                  color: kSoftPurple,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
+                            Flexible(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: kSoftPurple.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  p['date']?.toString() ?? "Unknown",
+                                  style: TextStyle(
+                                    color: kSoftPurple,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
                                 ),
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Text(
-                              p['method']?.toString() ?? "Unknown",
-                              style: TextStyle(
-                                color: kTextSecondaryColor,
-                                fontSize: 11,
+                            Flexible(
+                              child: Text(
+                                p['method']?.toString() ?? "Unknown",
+                                style: TextStyle(
+                                  color: kTextSecondaryColor,
+                                  fontSize: 11,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
                               ),
                             ),
                           ],
@@ -1092,37 +1249,45 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
                       ],
                     ),
                   ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        '\$${_safeToDouble(p['amount']).toStringAsFixed(2)}',
-                        style: TextStyle(
-                          color: kSuccessColor,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: kSuccessColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Text(
-                          'Paid',
-                          style: TextStyle(
-                            color: kSuccessColor,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            '\$${_safeToDouble(p['amount']).toStringAsFixed(2)}',
+                            style: TextStyle(
+                              color: kSuccessColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: kSuccessColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'Paid',
+                            style: TextStyle(
+                              color: kSuccessColor,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),

@@ -223,26 +223,7 @@ class _StudentExamScheduleScreenState extends State<StudentExamScheduleScreen> {
                   children: [
                     Row(
                       children: [
-                        // Back Button
-                        GestureDetector(
-                          onTap: () => Navigator.pop(context),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: const Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: Icon(
-                                Icons.arrow_back_rounded,
-                                color: Colors.white,
-                                size: 28,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        // Title
+                        const SizedBox(width: 44),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.center,

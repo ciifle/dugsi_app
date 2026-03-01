@@ -3,15 +3,30 @@ import 'package:flutter/material.dart';
 import 'package:kobac/models/dummy_user.dart';
 import 'package:kobac/school_admin/pages/admin_classes.dart';
 import 'package:kobac/school_admin/pages/admin_profile.dart';
+import 'package:kobac/school_admin/pages/admin_subjects_screen.dart';
+import 'package:kobac/school_admin/pages/admin_assignments_screen.dart';
+import 'package:kobac/school_admin/pages/admin_timetable_screen.dart';
+import 'package:kobac/school_admin/pages/admin_exams_screen.dart';
+import 'package:kobac/school_admin/pages/admin_marks_screen.dart';
+import 'package:kobac/school_admin/pages/admin_notices_screen.dart';
 import 'package:kobac/school_admin/pages/admin_students.dart';
+import 'package:kobac/school_admin/pages/admin_fees_screen.dart';
+import 'package:kobac/school_admin/pages/admin_attendance_screen.dart';
+import 'package:kobac/school_admin/pages/create_student_screen.dart';
+import 'package:kobac/school_admin/pages/create_teacher_screen.dart';
 import 'package:kobac/school_admin/pages/mesaage_screen.dart';
 import 'package:kobac/school_admin/pages/notifications_page.dart';
 import 'package:kobac/school_admin/pages/notices_page.dart';
 import 'package:kobac/school_admin/pages/payments_screen.dart';
 import 'package:kobac/school_admin/pages/teachers_screen.dart';
 import 'package:kobac/school_admin/widgets/drawer_widget.dart';
+import 'package:provider/provider.dart';
+import 'package:kobac/services/auth_provider.dart';
 import 'package:kobac/services/dummy_school_service.dart';
-import 'package:kobac/services/local_auth_service.dart';
+import 'package:kobac/services/teachers_service.dart';
+import 'package:kobac/services/students_service.dart';
+import 'package:kobac/services/classes_service.dart';
+import 'package:kobac/services/subjects_service.dart';
 import 'package:kobac/school_admin/pages/messages_inbox_screen.dart';
 
 /// --- Brand / Premium 3D Design Constants ---
@@ -33,6 +48,8 @@ class SchoolAdminScreen extends StatefulWidget {
 class _SchoolAdminScreenState extends State<SchoolAdminScreen> {
   int? _studentCount;
   int? _teacherCount;
+  int? _subjectCount;
+  int? _classCount;
   bool _loading = true;
   String _userName = "School Admin";
 
@@ -41,23 +58,48 @@ class _SchoolAdminScreenState extends State<SchoolAdminScreen> {
 
   final GlobalKey<NavigatorState> _nestedNavKey = GlobalKey<NavigatorState>();
 
+  bool _dataLoaded = false;
+
   @override
-  void initState() {
-    super.initState();
-    _loadData();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_dataLoaded) {
+      _dataLoaded = true;
+      _loadData();
+    }
   }
 
   Future<void> _loadData() async {
-    final user = await LocalAuthService().getCurrentUser();
+    final user = context.read<AuthProvider>().user;
 
-    if (user != null && user.role == UserRole.schoolAdmin) {
-      final studentCount = await DummySchoolService().getStudentCount();
-      final teacherCount = await DummySchoolService().getTeacherCount();
+    if (user != null && user.userRole == UserRole.schoolAdmin) {
+      int studentCount = 0;
+      final studentsResult = await StudentsService().listStudents();
+      if (studentsResult is StudentSuccess<List<StudentModel>>) {
+        studentCount = studentsResult.data.length;
+      }
+      int teacherCount = 0;
+      final teachersResult = await TeachersService().listTeachers();
+      if (teachersResult is TeacherSuccess<List<TeacherModel>>) {
+        teacherCount = teachersResult.data.length;
+      }
+      int subjectCount = 0;
+      final subjectsResult = await SubjectsService().listSubjects();
+      if (subjectsResult is SubjectSuccess<List<SubjectModel>>) {
+        subjectCount = subjectsResult.data.length;
+      }
+      int classCount = 0;
+      final classesResult = await ClassesService().listClasses();
+      if (classesResult is ClassSuccess<List<ClassModel>>) {
+        classCount = classesResult.data.length;
+      }
 
       if (!mounted) return;
       setState(() {
         _studentCount = studentCount;
         _teacherCount = teacherCount;
+        _subjectCount = subjectCount;
+        _classCount = classCount;
         _userName = user.name;
         _loading = false;
       });
@@ -66,7 +108,9 @@ class _SchoolAdminScreenState extends State<SchoolAdminScreen> {
       setState(() {
         _studentCount = 0;
         _teacherCount = 0;
-        _userName = "School Admin";
+        _subjectCount = 0;
+        _classCount = 0;
+        _userName = user?.name ?? 'School Admin';
         _loading = false;
       });
     }
@@ -130,6 +174,8 @@ class _SchoolAdminScreenState extends State<SchoolAdminScreen> {
       _nestedNavKey.currentState?.popUntil((route) => route.isFirst);
     }
     setState(() => _bottomNavIndex = i);
+    // Refresh dashboard counts when switching to Dashboard tab so Students/Teachers cards stay up to date
+    if (i == 0) _loadData();
   }
 
   @override
@@ -218,8 +264,6 @@ class _SchoolAdminScreenState extends State<SchoolAdminScreen> {
   }
 
   Widget _buildStatCards2x2(BuildContext context) {
-    const parents = 0;
-    const classes = 12;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: kPadding),
@@ -250,20 +294,20 @@ class _SchoolAdminScreenState extends State<SchoolAdminScreen> {
             onTap: () => _nestedNavKey.currentState?.push(MaterialPageRoute(builder: (_) => const TeacherListScreen())),
           ),
           _NeumorphicStatCard(
-            icon: Icons.family_restroom_rounded,
+            icon: Icons.menu_book_rounded,
             iconBgColor: kPrimaryBlue.withOpacity(0.12),
             iconColor: kPrimaryBlue,
-            label: "PARENTS",
-            value: "$parents",
+            label: "SUBJECTS",
+            value: _loading ? "..." : "${_subjectCount ?? 0}",
             growth: "+0%",
-            onTap: () {},
+            onTap: () => _nestedNavKey.currentState?.push(MaterialPageRoute(builder: (_) => const AdminSubjectsScreen())).then((_) => _loadData()),
           ),
           _NeumorphicStatCard(
             icon: Icons.class_rounded,
             iconBgColor: kPrimaryGreen.withOpacity(0.12),
             iconColor: kPrimaryGreen,
             label: "CLASSES",
-            value: "$classes",
+            value: _loading ? "..." : "${_classCount ?? 0}",
             growth: "+0%",
             onTap: () => _nestedNavKey.currentState?.push(MaterialPageRoute(builder: (_) => const AdminClassesPage())),
           ),
@@ -422,25 +466,103 @@ class _SchoolAdminScreenState extends State<SchoolAdminScreen> {
                 icon: Icons.person_add_rounded,
                 label: "Add Student",
                 color: kPrimaryBlue,
-                onTap: () => _nestedNavKey.currentState?.push(MaterialPageRoute(builder: (_) => const AdminStudentsScreen())),
+                onTap: () => _nestedNavKey.currentState?.push(MaterialPageRoute(builder: (_) => const CreateStudentScreen())).then((_) => _loadData()),
               ),
               _QuickActionButton(
                 icon: Icons.school_rounded,
                 label: "Add Teacher",
                 color: kPrimaryGreen,
-                onTap: () => _nestedNavKey.currentState?.push(MaterialPageRoute(builder: (_) => const TeacherListScreen())),
+                onTap: () => _nestedNavKey.currentState?.push(MaterialPageRoute(builder: (_) => const CreateTeacherScreen())).then((_) => _loadData()),
               ),
               _QuickActionButton(
-                icon: Icons.account_balance_wallet_rounded,
-                label: "Manage Fees",
-                color: kPrimaryGreen,
-                onTap: () => _nestedNavKey.currentState?.push(MaterialPageRoute(builder: (_) => const PaymentsScreen())),
-              ),
-              _QuickActionButton(
-                icon: Icons.bar_chart_rounded,
-                label: "Reports",
+                icon: Icons.payments_rounded,
+                label: "Fees",
                 color: kPrimaryBlue,
-                onTap: () => _nestedNavKey.currentState?.push(MaterialPageRoute(builder: (_) => NoticesPage())),
+                onTap: () => _nestedNavKey.currentState?.push(MaterialPageRoute(builder: (_) => const AdminFeesScreen())).then((_) => _loadData()),
+              ),
+              _QuickActionButton(
+                icon: Icons.add_circle_outline_rounded,
+                label: "Create Fee",
+                color: kPrimaryGreen,
+                onTap: () => _nestedNavKey.currentState?.push(MaterialPageRoute(builder: (_) => const AdminFeesScreen(openCreateOnLoad: true))).then((_) => _loadData()),
+              ),
+              _QuickActionButton(
+                icon: Icons.event_note_rounded,
+                label: "Attendance",
+                color: kPrimaryBlue,
+                onTap: () => _nestedNavKey.currentState?.push(MaterialPageRoute(builder: (_) => const AdminAttendanceScreen())).then((_) => _loadData()),
+              ),
+              _QuickActionButton(
+                icon: Icons.today_rounded,
+                label: "Today's Attendance",
+                color: kPrimaryGreen,
+                onTap: () => _nestedNavKey.currentState?.push(MaterialPageRoute(builder: (_) => const AdminAttendanceScreen(defaultToToday: true))).then((_) => _loadData()),
+              ),
+              _QuickActionButton(
+                icon: Icons.menu_book_rounded,
+                label: "Add Subject",
+                color: kPrimaryBlue,
+                onTap: () => _nestedNavKey.currentState?.push(MaterialPageRoute(builder: (_) => const AdminSubjectsScreen(openCreateOnLoad: true))).then((_) => _loadData()),
+              ),
+              _QuickActionButton(
+                icon: Icons.assignment_rounded,
+                label: "Assignments",
+                color: kPrimaryBlue,
+                onTap: () => _nestedNavKey.currentState?.push(MaterialPageRoute(builder: (_) => const AdminAssignmentsScreen())).then((_) => _loadData()),
+              ),
+              _QuickActionButton(
+                icon: Icons.add_task_rounded,
+                label: "Create Assignment",
+                color: kPrimaryGreen,
+                onTap: () => _nestedNavKey.currentState?.push(MaterialPageRoute(builder: (_) => const AdminAssignmentsScreen(openCreateOnLoad: true))).then((_) => _loadData()),
+              ),
+              _QuickActionButton(
+                icon: Icons.schedule_rounded,
+                label: "Timetable",
+                color: kPrimaryBlue,
+                onTap: () => _nestedNavKey.currentState?.push(MaterialPageRoute(builder: (_) => const AdminTimetableScreen(openAddSlotOnLoad: true))).then((_) => _loadData()),
+              ),
+              _QuickActionButton(
+                icon: Icons.schedule_rounded,
+                label: "Add Timetable Slot",
+                color: kPrimaryGreen,
+                onTap: () => _nestedNavKey.currentState?.push(MaterialPageRoute(builder: (_) => const AdminTimetableScreen(openAddSlotOnLoad: true))).then((_) => _loadData()),
+              ),
+              _QuickActionButton(
+                icon: Icons.quiz_rounded,
+                label: "Exams",
+                color: kPrimaryBlue,
+                onTap: () => _nestedNavKey.currentState?.push(MaterialPageRoute(builder: (_) => const AdminExamsScreen())).then((_) => _loadData()),
+              ),
+              _QuickActionButton(
+                icon: Icons.quiz_rounded,
+                label: "Add Exam",
+                color: kPrimaryGreen,
+                onTap: () => _nestedNavKey.currentState?.push(MaterialPageRoute(builder: (_) => const AdminExamsScreen(openCreateOnLoad: true))).then((_) => _loadData()),
+              ),
+              _QuickActionButton(
+                icon: Icons.grade_rounded,
+                label: "Marks",
+                color: kPrimaryBlue,
+                onTap: () => _nestedNavKey.currentState?.push(MaterialPageRoute(builder: (_) => const AdminMarksScreen())).then((_) => _loadData()),
+              ),
+              _QuickActionButton(
+                icon: Icons.grade_rounded,
+                label: "Add Marks",
+                color: kPrimaryGreen,
+                onTap: () => _nestedNavKey.currentState?.push(MaterialPageRoute(builder: (_) => const AdminMarksScreen(openCreateOnLoad: true))).then((_) => _loadData()),
+              ),
+              _QuickActionButton(
+                icon: Icons.campaign_rounded,
+                label: "Notices",
+                color: kPrimaryBlue,
+                onTap: () => _nestedNavKey.currentState?.push(MaterialPageRoute(builder: (_) => const AdminNoticesScreen())).then((_) => _loadData()),
+              ),
+              _QuickActionButton(
+                icon: Icons.campaign_rounded,
+                label: "Create Notice",
+                color: kPrimaryGreen,
+                onTap: () => _nestedNavKey.currentState?.push(MaterialPageRoute(builder: (_) => const AdminNoticesScreen(openCreateOnLoad: true))).then((_) => _loadData()),
               ),
             ],
           ),

@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:kobac/services/local_auth_service.dart';
+import 'package:provider/provider.dart';
+import 'package:kobac/models/auth_me_models.dart';
+import 'package:kobac/models/auth_user.dart';
+import 'package:kobac/services/auth_provider.dart';
 import 'package:kobac/services/dummy_school_service.dart';
+import 'package:kobac/services/teachers_service.dart';
+import 'package:kobac/services/students_service.dart';
+import 'package:kobac/school_admin/pages/change_password_page.dart';
+import 'package:kobac/school_admin/pages/manage_users_screen.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
 const Color kPrimaryGreen = Color(0xFF5AB04B);
@@ -19,42 +26,77 @@ class AdminProfilePage extends StatefulWidget {
 class _AdminProfilePageState extends State<AdminProfilePage> {
   Future<Map<String, String>?>? _adminDataFuture;
   Future<Map<String, int>>? _statsFuture;
+  bool _adminDataLoaded = false;
 
   @override
-  void initState() {
-    super.initState();
-    _adminDataFuture = _loadAdminData();
-    _statsFuture = _loadStats();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_adminDataLoaded) {
+      _adminDataLoaded = true;
+      final auth = context.read<AuthProvider>();
+      _adminDataFuture = _loadAdminData(auth.user, auth.schoolAdminProfile);
+      _statsFuture = _loadStats();
+    }
   }
 
-  Future<Map<String, String>?> _loadAdminData() async {
-    final user = await LocalAuthService().getCurrentUser();
+  Future<void> _refreshProfile() async {
+    setState(() => _adminDataLoaded = false);
+    final auth = context.read<AuthProvider>();
+    await auth.refreshMe();
+    if (mounted) {
+      setState(() {
+        _adminDataLoaded = false;
+        _adminDataFuture = _loadAdminData(auth.user, auth.schoolAdminProfile);
+      });
+    }
+  }
+
+  Future<Map<String, String>?> _loadAdminData(AuthUser? user, dynamic profile) async {
     if (user == null) return null;
 
     String schoolName = '';
-    if (user.schoolId != null) {
+    final schoolId = profile is SchoolAdminProfile && profile.schoolId != null
+        ? profile.schoolId
+        : user.schoolId;
+    if (schoolId != null) {
       try {
-        final school = await DummySchoolService().getSchoolById(user.schoolId!);
+        final school = await DummySchoolService().getSchoolById(schoolId.toString());
         if (school != null) schoolName = school.name ?? '';
       } catch (e) {
         debugPrint('Error loading school: $e');
       }
     }
 
+    final name = (profile is SchoolAdminProfile && profile.name != null && profile.name!.isNotEmpty)
+        ? profile.name!
+        : user.name;
+    final roleStr = user.role.replaceAll('_', ' ').toUpperCase();
+    final email = (profile is SchoolAdminProfile && profile.email != null && profile.email!.isNotEmpty)
+        ? profile.email!
+        : (user.email ?? user.emisNumber ?? '');
+
     return {
-      'name': user.name ?? 'Admin',
-      'role': user.role.toString().split('.').last.replaceAll('_', ' ').toUpperCase(),
-      'email': user.email ?? user.emisNumber ?? '',
-      'phone': user.phone ?? '',
+      'name': name,
+      'role': roleStr,
+      'email': email,
+      'phone': '',
       'school': schoolName,
-      'username': (user.name ?? 'admin').replaceAll(' ', '_').toLowerCase(),
+      'username': name.replaceAll(' ', '_').toLowerCase(),
     };
   }
 
   Future<Map<String, int>> _loadStats() async {
     try {
-      final students = await DummySchoolService().getStudentCount();
-      final teachers = await DummySchoolService().getTeacherCount();
+      int students = 0;
+      final studentsResult = await StudentsService().listStudents();
+      if (studentsResult is StudentSuccess<List<StudentModel>>) {
+        students = studentsResult.data.length;
+      }
+      int teachers = 0;
+      final teachersResult = await TeachersService().listTeachers();
+      if (teachersResult is TeacherSuccess<List<TeacherModel>>) {
+        teachers = teachersResult.data.length;
+      }
       return {'students': students, 'teachers': teachers, 'classes': 12};
     } catch (_) {
       return {'students': 0, 'teachers': 0, 'classes': 12};
@@ -77,13 +119,9 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
           const SizedBox(height: 20),
           _buildSummaryCards(context),
           const SizedBox(height: 24),
-          _buildSectionTitle("Personal Info"),
+          _buildManageUsersTile(context),
           const SizedBox(height: 12),
-          _buildPersonalInfoList(data),
-          const SizedBox(height: 24),
-          _buildSectionTitle("Quick Actions"),
-          const SizedBox(height: 12),
-          _buildQuickActions(context),
+          _buildResetPasswordTile(context),
           const SizedBox(height: 20),
           _buildLogoutButton(context),
           const SizedBox(height: 32),
@@ -237,43 +275,23 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+  Widget _buildManageUsersTile(BuildContext context) {
+    return _ProfileActionTile(
+      icon: Icons.people_rounded,
+      label: "Manage Users",
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const ManageUsersScreen()),
+      ),
     );
   }
 
-  Widget _buildPersonalInfoList(Map<String, String> data) {
-    final items = [
-      _PersonalInfoItem(icon: Icons.person_outline_rounded, label: data['username'] ?? 'username'),
-      _PersonalInfoItem(icon: Icons.phone_outlined, label: data['phone']!.isEmpty ? '—' : data['phone']!),
-      _PersonalInfoItem(icon: Icons.school_outlined, label: data['school']!.isEmpty ? '—' : data['school']!),
-    ];
-    return Column(
-      children: items.map((e) => _PersonalInfoTile(icon: e.icon, value: e.label)).toList(),
-    );
-  }
-
-  Widget _buildQuickActions(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _QuickActionCard(
-            icon: Icons.people_rounded,
-            label: "Manage Users",
-            onTap: () {},
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _QuickActionCard(
-            icon: Icons.lock_reset_rounded,
-            label: "Reset Password",
-            onTap: () {},
-          ),
-        ),
-      ],
+  Widget _buildResetPasswordTile(BuildContext context) {
+    return _ProfileActionTile(
+      icon: Icons.lock_reset_rounded,
+      label: "Reset Password",
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const ChangePasswordPage()),
+      ),
     );
   }
 
@@ -282,10 +300,7 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
       color: Colors.transparent,
       child: InkWell(
         onTap: () async {
-          await LocalAuthService().logout();
-          if (context.mounted) {
-            Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-          }
+          await context.read<AuthProvider>().logout();
         },
         borderRadius: BorderRadius.circular(kCardRadius),
         child: Container(
@@ -353,15 +368,72 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
           ),
         ],
       ),
-      body: futureBody,
+      body: RefreshIndicator(
+        onRefresh: _refreshProfile,
+        color: kPrimaryGreen,
+        child: futureBody,
+      ),
     );
   }
 }
 
-class _PersonalInfoItem {
+class _ProfileActionTile extends StatelessWidget {
   final IconData icon;
   final String label;
-  _PersonalInfoItem({required this.icon, required this.label});
+  final VoidCallback onTap;
+
+  const _ProfileActionTile({required this.icon, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white, width: 1.5),
+            boxShadow: [
+              BoxShadow(color: Colors.white, blurRadius: 10, offset: const Offset(-3, -3)),
+              BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 16, offset: const Offset(4, 6)),
+              BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(2, 3)),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  color: kPrimaryBlue.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white, width: 1),
+                  boxShadow: [
+                    BoxShadow(color: Colors.white, blurRadius: 6, offset: const Offset(-2, -2)),
+                    BoxShadow(color: kPrimaryBlue.withOpacity(0.15), blurRadius: 8, offset: const Offset(2, 2)),
+                  ],
+                ),
+                child: Icon(icon, color: kPrimaryBlue, size: 20),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: kPrimaryBlue),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey.shade400),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _SummaryCard extends StatelessWidget {
@@ -414,98 +486,3 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
-class _PersonalInfoTile extends StatelessWidget {
-  final IconData icon;
-  final String value;
-
-  const _PersonalInfoTile({required this.icon, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white, width: 1.5),
-        boxShadow: [
-          BoxShadow(color: Colors.white, blurRadius: 10, offset: const Offset(-3, -3)),
-          BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 16, offset: const Offset(4, 6)),
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(2, 3)),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(9),
-            decoration: BoxDecoration(
-              color: kPrimaryBlue.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white, width: 1),
-              boxShadow: [
-                BoxShadow(color: Colors.white, blurRadius: 6, offset: const Offset(-2, -2)),
-                BoxShadow(color: kPrimaryBlue.withOpacity(0.15), blurRadius: 8, offset: const Offset(2, 2)),
-              ],
-            ),
-            child: Icon(icon, color: kPrimaryBlue, size: 20),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: kPrimaryBlue),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey.shade400),
-        ],
-      ),
-    );
-  }
-}
-
-class _QuickActionCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _QuickActionCard({required this.icon, required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white, width: 1.5),
-            boxShadow: [
-              BoxShadow(color: Colors.white, blurRadius: 12, offset: const Offset(-4, -4), spreadRadius: 0.5),
-              BoxShadow(color: kPrimaryBlue.withOpacity(0.1), blurRadius: 20, offset: const Offset(6, 8)),
-              BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(3, 5)),
-            ],
-          ),
-          child: Column(
-            children: [
-              Icon(icon, color: kPrimaryBlue, size: 28),
-              const SizedBox(height: 10),
-              Text(
-                label,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kPrimaryBlue),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

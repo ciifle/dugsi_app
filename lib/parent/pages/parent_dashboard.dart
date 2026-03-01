@@ -7,8 +7,8 @@ import 'package:kobac/parent/pages/parent_fee_payment_screen.dart';
 import 'package:kobac/parent/pages/parent_notifications.dart';
 import 'package:kobac/parent/pages/parent_profile_screen.dart';
 import 'package:kobac/parent/pages/parent_result_screen.dart';
-import 'package:kobac/services/local_auth_service.dart';
-import 'package:kobac/shared/pages/login_screen.dart';
+import 'package:provider/provider.dart';
+import 'package:kobac/services/auth_provider.dart';
 
 // ---------- COLOR PALETTE ----------
 const Color kPrimaryBlue = Color(0xFF023471);
@@ -42,15 +42,22 @@ class ParentDashboardScreen extends StatefulWidget {
 class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  final Map<String, String> parent = {
-    'name': "Mr. & Mrs. Carter",
-    'email': "carter.family@email.com",
-    'initials': "FC",
-    'phone': "+1 234 567 890",
-    'address': "123 Family Street, City",
-    'occupation': "Business",
-    'childrenCount': "3",
-  };
+  Map<String, String> _parentFromAuth(AuthProvider auth) {
+    final user = auth.user;
+    final prof = auth.parentProfile;
+    final name = prof?.name ?? user?.name ?? '—';
+    final email = prof?.email ?? user?.email ?? user?.emisNumber ?? '—';
+    final initials = name.isEmpty ? 'P' : name.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase();
+    return {
+      'name': name,
+      'email': email,
+      'initials': initials,
+      'phone': prof?.phone ?? '—',
+      'address': '—',
+      'occupation': '—',
+      'childrenCount': prof?.linkedStudents.isNotEmpty == true ? '${prof!.linkedStudents.length}' : '0',
+    };
+  }
 
   final List<Map<String, dynamic>> children = [
     {
@@ -173,17 +180,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                 );
 
                 try {
-                  await LocalAuthService().logout();
-
-                  if (context.mounted) {
-                    Navigator.of(context).pop();
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(
-                        builder: (context) => const LoginPage(),
-                      ),
-                      (route) => false,
-                    );
-                  }
+                  await context.read<AuthProvider>().logout();
                 } catch (e) {
                   if (context.mounted) {
                     Navigator.of(context).pop();
@@ -296,7 +293,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ParentProfileScreen(parent: parent),
+        builder: (context) => const ParentProfileScreen(),
       ),
     );
   }
@@ -708,6 +705,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    final parent = _parentFromAuth(auth);
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: kSoftBlue,

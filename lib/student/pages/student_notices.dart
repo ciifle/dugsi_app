@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:kobac/models/dummy_user.dart';
-import 'package:kobac/parent/pages/parent_dashboard.dart';
-import 'package:kobac/school_admin/pages/school_admin_screen.dart';
-import 'package:kobac/services/local_auth_service.dart';
+import 'package:provider/provider.dart';
+import 'package:kobac/services/auth_provider.dart';
+import 'package:kobac/services/student_service.dart';
 import 'package:kobac/shared/pages/login_screen.dart';
-import 'package:kobac/student/pages/student_dashboard.dart';
-import 'package:kobac/teacher/pages/teacher_dashboard.dart';
 
 // ---------- COLOR PALETTE ----------
 const Color kPrimaryBlue = Color(0xFF023471);
@@ -35,32 +32,22 @@ class _NoticeData {
   });
 }
 
-// ---------------- ALL NOTICES SCREEN ----------------
-class AllNoticesScreen extends StatelessWidget {
+// ---------------- ALL NOTICES SCREEN (API-driven) ----------------
+class AllNoticesScreen extends StatefulWidget {
   const AllNoticesScreen({Key? key}) : super(key: key);
 
-  final List<_NoticeData> _notices = const [
-    _NoticeData(
-      title: "🏛️ Campus Closure",
-      description:
-          "University will be closed for maintenance this Friday, June 12th.",
-      time: "2 hours ago",
-      date: "12 Jun",
-    ),
-    _NoticeData(
-      title: "📝 Exam Registration",
-      description:
-          "Last date to submit exam forms is June 18th. Late fee applies after.",
-      time: "Yesterday",
-      date: "10 Jun",
-    ),
-    _NoticeData(
-      title: "📚 New Arrivals",
-      description: "Check out 50+ new books added to the library this week.",
-      time: "2 days ago",
-      date: "08 Jun",
-    ),
-  ];
+  @override
+  State<AllNoticesScreen> createState() => _AllNoticesScreenState();
+}
+
+class _AllNoticesScreenState extends State<AllNoticesScreen> {
+  late Future<StudentResult<List<StudentNoticeModel>>> _noticesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _noticesFuture = StudentService().listNotices();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -102,61 +89,24 @@ class AllNoticesScreen extends StatelessWidget {
                   ],
                 ),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Row(
-                      children: [
-                        // FIXED: Back button with proper navigation
-                        GestureDetector(
-                          onTap: () {
-                            // Check if can pop, if not, go to appropriate dashboard
-                            if (Navigator.canPop(context)) {
-                              Navigator.pop(context);
-                            } else {
-                              // If can't pop, navigate to the appropriate dashboard based on user role
-                              _navigateToDashboard(context);
-                            }
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: const Icon(
-                              Icons.arrow_back_rounded,
-                              color: Colors.white,
-                              size: 28,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Text(
-                                "Stay Updated",
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                "All Notices",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 48),
-                      ],
+                    const Text(
+                      "Stay Updated",
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    const Text(
+                      "All Notices",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 20),
                     _buildNoticeStats(),
@@ -165,17 +115,113 @@ class AllNoticesScreen extends StatelessWidget {
               ),
             ),
 
-            // ---------------- NOTICES LIST ----------------
-            SliverPadding(
-              padding: const EdgeInsets.all(20),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate((context, index) {
-                  final notice = _notices[index];
+            // ---------------- NOTICES LIST (API) - Full width ----------------
+            SliverToBoxAdapter(
+              child: FutureBuilder<StudentResult<List<StudentNoticeModel>>>(
+                future: _noticesFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return SizedBox(
+                      width: double.infinity,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 48),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            CircularProgressIndicator(color: kPrimaryBlue),
+                            SizedBox(height: 16),
+                            Text('Loading notices…', style: TextStyle(color: kTextSecondary)),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+                  if (snapshot.data is StudentError) {
+                    return SizedBox(
+                      width: double.infinity,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 48),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: kPrimaryBlue.withOpacity(0.08),
+                                blurRadius: 16,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.error_outline_rounded, size: 48, color: kErrorColor.withOpacity(0.8)),
+                              const SizedBox(height: 12),
+                              Text(
+                                (snapshot.data as StudentError).message,
+                                style: const TextStyle(color: kTextPrimary, fontSize: 15),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+                  final list = snapshot.data is StudentSuccess<List<StudentNoticeModel>>
+                      ? (snapshot.data as StudentSuccess<List<StudentNoticeModel>>).data
+                      : <StudentNoticeModel>[];
+                  if (list.isEmpty) {
+                    return SizedBox(
+                      width: double.infinity,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 48),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: kPrimaryBlue.withOpacity(0.06),
+                                blurRadius: 16,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.campaign_rounded, size: 56, color: Colors.grey[400]),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No notices yet',
+                                style: TextStyle(fontSize: 16, color: kTextSecondary),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: _buildEnhancedNoticeCard(context, notice),
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: list
+                          .map((n) => Padding(
+                                padding: const EdgeInsets.only(bottom: 14),
+                                child: _buildApiNoticeCard(context, n),
+                              ))
+                          .toList(),
+                    ),
                   );
-                }, childCount: _notices.length),
+                },
               ),
             ),
           ],
@@ -184,75 +230,190 @@ class AllNoticesScreen extends StatelessWidget {
     );
   }
 
-  // ---------------- HELPER METHOD TO NAVIGATE TO DASHBOARD ----------------
-  Future<void> _navigateToDashboard(BuildContext context) async {
-    try {
-      final user = await LocalAuthService().getCurrentUser();
-
-      if (user == null) {
-        // If no user, go to login
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const LoginPage()),
-        );
-        return;
-      }
-
-      // Navigate to appropriate dashboard based on role
-      Widget dashboard;
-      switch (user.role) {
-        case UserRole.student:
-          dashboard = StudentDashboardScreen();
-          break;
-        case UserRole.parent:
-          dashboard = const ParentDashboardScreen();
-          break;
-        case UserRole.teacher:
-          dashboard = const TeacherDashboardScreen();
-          break;
-        case UserRole.schoolAdmin:
-          dashboard = const SchoolAdminScreen();
-          break;
-        default:
-          dashboard = const LoginPage();
-      }
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => dashboard),
-      );
-    } catch (e) {
-      // If error, go to login as fallback
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const LoginPage()),
-      );
-    }
+  Widget _buildApiNoticeCard(BuildContext context, StudentNoticeModel notice) {
+    final content = notice.content ?? '';
+    final preview = content.length > 120 ? '${content.substring(0, 120).trim()}…' : content;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => _showNoticeDetailApi(context, notice),
+        child: Container(
+          width: double.infinity,
+          constraints: const BoxConstraints(minHeight: 72),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: kPrimaryBlue.withOpacity(0.08)),
+            boxShadow: [
+              BoxShadow(
+                color: kPrimaryBlue.withOpacity(0.06),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Left accent bar
+                Container(
+                  width: 4,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(2),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [kPrimaryBlue, kPrimaryGreen],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              notice.title,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                                color: kTextPrimary,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (notice.createdAt != null && notice.createdAt!.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: kSoftBlue,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                notice.createdAt!,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: kDarkBlue,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      if (preview.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          preview,
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.4,
+                            color: kTextSecondary,
+                          ),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: kTextSecondary.withOpacity(0.6),
+                  size: 24,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
-  // ---------------- NOTICE STATS ----------------
-  Widget _buildNoticeStats() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: Colors.white.withOpacity(0.2)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _buildStatChip(
-            Icons.notifications_rounded,
-            "Total",
-            "${_notices.length}",
+  void _showNoticeDetailApi(BuildContext context, StudentNoticeModel notice) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(notice.title),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (notice.createdAt != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(notice.createdAt!, style: TextStyle(fontSize: 12, color: kTextSecondary)),
+                ),
+              Text(notice.content ?? ''),
+            ],
           ),
-          Container(height: 20, width: 1, color: Colors.white30),
-          _buildStatChip(Icons.new_releases_rounded, "New", "3"),
-          Container(height: 20, width: 1, color: Colors.white30),
-          _buildStatChip(Icons.priority_high_rounded, "Important", "1"),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
         ],
       ),
+    );
+  }
+
+  // ---------------- HELPER METHOD TO NAVIGATE TO DASHBOARD ----------------
+  void _navigateToDashboard(BuildContext context) {
+    final user = context.read<AuthProvider>().user;
+    final dashboard = roleToHome(user);
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => dashboard),
+    );
+  }
+
+  // ---------------- NOTICE STATS (full width in header) ----------------
+  Widget _buildNoticeStats() {
+    return FutureBuilder<StudentResult<List<StudentNoticeModel>>>(
+      future: _noticesFuture,
+      builder: (context, snapshot) {
+        final count = snapshot.data is StudentSuccess<List<StudentNoticeModel>>
+            ? (snapshot.data as StudentSuccess<List<StudentNoticeModel>>).data.length
+            : 0;
+        return SizedBox(
+          width: double.infinity,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.18),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withOpacity(0.25)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildStatChip(
+                  Icons.notifications_rounded,
+                  "Total",
+                  "$count",
+                ),
+                Container(height: 24, width: 1, color: Colors.white38),
+                _buildStatChip(Icons.new_releases_rounded, "New", "$count"),
+                Container(height: 24, width: 1, color: Colors.white38),
+                _buildStatChip(Icons.priority_high_rounded, "Important", "—"),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:kobac/services/local_auth_service.dart';
-import 'package:kobac/shared/pages/login_screen.dart';
+import 'package:provider/provider.dart';
+import 'package:kobac/services/auth_provider.dart';
 import 'package:kobac/student/pages/academic_activity.dart';
 import 'package:kobac/student/pages/exam_schedule.dart';
 import 'package:kobac/student/pages/student_attendance.dart';
@@ -9,6 +9,10 @@ import 'package:kobac/student/pages/student_notices.dart';
 import 'package:kobac/student/pages/student_profile.dart';
 import 'package:kobac/student/pages/student_quizzes.dart';
 import 'package:kobac/student/pages/student_result.dart';
+import 'package:kobac/student/pages/student_marks_screen.dart';
+import 'package:kobac/student/pages/student_timetable_screen.dart';
+import 'package:kobac/student/pages/student_payments_screen.dart';
+import 'package:kobac/student/pages/student_pay_fee_screen.dart';
 
 // ---------- COLOR PALETTE (Matching Dashboard) ----------
 const Color kPrimaryBlue = Color(0xFF023471);
@@ -46,6 +50,16 @@ class AppDrawer extends StatelessWidget {
   final List<DrawerItem> _items = const [
     DrawerItem(label: "Dashboard", icon: Icons.dashboard_rounded),
     DrawerItem(
+      label: "Timetable",
+      icon: Icons.schedule_rounded,
+      screen: StudentTimetableScreen(),
+    ),
+    DrawerItem(
+      label: "Marks",
+      icon: Icons.grade_rounded,
+      screen: StudentMarksScreen(),
+    ),
+    DrawerItem(
       label: "Results",
       icon: Icons.stars_rounded,
       screen: StudentResultsScreen(),
@@ -54,6 +68,11 @@ class AppDrawer extends StatelessWidget {
       label: "Fees",
       icon: Icons.account_balance_wallet_rounded,
       screen: StudentFeesScreen(),
+    ),
+    DrawerItem(
+      label: "Payments",
+      icon: Icons.payment_rounded,
+      screen: StudentPaymentsScreen(),
     ),
     DrawerItem(
       label: "Attendance",
@@ -117,7 +136,7 @@ class AppDrawer extends StatelessWidget {
         ),
         child: Column(
           children: [
-            _buildHeader(),
+            _buildHeader(context),
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
@@ -138,7 +157,12 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
+    final user = context.watch<AuthProvider>().user;
+    final name = user?.name ?? 'Student';
+    final initials = name.isNotEmpty ? name.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase() : 'S';
+    final idOrEmail = user?.emisNumber ?? user?.email ?? '—';
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
@@ -177,13 +201,16 @@ class AppDrawer extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: const CircleAvatar(
+                child: CircleAvatar(
                   radius: 38,
                   backgroundColor: Colors.white,
-                  child: Icon(
-                    Icons.person_rounded,
-                    size: 42,
-                    color: kPrimaryBlue,
+                  child: Text(
+                    initials.isEmpty ? 'S' : initials,
+                    style: const TextStyle(
+                      color: kPrimaryBlue,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
@@ -192,13 +219,15 @@ class AppDrawer extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'John Doe',
-                      style: TextStyle(
+                    Text(
+                      name,
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Container(
@@ -220,7 +249,7 @@ class AppDrawer extends StatelessWidget {
                           ),
                           SizedBox(width: 4),
                           Text(
-                            'B.Tech CSE • 3rd Year',
+                            'Student',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 11,
@@ -240,13 +269,15 @@ class AppDrawer extends StatelessWidget {
                         color: Colors.white.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Text(
-                        'ID: STU230017',
-                        style: TextStyle(
+                      child: Text(
+                        idOrEmail.contains('@') ? idOrEmail : 'ID: $idOrEmail',
+                        style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 10,
                           fontWeight: FontWeight.w400,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -380,21 +411,9 @@ class AppDrawer extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {
-            // Simple direct navigation without any complex async handling
-
-            // Close the drawer first
+          onTap: () async {
             Navigator.pop(context);
-
-            // Call logout service (fire and forget)
-            LocalAuthService().logout();
-
-            // Navigate directly to login page and clear all previous routes
-            // This will happen even if logout service throws an error
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (context) => const LoginPage()),
-              (route) => false, // This removes all previous routes
-            );
+            await context.read<AuthProvider>().logout();
           },
           borderRadius: BorderRadius.circular(14),
           child: Container(

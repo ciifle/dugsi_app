@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kobac/services/teacher_service.dart';
 
 // ---------- COLOR PALETTE (Matching Student Dashboard) ----------
 const Color kPrimaryBlue = Color(0xFF023471); // Dark blue
@@ -16,13 +17,6 @@ const Color kSoftOrange = Color(0xFFF59E0B); // Amber
 const Color kSuccessColor = Color(0xFF5AB04B); // Green for present
 const Color kCardColor = Colors.white;
 
-// ================== DATA MODEL ======================
-class StudentAttendance {
-  final String name;
-  final String roll;
-  StudentAttendance({required this.name, required this.roll});
-}
-
 // ================== MAIN SCREEN =====================
 class TeacherAttendanceScreen extends StatefulWidget {
   const TeacherAttendanceScreen({Key? key}) : super(key: key);
@@ -33,126 +27,159 @@ class TeacherAttendanceScreen extends StatefulWidget {
 }
 
 class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
-  // List of available classes
-  final List<String> _availableClasses = [
-    'Grade 8 - A',
-    'Grade 8 - B',
-    'Grade 7 - A',
-    'Grade 7 - B',
-    'Grade 6 - A',
-    'Grade 6 - B',
-    'Grade 5 - A',
-    'Grade 5 - B',
-    'Grade 3 - B',
-  ];
-
-  String _selectedClass = 'Grade 8 - A'; // Default selected class
-  final DateTime attendanceDate = DateTime.now();
-
-  // Student data organized by class
-  final Map<String, List<StudentAttendance>> _classStudents = {
-    'Grade 8 - A': [
-      StudentAttendance(name: 'Ananya Verma', roll: '1'),
-      StudentAttendance(name: 'Rohit Sharma', roll: '2'),
-      StudentAttendance(name: 'Priya Gupta', roll: '3'),
-      StudentAttendance(name: 'Rahul Singh', roll: '4'),
-      StudentAttendance(name: 'Meera Patel', roll: '5'),
-      StudentAttendance(name: 'Soham Desai', roll: '6'),
-      StudentAttendance(name: 'Arjun Kumar', roll: '7'),
-      StudentAttendance(name: 'Tanvi Rao', roll: '8'),
-      StudentAttendance(name: 'Kabir Chhabra', roll: '9'),
-      StudentAttendance(name: 'Sara Ali', roll: '10'),
-      StudentAttendance(name: 'Saniya Biswas', roll: '11'),
-      StudentAttendance(name: 'Vedant Naik', roll: '12'),
-      StudentAttendance(name: 'Ira Menon', roll: '13'),
-      StudentAttendance(name: 'Zaid Khan', roll: '14'),
-      StudentAttendance(name: 'Riya Thakur', roll: '15'),
-    ],
-    'Grade 8 - B': [
-      StudentAttendance(name: 'Aryan Singh', roll: '1'),
-      StudentAttendance(name: 'Diya Patel', roll: '2'),
-      StudentAttendance(name: 'Reyansh Kumar', roll: '3'),
-      StudentAttendance(name: 'Myra Sharma', roll: '4'),
-      StudentAttendance(name: 'Advik Gupta', roll: '5'),
-      StudentAttendance(name: 'Ishita Verma', roll: '6'),
-    ],
-    'Grade 7 - A': [
-      StudentAttendance(name: 'Vihaan Mehta', roll: '1'),
-      StudentAttendance(name: 'Anika Reddy', roll: '2'),
-      StudentAttendance(name: 'Arjun Nair', roll: '3'),
-      StudentAttendance(name: 'Sanya Kapoor', roll: '4'),
-      StudentAttendance(name: 'Shaurya Malhotra', roll: '5'),
-    ],
-    'Grade 7 - B': [
-      StudentAttendance(name: 'Prisha Joshi', roll: '1'),
-      StudentAttendance(name: 'Yash Das', roll: '2'),
-      StudentAttendance(name: 'Kavya Menon', roll: '3'),
-      StudentAttendance(name: 'Rudra Sen', roll: '4'),
-    ],
-    'Grade 6 - A': [
-      StudentAttendance(name: 'Avni Choudhury', roll: '1'),
-      StudentAttendance(name: 'Shaan Bajaj', roll: '2'),
-      StudentAttendance(name: 'Kiara Khanna', roll: '3'),
-    ],
-    'Grade 6 - B': [
-      StudentAttendance(name: 'Ranveer Singh', roll: '1'),
-      StudentAttendance(name: 'Ananya Gupta', roll: '2'),
-    ],
-    'Grade 5 - A': [
-      StudentAttendance(name: 'Ishaan Sharma', roll: '1'),
-      StudentAttendance(name: 'Navya Patel', roll: '2'),
-    ],
-    'Grade 5 - B': [StudentAttendance(name: 'Vivaan Kumar', roll: '1')],
-    'Grade 3 - B': [
-      StudentAttendance(name: 'Aadhya Singh', roll: '1'),
-      StudentAttendance(name: 'Kabir Sharma', roll: '2'),
-    ],
-  };
-
-  late List<bool> isPresent;
+  List<TeacherAssignmentModel> _assignments = [];
+  int? _selectedClassId;
+  String _selectedClassName = 'Select class';
+  DateTime _attendanceDate = DateTime.now();
+  List<TeacherStudentModel> _students = [];
+  List<String> _statusList = []; // PRESENT | ABSENT | LATE, same order as _students
+  bool _studentsLoading = false;
+  String? _studentsError; // e.g. 404 message
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
-  List<StudentAttendance> get currentClassStudents {
-    return _classStudents[_selectedClass] ?? [];
-  }
+  List<TeacherStudentModel> get currentClassStudents => _students;
 
-  List<StudentAttendance> get filteredStudents {
-    final students = currentClassStudents;
-    if (_searchQuery.isEmpty) return students;
-    return students.where((student) {
-      final query = _searchQuery.toLowerCase();
-      return student.name.toLowerCase().contains(query) ||
-          student.roll.contains(query);
+  List<TeacherStudentModel> get filteredStudents {
+    if (_searchQuery.isEmpty) return _students;
+    final q = _searchQuery.toLowerCase();
+    return _students.where((s) {
+      final name = (s.name ?? '').toLowerCase();
+      final emis = (s.emisNumber ?? '').toLowerCase();
+      return name.contains(q) || emis.contains(q);
     }).toList();
   }
 
-  List<bool> get filteredIsPresent {
+  List<String> get filteredStatusList {
     return filteredStudents.map((s) {
-      final index = currentClassStudents.indexOf(s);
-      return isPresent[index];
+      final i = _students.indexOf(s);
+      return i >= 0 && i < _statusList.length ? _statusList[i] : 'PRESENT';
     }).toList();
   }
 
   @override
   void initState() {
     super.initState();
-    _updateAttendanceList();
+    _loadAssignments();
   }
 
-  void _updateAttendanceList() {
-    isPresent = List<bool>.filled(currentClassStudents.length, true);
+  Future<void> _loadAssignments() async {
+    final result = await TeacherService().listAssignments();
+    if (!mounted) return;
+    setState(() {
+      if (result is TeacherSuccess<List<TeacherAssignmentModel>>) {
+        _assignments = result.data;
+        if (_assignments.isNotEmpty && _selectedClassId == null) {
+          final first = _assignments.first;
+          _selectedClassId = first.classId;
+          _selectedClassName = first.className.isEmpty ? 'Class ${first.classId}' : first.className;
+          _loadStudents(first.classId);
+        }
+      }
+    });
   }
 
-  void _onClassChanged(String? newClass) {
-    if (newClass != null) {
-      setState(() {
-        _selectedClass = newClass;
-        _updateAttendanceList();
-        _searchQuery = '';
-        _searchController.clear();
-      });
+  Future<void> _loadStudents(int classId) async {
+    setState(() {
+      _studentsLoading = true;
+      _studentsError = null;
+      _students = [];
+      _statusList = [];
+    });
+    final result = await TeacherService().listStudentsByClass(classId);
+    if (!mounted) return;
+    setState(() {
+      _studentsLoading = false;
+      if (result is TeacherSuccess<List<TeacherStudentModel>>) {
+        _students = result.data;
+        _statusList = List.filled(_students.length, 'PRESENT');
+        _studentsError = null;
+      } else {
+        _studentsError = (result as TeacherError).message;
+      }
+    });
+  }
+
+  void _onClassChanged(int? classId) {
+    if (classId == null) return;
+    final a = _assignments.cast<TeacherAssignmentModel?>().firstWhere(
+          (e) => e?.classId == classId,
+          orElse: () => null,
+        );
+    final name = a?.className.isEmpty == true ? 'Class $classId' : (a?.className ?? 'Class $classId');
+    setState(() {
+      _selectedClassId = classId;
+      _selectedClassName = name;
+      _searchQuery = '';
+      _searchController.clear();
+    });
+    _loadStudents(classId);
+  }
+
+  /// Unique classes from assignments (by classId).
+  List<({int id, String name})> get _uniqueClasses {
+    final seen = <int>{};
+    final out = <({int id, String name})>[];
+    for (final a in _assignments) {
+      if (seen.add(a.classId)) {
+        out.add((id: a.classId, name: a.className.isEmpty ? 'Class ${a.classId}' : a.className));
+      }
+    }
+    return out;
+  }
+
+  void _setStatus(int studentIndex, String status) {
+    if (studentIndex < 0 || studentIndex >= _statusList.length) return;
+    setState(() {
+      _statusList[studentIndex] = status;
+    });
+  }
+
+  void _onDateTapped() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _attendanceDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null && mounted) setState(() => _attendanceDate = picked);
+  }
+
+  Future<void> _saveAttendance() async {
+    if (_selectedClassId == null || _students.isEmpty) return;
+    final dateStr = '${_attendanceDate.year}-${_attendanceDate.month.toString().padLeft(2, '0')}-${_attendanceDate.day.toString().padLeft(2, '0')}';
+    final records = <TeacherAttendanceRecord>[];
+    for (var i = 0; i < _students.length; i++) {
+      records.add(TeacherAttendanceRecord(
+        studentId: _students[i].id,
+        status: i < _statusList.length ? _statusList[i] : 'PRESENT',
+      ));
+    }
+    final result = await TeacherService().takeAttendance(
+      classId: _selectedClassId!,
+      date: dateStr,
+      records: records,
+    );
+    if (!mounted) return;
+    if (result is TeacherSuccess) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Attendance saved.'),
+          backgroundColor: kPrimaryGreen,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text((result as TeacherError).message),
+          backgroundColor: kErrorColor,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
     }
   }
 
@@ -203,7 +230,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   @override
   Widget build(BuildContext context) {
     final filtered = filteredStudents;
-    final filteredPresent = filteredIsPresent;
+    final filteredStatus = filteredStatusList;
+    final uniqueClasses = _uniqueClasses;
 
     return Scaffold(
       backgroundColor: kSoftBlue,
@@ -370,11 +398,14 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
               delegate: SliverChildListDelegate([
                 // ---------------- HEADER CARD WITH DROPDOWN ----------------
                 _HeaderCardWithDropdown(
-                  selectedClass: _selectedClass,
-                  availableClasses: _availableClasses,
+                  uniqueClasses: uniqueClasses,
+                  selectedClassId: _selectedClassId,
+                  selectedClassName: _selectedClassName,
                   onClassChanged: _onClassChanged,
                   studentCount: currentClassStudents.length,
-                  formattedDate: _formatDate(attendanceDate),
+                  formattedDate: _formatDate(_attendanceDate),
+                  onDateTap: _onDateTapped,
+                  studentsLoading: _studentsLoading,
                 ),
 
                 const SizedBox(height: 20),
@@ -398,52 +429,36 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
 
                 const SizedBox(height: 12),
 
+                // ---------------- STUDENT LIST ERROR (e.g. 404) ----------------
+                if (_studentsError != null && !_studentsLoading) _buildStudentsError(),
+
                 // ---------------- STUDENT CARDS ----------------
-                if (filtered.isNotEmpty)
+                if (filtered.isNotEmpty && _studentsError == null)
                   ...List.generate(
                     filtered.length,
-                    (index) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _StudentAttendanceCard(
-                        name: filtered[index].name,
-                        roll: filtered[index].roll,
-                        present: filteredPresent[index],
-                        onChanged: (val) {
-                          final originalIndex = currentClassStudents.indexOf(
-                            filtered[index],
-                          );
-                          setState(() {
-                            isPresent[originalIndex] = val;
-                          });
-                        },
-                      ),
-                    ),
+                    (index) {
+                      final student = filtered[index];
+                      final status = filteredStatus[index];
+                      final originalIndex = _students.indexOf(student);
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _StudentAttendanceCard(
+                          name: student.name ?? 'Student ${student.id}',
+                          roll: student.emisNumber ?? '${student.id}',
+                          status: status,
+                          onStatusChanged: (newStatus) => _setStatus(originalIndex, newStatus),
+                        ),
+                      );
+                    },
                   )
-                else
+                else if (_studentsError == null && !_studentsLoading)
                   _buildEmptyState(),
 
                 const SizedBox(height: 20),
 
                 // ---------------- SAVE BUTTON ----------------
                 _SaveButton(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: const Text(
-                          'Attendance saved successfully!',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
-                        ),
-                        backgroundColor: kPrimaryGreen,
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    );
-                  },
+                  onPressed: _students.isEmpty || _selectedClassId == null ? null : _saveAttendance,
                 ),
 
                 const SizedBox(height: 16),
@@ -507,6 +522,40 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     );
   }
 
+  Widget _buildStudentsError() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.info_outline_rounded, color: kSoftOrange, size: 28),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Student list endpoint is missing. Ask admin to enable teacher student listing.',
+                  style: TextStyle(fontSize: 14, color: kTextPrimary),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Attendance cannot be taken until students are available for your assigned classes.',
+            style: TextStyle(fontSize: 12, color: kTextSecondary),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildEmptyState() {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 40),
@@ -541,7 +590,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
             Text(
               _searchQuery.isNotEmpty
                   ? 'Try different search terms'
-                  : 'Add students to get started',
+                  : 'Select a class to load students',
               style: TextStyle(color: kTextSecondary, fontSize: 14),
             ),
           ],
@@ -553,18 +602,24 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
 
 // ================== HEADER CARD WITH DROPDOWN =====================
 class _HeaderCardWithDropdown extends StatelessWidget {
-  final String selectedClass;
-  final List<String> availableClasses;
-  final ValueChanged<String?> onClassChanged;
+  final List<({int id, String name})> uniqueClasses;
+  final int? selectedClassId;
+  final String selectedClassName;
+  final ValueChanged<int?> onClassChanged;
   final int studentCount;
   final String formattedDate;
+  final VoidCallback? onDateTap;
+  final bool studentsLoading;
 
   const _HeaderCardWithDropdown({
-    required this.selectedClass,
-    required this.availableClasses,
+    required this.uniqueClasses,
+    required this.selectedClassId,
+    required this.selectedClassName,
     required this.onClassChanged,
     required this.studentCount,
     required this.formattedDate,
+    this.onDateTap,
+    this.studentsLoading = false,
   });
 
   @override
@@ -607,66 +662,53 @@ class _HeaderCardWithDropdown extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: selectedClass,
-                  items: availableClasses.map((String className) {
-                    return DropdownMenuItem<String>(
-                      value: className,
-                      child: Text(
-                        className,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: onClassChanged,
-                  icon: const Icon(
-                    Icons.arrow_drop_down_rounded,
-                    color: Colors.white,
-                    size: 28,
-                  ),
+                child: DropdownButton<int>(
+                  value: selectedClassId,
+                  items: [
+                    if (uniqueClasses.isEmpty)
+                      const DropdownMenuItem<int>(value: null, child: Text('No classes assigned', style: TextStyle(color: Colors.white, fontSize: 16))),
+                    ...uniqueClasses.map((c) => DropdownMenuItem<int>(
+                          value: c.id,
+                          child: Text(
+                            c.name,
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16),
+                          ),
+                        )),
+                  ],
+                  onChanged: uniqueClasses.isEmpty ? null : onClassChanged,
+                  icon: const Icon(Icons.arrow_drop_down_rounded, color: Colors.white, size: 28),
                   isExpanded: true,
                   dropdownColor: kPrimaryBlue,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  hint: Text(selectedClassName, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
                 ),
               ),
             ),
           ),
-
           const SizedBox(height: 12),
-
-          // Date Row
+          // Date Row (tappable)
           Row(
             children: [
-              Icon(
-                Icons.calendar_today_rounded,
-                size: 16,
-                color: kTextSecondary,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                formattedDate,
-                style: TextStyle(color: kTextSecondary, fontSize: 13),
+              GestureDetector(
+                onTap: onDateTap,
+                child: Row(
+                  children: [
+                    Icon(Icons.calendar_today_rounded, size: 16, color: kTextSecondary),
+                    const SizedBox(width: 4),
+                    Text(formattedDate, style: TextStyle(color: kTextSecondary, fontSize: 13)),
+                  ],
+                ),
               ),
               const SizedBox(width: 12),
               Container(width: 1, height: 16, color: Colors.grey.shade300),
               const SizedBox(width: 12),
-              Icon(Icons.people_rounded, size: 16, color: kPrimaryGreen),
+              if (studentsLoading)
+                const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: kPrimaryGreen))
+              else
+                Icon(Icons.people_rounded, size: 16, color: kPrimaryGreen),
               const SizedBox(width: 4),
               Text(
                 "Total: $studentCount",
-                style: TextStyle(
-                  color: kPrimaryGreen,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(color: kPrimaryGreen, fontSize: 13, fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -680,76 +722,62 @@ class _HeaderCardWithDropdown extends StatelessWidget {
 class _StudentAttendanceCard extends StatelessWidget {
   final String name;
   final String roll;
-  final bool present;
-  final ValueChanged<bool> onChanged;
+  final String status; // PRESENT | ABSENT | LATE
+  final ValueChanged<String> onStatusChanged;
 
   const _StudentAttendanceCard({
     required this.name,
     required this.roll,
-    required this.present,
-    required this.onChanged,
+    required this.status,
+    required this.onStatusChanged,
   });
+
+  static const List<String> _statusCycle = ['PRESENT', 'ABSENT', 'LATE'];
 
   @override
   Widget build(BuildContext context) {
+    final isPresent = status == 'PRESENT';
+    final isLate = status == 'LATE';
+    final statusColor = isPresent ? kPrimaryGreen : (isLate ? kSoftOrange : kErrorColor);
+    final statusLabel = status == 'LATE' ? 'Late' : (isPresent ? 'Present' : 'Absent');
+    final nextStatus = _statusCycle[(_statusCycle.indexOf(status) + 1) % _statusCycle.length];
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 3))],
         border: Border.all(color: Colors.grey.shade100, width: 1.5),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => onChanged(!present),
+          onTap: () => onStatusChanged(nextStatus),
           borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Row(
               children: [
-                // Roll number circle
                 Container(
                   width: 45,
                   height: 45,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: present
-                          ? [kPrimaryGreen, kPrimaryGreen.withOpacity(0.7)]
-                          : [kErrorColor, kErrorColor.withOpacity(0.7)],
+                      colors: [statusColor, statusColor.withOpacity(0.7)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                        color: (present ? kPrimaryGreen : kErrorColor)
-                            .withOpacity(0.3),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+                    boxShadow: [BoxShadow(color: statusColor.withOpacity(0.3), blurRadius: 6, offset: const Offset(0, 2))],
                   ),
                   child: Center(
                     child: Text(
                       roll,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
                     ),
                   ),
                 ),
                 const SizedBox(width: 14),
-
-                // Student name and status
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -757,77 +785,34 @@ class _StudentAttendanceCard extends StatelessWidget {
                     children: [
                       Text(
                         name,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: kTextPrimary,
-                          fontSize: 16,
-                        ),
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: kTextPrimary, fontSize: 16),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: (present ? kPrimaryGreen : kErrorColor)
-                              .withOpacity(0.1),
+                          color: statusColor.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              present
-                                  ? Icons.check_circle_rounded
-                                  : Icons.cancel_rounded,
-                              color: present ? kPrimaryGreen : kErrorColor,
+                              isPresent ? Icons.check_circle_rounded : (isLate ? Icons.schedule_rounded : Icons.cancel_rounded),
+                              color: statusColor,
                               size: 15,
                             ),
                             const SizedBox(width: 4),
-                            Text(
-                              present ? "Present" : "Absent",
-                              style: TextStyle(
-                                color: present ? kPrimaryGreen : kErrorColor,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13,
-                              ),
-                            ),
+                            Text(statusLabel, style: TextStyle(color: statusColor, fontWeight: FontWeight.w600, fontSize: 13)),
                           ],
                         ),
                       ),
                     ],
                   ),
                 ),
-
-                // Checkbox
-                Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: present ? kPrimaryGreen : kErrorColor,
-                      width: 1.5,
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Checkbox(
-                    value: present,
-                    onChanged: (checked) {
-                      if (checked != null) {
-                        onChanged(checked);
-                      }
-                    },
-                    activeColor: present ? kPrimaryGreen : kErrorColor,
-                    checkColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    side: BorderSide.none,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ),
+                Icon(Icons.touch_app_rounded, size: 20, color: kTextSecondary),
               ],
             ),
           ),
@@ -839,50 +824,54 @@ class _StudentAttendanceCard extends StatelessWidget {
 
 // ================== SAVE BUTTON =====================
 class _SaveButton extends StatelessWidget {
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
-  const _SaveButton({required this.onPressed});
+  const _SaveButton({this.onPressed});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      height: 55,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [kPrimaryBlue, kPrimaryGreen],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: kPrimaryBlue.withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+    final enabled = onPressed != null;
+    return Opacity(
+      opacity: enabled ? 1 : 0.6,
+      child: Container(
+        width: double.infinity,
+        height: 55,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [kPrimaryBlue, kPrimaryGreen],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
           ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
           borderRadius: BorderRadius.circular(18),
-          child: Center(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Icon(Icons.save_rounded, color: Colors.white, size: 22),
-                SizedBox(width: 10),
-                Text(
-                  "Save Attendance",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+          boxShadow: [
+            BoxShadow(
+              color: kPrimaryBlue.withOpacity(0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onPressed,
+            borderRadius: BorderRadius.circular(18),
+            child: Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Icon(Icons.save_rounded, color: Colors.white, size: 22),
+                  SizedBox(width: 10),
+                  Text(
+                    "Save Attendance",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
