@@ -47,7 +47,7 @@ Future<Uint8List> buildStudentLetterPdf({
           pw.Divider(),
           pw.SizedBox(height: 16),
           row('Student Name', student.studentName),
-          row('EMIS Number', student.emisNumber),
+          row('EMIS Number', student.emisNumber.trim().isEmpty ? '—' : student.emisNumber),
           row('Class', className),
           row("Mother's name", student.motherName ?? '—'),
           row('Guardian', student.guardianName ?? '—'),

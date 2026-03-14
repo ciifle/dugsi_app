@@ -30,23 +30,45 @@ class MarkModel {
   });
 
   factory MarkModel.fromJson(Map<String, dynamic> json) {
+    // Backend may wrap the mark in a nested 'mark' or 'data' object.
+    final Map<String, dynamic> m = json['mark'] is Map<String, dynamic>
+        ? json['mark'] as Map<String, dynamic>
+        : json['data'] is Map<String, dynamic>
+            ? json['data'] as Map<String, dynamic>
+            : json;
+
     int parseId(dynamic v) {
       if (v == null) return 0;
       if (v is int) return v;
       if (v is String) return int.tryParse(v) ?? 0;
       return 0;
     }
+    /// Parse numeric value from backend (int, double, or string). Only use fallback when value is truly missing.
+    int parseMarksNum(dynamic v, int fallback) {
+      if (v == null) return fallback;
+      if (v is int) return v;
+      if (v is double) return v.round();
+      if (v is String) {
+        final s = v.trim();
+        if (s.isEmpty) return fallback;
+        return int.tryParse(s) ?? double.tryParse(s)?.round() ?? fallback;
+      }
+      return fallback;
+    }
+    // Support all common backend key variants; do not default to 0 when a value exists under another key.
+    final obtainedRaw = m['marks_obtained'] ?? m['marksObtained'] ?? m['obtained'] ?? m['score'] ?? m['obtained_marks'];
+    final maxRaw = m['max_marks'] ?? m['maxMarks'] ?? m['max'] ?? m['total_marks'] ?? m['totalMarks'] ?? m['total'] ?? m['out_of'];
     String? strOpt(dynamic v) => v == null ? null : v.toString().trim();
     return MarkModel(
-      id: parseId(json['id'] ?? json['mark_id']),
-      examId: parseId(json['exam_id'] ?? json['examId']),
-      studentId: parseId(json['student_id'] ?? json['studentId']),
-      subjectId: parseId(json['subject_id'] ?? json['subjectId']),
-      marksObtained: parseId(json['marks_obtained'] ?? json['marksObtained'] ?? 0),
-      maxMarks: parseId(json['max_marks'] ?? json['maxMarks'] ?? 100),
-      teacherId: json['teacher_id'] != null || json['teacherId'] != null ? parseId(json['teacher_id'] ?? json['teacherId']) : null,
-      grade: strOpt(json['grade']),
-      createdAt: strOpt(json['created_at'] ?? json['createdAt']),
+      id: parseId(m['id'] ?? m['mark_id']),
+      examId: parseId(m['exam_id'] ?? m['examId']),
+      studentId: parseId(m['student_id'] ?? m['studentId']),
+      subjectId: parseId(m['subject_id'] ?? m['subjectId']),
+      marksObtained: parseMarksNum(obtainedRaw, 0),
+      maxMarks: parseMarksNum(maxRaw, 100),
+      teacherId: m['teacher_id'] != null || m['teacherId'] != null ? parseId(m['teacher_id'] ?? m['teacherId']) : null,
+      grade: strOpt(m['grade']),
+      createdAt: strOpt(m['created_at'] ?? m['createdAt']),
     );
   }
 }
@@ -131,7 +153,9 @@ class MarksService {
       final marks = <MarkModel>[];
       for (final e in list) {
         if (e is Map<String, dynamic>) {
-          try { marks.add(MarkModel.fromJson(e)); } catch (_) {}
+          try {
+            marks.add(MarkModel.fromJson(e));
+          } catch (_) {}
         }
       }
       return MarkSuccess(marks);
@@ -162,17 +186,19 @@ class MarksService {
     }
   }
 
-  /// POST /api/school-admin/marks
+  /// POST /api/school-admin/marks. Do not send grade — backend calculates it.
   Future<MarkResult<MarkModel>> createMark(Map<String, dynamic> payload) async {
     try {
+      int toInt(dynamic v) => v == null ? 0 : (v is int ? v : int.tryParse(v.toString()) ?? 0);
       final body = <String, dynamic>{
-        'exam_id': payload['exam_id'] is int ? payload['exam_id'] as int : int.tryParse(payload['exam_id'].toString()) ?? 0,
-        'student_id': payload['student_id'] is int ? payload['student_id'] as int : int.tryParse(payload['student_id'].toString()) ?? 0,
-        'subject_id': payload['subject_id'] is int ? payload['subject_id'] as int : int.tryParse(payload['subject_id'].toString()) ?? 0,
-        'marks_obtained': payload['marks_obtained'] is int ? payload['marks_obtained'] as int : int.tryParse(payload['marks_obtained'].toString()) ?? 0,
-        'max_marks': payload['max_marks'] is int ? payload['max_marks'] as int : int.tryParse(payload['max_marks'].toString()) ?? 100,
-        'teacher_id': payload['teacher_id'] is int ? payload['teacher_id'] as int : int.tryParse(payload['teacher_id'].toString()) ?? 0,
+        'exam_id': toInt(payload['exam_id']),
+        'student_id': toInt(payload['student_id']),
+        'subject_id': toInt(payload['subject_id']),
+        'marks_obtained': toInt(payload['marks_obtained']),
+        'max_marks': toInt(payload['max_marks']),
       };
+      final tid = toInt(payload['teacher_id']);
+      if (tid > 0) body['teacher_id'] = tid;
       final response = await _client.post(apiUrl(_base), body: body);
       devLogResponse('MarksService.createMark', response.statusCode, response.body);
       if (response.statusCode == 201) {

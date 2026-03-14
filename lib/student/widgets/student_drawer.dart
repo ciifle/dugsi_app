@@ -47,7 +47,7 @@ class DrawerItem {
 class AppDrawer extends StatelessWidget {
   AppDrawer({Key? key}) : super(key: key);
 
-  final List<DrawerItem> _items = const [
+  static const List<DrawerItem> _allItems = [
     DrawerItem(label: "Dashboard", icon: Icons.dashboard_rounded),
     DrawerItem(
       label: "Timetable",
@@ -291,13 +291,17 @@ class AppDrawer extends StatelessWidget {
   }
 
   Widget _buildMenuItems() {
+    final feesEnabled = context.watch<AuthProvider>().feesEnabled;
+    final items = feesEnabled
+        ? _allItems
+        : _allItems.where((i) => i.label != 'Fees' && i.label != 'Payments').toList();
     return ListView.builder(
       padding: EdgeInsets.zero,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: _items.length,
+      itemCount: items.length,
       itemBuilder: (context, index) {
-        final item = _items[index];
+        final item = items[index];
         return _buildMenuItem(context, item, index);
       },
     );

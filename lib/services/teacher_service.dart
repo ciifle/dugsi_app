@@ -59,7 +59,131 @@ void devLogResponse(String context, int statusCode, String body) {
 
 // ==================== MODELS ====================
 
+/// Assigned class from dashboard (assignedClasses).
+class TeacherAssignedClassModel {
+  final int id;
+  final String name;
+
+  TeacherAssignedClassModel({required this.id, required this.name});
+
+  factory TeacherAssignedClassModel.fromJson(Map<String, dynamic> json) {
+    final id = _parseId(json['id'] ?? json['class_id'] ?? json['classId']);
+    final name = _str(json['name'] ?? json['class_name'] ?? json['className']);
+    return TeacherAssignedClassModel(id: id, name: name.isEmpty && id == 0 ? 'Unassigned' : name);
+  }
+
+  String get displayName => (id == 0 || name.isEmpty) ? 'Unassigned' : name;
+}
+
+/// Timetable entry from dashboard (timetables). Supports nested Class/Subject or flat class_name/subject_name.
+class TeacherTimetableEntryModel {
+  final int id;
+  final String day;
+  final String startTime;
+  final String endTime;
+  final int classId;
+  final String className;
+  final int subjectId;
+  final String subjectName;
+
+  TeacherTimetableEntryModel({
+    required this.id,
+    required this.day,
+    required this.startTime,
+    required this.endTime,
+    required this.classId,
+    required this.className,
+    required this.subjectId,
+    required this.subjectName,
+  });
+
+  String get classDisplayName => (classId == 0 || className.isEmpty) ? 'Unassigned' : className;
+  String get subjectDisplayName => (subjectId == 0 || subjectName.isEmpty) ? '—' : subjectName;
+  String get timeRange => '$startTime–$endTime';
+
+  factory TeacherTimetableEntryModel.fromJson(Map<String, dynamic> json) {
+    int parseId(dynamic v) {
+      if (v == null) return 0;
+      if (v is int) return v;
+      if (v is String) return int.tryParse(v) ?? 0;
+      return 0;
+    }
+    String str(dynamic v) => v == null ? '' : v.toString().trim();
+    final classObj = json['class'] ?? json['Class'];
+    final subjectObj = json['subject'] ?? json['Subject'];
+    int cId = 0;
+    String cName = '';
+    if (classObj is Map) {
+      cId = parseId((classObj as Map)['id']);
+      cName = str((classObj as Map)['name']);
+    } else {
+      cId = parseId(json['class_id'] ?? json['classId']);
+      cName = str(json['class_name'] ?? json['className']);
+    }
+    int sId = 0;
+    String sName = '';
+    if (subjectObj is Map) {
+      sId = parseId((subjectObj as Map)['id']);
+      sName = str((subjectObj as Map)['name']);
+    } else {
+      sId = parseId(json['subject_id'] ?? json['subjectId']);
+      sName = str(json['subject_name'] ?? json['subjectName']);
+    }
+    String day = str(json['day'] ?? '');
+    if (day.isEmpty) day = '—';
+    String start = str(json['start_time'] ?? json['startTime'] ?? '');
+    String end = str(json['end_time'] ?? json['endTime'] ?? '');
+    if (start.length == 5) start = '$start:00';
+    if (end.length == 5) end = '$end:00';
+    return TeacherTimetableEntryModel(
+      id: _parseId(json['id'] ?? json['timetable_id']),
+      day: day,
+      startTime: start.length >= 8 ? start.substring(0, 5) : start,
+      endTime: end.length >= 8 ? end.substring(0, 5) : end,
+      classId: cId,
+      className: cName,
+      subjectId: sId,
+      subjectName: sName,
+    );
+  }
+}
+
+/// Dashboard response: GET /api/teacher/dashboard -> { assignedClasses, assignments, timetables }
+class TeacherDashboardModel {
+  final List<TeacherAssignedClassModel> assignedClasses;
+  final List<TeacherAssignmentModel> assignments;
+  final List<TeacherTimetableEntryModel> timetables;
+
+  TeacherDashboardModel({
+    required this.assignedClasses,
+    required this.assignments,
+    required this.timetables,
+  });
+
+  factory TeacherDashboardModel.fromJson(Map<String, dynamic> json) {
+    final classesRaw = _extractList(json, ['assignedClasses', 'assigned_classes', 'classes']);
+    final assignmentsRaw = _extractList(json, ['assignments', 'data']);
+    final timetablesRaw = _extractList(json, ['timetables', 'timetable', 'schedules']);
+    final classes = classesRaw.whereType<Map<String, dynamic>>().map((e) {
+      if (e.containsKey('id') || e.containsKey('class_id') || e.containsKey('name') || e.containsKey('class_name')) {
+        return TeacherAssignedClassModel.fromJson(Map<String, dynamic>.from(e));
+      }
+      final nested = e['class'] ?? e['Class'];
+      if (nested is Map) return TeacherAssignedClassModel.fromJson(Map<String, dynamic>.from(nested as Map));
+      return TeacherAssignedClassModel.fromJson(Map<String, dynamic>.from(e));
+    }).toList();
+    final assignments = assignmentsRaw.whereType<Map<String, dynamic>>().map(TeacherAssignmentModel.fromJson).toList();
+    final timetables = timetablesRaw.whereType<Map<String, dynamic>>().map(TeacherTimetableEntryModel.fromJson).toList();
+    return TeacherDashboardModel(
+      assignedClasses: classes,
+      assignments: assignments,
+      timetables: timetables,
+    );
+  }
+}
+
 /// GET /api/teacher/assignments -> [{ id, class: {id, name}, subject: {id, name} }]
+/// Backend may send class_id/classId, class_name/className; never show "class 0" — use classDisplayName.
 class TeacherAssignmentModel {
   final int id;
   final Map<String, dynamic> class_;
@@ -71,18 +195,37 @@ class TeacherAssignmentModel {
     required this.subject,
   });
 
-  int get classId => _parseId(class_['id']);
-  String get className => _str(class_['name']);
-  int get subjectId => _parseId(subject['id']);
-  String get subjectName => _str(subject['name']);
+  int get classId => _parseId(class_['id'] ?? class_['class_id'] ?? class_['classId']);
+  String get className => _str(class_['name'] ?? class_['class_name'] ?? class_['className']);
+  int get subjectId => _parseId(subject['id'] ?? subject['subject_id'] ?? subject['subjectId']);
+  String get subjectName => _str(subject['name'] ?? subject['subject_name'] ?? subject['subjectName']);
+
+  /// Use for display: never show "class 0"; show "Unassigned" when class missing.
+  String get classDisplayName => (classId == 0 || className.trim().isEmpty) ? 'Unassigned' : className;
 
   factory TeacherAssignmentModel.fromJson(Map<String, dynamic> json) {
     final c = json['class'] ?? json['Class'] ?? json['class_'];
     final s = json['subject'] ?? json['Subject'] ?? json['subject_'];
+    Map<String, dynamic> classMap;
+    if (c is Map<String, dynamic>) {
+      classMap = Map<String, dynamic>.from(c);
+    } else {
+      final cId = json['class_id'] ?? json['classId'];
+      final cName = _str(json['class_name'] ?? json['className']);
+      classMap = {'id': cId, 'name': cName};
+    }
+    Map<String, dynamic> subjectMap;
+    if (s is Map<String, dynamic>) {
+      subjectMap = Map<String, dynamic>.from(s);
+    } else {
+      final sId = json['subject_id'] ?? json['subjectId'];
+      final sName = _str(json['subject_name'] ?? json['subjectName']);
+      subjectMap = {'id': sId, 'name': sName};
+    }
     return TeacherAssignmentModel(
       id: _parseId(json['id']),
-      class_: c is Map<String, dynamic> ? c : {'id': 0, 'name': _str(json['class_name'] ?? json['className'])},
-      subject: s is Map<String, dynamic> ? s : {'id': 0, 'name': _str(json['subject_name'] ?? json['subjectName'])},
+      class_: classMap,
+      subject: subjectMap,
     );
   }
 }
@@ -163,9 +306,9 @@ class TeacherMarkModel {
       marksObtained: _parseNum(json['marks_obtained'] ?? json['marksObtained'] ?? 0),
       maxMarks: _parseNum(json['max_marks'] ?? json['maxMarks'] ?? 100),
       grade: _strOpt(json['grade']),
-      studentName: nameFrom(student) ?? _strOpt(json['student_name'] ?? json['studentName']),
-      examName: nameFrom(exam) ?? _strOpt(json['exam_name'] ?? json['examName']),
-      subjectName: nameFrom(subject) ?? _strOpt(json['subject_name'] ?? json['subjectName']),
+      studentName: _strOpt(json['studentName'] ?? json['student_name']) ?? nameFrom(student),
+      examName: _strOpt(json['examName'] ?? json['exam_name']) ?? nameFrom(exam),
+      subjectName: _strOpt(json['subjectName'] ?? json['subject_name']) ?? nameFrom(subject),
     );
   }
 }
@@ -190,7 +333,29 @@ class TeacherService {
   static final TeacherService _instance = TeacherService._();
   factory TeacherService() => _instance;
 
-  /// GET /api/teacher/assignments
+  /// GET /api/teacher/dashboard — source of truth for teacher panel (assignedClasses, assignments, timetables).
+  Future<TeacherResult<TeacherDashboardModel>> getDashboard() async {
+    try {
+      final response = await _client.get(apiUrl('$_base/dashboard'));
+      devLogResponse('TeacherService.getDashboard', response.statusCode, response.body);
+      if (response.statusCode == 403) {
+        return TeacherError(_errorMessage(response) ?? 'Teacher profile not found. Contact school admin.', 403);
+      }
+      if (response.statusCode != 200) {
+        return TeacherError(_errorMessage(response) ?? 'Could not load dashboard.', response.statusCode);
+      }
+      final raw = _parseJson(response.body);
+      if (raw is! Map<String, dynamic>) {
+        return TeacherError('Invalid dashboard response.');
+      }
+      final model = TeacherDashboardModel.fromJson(raw);
+      return TeacherSuccess(model);
+    } catch (e, st) {
+      return TeacherError(userFriendlyMessage(e, st, 'TeacherService.getDashboard'));
+    }
+  }
+
+  /// GET /api/teacher/assignments (kept for backward compatibility; prefer getDashboard).
   Future<TeacherResult<List<TeacherAssignmentModel>>> listAssignments() async {
     try {
       final response = await _client.get(apiUrl('$_base/assignments'));

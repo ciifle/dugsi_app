@@ -189,8 +189,9 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
       return;
     }
     final err = result as StudentError;
-    String msg = err.message;
-    if (err.statusCode == 409) msg = 'Registration number already exists';
+    final msg = err.message.trim().isNotEmpty
+        ? err.message
+        : (err.statusCode == 409 ? 'EMIS number already exists.' : 'Something went wrong. Please try again.');
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg), backgroundColor: Colors.red),
     );

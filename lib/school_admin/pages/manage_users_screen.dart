@@ -71,7 +71,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
           role: 'student',
           id: s.id,
           name: s.studentName,
-          subtitle: s.emisNumber,
+          subtitle: s.emisNumber.trim().isEmpty ? '—' : s.emisNumber,
         ));
       }
     }

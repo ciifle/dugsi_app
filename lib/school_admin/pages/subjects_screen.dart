@@ -7,6 +7,7 @@ const Color kPrimaryGreen = Color(0xFF5AB04B);
 const Color kBgColor = Color(0xFFF0F3F7);
 const double kCardRadius = 28.0;
 
+/// Local subject model. Backend Subject has id and name only (no code, no class_id).
 class Subject {
   final String name;
   final String code;
@@ -16,8 +17,8 @@ class Subject {
 
   Subject({
     required this.name,
-    required this.code,
-    required this.assignedClass,
+    this.code = '',
+    this.assignedClass = '',
     required this.teacher,
     required this.isActive,
   });
@@ -155,7 +156,7 @@ class _SubjectCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Text(
-                  subject.code.substring(0, 1),
+                  subject.code.isNotEmpty ? subject.code.substring(0, 1) : (subject.name.isNotEmpty ? subject.name.substring(0, 1) : '?'),
                   style: const TextStyle(color: kPrimaryGreen, fontWeight: FontWeight.bold, fontSize: 18),
                 ),
               ),
@@ -170,7 +171,7 @@ class _SubjectCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      "${subject.assignedClass} • ${subject.code}",
+                      [subject.assignedClass, subject.code].where((s) => s.isNotEmpty).join(' • ').isEmpty ? '—' : [subject.assignedClass, subject.code].where((s) => s.isNotEmpty).join(' • '),
                       style: TextStyle(fontSize: 13, color: kPrimaryBlue.withOpacity(0.6)),
                     ),
                     const SizedBox(height: 4),

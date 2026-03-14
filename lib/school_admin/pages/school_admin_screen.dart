@@ -28,6 +28,9 @@ import 'package:kobac/services/students_service.dart';
 import 'package:kobac/services/classes_service.dart';
 import 'package:kobac/services/subjects_service.dart';
 import 'package:kobac/school_admin/pages/messages_inbox_screen.dart';
+import 'package:kobac/services/auth_provider.dart';
+import 'package:kobac/shared/widgets/fees_feature_guard.dart';
+import 'package:provider/provider.dart';
 
 /// --- Brand / Premium 3D Design Constants ---
 const Color kPrimaryBlue = Color(0xFF023471); // #023471
@@ -180,6 +183,14 @@ class _SchoolAdminScreenState extends State<SchoolAdminScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final feesEnabled = context.watch<AuthProvider>().feesEnabled;
+    if (!feesEnabled && _bottomNavIndex == 3) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _bottomNavIndex = 2);
+      });
+    } else if (!feesEnabled && _bottomNavIndex == 2) {
+      // Index 2 with fees disabled = Profile (Finance tab hidden)
+    }
     return Scaffold(
       backgroundColor: kBgColor,
       drawer: _bottomNavIndex == 0
@@ -188,7 +199,7 @@ class _SchoolAdminScreenState extends State<SchoolAdminScreen> {
                 if (_nestedNavKey.currentState?.canPop() == true) {
                   _nestedNavKey.currentState?.popUntil((route) => route.isFirst);
                 }
-                setState(() => _bottomNavIndex = 3);
+                setState(() => _bottomNavIndex = feesEnabled ? 3 : 2);
               },
               onNavigateToPage: (page) {
                 _nestedNavKey.currentState?.push(
@@ -212,18 +223,20 @@ class _SchoolAdminScreenState extends State<SchoolAdminScreen> {
       bottomNavigationBar: _BottomNav(
         index: _bottomNavIndex,
         onChange: _onBottomNavChange,
+        feesEnabled: feesEnabled,
       ),
     );
   }
 
   String _headerTitle() {
+    final feesEnabled = context.read<AuthProvider>().feesEnabled;
     switch (_bottomNavIndex) {
       case 0:
         return _userName.isEmpty ? "School Admin" : _userName;
       case 1:
         return "Messages";
       case 2:
-        return "Finance";
+        return feesEnabled ? "Finance" : "My Profile";
       case 3:
         return "My Profile";
       default:
@@ -232,11 +245,14 @@ class _SchoolAdminScreenState extends State<SchoolAdminScreen> {
   }
 
   Widget _buildBodyForIndex(BuildContext context) {
+    final feesEnabled = context.watch<AuthProvider>().feesEnabled;
     switch (_bottomNavIndex) {
       case 1:
         return const MessagesInboxScreen(embedInParent: true);
       case 2:
-        return const PaymentsScreen(embedInParent: true);
+        return feesEnabled
+            ? const FeesFeatureGuard(child: PaymentsScreen(embedInParent: true))
+            : const AdminProfilePage(embedBodyOnly: true);
       case 3:
         return const AdminProfilePage(embedBodyOnly: true);
       default:
@@ -245,6 +261,7 @@ class _SchoolAdminScreenState extends State<SchoolAdminScreen> {
   }
 
   Widget _buildDashboardBody(BuildContext context) {
+    final feesEnabled = context.watch<AuthProvider>().feesEnabled;
     return SingleChildScrollView(
       padding: const EdgeInsets.only(bottom: 24),
       physics: const BouncingScrollPhysics(),
@@ -253,8 +270,10 @@ class _SchoolAdminScreenState extends State<SchoolAdminScreen> {
         children: [
           const SizedBox(height: 6),
           _buildStatCards2x2(context),
-          const SizedBox(height: 22),
-          _buildFeesOverviewSection(context),
+          if (feesEnabled) ...[
+            const SizedBox(height: 22),
+            _buildFeesOverviewSection(context),
+          ],
           const SizedBox(height: 22),
           _buildQuickActionsSection(context),
           const SizedBox(height: 80),
@@ -680,22 +699,26 @@ class _SimpleWhiteAppBar extends StatelessWidget {
   }
 }
 
-/// ======= BOTTOM NAV (same 3D style) =======
+/// ======= BOTTOM NAV (same 3D style). When feesEnabled is false, Finance tab is hidden. =======
 class _BottomNav extends StatelessWidget {
   final int index;
   final ValueChanged<int> onChange;
+  final bool feesEnabled;
 
-  const _BottomNav({required this.index, required this.onChange});
+  const _BottomNav({required this.index, required this.onChange, this.feesEnabled = true});
 
   @override
   Widget build(BuildContext context) {
-    const icons = [
+    const allIcons = [
       Icons.grid_view_rounded,
       Icons.chat_bubble_outline_rounded,
       Icons.account_balance_wallet_rounded,
       Icons.person_rounded,
     ];
-    const labels = ["Dashboard", "Messages", "Finance", "Profile"];
+    const allLabels = ["Dashboard", "Messages", "Finance", "Profile"];
+    final count = feesEnabled ? 4 : 3;
+    final icons = feesEnabled ? allIcons : [allIcons[0], allIcons[1], allIcons[3]];
+    final labels = feesEnabled ? allLabels : [allLabels[0], allLabels[1], allLabels[3]];
 
     return SafeArea(
       top: false,
@@ -730,7 +753,7 @@ class _BottomNav extends StatelessWidget {
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(4, (i) {
+            children: List.generate(count, (i) {
               return _BottomNavItem(
                 icon: icons[i],
                 label: labels[i],

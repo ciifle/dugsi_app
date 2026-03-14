@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:kobac/services/auth_provider.dart';
+import 'package:kobac/shared/widgets/fees_feature_guard.dart';
 
 // ==================== COLOR CONSTANTS ====================
 const Color kPrimaryColor = Color(0xFF2A2E45);
@@ -332,9 +335,10 @@ class _FeePaymentScreenState extends State<ParentFeePaymentScreen> {
     final double lateFee = _getLateFee();
     final double totalPayable = dueAmount + lateFee;
 
-    return Scaffold(
-      backgroundColor: kBackgroundEnd,
-      appBar: AppBar(
+    return FeesFeatureGuard(
+      child: Scaffold(
+        backgroundColor: kBackgroundEnd,
+        appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         flexibleSpace: Container(
@@ -772,6 +776,7 @@ class _FeePaymentScreenState extends State<ParentFeePaymentScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 

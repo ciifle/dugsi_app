@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:kobac/services/api_client.dart';
 import 'package:kobac/services/api_error_helpers.dart';
 
+/// Fee model. Backend returns flattened root-level fields (studentName, emisNumber, amount, status, paidAmount, remainingAmount, Payments).
+/// Do not parse nested User for fees.
 class FeeModel {
   final int id;
   final int studentId;
@@ -13,6 +15,10 @@ class FeeModel {
   final num? remainingAmount;
   final String? status;
   final String? createdAt;
+  /// Flattened from API (root-level).
+  final String? studentName;
+  final String? emisNumber;
+  final List<dynamic>? payments;
 
   const FeeModel({
     required this.id,
@@ -22,6 +28,9 @@ class FeeModel {
     this.remainingAmount,
     this.status,
     this.createdAt,
+    this.studentName,
+    this.emisNumber,
+    this.payments,
   });
 
   factory FeeModel.fromJson(Map<String, dynamic> json) {
@@ -38,14 +47,20 @@ class FeeModel {
       return 0;
     }
     String? strOpt(dynamic v) => v == null ? null : v.toString().trim();
+    List<dynamic>? payList;
+    final p = json['Payments'] ?? json['payments'];
+    if (p is List) payList = p;
     return FeeModel(
       id: parseId(json['id'] ?? json['fee_id']),
-      studentId: parseId(json['student_id'] ?? json['studentId']),
+      studentId: parseId(json['student_id'] ?? json['studentId'] ?? 0),
       amount: parseNum(json['amount'] ?? 0),
       paidAmount: json['paid_amount'] != null || json['paidAmount'] != null ? parseNum(json['paid_amount'] ?? json['paidAmount']) : null,
       remainingAmount: json['remaining_amount'] != null || json['remainingAmount'] != null ? parseNum(json['remaining_amount'] ?? json['remainingAmount']) : null,
       status: strOpt(json['status']),
       createdAt: strOpt(json['created_at'] ?? json['createdAt']),
+      studentName: strOpt(json['studentName'] ?? json['student_name']),
+      emisNumber: strOpt(json['emisNumber'] ?? json['emis_number']),
+      payments: payList,
     );
   }
 }

@@ -273,9 +273,9 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
                           final record = list[index];
                           return _AttendanceCard(
                             record: record,
-                            studentName: _studentName(record.studentId),
+                            studentName: record.studentName ?? _studentName(record.studentId),
                             emis: _studentEmis(record.studentId),
-                            className: _className(record.classId),
+                            className: record.className ?? _className(record.classId),
                             statusOptions: statusOptions,
                             onUpdateStatus: () => _openUpdateStatus(record, statusOptions),
                             onDelete: () => _deleteAttendance(record),

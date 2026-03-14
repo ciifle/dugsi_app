@@ -4,6 +4,7 @@ import 'package:kobac/services/fees_service.dart';
 import 'package:kobac/services/students_service.dart';
 import 'package:kobac/services/api_error_helpers.dart';
 import 'package:kobac/school_admin/widgets/delete_confirm_dialog.dart';
+import 'package:kobac/shared/widgets/fees_feature_guard.dart';
 import 'package:kobac/widgets/form_3d/form_3d.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
@@ -157,18 +158,19 @@ class _AdminFeesScreenState extends State<AdminFeesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: kBgColor,
-      body: SafeArea(
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [kBgColor, kPrimaryBlue.withOpacity(0.02)],
+    return FeesFeatureGuard(
+      child: Scaffold(
+        backgroundColor: kBgColor,
+        body: SafeArea(
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [kBgColor, kPrimaryBlue.withOpacity(0.02)],
+              ),
             ),
-          ),
-          child: Column(
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
@@ -195,7 +197,7 @@ class _AdminFeesScreenState extends State<AdminFeesScreen> {
                           label: 'Student',
                           items: [
                             const DropdownMenuItem<int?>(value: null, child: Text('All students')),
-                            ..._students.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text('${s.studentName} (${s.emisNumber})'))),
+                            ..._students.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text('${s.studentName} (${s.emisNumber.trim().isEmpty ? '—' : s.emisNumber})'))),
                           ],
                           onChanged: (v) => setState(() => _filterStudentId = v),
                         ),
@@ -271,8 +273,8 @@ class _AdminFeesScreenState extends State<AdminFeesScreen> {
                           final fee = list[index];
                           return _FeeCard(
                             fee: fee,
-                            studentName: _studentName(fee.studentId),
-                            emis: _studentEmis(fee.studentId),
+                            studentName: fee.studentName ?? _studentName(fee.studentId),
+                            emis: fee.emisNumber ?? _studentEmis(fee.studentId),
                             onTap: () => _openFeeDetail(fee),
                             onUpdateStatus: () => _openUpdateStatus(fee),
                             onDelete: () => _deleteFee(fee),
@@ -287,6 +289,7 @@ class _AdminFeesScreenState extends State<AdminFeesScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 
@@ -296,8 +299,8 @@ class _AdminFeesScreenState extends State<AdminFeesScreen> {
       MaterialPageRoute(
         builder: (_) => _FeeDetailScreen(
           fee: fee,
-          studentName: _studentName(fee.studentId),
-          emis: _studentEmis(fee.studentId),
+          studentName: fee.studentName ?? _studentName(fee.studentId),
+          emis: fee.emisNumber ?? _studentEmis(fee.studentId),
           onUpdateStatus: () => _openUpdateStatus(fee),
           onDelete: () => _deleteFee(fee),
           onPop: () => _loadFees(),
@@ -558,7 +561,7 @@ class _CreateFeeDialogState extends State<_CreateFeeDialog> {
               label: 'Student',
               items: [
                 const DropdownMenuItem<int?>(value: null, child: Text('Select student')),
-                ...widget.students.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text('${s.studentName} (${s.emisNumber})'))),
+                ...widget.students.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text('${s.studentName} (${s.emisNumber.trim().isEmpty ? '—' : s.emisNumber})'))),
               ],
               onChanged: (v) => setState(() => _studentId = v),
             ),

@@ -6,6 +6,8 @@ import 'package:kobac/services/api_client.dart';
 import 'package:kobac/services/api_error_helpers.dart';
 
 /// Attendance record model (school-admin scope).
+/// Backend returns flattened root-level fields (studentName, teacherName, className, subjectName, date, time, period, status).
+/// Do not expect nested User objects.
 class AttendanceModel {
   final int id;
   final int? studentId;
@@ -14,6 +16,13 @@ class AttendanceModel {
   final String? status;
   final String? recordedAt;
   final String? createdAt;
+  /// Flattened from API (root-level).
+  final String? studentName;
+  final String? teacherName;
+  final String? className;
+  final String? subjectName;
+  final String? time;
+  final String? period;
 
   const AttendanceModel({
     required this.id,
@@ -23,6 +32,12 @@ class AttendanceModel {
     this.status,
     this.recordedAt,
     this.createdAt,
+    this.studentName,
+    this.teacherName,
+    this.className,
+    this.subjectName,
+    this.time,
+    this.period,
   });
 
   factory AttendanceModel.fromJson(Map<String, dynamic> json) {
@@ -41,6 +56,12 @@ class AttendanceModel {
       status: strOpt(json['status']),
       recordedAt: strOpt(json['recorded_at'] ?? json['recordedAt']),
       createdAt: strOpt(json['created_at'] ?? json['createdAt']),
+      studentName: strOpt(json['studentName'] ?? json['student_name']),
+      teacherName: strOpt(json['teacherName'] ?? json['teacher_name']),
+      className: strOpt(json['className'] ?? json['class_name']),
+      subjectName: strOpt(json['subjectName'] ?? json['subject_name']),
+      time: strOpt(json['time']),
+      period: strOpt(json['period']),
     );
   }
 }

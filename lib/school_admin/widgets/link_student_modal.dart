@@ -216,7 +216,7 @@ class _LinkStudentModalState extends State<LinkStudentModal> {
                                                   ),
                                                 ),
                                                 Text(
-                                                  '${s.emisNumber} • ${s.classDisplayName}',
+                                                  '${s.emisNumber.trim().isEmpty ? '—' : s.emisNumber} • ${s.classDisplayName}',
                                                   style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                                                 ),
                                               ],

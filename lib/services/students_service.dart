@@ -6,12 +6,14 @@ import 'package:kobac/services/api_client.dart';
 import 'package:kobac/services/api_error_helpers.dart';
 
 /// Student model matching API response (list/detail).
-/// Supports both camelCase (emisNumber, studentName) and snake_case from API.
+/// API returns camelCase (emisNumber, studentName). For backward compatibility with
+/// older DB rows where emis_number may be NULL, we also read emis_number and coerce null to ''.
 class StudentModel {
   final int id;
   final int? userId;
   final int? schoolId;
   final int? classId;
+  /// EMIS number. Empty string when API returns null (legacy rows).
   final String emisNumber;
   final String studentName;
   final String? motherName;
@@ -92,6 +94,7 @@ class StudentModel {
       userId: json['user_id'] != null ? parseId(json['user_id']) : null,
       schoolId: json['school_id'] != null ? parseId(json['school_id']) : null,
       classId: json['class_id'] != null ? intOpt(json['class_id']) : null,
+      // Backend returns emisNumber; legacy API/DB may send emis_number or null
       emisNumber: str(json['emisNumber'] ?? json['emis_number']),
       studentName: str(json['studentName'] ?? json['student_name']),
       motherName: strOpt(json['motherName'] ?? json['mother_name']),
@@ -246,12 +249,26 @@ dynamic _parseJson(String body) {
   }
 }
 
+/// Extracts user-facing message from API error response.
+/// Supports: message, error, and errors (Laravel-style map or list).
 String? _errorMessage(http.Response response) {
   if (response.body.isEmpty) return null;
   try {
     final m = jsonDecode(response.body);
-    if (m is Map && m['message'] != null) return m['message'] as String;
-    if (m is Map && m['error'] != null) return m['error'] as String;
+    if (m is! Map) return null;
+    if (m['message'] != null) return m['message'] is String ? m['message'] as String : m['message'].toString();
+    if (m['error'] != null) return m['error'] is String ? m['error'] as String : m['error'].toString();
+    final errors = m['errors'];
+    if (errors is List && errors.isNotEmpty) {
+      final first = errors.first;
+      return first is String ? first : first.toString();
+    }
+    if (errors is Map && errors.isNotEmpty) {
+      final firstKey = errors.keys.first;
+      final val = errors[firstKey];
+      if (val is List && val.isNotEmpty) return val.first is String ? val.first as String : val.first.toString();
+      if (val is String) return val;
+    }
   } catch (_) {}
   return null;
 }
@@ -273,7 +290,7 @@ class StudentsService {
         if (studentMap is! Map<String, dynamic>) return StudentError('Invalid response from server. Please try again.');
         return StudentSuccess(StudentModel.fromJson(studentMap));
       }
-      if (response.statusCode == 409) return StudentError('Registration number already exists', 409);
+      if (response.statusCode == 409) return StudentError(_errorMessage(response) ?? 'EMIS number already exists.', 409);
       if (response.statusCode == 400) return StudentError(_errorMessage(response) ?? 'Invalid data. Please check and try again.', 400);
       return StudentError(_errorMessage(response) ?? 'Request failed. Please try again.', response.statusCode);
     } catch (e, st) {
@@ -361,7 +378,8 @@ class StudentsService {
       final response = await _client.patch(apiUrl('$_base/$id'), body: body);
       devLogResponse('StudentsService.updateStudent', response.statusCode, response.body);
       if (response.statusCode == 404) return StudentError('Student not found.', 404);
-      if (response.statusCode == 409) return StudentError('Registration number already exists', 409);
+      if (response.statusCode == 409) return StudentError(_errorMessage(response) ?? 'EMIS number already exists.', 409);
+      if (response.statusCode == 400) return StudentError(_errorMessage(response) ?? 'Invalid data. Please check and try again.', 400);
       if (response.statusCode != 200) {
         return StudentError(_errorMessage(response) ?? 'Could not update. Please try again.', response.statusCode);
       }

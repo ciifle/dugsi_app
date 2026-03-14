@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kobac/services/teacher_service.dart';
 
 // ---------- COLOR PALETTE (Matching Student Dashboard) ----------
 const Color kPrimaryBlue = Color(0xFF023471); // Dark blue
@@ -15,6 +16,19 @@ const Color kErrorColor = Color(0xFFEF4444); // Red
 const Color kSoftOrange = Color(0xFFF59E0B); // Amber
 const Color kSuccessColor = Color(0xFF5AB04B); // Green for present
 const Color kCardColor = Colors.white;
+
+/// Normalize API day string to short form (Mon, Tue, ... Sun).
+String _normalizeDay(String day) {
+  final d = day.trim().toLowerCase();
+  if (d.startsWith('mon')) return 'Mon';
+  if (d.startsWith('tue')) return 'Tue';
+  if (d.startsWith('wed')) return 'Wed';
+  if (d.startsWith('thu')) return 'Thu';
+  if (d.startsWith('fri')) return 'Fri';
+  if (d.startsWith('sat')) return 'Sat';
+  if (d.startsWith('sun')) return 'Sun';
+  return day;
+}
 
 class TeacherWeeklyScheduleScreen extends StatefulWidget {
   const TeacherWeeklyScheduleScreen({Key? key}) : super(key: key);
@@ -37,79 +51,50 @@ class _TeacherWeeklyScheduleScreenState
   ];
 
   int selectedDayIndex = DateTime.now().weekday % 7; // Monday=0, Sunday=6
-  int notificationCount = 3; // Dummy notification count
+  int notificationCount = 0;
 
-  // Dummy schedule data with VALID Flutter icons
-  final Map<String, List<Map<String, dynamic>>> weeklySchedule = {
-    'Mon': [
-      {
-        "class": "Grade 10-A",
-        "subject": "Mathematics",
-        "time": "08:00 - 09:30",
-        "room": "101",
-        "icon": Icons.calculate_rounded,
-      },
-      {
-        "class": "Grade 11-B",
-        "subject": "Algebra II",
-        "time": "10:00 - 11:30",
-        "room": "210",
-        "icon": Icons.functions_rounded,
-      },
-    ],
-    'Tue': [
-      {
-        "class": "Grade 12-C",
-        "subject": "Calculus",
-        "time": "09:00 - 10:30",
-        "room": "305",
-        "icon": Icons.show_chart_rounded,
-      },
-    ],
-    'Wed': [
-      {
-        "class": "Grade 9-A",
-        "subject": "Geometry",
-        "time": "08:00 - 09:30",
-        "room": "114",
-        "icon": Icons.category_rounded,
-      },
-      {
-        "class": "Grade 10-A",
-        "subject": "Trigonometry",
-        "time": "11:00 - 12:30",
-        "room": "102",
-        "icon": Icons.change_circle_rounded,
-      },
-    ],
-    'Thu': [
-      {
-        "class": "Grade 11-B",
-        "subject": "Pre-Calculus",
-        "time": "10:00 - 11:30",
-        "room": "209",
-        "icon": Icons.insights_rounded,
-      },
-    ],
-    'Fri': [
-      {
-        "class": "Grade 9-A",
-        "subject": "Statistics",
-        "time": "09:00 - 10:30",
-        "room": "115",
-        "icon": Icons.bar_chart_rounded,
-      },
-      {
-        "class": "Grade 12-C",
-        "subject": "Advanced Calculus",
-        "time": "12:00 - 13:30",
-        "room": "304",
-        "icon": Icons.auto_graph_rounded,
-      },
-    ],
-    'Sat': [],
-    'Sun': [],
-  };
+  /// Timetable from GET /api/teacher/dashboard; key = normalized day (Mon..Sun).
+  Map<String, List<TeacherTimetableEntryModel>> _scheduleByDay = {};
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTimetable();
+  }
+
+  Future<void> _loadTimetable() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+      _scheduleByDay = {};
+    });
+    final result = await TeacherService().getDashboard();
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      if (result is TeacherSuccess<TeacherDashboardModel>) {
+        final timetables = result.data.timetables;
+        final byDay = <String, List<TeacherTimetableEntryModel>>{};
+        for (final d in daysOfWeek) {
+          byDay[d] = [];
+        }
+        for (final t in timetables) {
+          final day = _normalizeDay(t.day);
+          if (byDay.containsKey(day)) {
+            byDay[day]!.add(t);
+          } else {
+            byDay[day] = [t];
+          }
+        }
+        _scheduleByDay = byDay;
+        _error = null;
+      } else {
+        _error = (result as TeacherError).message;
+      }
+    });
+  }
 
   void _showNotifications() {
     showModalBottomSheet(
@@ -138,10 +123,48 @@ class _TeacherWeeklyScheduleScreenState
     }
   }
 
+  List<Map<String, dynamic>> _dayScheduleFor(String day) {
+    final list = _scheduleByDay[day] ?? [];
+    return list.map((t) => {
+      'class': t.classDisplayName,
+      'subject': t.subjectDisplayName,
+      'time': t.timeRange,
+      'room': '—',
+      'icon': Icons.class_rounded,
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final selectedDay = daysOfWeek[selectedDayIndex];
-    final daySchedule = weeklySchedule[selectedDay] ?? [];
+    final daySchedule = _loading || _error != null ? <Map<String, dynamic>>[] : _dayScheduleFor(selectedDay);
+
+    if (_loading) {
+      return Scaffold(
+        backgroundColor: kSoftBlue,
+        body: const Center(child: CircularProgressIndicator(color: kPrimaryBlue)),
+      );
+    }
+    if (_error != null) {
+      return Scaffold(
+        backgroundColor: kSoftBlue,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline_rounded, size: 56, color: kTextSecondary),
+                const SizedBox(height: 16),
+                Text(_error!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, color: kTextPrimary)),
+                const SizedBox(height: 24),
+                TextButton.icon(onPressed: _loadTimetable, icon: const Icon(Icons.refresh_rounded), label: const Text('Retry'), style: TextButton.styleFrom(foregroundColor: kPrimaryBlue)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: kSoftBlue,

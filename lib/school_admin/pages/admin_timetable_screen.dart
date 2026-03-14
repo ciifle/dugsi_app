@@ -6,6 +6,7 @@ import 'package:kobac/services/teachers_service.dart';
 import 'package:kobac/services/school_admin_assignments_service.dart';
 import 'package:kobac/services/api_error_helpers.dart';
 import 'package:kobac/school_admin/pages/admin_assignments_screen.dart';
+import 'package:kobac/school_admin/pages/timetable_detail_page.dart';
 import 'package:kobac/school_admin/widgets/delete_confirm_dialog.dart';
 import 'package:kobac/widgets/form_3d/form_3d.dart';
 
@@ -357,6 +358,11 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                             subjectName: _subjectName(slot.subjectId),
                             teacherName: _teacherName(slot.teacherId),
                             className: _selectedClassId == null ? _className(slot.classId) : null,
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => TimetableDetailPage(slotId: slot.id),
+                              ),
+                            ),
                             onEdit: () => _openEditSlot(slot),
                             onDelete: () => _deleteSlot(slot),
                           );
@@ -379,6 +385,7 @@ class _SlotCard extends StatelessWidget {
   final String subjectName;
   final String teacherName;
   final String? className;
+  final VoidCallback? onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -387,6 +394,7 @@ class _SlotCard extends StatelessWidget {
     required this.subjectName,
     required this.teacherName,
     this.className,
+    this.onTap,
     required this.onEdit,
     required this.onDelete,
   });
@@ -396,7 +404,10 @@ class _SlotCard extends StatelessWidget {
     final timeStr = '${_timeDisplay(slot.startTime)} - ${_timeDisplay(slot.endTime)}';
     return Material(
       color: Colors.transparent,
-      child: Container(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(kCardRadius),
+        child: Container(
         margin: const EdgeInsets.only(bottom: 14),
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
@@ -447,6 +458,7 @@ class _SlotCard extends StatelessWidget {
           ],
         ),
       ),
+    ),
     );
   }
 
@@ -497,7 +509,9 @@ class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
   late TextEditingController _endController;
   bool _submitting = false;
   List<TeacherModel> _classTeachers = [];
+  List<ClassSubjectItem> _classSubjects = [];
   bool _loadingTeachers = false;
+  bool _loadingSubjects = false;
 
   @override
   void initState() {
@@ -509,8 +523,29 @@ class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
     _startController = TextEditingController(text: _formatTimeForInput(widget.initialStartTime));
     _endController = TextEditingController(text: _formatTimeForInput(widget.initialEndTime));
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.initialClassId != null && widget.initialClassId! > 0) {
+        _loadClassSubjects(widget.initialClassId!);
+      }
       if (widget.initialClassId != null && widget.initialSubjectId != null) {
         _loadTeachers(widget.initialClassId!, widget.initialSubjectId!);
+      }
+    });
+  }
+
+  Future<void> _loadClassSubjects(int classId) async {
+    setState(() => _loadingSubjects = true);
+    final result = await SchoolAdminAssignmentsService().listClassSubjects(classId);
+    if (!mounted) return;
+    setState(() {
+      _loadingSubjects = false;
+      if (result is AssignmentSuccess<List<ClassSubjectItem>>) {
+        _classSubjects = result.data;
+        final currentId = _subjectId;
+        final inList = currentId != null && _classSubjects.any((s) => s.id == currentId);
+        if (!inList) _subjectId = null;
+      } else {
+        _classSubjects = [];
+        _subjectId = null;
       }
     });
   }
@@ -523,8 +558,12 @@ class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
       _loadingTeachers = false;
       if (result is AssignmentSuccess<List<TeacherModel>>) {
         _classTeachers = result.data;
+        final currentId = _teacherId;
+        final inList = currentId != null && _classTeachers.any((t) => t.id == currentId);
+        if (!inList) _teacherId = null;
       } else {
         _classTeachers = [];
+        _teacherId = null;
       }
     });
   }
@@ -540,6 +579,36 @@ class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
     _startController.dispose();
     _endController.dispose();
     super.dispose();
+  }
+
+  /// Subject value for dropdown: only set if it exists in _classSubjects to avoid Flutter assertion.
+  int? get _effectiveSubjectId {
+    if (_subjectId == null) return null;
+    if (_classSubjects.any((s) => s.id == _subjectId)) return _subjectId;
+    return null;
+  }
+
+  List<DropdownMenuItem<int?>> get _subjectDropdownItems {
+    final items = <DropdownMenuItem<int?>>[
+      DropdownMenuItem<int?>(
+        value: null,
+        child: Text(
+          _loadingSubjects ? 'Loading...' : (_classId == null ? 'Select class first' : 'Select subject'),
+        ),
+      ),
+    ];
+    final seen = <int>{};
+    for (final s in _classSubjects) {
+      if (seen.add(s.id)) items.add(DropdownMenuItem<int?>(value: s.id, child: Text(s.name)));
+    }
+    return items;
+  }
+
+  /// Teacher value for dropdown: only set if it exists in _classTeachers.
+  int? get _effectiveTeacherId {
+    if (_teacherId == null) return null;
+    if (_classTeachers.any((t) => t.id == _teacherId)) return _teacherId;
+    return null;
   }
 
   bool _canSubmit() {
@@ -630,25 +699,17 @@ class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
                     _subjectId = null;
                     _teacherId = null;
                     _classTeachers = [];
+                    _classSubjects = [];
                   });
+                  if (v != null && v > 0) _loadClassSubjects(v);
                 },
               ),
               const SizedBox(height: 16),
               Select3D<int?>(
-                value: _subjectId,
+                value: _effectiveSubjectId,
                 label: 'Subject',
-                items: [
-                  DropdownMenuItem<int?>(
-                    value: null,
-                    child: Text(
-                      widget.subjects.isEmpty
-                          ? 'No subjects created yet. Create subjects first.'
-                          : 'Select subject',
-                    ),
-                  ),
-                  ...widget.subjects.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text(s.name))),
-                ],
-                onChanged: widget.subjects.isEmpty ? null : (v) {
+                items: _subjectDropdownItems,
+                onChanged: _loadingSubjects ? null : (v) {
                   setState(() {
                     _subjectId = v;
                     _teacherId = null;
@@ -657,17 +718,17 @@ class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
                   if (v != null && _classId != null) _loadTeachers(_classId!, v);
                 },
               ),
-              if (widget.subjects.isEmpty)
+              if (_classId != null && !_loadingSubjects && _classSubjects.isEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
-                    'No subjects created yet. Create subjects first.',
+                    'No subjects for this class. Add subjects via class timetable or create subjects first.',
                     style: TextStyle(fontSize: 13, color: Colors.orange[800]),
                   ),
                 ),
               const SizedBox(height: 16),
               Select3D<int?>(
-                value: _teacherId,
+                value: _effectiveTeacherId,
                 label: 'Teacher',
                 items: [
                   DropdownMenuItem<int?>(

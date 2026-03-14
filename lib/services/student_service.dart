@@ -24,7 +24,8 @@ num _parseNum(dynamic v) {
 String _str(dynamic v) => v == null ? '' : v.toString().trim();
 String? _strOpt(dynamic v) => v == null ? null : v.toString().trim();
 
-/// GET /api/student/me -> student with Class, User
+/// GET /api/student/me -> student with Class, User (if any).
+/// Prefer root-level fields (name, emisNumber, classId, className); do not rely on nested User for display.
 class StudentMeModel {
   final int id;
   final String? name;
@@ -58,7 +59,7 @@ class StudentMeModel {
       classId: c is Map ? _parseId(c['id']) : _parseId(json['class_id'] ?? json['classId']),
       className: cn,
       class_: c is Map<String, dynamic> ? c : null,
-      user: json['user'] is Map<String, dynamic> ? json['user'] as Map<String, dynamic> : json['User'] is Map<String, dynamic> ? json['User'] as Map<String, dynamic> : null,
+      user: json['user'] is Map<String, dynamic> ? json['user'] as Map<String, dynamic> : (json['User'] is Map<String, dynamic> ? json['User'] as Map<String, dynamic> : null),
       school: json['school'] is Map<String, dynamic> ? json['school'] as Map<String, dynamic> : null,
     );
   }
@@ -125,7 +126,7 @@ class StudentResultReportModel {
   }
 }
 
-/// Fee item for student
+/// Fee item for student. Backend may return flattened root-level (studentName, emisNumber, amount, status, paidAmount, remainingAmount, Payments).
 class StudentFeeModel {
   final int id;
   final num amount;
@@ -133,6 +134,9 @@ class StudentFeeModel {
   final num remainingAmount;
   final String? status;
   final String? createdAt;
+  final String? studentName;
+  final String? emisNumber;
+  final List<dynamic>? payments;
 
   StudentFeeModel({
     required this.id,
@@ -141,9 +145,15 @@ class StudentFeeModel {
     required this.remainingAmount,
     this.status,
     this.createdAt,
+    this.studentName,
+    this.emisNumber,
+    this.payments,
   });
 
   factory StudentFeeModel.fromJson(Map<String, dynamic> json) {
+    List<dynamic>? payList;
+    final p = json['Payments'] ?? json['payments'];
+    if (p is List) payList = p;
     return StudentFeeModel(
       id: _parseId(json['id']),
       amount: _parseNum(json['amount'] ?? 0),
@@ -151,6 +161,9 @@ class StudentFeeModel {
       remainingAmount: _parseNum(json['remaining_amount'] ?? json['remainingAmount'] ?? 0),
       status: _strOpt(json['status']),
       createdAt: _strOpt(json['created_at'] ?? json['createdAt']),
+      studentName: _strOpt(json['studentName'] ?? json['student_name']),
+      emisNumber: _strOpt(json['emisNumber'] ?? json['emis_number']),
+      payments: payList,
     );
   }
 }
@@ -236,16 +249,24 @@ class StudentTimetableSlotModel {
   }
 }
 
-/// Attendance record
+/// Attendance record. Backend may return flattened root-level (studentName, className, date, time, period, status).
 class StudentAttendanceRecordModel {
   final int id;
   final String? date;
   final String? status;
+  final String? studentName;
+  final String? className;
+  final String? time;
+  final String? period;
 
   StudentAttendanceRecordModel({
     required this.id,
     this.date,
     this.status,
+    this.studentName,
+    this.className,
+    this.time,
+    this.period,
   });
 
   factory StudentAttendanceRecordModel.fromJson(Map<String, dynamic> json) {
@@ -253,6 +274,10 @@ class StudentAttendanceRecordModel {
       id: _parseId(json['id']),
       date: _strOpt(json['date']),
       status: _strOpt(json['status']),
+      studentName: _strOpt(json['studentName'] ?? json['student_name']),
+      className: _strOpt(json['className'] ?? json['class_name']),
+      time: _strOpt(json['time']),
+      period: _strOpt(json['period']),
     );
   }
 }

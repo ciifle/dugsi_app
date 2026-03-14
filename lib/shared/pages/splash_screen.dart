@@ -1,7 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:async';
-
-import 'package:kobac/shared/pages/onboarding_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -19,28 +16,28 @@ class _SplashScreenState extends State<SplashScreen>
   void initState() {
     super.initState();
 
-    // Animation controller
+    // One cycle = zoom in then zoom out (5 seconds)
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 2),
+      duration: const Duration(seconds: 5),
     );
 
-    // Scale from 0.5 → 1.0
-    _animation = Tween<double>(
-      begin: 0.5,
-      end: 1.5,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
+    // Zoom in: small → big, then zoom out: big → small (single cycle)
+    _animation = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 0.5, end: 1.6)
+            .chain(CurveTween(curve: Curves.easeOutCubic)),
+        weight: 50,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.6, end: 0.9)
+            .chain(CurveTween(curve: Curves.easeInOutCubic)),
+        weight: 50,
+      ),
+    ]).animate(_controller);
 
-    // Start animation
     _controller.forward();
-
-    // Navigate after 2.5 seconds
-    Timer(const Duration(seconds: 3), () {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => OnboardingScreen()),
-      );
-    });
+    // Router keeps this screen visible for 11s, then switches to login/home
   }
 
   @override
@@ -53,12 +50,26 @@ class _SplashScreenState extends State<SplashScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Center(
-        child: ScaleTransition(
-          scale: _animation,
-          child: Image.asset(
-            "assets/klogo.png", // <-- your logo here
-            width: 150,
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        color: Colors.white,
+        child: Center(
+          child: AnimatedBuilder(
+            animation: _animation,
+            builder: (context, child) {
+              return Transform.scale(
+                scale: _animation.value,
+                alignment: Alignment.center,
+                child: child,
+              );
+            },
+            child: Image.asset(
+              "assets/splash_image.png",
+              width: 280,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => const Icon(Icons.school_rounded, size: 80, color: Colors.grey),
+            ),
           ),
         ),
       ),

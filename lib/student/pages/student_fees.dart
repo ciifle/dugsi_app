@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:kobac/services/student_service.dart';
+import 'package:kobac/shared/widgets/fees_feature_guard.dart';
 import 'package:kobac/student/pages/student_pay_fee_screen.dart' show StudentPayFeeScreen;
 import 'package:kobac/student/pages/student_payments_screen.dart' show StudentPaymentsScreen;
 
@@ -164,16 +165,17 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [kSoftBlue, kSoftGreen],
-          stops: [0.0, 1.0],
+    return FeesFeatureGuard(
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [kSoftBlue, kSoftGreen],
+            stops: [0.0, 1.0],
+          ),
         ),
-      ),
-      child: Scaffold(
+        child: Scaffold(
         backgroundColor: Colors.transparent,
         body: CustomScrollView(
           physics: const BouncingScrollPhysics(),
@@ -448,6 +450,7 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
           ),
         ],
       ),
+    ),
     );
   }
 

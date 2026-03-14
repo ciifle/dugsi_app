@@ -55,13 +55,13 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
     });
   }
 
-  /// Unique class names from assignments.
+  /// Unique class names from assignments. Never show "class 0"; use Unassigned.
   List<String> get _assignedClassNames {
     final seen = <int>{};
     final names = <String>[];
     for (final a in _assignments) {
       if (seen.add(a.classId)) {
-        names.add(a.className.isEmpty ? 'Class ${a.classId}' : a.className);
+        names.add(a.classDisplayName);
       }
     }
     return names;
@@ -73,7 +73,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
     final names = <String>[];
     for (final a in _assignments) {
       if (seen.add(a.subjectId)) {
-        names.add(a.subjectName.isEmpty ? 'Subject ${a.subjectId}' : a.subjectName);
+        names.add(a.subjectName.isEmpty ? '—' : a.subjectName);
       }
     }
     return names;

@@ -365,7 +365,7 @@ class _StudentCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${student.emisNumber} • ${student.classDisplayName} • ${student.sex ?? '—'}',
+                      '${student.emisNumber.trim().isEmpty ? '—' : student.emisNumber} • ${student.classDisplayName} • ${student.sex ?? '—'}',
                       style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

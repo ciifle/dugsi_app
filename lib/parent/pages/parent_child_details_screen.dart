@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:kobac/parent/pages/parent_attendance_screen.dart';
 import 'package:kobac/parent/pages/parent_fee_payment_screen.dart';
 import 'package:kobac/parent/pages/parent_result_screen.dart';
+import 'package:kobac/services/auth_provider.dart';
 
 // Color constants
 const Color kPrimaryBlue = Color(0xFF023471);
@@ -265,8 +267,8 @@ class ParentChildDetailsScreen extends StatelessWidget {
               delegate: SliverChildListDelegate([
                 const SizedBox(height: 10),
 
-                // Fee Status Card
-                if (dueAmount > 0) _buildFeeCard(dueAmount, fee, context),
+                // Fee Status Card (only when fees enabled for school)
+                if (context.watch<AuthProvider>().feesEnabled && dueAmount > 0) _buildFeeCard(dueAmount, fee, context),
 
                 const SizedBox(height: 20),
 
@@ -956,34 +958,36 @@ class ParentChildDetailsScreen extends StatelessWidget {
           const SizedBox(height: 20),
           Row(
             children: [
-              Expanded(
-                child: _buildQuickActionButton(
-                  Icons.payment_rounded,
-                  'Pay Fees',
-                  kPrimaryBlue,
-                  () {
-                    final feeData = {
-                      'childName': child['name'],
-                      'className': child['className'],
-                      'totalFee': fee['totalFee'],
-                      'paidAmount': fee['paidAmount'],
-                      'dueAmount': fee['dueAmount'],
-                      'dueDate': fee['dueDate'],
-                      'status': fee['status'],
-                      'feeType': fee['feeType'],
-                      'lateFee': fee['lateFee'],
-                    };
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            ParentFeePaymentScreen(fee: feeData),
-                      ),
-                    );
-                  },
+              if (context.watch<AuthProvider>().feesEnabled) ...[
+                Expanded(
+                  child: _buildQuickActionButton(
+                    Icons.payment_rounded,
+                    'Pay Fees',
+                    kPrimaryBlue,
+                    () {
+                      final feeData = {
+                        'childName': child['name'],
+                        'className': child['className'],
+                        'totalFee': fee['totalFee'],
+                        'paidAmount': fee['paidAmount'],
+                        'dueAmount': fee['dueAmount'],
+                        'dueDate': fee['dueDate'],
+                        'status': fee['status'],
+                        'feeType': fee['feeType'],
+                        'lateFee': fee['lateFee'],
+                      };
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              ParentFeePaymentScreen(fee: feeData),
+                        ),
+                      );
+                    },
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
+                const SizedBox(width: 12),
+              ],
               Expanded(
                 child: _buildQuickActionButton(
                   Icons.assignment_rounded,

@@ -8,6 +8,7 @@ import 'package:kobac/services/teachers_service.dart';
 import 'package:kobac/services/students_service.dart';
 import 'package:kobac/services/api_error_helpers.dart';
 import 'package:kobac/school_admin/widgets/delete_confirm_dialog.dart';
+import 'package:kobac/school_admin/pages/mark_details_page.dart';
 import 'package:kobac/widgets/form_3d/form_3d.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
@@ -290,7 +291,7 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                                 label: 'Student',
                                 items: [
                                   const DropdownMenuItem<int?>(value: null, child: Text('All')),
-                                  ..._studentsFilteredByClass.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text('${s.studentName} (${s.emisNumber})'))),
+                                  ..._studentsFilteredByClass.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text('${s.studentName} (${s.emisNumber.trim().isEmpty ? '—' : s.emisNumber})'))),
                                 ],
                                 onChanged: (v) => setState(() { _filterStudentId = v; _loadMarks(); }),
                               ),
@@ -399,6 +400,11 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                             examName: _examName(mark.examId),
                             teacherName: _teacherName(mark.teacherId ?? 0),
                             percentage: pct,
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => MarkDetailsPage(markId: mark.id),
+                              ),
+                            ),
                             onEdit: () => _openEditMark(mark),
                             onDelete: () => _deleteMark(mark),
                           );
@@ -450,6 +456,7 @@ class _MarkCard extends StatelessWidget {
   final String examName;
   final String teacherName;
   final String percentage;
+  final VoidCallback? onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -462,6 +469,7 @@ class _MarkCard extends StatelessWidget {
     required this.examName,
     required this.teacherName,
     required this.percentage,
+    this.onTap,
     required this.onEdit,
     required this.onDelete,
   });
@@ -470,7 +478,10 @@ class _MarkCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
-      child: Container(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(kCardRadius),
+        child: Container(
         margin: const EdgeInsets.only(bottom: 14),
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
@@ -509,6 +520,7 @@ class _MarkCard extends StatelessWidget {
           ],
         ),
       ),
+    ),
     );
   }
 }
@@ -633,7 +645,7 @@ class _AddMarksDialogState extends State<_AddMarksDialog> {
               Select3D<int?>(
                 value: _studentId,
                 label: 'Student',
-                items: [const DropdownMenuItem<int?>(value: null, child: Text('Select student')), ..._studentsForClass.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text('${s.studentName} (${s.emisNumber})')))],
+                items: [const DropdownMenuItem<int?>(value: null, child: Text('Select student')), ..._studentsForClass.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text('${s.studentName} (${s.emisNumber.trim().isEmpty ? '—' : s.emisNumber})')))],
                 onChanged: (v) => setState(() => _studentId = v),
               ),
               const SizedBox(height: 16),

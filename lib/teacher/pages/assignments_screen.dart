@@ -47,11 +47,11 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
     });
   }
 
-  /// Group API assignments by class name (source of truth for class/subject).
+  /// Group API assignments by class display name. Never use "class 0"; use Unassigned.
   Map<String, List<TeacherAssignmentModel>> _groupByClass(List<TeacherAssignmentModel> list) {
     final map = <String, List<TeacherAssignmentModel>>{};
     for (final a in list) {
-      final key = a.className.isEmpty ? 'Class ${a.classId}' : a.className;
+      final key = a.classDisplayName;
       map.putIfAbsent(key, () => []).add(a);
     }
     return map;
@@ -141,7 +141,7 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
               ? list
               : list.where((a) {
                   final q = _searchQuery.toLowerCase();
-                  return a.className.toLowerCase().contains(q) || a.subjectName.toLowerCase().contains(q);
+                  return a.classDisplayName.toLowerCase().contains(q) || a.subjectName.toLowerCase().contains(q);
                 }).toList();
           if (searchFiltered.isEmpty) {
             return _buildScaffoldWithAppBar(

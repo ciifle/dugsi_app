@@ -255,6 +255,12 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
     _FeatureCardData(title: 'Notices', subtitle: 'Announcements', icon: Icons.campaign_rounded, onTap: (c) => Navigator.push(c, MaterialPageRoute(builder: (_) => const AllNoticesScreen()))),
   ];
 
+  List<_FeatureCardData> _visibleQuickActions(BuildContext context) {
+    final feesEnabled = context.watch<AuthProvider>().feesEnabled;
+    if (feesEnabled) return _quickActions;
+    return _quickActions.where((c) => c.title != 'Fees' && c.title != 'Payments').toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -562,8 +568,8 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
                     crossAxisSpacing: 12,
                     childAspectRatio: 1.05,
                     children: List.generate(
-                      _quickActions.length,
-                      (i) => _DashboardFeatureCard(card: _quickActions[i], index: i),
+                      _visibleQuickActions(context).length,
+                      (i) => _DashboardFeatureCard(card: _visibleQuickActions(context)[i], index: i),
                     ),
                   ),
                 ),

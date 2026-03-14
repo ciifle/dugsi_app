@@ -229,6 +229,7 @@ class SchoolAdminAssignmentsService {
   }
 
   /// GET /api/school-admin/classes/{class_id}/subjects
+  /// Response: { "subjects": [ { "id", "name" } ] } or { "subjects": [] }. Handle empty arrays safely.
   Future<AssignmentResult<List<ClassSubjectItem>>> listClassSubjects(int classId) async {
     try {
       final response = await _client.get(apiUrl('$_base/classes/$classId/subjects'));
@@ -238,7 +239,12 @@ class SchoolAdminAssignmentsService {
         return AssignmentError(_errorMessage(response) ?? 'Could not load subjects for class.', response.statusCode);
       }
       final raw = _parseJson(response.body);
-      final list = _extractList(raw, ['subjects', 'assignments', 'data', 'items']);
+      List<dynamic> list = [];
+      if (raw is Map && raw['subjects'] is List) {
+        list = raw['subjects'] as List<dynamic>;
+      } else {
+        list = _extractList(raw, ['subjects', 'assignments', 'data', 'items']);
+      }
       final items = <ClassSubjectItem>[];
       final seenIds = <int>{};
       for (final e in list) {

@@ -204,7 +204,7 @@ class _StudentDetailBody extends StatelessWidget {
           _SectionCard(
             title: 'Personal',
             children: [
-              _InfoRow(label: 'EMIS Number', value: student.emisNumber),
+              _InfoRow(label: 'EMIS Number', value: student.emisNumber.trim().isEmpty ? '—' : student.emisNumber),
               _InfoRow(label: 'Student Name', value: student.studentName),
               _InfoRow(label: 'Sex', value: student.sex ?? '—'),
               _InfoRow(label: 'Birth Date', value: student.birthDate ?? '—'),
@@ -441,7 +441,7 @@ class _ProfileCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 7),
                   Text(
-                    student.emisNumber,
+                    student.emisNumber.trim().isEmpty ? 'EMIS: —' : 'EMIS: ${student.emisNumber}',
                     style: TextStyle(
                       color: kDarkBlue.withOpacity(0.92),
                       fontSize: 16,

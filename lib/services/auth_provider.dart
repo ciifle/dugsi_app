@@ -23,6 +23,7 @@ class AuthProvider extends ChangeNotifier {
   AuthUser? _user;
   dynamic _profile; // TeacherProfile | StudentProfile | ParentProfile | SchoolAdminProfile | null
   String? _profileError; // e.g. "Your account is missing profile data. Contact your admin."
+  bool? _feesEnabled; // from GET /api/auth/me (school-level feature flag); null = not set, treat as true
 
   bool get isLoading => _isLoading;
   bool get isAuthenticated => _isAuthenticated;
@@ -30,6 +31,8 @@ class AuthProvider extends ChangeNotifier {
   AuthUser? get user => _user;
   dynamic get profile => _profile;
   String? get profileError => _profileError;
+  /// True when the school has fees/payment feature enabled. When null (e.g. backend not yet updated), treated as true.
+  bool get feesEnabled => _feesEnabled ?? true;
 
   TeacherProfile? get teacherProfile => _profile is TeacherProfile ? _profile as TeacherProfile : null;
   StudentProfile? get studentProfile => _profile is StudentProfile ? _profile as StudentProfile : null;
@@ -47,6 +50,7 @@ class AuthProvider extends ChangeNotifier {
       _token = null;
       _user = null;
       _profile = null;
+      _feesEnabled = null;
       _isAuthenticated = false;
       ApiClient().setToken(null);
       _isLoading = false;
@@ -58,18 +62,21 @@ class AuthProvider extends ChangeNotifier {
     ApiClient().setToken(_token);
     _user = session.user;
     _profile = session.profile;
+    _feesEnabled = session.feesEnabled;
     _isAuthenticated = true;
 
     final meResult = await auth_svc.getMe();
     if (meResult is auth_svc.GetMeSuccess) {
       _user = meResult.data.user;
       _profile = meResult.data.profile;
+      _feesEnabled = meResult.data.feesEnabled;
       _profileError = null;
       await AuthStorage().saveSession(
         token: _token!,
         user: _user,
         profile: _profile,
         profileRole: _user?.role,
+        feesEnabled: _feesEnabled,
       );
     } else if (meResult is auth_svc.GetMeFailure) {
       if (meResult.statusCode == 401) {
@@ -110,16 +117,19 @@ class AuthProvider extends ChangeNotifier {
       if (meResult is auth_svc.GetMeSuccess) {
         _user = meResult.data.user;
         _profile = meResult.data.profile;
+        _feesEnabled = meResult.data.feesEnabled;
         _profileError = null;
         await AuthStorage().saveSession(
           token: _token!,
           user: _user,
           profile: _profile,
           profileRole: _user?.role,
+          feesEnabled: _feesEnabled,
         );
       } else {
         _user = result.user;
         _profile = null;
+        _feesEnabled = null;
         _profileError = (meResult is auth_svc.GetMeFailure) ? meResult.message : null;
         await AuthStorage().saveSession(token: _token!, user: _user);
       }
@@ -145,16 +155,19 @@ class AuthProvider extends ChangeNotifier {
       if (meResult is auth_svc.GetMeSuccess) {
         _user = meResult.data.user;
         _profile = meResult.data.profile;
+        _feesEnabled = meResult.data.feesEnabled;
         _profileError = null;
         await AuthStorage().saveSession(
           token: _token!,
           user: _user,
           profile: _profile,
           profileRole: _user?.role,
+          feesEnabled: _feesEnabled,
         );
       } else {
         _user = result.user;
         _profile = null;
+        _feesEnabled = null;
         _profileError = (meResult is auth_svc.GetMeFailure) ? meResult.message : null;
         await AuthStorage().saveSession(token: _token!, user: _user);
       }
@@ -176,12 +189,14 @@ class AuthProvider extends ChangeNotifier {
     if (meResult is auth_svc.GetMeSuccess) {
       _user = meResult.data.user;
       _profile = meResult.data.profile;
+      _feesEnabled = meResult.data.feesEnabled;
       _profileError = null;
       await AuthStorage().saveSession(
         token: _token!,
         user: _user,
         profile: _profile,
         profileRole: _user?.role,
+        feesEnabled: _feesEnabled,
       );
       notifyListeners();
       return null;
@@ -203,6 +218,7 @@ class AuthProvider extends ChangeNotifier {
     _token = null;
     _user = null;
     _profile = null;
+    _feesEnabled = null;
     _profileError = null;
     _isAuthenticated = false;
     ApiClient().setToken(null);
@@ -222,6 +238,7 @@ class AuthProvider extends ChangeNotifier {
       _token = null;
       _user = null;
       _profile = null;
+      _feesEnabled = null;
       _profileError = null;
       _isAuthenticated = false;
       ApiClient().setToken(null);

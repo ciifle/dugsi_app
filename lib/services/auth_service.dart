@@ -190,6 +190,24 @@ Map<String, dynamic>? _parseJson(String body) {
   }
 }
 
+/// Parse feesEnabled from GET /api/auth/me response. Prefers top-level feesEnabled, then school.fees_enabled / school.feesEnabled.
+/// Returns null when not present (app treats null as true for backward compatibility).
+bool? _parseFeesEnabled(Map<String, dynamic> data) {
+  if (data['feesEnabled'] != null) {
+    final v = data['feesEnabled'];
+    if (v is bool) return v;
+    if (v is String) return v.toLowerCase() == 'true';
+    return null;
+  }
+  final school = data['school'];
+  if (school is Map) {
+    final v = school['fees_enabled'] ?? school['feesEnabled'];
+    if (v is bool) return v;
+    if (v is String) return v.toLowerCase() == 'true';
+  }
+  return null;
+}
+
 String _errorMessage(http.Response response) {
   final body = response.body;
   if (body.isEmpty) return 'Request failed (${response.statusCode})';
@@ -254,7 +272,8 @@ Future<GetMeResult> getMe() async {
     final user = AuthUser.fromJson(userJson);
     final profileJson = data['profile'];
     final profile = parseProfileByRole(user.role, profileJson);
-    return GetMeSuccess(AuthMeResponse(user: user, profile: profile));
+    final feesEnabled = _parseFeesEnabled(data);
+    return GetMeSuccess(AuthMeResponse(user: user, profile: profile, feesEnabled: feesEnabled));
   } catch (_) {
     return GetMeFailure(message: _kGenericErrorMessage);
   }

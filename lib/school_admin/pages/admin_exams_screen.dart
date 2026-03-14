@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:kobac/services/classes_service.dart';
 import 'package:kobac/services/exams_service.dart';
+import 'package:kobac/services/school_admin_assignments_service.dart';
 import 'package:kobac/services/api_error_helpers.dart';
 import 'package:kobac/school_admin/widgets/delete_confirm_dialog.dart';
+import 'package:kobac/school_admin/pages/exam_details_page.dart';
 import 'package:kobac/widgets/form_3d/form_3d.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
@@ -51,8 +54,9 @@ class _AdminExamsScreenState extends State<AdminExamsScreen> {
         title: 'Add Exam',
         initialName: '',
         submitLabel: 'Create',
-        onSave: (name) async {
-          final result = await ExamsService().createExam({'name': name});
+        isCreate: true,
+        onSave: (data) async {
+          final result = await ExamsService().createExam(data);
           if (result is ExamSuccess) return true;
           if (ctx.mounted) {
             ScaffoldMessenger.of(ctx).showSnackBar(
@@ -79,9 +83,14 @@ class _AdminExamsScreenState extends State<AdminExamsScreen> {
       builder: (ctx) => _ExamFormDialog(
         title: 'Edit Exam',
         initialName: exam.name,
+        initialClassId: exam.classId,
+        initialSubjectId: exam.subjectId,
+        initialDate: exam.date,
         submitLabel: 'Save',
-        onSave: (name) async {
-          final result = await ExamsService().updateExam(exam.id, {'name': name});
+        isCreate: false,
+        examId: exam.id,
+        onSave: (data) async {
+          final result = await ExamsService().updateExam(exam.id, data);
           if (result is ExamSuccess) return true;
           if (ctx.mounted) {
             ScaffoldMessenger.of(ctx).showSnackBar(
@@ -280,6 +289,11 @@ class _AdminExamsScreenState extends State<AdminExamsScreen> {
                           final exam = exams[index];
                           return _ExamCard(
                             exam: exam,
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => ExamDetailsPage(examId: exam.id),
+                              ),
+                            ),
                             onEdit: () => _openEditExam(exam),
                             onDelete: () => _deleteExam(exam),
                           );
@@ -300,13 +314,23 @@ class _AdminExamsScreenState extends State<AdminExamsScreen> {
 class _ExamFormDialog extends StatefulWidget {
   final String title;
   final String initialName;
+  final int? initialClassId;
+  final int? initialSubjectId;
+  final String? initialDate;
   final String submitLabel;
-  final Future<bool> Function(String name) onSave;
+  final bool isCreate;
+  final int? examId;
+  final Future<bool> Function(Map<String, dynamic> data) onSave;
 
   const _ExamFormDialog({
     required this.title,
     required this.initialName,
+    this.initialClassId,
+    this.initialSubjectId,
+    this.initialDate,
     required this.submitLabel,
+    required this.isCreate,
+    this.examId,
     required this.onSave,
   });
 
@@ -317,11 +341,58 @@ class _ExamFormDialog extends StatefulWidget {
 class _ExamFormDialogState extends State<_ExamFormDialog> {
   late TextEditingController _nameController;
   bool _submitting = false;
+  List<ClassModel> _classes = [];
+  List<ClassSubjectItem> _subjects = [];
+  int? _selectedClassId;
+  int? _selectedSubjectId;
+  String _dateStr = '';
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.initialName);
+    _dateStr = widget.initialDate?.isNotEmpty == true
+        ? widget.initialDate!
+        : _formatDate(DateTime.now());
+    _selectedClassId = widget.initialClassId;
+    _selectedSubjectId = widget.initialSubjectId;
+    _loadClasses();
+    if (widget.initialClassId != null && widget.initialClassId! > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadSubjectsForClass(widget.initialClassId!));
+    }
+  }
+
+  String _formatDate(DateTime d) {
+    final y = d.year;
+    final m = d.month.toString().padLeft(2, '0');
+    final day = d.day.toString().padLeft(2, '0');
+    return '$y-$m-$day';
+  }
+
+  Future<void> _loadClasses() async {
+    final result = await ClassesService().listClasses();
+    if (!mounted) return;
+    if (result is ClassSuccess<List<ClassModel>>) {
+      setState(() => _classes = result.data);
+    }
+  }
+
+  Future<void> _loadSubjectsForClass(int classId) async {
+    final result = await SchoolAdminAssignmentsService().listClassSubjects(classId);
+    if (!mounted) return;
+    if (result is AssignmentSuccess<List<ClassSubjectItem>>) {
+      setState(() {
+        _subjects = result.data;
+        final keepId = (classId == widget.initialClassId) ? widget.initialSubjectId : null;
+        final inList = keepId != null && _subjects.any((s) => s.id == keepId);
+        _selectedSubjectId = inList ? keepId : (_subjects.isNotEmpty ? _subjects.first.id : null);
+      });
+    } else {
+      setState(() {
+        _subjects = [];
+        _selectedSubjectId = null;
+      });
+    }
   }
 
   @override
@@ -338,9 +409,33 @@ class _ExamFormDialogState extends State<_ExamFormDialog> {
       );
       return;
     }
+    if (_selectedClassId == null || _selectedClassId! <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a class'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    if (_selectedSubjectId == null || _selectedSubjectId! <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a subject'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    if (_dateStr.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a date'), backgroundColor: Colors.red),
+      );
+      return;
+    }
     if (_submitting) return;
     setState(() => _submitting = true);
-    final ok = await widget.onSave(name);
+    final data = <String, dynamic>{
+      'name': name,
+      'class_id': _selectedClassId,
+      'subject_id': _selectedSubjectId,
+      'date': _dateStr,
+    };
+    final ok = await widget.onSave(data);
     if (!mounted) return;
     setState(() => _submitting = false);
     if (ok) Navigator.of(context).pop(true);
@@ -353,44 +448,82 @@ class _ExamFormDialogState extends State<_ExamFormDialog> {
       insetPadding: const EdgeInsets.symmetric(horizontal: 28),
       child: FormCard(
         padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              widget.title,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue),
-            ),
-            const SizedBox(height: 20),
-            Input3D(
-              controller: _nameController,
-              label: 'Exam name',
-              hint: 'e.g. Mid-term 2024',
-              textCapitalization: TextCapitalization.words,
-              onSubmitted: (_) => _submit(),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: TextButton(
-                    onPressed: _submitting ? null : () => Navigator.of(context).pop(false),
-                    child: const Text('Cancel'),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                widget.title,
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+              ),
+              const SizedBox(height: 20),
+              Input3D(
+                controller: _nameController,
+                label: 'Exam name',
+                hint: 'e.g. Mid-term 2024',
+                textCapitalization: TextCapitalization.words,
+                onSubmitted: (_) => _submit(),
+              ),
+              const SizedBox(height: 16),
+              Select3D<int?>(
+                value: _selectedClassId,
+                label: 'Class',
+                items: [
+                  const DropdownMenuItem<int?>(value: null, child: Text('Select class')),
+                  ..._classes.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name))),
+                ],
+                onChanged: (v) {
+                  setState(() {
+                    _selectedClassId = v;
+                    _subjects = [];
+                    _selectedSubjectId = null;
+                  });
+                  if (v != null && v > 0) _loadSubjectsForClass(v);
+                },
+              ),
+              const SizedBox(height: 16),
+              Select3D<int?>(
+                value: _selectedSubjectId != null && _subjects.any((s) => s.id == _selectedSubjectId) ? _selectedSubjectId : null,
+                label: 'Subject',
+                items: [
+                  const DropdownMenuItem<int?>(value: null, child: Text('Select subject')),
+                  ..._subjects.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text(s.name))),
+                ],
+                onChanged: (v) => setState(() => _selectedSubjectId = v),
+              ),
+              const SizedBox(height: 16),
+              DatePicker3D(
+                label: 'Date',
+                value: _dateStr,
+                initialDate: DateTime.tryParse(_dateStr) ?? DateTime.now(),
+                firstDate: DateTime(2020),
+                lastDate: DateTime.now().add(const Duration(days: 365)),
+                onDatePicked: (d) => setState(() => _dateStr = _formatDate(d)),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: _submitting ? null : () => Navigator.of(context).pop(false),
+                      child: const Text('Cancel'),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: PrimaryButton3D(
-                    label: widget.submitLabel,
-                    onPressed: _submit,
-                    loading: _submitting,
-                    height: 48,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: PrimaryButton3D(
+                      label: widget.submitLabel,
+                      onPressed: _submit,
+                      loading: _submitting,
+                      height: 48,
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -439,11 +572,13 @@ class _AddButton extends StatelessWidget {
 
 class _ExamCard extends StatelessWidget {
   final ExamModel exam;
+  final VoidCallback? onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   const _ExamCard({
     required this.exam,
+    this.onTap,
     required this.onEdit,
     required this.onDelete,
   });
@@ -452,47 +587,51 @@ class _ExamCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(kCardRadius),
-          boxShadow: [
-            BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 6)),
-            BoxShadow(color: kPrimaryBlue.withOpacity(0.03), blurRadius: 32, offset: const Offset(0, 12)),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: kPrimaryBlue.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(kCardRadius),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(kCardRadius),
+            boxShadow: [
+              BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 6)),
+              BoxShadow(color: kPrimaryBlue.withOpacity(0.03), blurRadius: 32, offset: const Offset(0, 12)),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: kPrimaryBlue.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: const Icon(Icons.quiz_rounded, color: kPrimaryBlue, size: 28),
               ),
-              child: const Icon(Icons.quiz_rounded, color: kPrimaryBlue, size: 28),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                exam.name,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kPrimaryBlue),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  exam.name,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.edit_outlined, size: 22, color: kPrimaryGreen),
-              onPressed: onEdit,
-              tooltip: 'Edit',
-            ),
-            IconButton(
-              icon: Icon(Icons.delete_outline, size: 22, color: Colors.red[400]),
-              onPressed: onDelete,
-              tooltip: 'Delete',
-            ),
-          ],
+              IconButton(
+                icon: const Icon(Icons.edit_outlined, size: 22, color: kPrimaryGreen),
+                onPressed: onEdit,
+                tooltip: 'Edit',
+              ),
+              IconButton(
+                icon: Icon(Icons.delete_outline, size: 22, color: Colors.red[400]),
+                onPressed: onDelete,
+                tooltip: 'Delete',
+              ),
+            ],
+          ),
         ),
       ),
     );

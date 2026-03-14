@@ -250,12 +250,15 @@ class SchoolAdminProfile {
 
 // ==================== AUTH ME RESPONSE ====================
 
-/// Result of GET /api/auth/me: user + role-specific profile.
+/// Result of GET /api/auth/me: user + role-specific profile + optional school feature flags.
+/// Backend should include feesEnabled (or school.fees_enabled) so the app can hide fees/payment UI when disabled.
 class AuthMeResponse {
   final AuthUser user;
   final dynamic profile; // TeacherProfile | StudentProfile | ParentProfile | SchoolAdminProfile | null
+  /// When false, hide all fees/payment UI. When null (legacy), treat as true for backward compatibility.
+  final bool? feesEnabled;
 
-  AuthMeResponse({required this.user, this.profile});
+  AuthMeResponse({required this.user, this.profile, this.feesEnabled});
 
   TeacherProfile? get teacherProfile => profile is TeacherProfile ? profile as TeacherProfile : null;
   StudentProfile? get studentProfile => profile is StudentProfile ? profile as StudentProfile : null;

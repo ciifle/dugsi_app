@@ -39,8 +39,10 @@ class AppRoot extends StatelessWidget {
 }
 
 /// =========================
-/// SPLASH → LOGIN / ROLE HOME
+/// SPLASH only on cold start (first open / restart), not between pages
 /// =========================
+
+bool _splashShownThisSession = false;
 
 class AppStartRouter extends StatefulWidget {
   const AppStartRouter({super.key});
@@ -51,17 +53,30 @@ class AppStartRouter extends StatefulWidget {
 
 class _AppStartRouterState extends State<AppStartRouter> {
   bool _initStarted = false;
+  bool _splashMinTimeReached = false;
+  static const Duration _splashMinDuration = Duration(seconds: 5);
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_initStarted) {
       _initStarted = true;
-      // Defer so we don't call notifyListeners() during build
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         context.read<AuthProvider>().initializeAuth();
       });
+      // Only run splash timer on cold start (splash not yet shown this session)
+      if (!_splashShownThisSession) {
+        Future.delayed(_splashMinDuration, () {
+          if (mounted) {
+            _splashShownThisSession = true;
+            setState(() => _splashMinTimeReached = true);
+          }
+        });
+      } else {
+        // Splash already shown this session (e.g. came back from login): skip splash
+        _splashMinTimeReached = true;
+      }
     }
   }
 
@@ -69,14 +84,14 @@ class _AppStartRouterState extends State<AppStartRouter> {
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
       builder: (context, auth, _) {
-        if (auth.isLoading) {
+        // Show splash only on cold start (first time this session), for 5s
+        final showSplash = !_splashShownThisSession && (!_splashMinTimeReached || auth.isLoading);
+        if (showSplash) {
           return const SplashScreen();
         }
-        // Route guard: not authenticated -> only Login
         if (!auth.isAuthenticated) {
           return const LoginPage();
         }
-        // Authenticated -> role-based home (block back to Login until logout)
         return roleToHome(auth.user);
       },
     );

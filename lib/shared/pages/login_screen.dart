@@ -23,6 +23,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
 
   String? _loginError;
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   late AnimationController _topCircleController;
   late Animation<Offset> _topCircleOffset;
@@ -215,8 +216,23 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                         const SizedBox(height: 16),
                         TextFormField(
                           controller: _passwordController,
-                          obscureText: true,
-                          decoration: _inputDecoration('Password'),
+                          obscureText: _obscurePassword,
+                          decoration: _inputDecoration('Password').copyWith(
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility_off_rounded
+                                    : Icons.visibility_rounded,
+                                color: darkBlue.withOpacity(0.7),
+                                size: 22,
+                              ),
+                              onPressed: () => setState(
+                                  () => _obscurePassword = !_obscurePassword),
+                              tooltip: _obscurePassword
+                                  ? 'Show password'
+                                  : 'Hide password',
+                            ),
+                          ),
                           style: const TextStyle(fontSize: 16, color: darkBlue),
                           autofillHints: const [AutofillHints.password],
                           validator: _validatePassword,

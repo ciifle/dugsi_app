@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'exam_details_page.dart';
+import 'admin_exams_screen.dart';
 
 // --- Premium 3D Design Constants ---
 const Color kPrimaryBlue = Color(0xFF023471);
@@ -139,7 +139,7 @@ class _ExamCard extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ExamDetailsPage())),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AdminExamsScreen())),
         borderRadius: BorderRadius.circular(kCardRadius),
         child: Container(
           margin: const EdgeInsets.only(bottom: 14),

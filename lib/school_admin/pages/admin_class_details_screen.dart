@@ -343,7 +343,7 @@ class _StudentRow extends StatelessWidget {
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: kPrimaryBlue),
                     ),
                     Text(
-                      student.emisNumber,
+                      student.emisNumber.trim().isEmpty ? '—' : student.emisNumber,
                       style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                     ),
                   ],

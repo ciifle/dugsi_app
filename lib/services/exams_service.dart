@@ -6,11 +6,26 @@ import 'package:kobac/services/api_client.dart';
 import 'package:kobac/services/api_error_helpers.dart';
 
 /// Exam model (school-admin scope).
+/// POST /api/school-admin/exams requires: name, class_id, subject_id, date.
+/// Backend may include class_name, subject_name (flattened) for display.
 class ExamModel {
   final int id;
   final String name;
+  final int? classId;
+  final int? subjectId;
+  final String? date;
+  final String? className;
+  final String? subjectName;
 
-  const ExamModel({required this.id, required this.name});
+  const ExamModel({
+    required this.id,
+    required this.name,
+    this.classId,
+    this.subjectId,
+    this.date,
+    this.className,
+    this.subjectName,
+  });
 
   factory ExamModel.fromJson(Map<String, dynamic> json) {
     int parseId(dynamic v) {
@@ -20,9 +35,15 @@ class ExamModel {
       return 0;
     }
     String str(dynamic v) => v == null ? '' : v.toString().trim();
+    String? strOpt(dynamic v) => v == null ? null : v.toString().trim();
     return ExamModel(
       id: parseId(json['id'] ?? json['exam_id']),
       name: str(json['name'] ?? json['exam_name'] ?? json['examName']),
+      classId: json['class_id'] != null || json['classId'] != null ? parseId(json['class_id'] ?? json['classId']) : null,
+      subjectId: json['subject_id'] != null || json['subjectId'] != null ? parseId(json['subject_id'] ?? json['subjectId']) : null,
+      date: strOpt(json['date']),
+      className: strOpt(json['class_name'] ?? json['className'] ?? json['class'] is Map ? (json['class'] as Map)['name'] : null),
+      subjectName: strOpt(json['subject_name'] ?? json['subjectName'] ?? json['subject'] is Map ? (json['subject'] as Map)['name'] : null),
     );
   }
 }
@@ -66,10 +87,16 @@ class ExamsService {
   static final ExamsService _instance = ExamsService._();
   factory ExamsService() => _instance;
 
-  /// POST /api/school-admin/exams  Body: { "name": "string" }
+  /// POST /api/school-admin/exams  Body: { name, class_id, subject_id, date }
   Future<ExamResult<ExamModel>> createExam(Map<String, dynamic> data) async {
     try {
-      final body = {'name': data['name'] is String ? data['name'] as String : data['name'].toString()};
+      int toInt(dynamic v) => v == null ? 0 : (v is int ? v : int.tryParse(v.toString()) ?? 0);
+      final body = <String, dynamic>{
+        'name': data['name'] is String ? data['name'] as String : data['name'].toString(),
+        'class_id': toInt(data['class_id'] ?? data['classId']),
+        'subject_id': toInt(data['subject_id'] ?? data['subjectId']),
+        'date': data['date'] is String ? data['date'] as String : data['date']?.toString() ?? '',
+      };
       final response = await _client.post(apiUrl(_base), body: body);
       devLogResponse('ExamsService.createExam', response.statusCode, response.body);
       if (response.statusCode == 201) {
@@ -159,10 +186,16 @@ class ExamsService {
     }
   }
 
-  /// PATCH /api/school-admin/exams/{id}  Body: { "name": "string" }
+  /// PATCH /api/school-admin/exams/{id}  Body: same as create — name, class_id, subject_id, date
   Future<ExamResult<ExamModel>> updateExam(int id, Map<String, dynamic> data) async {
     try {
-      final body = {'name': data['name'] is String ? data['name'] as String : data['name'].toString()};
+      int toInt(dynamic v) => v == null ? 0 : (v is int ? v : int.tryParse(v.toString()) ?? 0);
+      final body = <String, dynamic>{
+        'name': data['name'] is String ? data['name'] as String : data['name'].toString(),
+        'class_id': toInt(data['class_id'] ?? data['classId']),
+        'subject_id': toInt(data['subject_id'] ?? data['subjectId']),
+        'date': data['date'] is String ? data['date'] as String : data['date']?.toString() ?? '',
+      };
       final response = await _client.patch(apiUrl('$_base/$id'), body: body);
       devLogResponse('ExamsService.updateExam', response.statusCode, response.body);
       if (response.statusCode == 404) return ExamError('Exam not found.', 404);

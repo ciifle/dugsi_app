@@ -25,13 +25,13 @@ class _TeacherClassesScreenState extends State<TeacherClassesScreen> {
   bool _loading = true;
   String? _error;
 
-  /// Unique classes from assignments (by classId).
+  /// Unique classes from assignments (by classId). Never show "class 0"; use Unassigned.
   List<({int id, String name})> get _uniqueClasses {
     final seen = <int>{};
     final out = <({int id, String name})>[];
     for (final a in _assignments) {
       if (seen.add(a.classId)) {
-        out.add((id: a.classId, name: a.className.isEmpty ? 'Class ${a.classId}' : a.className));
+        out.add((id: a.classId, name: a.classDisplayName));
       }
     }
     return out;
@@ -63,6 +63,31 @@ class _TeacherClassesScreenState extends State<TeacherClassesScreen> {
   }
 
   Future<void> _showStudentsForClass(int classId, String className) async {
+    if (classId == 0) {
+      if (!mounted) return;
+      showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) => Container(
+          padding: const EdgeInsets.all(24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.info_outline_rounded, size: 48, color: kTextSecondary),
+              const SizedBox(height: 12),
+              const Text('No class assigned. Students are linked to assigned classes.', textAlign: TextAlign.center, style: TextStyle(fontSize: 15, color: kTextPrimary)),
+              const SizedBox(height: 16),
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+            ],
+          ),
+        ),
+      );
+      return;
+    }
     final result = await TeacherService().listStudentsByClass(classId);
     if (!mounted) return;
     showModalBottomSheet<void>(

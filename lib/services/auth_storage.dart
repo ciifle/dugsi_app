@@ -9,6 +9,7 @@ const String _keyToken = 'auth_token';
 const String _keyUser = 'auth_user';
 const String _keyProfile = 'auth_profile';
 const String _keyProfileRole = 'auth_profile_role';
+const String _keyFeesEnabled = 'auth_fees_enabled';
 
 /// Secure storage for auth session (token + user + profile).
 class AuthStorage {
@@ -20,12 +21,13 @@ class AuthStorage {
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
   );
 
-  /// Save token, user, and optional profile (persisted for offline display).
+  /// Save token, user, optional profile, and optional school feature flags (persisted for offline display).
   Future<void> saveSession({
     required String token,
     AuthUser? user,
     dynamic profile,
     String? profileRole,
+    bool? feesEnabled,
   }) async {
     await _storage.write(key: _keyToken, value: token);
     if (user != null) {
@@ -47,6 +49,11 @@ class AuthStorage {
     } else {
       await _storage.delete(key: _keyProfile);
       await _storage.delete(key: _keyProfileRole);
+    }
+    if (feesEnabled != null) {
+      await _storage.write(key: _keyFeesEnabled, value: feesEnabled ? '1' : '0');
+    } else {
+      await _storage.delete(key: _keyFeesEnabled);
     }
   }
 
@@ -138,7 +145,12 @@ class AuthStorage {
       } catch (_) {}
     }
 
-    return AuthSession(token: token, user: user, profile: profile);
+    bool? feesEnabled;
+    final feesEnabledStr = await _storage.read(key: _keyFeesEnabled);
+    if (feesEnabledStr == '1') feesEnabled = true;
+    if (feesEnabledStr == '0') feesEnabled = false;
+
+    return AuthSession(token: token, user: user, profile: profile, feesEnabled: feesEnabled);
   }
 
   Future<void> clearSession() async {
@@ -147,6 +159,7 @@ class AuthStorage {
       await _storage.delete(key: _keyUser);
       await _storage.delete(key: _keyProfile);
       await _storage.delete(key: _keyProfileRole);
+      await _storage.delete(key: _keyFeesEnabled);
       await _storage.deleteAll();
     } catch (_) {}
   }
@@ -156,6 +169,7 @@ class AuthSession {
   final String token;
   final AuthUser? user;
   final dynamic profile;
+  final bool? feesEnabled;
 
-  AuthSession({required this.token, this.user, this.profile});
+  AuthSession({required this.token, this.user, this.profile, this.feesEnabled});
 }

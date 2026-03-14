@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:kobac/services/auth_provider.dart';
 
 // ---- Color theme constants ----
 const Color kPrimaryAccent = Color(0xFF5AB04B); // Orange
@@ -142,14 +144,24 @@ class AdminStudentScreen extends StatefulWidget {
 class _AdminStudentScreenState extends State<AdminStudentScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  bool _tabControllerInitialized = false;
   bool editMode = false;
   late Student currentStudent;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
     currentStudent = widget.student;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_tabControllerInitialized) {
+      _tabControllerInitialized = true;
+      final feesEnabled = context.read<AuthProvider>().feesEnabled;
+      _tabController = TabController(length: feesEnabled ? 6 : 5, vsync: this);
+    }
   }
 
   void toggleEditMode() {
@@ -225,7 +237,7 @@ class _AdminStudentScreenState extends State<AdminStudentScreen>
                   showSnack('Messaging parent...');
                   break;
                 case 'documents':
-                  _tabController.animateTo(4);
+                  _tabController.animateTo(context.read<AuthProvider>().feesEnabled ? 4 : 3);
                   break;
               }
             },
@@ -242,14 +254,7 @@ class _AdminStudentScreenState extends State<AdminStudentScreen>
               labelColor: kDarkBlue,
               unselectedLabelColor: kDarkBlue.withOpacity(0.6),
               labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              tabs: const [
-                Tab(child: Text("Profile")),
-                Tab(child: Text("Academics")),
-                Tab(child: Text("Attendance")),
-                Tab(child: Text("Fees")),
-                Tab(child: Text("Documents")),
-                Tab(child: Text("Notes")),
-              ],
+              tabs: _buildTabs(context),
             ),
           ),
           divider,
@@ -257,8 +262,39 @@ class _AdminStudentScreenState extends State<AdminStudentScreen>
           Expanded(
             child: TabBarView(
               controller: _tabController,
-              children: [
-                ProfileTab(
+              children: _buildTabViews(context),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildTabs(BuildContext context) {
+    final feesEnabled = context.watch<AuthProvider>().feesEnabled;
+    if (feesEnabled) {
+      return const [
+        Tab(child: Text("Profile")),
+        Tab(child: Text("Academics")),
+        Tab(child: Text("Attendance")),
+        Tab(child: Text("Fees")),
+        Tab(child: Text("Documents")),
+        Tab(child: Text("Notes")),
+      ];
+    }
+    return const [
+      Tab(child: Text("Profile")),
+      Tab(child: Text("Academics")),
+      Tab(child: Text("Attendance")),
+      Tab(child: Text("Documents")),
+      Tab(child: Text("Notes")),
+    ];
+  }
+
+  List<Widget> _buildTabViews(BuildContext context) {
+    final feesEnabled = context.watch<AuthProvider>().feesEnabled;
+    final views = <Widget>[
+      ProfileTab(
                   student: currentStudent,
                   editable: editMode,
                   onSave: (updatedStudent) {
@@ -283,7 +319,7 @@ class _AdminStudentScreenState extends State<AdminStudentScreen>
                   },
                 ),
                 AttendanceTab(student: currentStudent),
-                FeesTab(student: currentStudent),
+                if (feesEnabled) FeesTab(student: currentStudent),
                 DocumentsTab(
                   documents: currentStudent.documents,
                   editable: editMode,
@@ -342,12 +378,8 @@ class _AdminStudentScreenState extends State<AdminStudentScreen>
                     showSnack("Note added.");
                   },
                 ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+              ];
+    return views;
   }
 }
 

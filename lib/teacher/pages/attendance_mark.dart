@@ -73,7 +73,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
         if (_assignments.isNotEmpty && _selectedClassId == null) {
           final first = _assignments.first;
           _selectedClassId = first.classId;
-          _selectedClassName = first.className.isEmpty ? 'Class ${first.classId}' : first.className;
+          _selectedClassName = first.classDisplayName;
           _loadStudents(first.classId);
         }
       }
@@ -107,7 +107,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
           (e) => e?.classId == classId,
           orElse: () => null,
         );
-    final name = a?.className.isEmpty == true ? 'Class $classId' : (a?.className ?? 'Class $classId');
+    final name = a?.classDisplayName ?? 'Unassigned';
     setState(() {
       _selectedClassId = classId;
       _selectedClassName = name;
@@ -117,13 +117,13 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     _loadStudents(classId);
   }
 
-  /// Unique classes from assignments (by classId).
+  /// Unique classes from assignments (by classId). Never show "class 0"; use Unassigned.
   List<({int id, String name})> get _uniqueClasses {
     final seen = <int>{};
     final out = <({int id, String name})>[];
     for (final a in _assignments) {
       if (seen.add(a.classId)) {
-        out.add((id: a.classId, name: a.className.isEmpty ? 'Class ${a.classId}' : a.className));
+        out.add((id: a.classId, name: a.classDisplayName));
       }
     }
     return out;

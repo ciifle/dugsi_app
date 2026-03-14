@@ -32,42 +32,46 @@ class TeacherDashboardScreen extends StatefulWidget {
 
 class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  List<TeacherAssignmentModel> _assignments = [];
+  TeacherDashboardModel? _dashboard;
   bool _loading = true;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _loadAssignments();
+    _loadDashboard();
   }
 
-  Future<void> _loadAssignments() async {
+  Future<void> _loadDashboard() async {
     setState(() {
       _loading = true;
       _error = null;
     });
-    final result = await TeacherService().listAssignments();
+    final result = await TeacherService().getDashboard();
     if (!mounted) return;
     setState(() {
       _loading = false;
-      if (result is TeacherSuccess<List<TeacherAssignmentModel>>) {
-        _assignments = result.data;
+      if (result is TeacherSuccess<TeacherDashboardModel>) {
+        _dashboard = result.data;
         _error = null;
       } else {
-        _assignments = [];
+        _dashboard = null;
         _error = (result as TeacherError).message;
       }
     });
   }
 
   int get _uniqueClassesCount {
-    final seen = <int>{};
-    for (final a in _assignments) {
-      seen.add(a.classId);
+    if (_dashboard == null) return 0;
+    if (_dashboard!.assignedClasses.isNotEmpty) {
+      return _dashboard!.assignedClasses.map((c) => c.displayName).toSet().length;
     }
-    return seen.length;
+    return _dashboard!.assignments.map((a) => a.classDisplayName).toSet().length;
   }
+
+  List<TeacherAssignmentModel> get _assignments => _dashboard?.assignments ?? [];
+  List<TeacherAssignedClassModel> get _assignedClasses => _dashboard?.assignedClasses ?? [];
+  List<TeacherTimetableEntryModel> get _timetables => _dashboard?.timetables ?? [];
 
   @override
   Widget build(BuildContext context) {
@@ -209,7 +213,7 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
                           const SizedBox(height: 12),
                           Text(_error!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 15, color: kTextPrimary)),
                           const SizedBox(height: 16),
-                          TextButton.icon(onPressed: _loadAssignments, icon: const Icon(Icons.refresh_rounded, size: 20), label: const Text('Retry'), style: TextButton.styleFrom(foregroundColor: kPrimaryBlue)),
+                          TextButton.icon(onPressed: _loadDashboard, icon: const Icon(Icons.refresh_rounded, size: 20), label: const Text('Retry'), style: TextButton.styleFrom(foregroundColor: kPrimaryBlue)),
                         ],
                       ),
                     ),
@@ -311,6 +315,57 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
                     ),
                   ),
                 ),
+                // ---------- Assigned classes (from dashboard) ----------
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          "Assigned classes",
+                          style: TextStyle(fontSize: 18, color: kPrimaryBlue, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 10),
+                        _buildAssignedClassesSection(),
+                      ],
+                    ),
+                  ),
+                ),
+                // ---------- Assignments (subject — class) ----------
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          "Assignments",
+                          style: TextStyle(fontSize: 18, color: kPrimaryBlue, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 10),
+                        _buildAssignmentsSection(),
+                      ],
+                    ),
+                  ),
+                ),
+                // ---------- Timetable (only when API returns data; empty state when truly none) ----------
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          "Timetable",
+                          style: TextStyle(fontSize: 18, color: kPrimaryBlue, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 10),
+                        _buildTimetableSection(),
+                      ],
+                    ),
+                  ),
+                ),
                 const SliverToBoxAdapter(child: SizedBox(height: 80)),
               ],
             ],
@@ -320,8 +375,114 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
     );
   }
 
+  Widget _buildAssignedClassesSection() {
+    final classes = _assignedClasses.isNotEmpty
+        ? _assignedClasses.map((c) => c.displayName).toSet().toList()
+        : _assignments.map((a) => a.classDisplayName).toSet().toList();
+    if (classes.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 16, offset: const Offset(0, 4))],
+        ),
+        child: const Text('No classes assigned.', style: TextStyle(fontSize: 14, color: kTextSecondary)),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 16, offset: const Offset(0, 4))],
+      ),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: classes.map((name) => Chip(
+          label: Text(name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          backgroundColor: kSoftBlue,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        )).toList(),
+      ),
+    );
+  }
+
+  Widget _buildAssignmentsSection() {
+    if (_assignments.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 16, offset: const Offset(0, 4))],
+        ),
+        child: const Text('No assignments yet.', style: TextStyle(fontSize: 14, color: kTextSecondary)),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 16, offset: const Offset(0, 4))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: _assignments.take(8).map((a) => Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            children: [
+              Icon(Icons.subject_rounded, size: 18, color: kPrimaryGreen),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '${a.subjectName.isEmpty ? "—" : a.subjectName} — ${a.classDisplayName}',
+                  style: const TextStyle(fontSize: 14, color: kTextPrimary),
+                ),
+              ),
+            ],
+          ),
+        )).toList(),
+      ),
+    );
+  }
+
+  Widget _buildTimetableSection() {
+    if (_timetables.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 16, offset: const Offset(0, 4))],
+        ),
+        child: const Text('No timetable entries.', style: TextStyle(fontSize: 14, color: kTextSecondary)),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 16, offset: const Offset(0, 4))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: _timetables.take(6).map((t) => Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Text(
+            '${t.day} ${t.timeRange} — ${t.subjectDisplayName} — ${t.classDisplayName}',
+            style: const TextStyle(fontSize: 13, color: kTextPrimary),
+          ),
+        )).toList(),
+      ),
+    );
+  }
+
   void _navigateToScreen(BuildContext context, Widget screen) {
-    Navigator.push(context, MaterialPageRoute(builder: (context) => screen)).then((_) => _loadAssignments());
+    Navigator.push(context, MaterialPageRoute(builder: (context) => screen)).then((_) => _loadDashboard());
   }
 }
 

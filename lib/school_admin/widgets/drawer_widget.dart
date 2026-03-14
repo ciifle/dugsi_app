@@ -119,12 +119,14 @@ class AppDrawer extends StatelessWidget {
                           onTap: () => _navTo(context, const AdminParentsScreen()),
                         ),
                         const SizedBox(height: 12),
-                        _DrawerMenuCard(
-                          icon: Icons.payments_outlined,
-                          label: 'Fees',
-                          onTap: () => _navTo(context, const AdminFeesScreen()),
-                        ),
-                        const SizedBox(height: 12),
+                        if (context.watch<AuthProvider>().feesEnabled) ...[
+                          _DrawerMenuCard(
+                            icon: Icons.payments_outlined,
+                            label: 'Fees',
+                            onTap: () => _navTo(context, const AdminFeesScreen()),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
                         _DrawerMenuCard(
                           icon: Icons.event_note_outlined,
                           label: 'Attendance',

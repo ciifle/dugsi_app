@@ -109,44 +109,45 @@ class ParentDrawer extends StatelessWidget {
                         );
                       },
                     ),
-                    _buildDrawerItem(
-                      icon: Icons.account_balance_wallet_rounded,
-                      label: 'Fees',
-                      color: kSoftOrange,
-                      badge: _getUnpaidFeesCount(),
-                      onTap: () {
-                        Navigator.pop(context);
-                        if (children.isNotEmpty) {
-                          final child = children.first;
-                          final feeData = {
-                            'childName': child['name'],
-                            'className': child['className'],
-                            'totalFee': child['fee']['totalFee'],
-                            'paidAmount': child['fee']['paidAmount'],
-                            'dueAmount': child['fee']['dueAmount'],
-                            'dueDate': child['fee']['dueDate'],
-                            'status': child['fee']['status'],
-                            'feeType': child['fee']['feeType'],
-                            'lateFee': child['fee']['lateFee'],
-                          };
+                    if (context.watch<AuthProvider>().feesEnabled)
+                      _buildDrawerItem(
+                        icon: Icons.account_balance_wallet_rounded,
+                        label: 'Fees',
+                        color: kSoftOrange,
+                        badge: _getUnpaidFeesCount(),
+                        onTap: () {
+                          Navigator.pop(context);
+                          if (children.isNotEmpty) {
+                            final child = children.first;
+                            final feeData = {
+                              'childName': child['name'],
+                              'className': child['className'],
+                              'totalFee': child['fee']['totalFee'],
+                              'paidAmount': child['fee']['paidAmount'],
+                              'dueAmount': child['fee']['dueAmount'],
+                              'dueDate': child['fee']['dueDate'],
+                              'status': child['fee']['status'],
+                              'feeType': child['fee']['feeType'],
+                              'lateFee': child['fee']['lateFee'],
+                            };
 
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  ParentFeePaymentScreen(fee: feeData),
-                            ),
-                          );
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('No children found'),
-                              backgroundColor: kErrorColor,
-                            ),
-                          );
-                        }
-                      },
-                    ),
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    ParentFeePaymentScreen(fee: feeData),
+                              ),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('No children found'),
+                                backgroundColor: kErrorColor,
+                              ),
+                            );
+                          }
+                        },
+                      ),
                     _buildDrawerItem(
                       icon: Icons.assignment_rounded,
                       label: 'Results',

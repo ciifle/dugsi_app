@@ -31,7 +31,7 @@ class _TeacherMarksScreenState extends State<TeacherMarksScreen> {
     final out = <({int id, String name})>[];
     for (final a in _assignments) {
       if (seen.add(a.classId)) {
-        out.add((id: a.classId, name: a.className.isEmpty ? 'Class ${a.classId}' : a.className));
+        out.add((id: a.classId, name: a.classDisplayName));
       }
     }
     return out;
@@ -112,7 +112,7 @@ class _TeacherMarksScreenState extends State<TeacherMarksScreen> {
       context: context,
       builder: (ctx) => _AddMarkDialog(
         classId: _filterClassId!,
-        className: _uniqueClasses.firstWhere((c) => c.id == _filterClassId, orElse: () => (id: _filterClassId!, name: '')).name,
+        className: _uniqueClasses.firstWhere((c) => c.id == _filterClassId, orElse: () => (id: _filterClassId!, name: 'Unassigned')).name,
         subjects: subjects,
         students: students,
         onSaved: () {

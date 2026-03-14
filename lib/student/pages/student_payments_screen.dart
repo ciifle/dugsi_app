@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:kobac/services/student_service.dart';
+import 'package:kobac/shared/widgets/fees_feature_guard.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
 const Color kPrimaryGreen = Color(0xFF5AB04B);
@@ -33,9 +34,10 @@ class _StudentPaymentsScreenState extends State<StudentPaymentsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: kSoftBlue,
-      body: Container(
+    return FeesFeatureGuard(
+      child: Scaffold(
+        backgroundColor: kSoftBlue,
+        body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -194,6 +196,7 @@ class _StudentPaymentsScreenState extends State<StudentPaymentsScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 }
