@@ -21,7 +21,10 @@ const Color kCardColor = Colors.white;
 //   MAIN SCREEN WIDGET
 // =========================
 class TeacherAssignmentsScreen extends StatefulWidget {
-  const TeacherAssignmentsScreen({Key? key}) : super(key: key);
+  /// When provided (e.g. from dashboard), assignments show immediately from this data.
+  final TeacherDashboardModel? initialDashboard;
+
+  const TeacherAssignmentsScreen({Key? key, this.initialDashboard}) : super(key: key);
 
   @override
   State<TeacherAssignmentsScreen> createState() =>
@@ -33,28 +36,20 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
-  late Future<TeacherResult<List<TeacherAssignmentModel>>> _assignmentsFuture;
+  late Future<TeacherResult<TeacherDashboardModel>> _dashboardFuture;
 
   @override
   void initState() {
     super.initState();
-    _assignmentsFuture = TeacherService().listAssignments();
+    _dashboardFuture = widget.initialDashboard != null
+        ? Future.value(TeacherSuccess(widget.initialDashboard!))
+        : TeacherService().getDashboard();
   }
 
   void _refresh() {
     setState(() {
-      _assignmentsFuture = TeacherService().listAssignments();
+      _dashboardFuture = TeacherService().getDashboard();
     });
-  }
-
-  /// Group API assignments by class display name. Never use "class 0"; use Unassigned.
-  Map<String, List<TeacherAssignmentModel>> _groupByClass(List<TeacherAssignmentModel> list) {
-    final map = <String, List<TeacherAssignmentModel>>{};
-    for (final a in list) {
-      final key = a.classDisplayName;
-      map.putIfAbsent(key, () => []).add(a);
-    }
-    return map;
   }
 
   void _startSearch() {
@@ -87,8 +82,8 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kSoftBlue,
-      body: FutureBuilder<TeacherResult<List<TeacherAssignmentModel>>>(
-        future: _assignmentsFuture,
+      body: FutureBuilder<TeacherResult<TeacherDashboardModel>>(
+        future: _dashboardFuture,
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
             return _buildScaffoldWithAppBar(
@@ -136,7 +131,14 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
               ),
             );
           }
-          final list = result is TeacherSuccess<List<TeacherAssignmentModel>> ? result.data : <TeacherAssignmentModel>[];
+          TeacherDashboardModel? dashboard;
+          if (result is TeacherSuccess<TeacherDashboardModel>) {
+            dashboard = result.data;
+          }
+          final list = dashboard?.assignments ?? <TeacherAssignmentModel>[];
+          if (dashboard != null) {
+            debugPrint('TeacherAssignmentsScreen: dashboard assignments: ${dashboard.assignments.length}');
+          }
           final searchFiltered = _searchQuery.isEmpty
               ? list
               : list.where((a) {
@@ -155,7 +157,7 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
                       const SizedBox(height: 16),
                       Text(
                         list.isEmpty
-                            ? 'No assignments yet. Contact school admin.'
+                            ? 'No assignments found.'
                             : 'No assignments match your search.',
                         textAlign: TextAlign.center,
                         style: const TextStyle(fontSize: 16, color: kTextPrimary),
@@ -179,26 +181,197 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
               ),
             );
           }
-          final grouped = _groupByClass(searchFiltered);
-          return _buildScaffoldWithAppBar(
-            body: RefreshIndicator(
-              onRefresh: () async => _refresh(),
-              color: kPrimaryBlue,
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                children: [
-                  const SizedBox(height: 8),
-                  ...grouped.entries.map((e) => _ApiAssignmentClassCard(
-                        className: e.key,
-                        assignments: e.value,
-                      )),
-                ],
-              ),
-            ),
-          );
+          return _buildScaffoldWithList(searchFiltered);
         },
       ),
+    );
+  }
+
+  /// Builds scaffold with list as slivers (avoids SliverFillRemaining + ListView intrinsic error).
+  Widget _buildScaffoldWithList(List<TeacherAssignmentModel> searchFiltered) {
+    return Scaffold(
+      backgroundColor: kSoftBlue,
+      body: RefreshIndicator(
+        onRefresh: () async => _refresh(),
+        color: kPrimaryBlue,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+          slivers: [
+            _buildSliverAppBar(),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final a = searchFiltered[index];
+                    final subjectLabel = a.subjectName.isNotEmpty ? a.subjectName : '—';
+                    final classLabel = a.classDisplayName;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: kPrimaryBlue.withOpacity(0.08),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: kPrimaryGreen.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.subject_rounded, color: kPrimaryGreen, size: 22),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Text(
+                              '$subjectLabel — $classLabel',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: kTextPrimary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  childCount: searchFiltered.length,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSliverAppBar() {
+    return SliverAppBar(
+      expandedHeight: _isSearching ? 100 : 120,
+      pinned: true,
+      backgroundColor: kPrimaryBlue,
+      flexibleSpace: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
+            stops: const [0.3, 0.7, 1.0],
+          ),
+          borderRadius: const BorderRadius.only(
+            bottomLeft: Radius.circular(30),
+            bottomRight: Radius.circular(30),
+          ),
+        ),
+        child: FlexibleSpaceBar(
+          titlePadding: const EdgeInsets.only(bottom: 20),
+          centerTitle: true,
+          title: _isSearching
+              ? null
+              : const Text(
+                  "Assignments",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 28,
+                  ),
+                ),
+        ),
+      ),
+      leading: Container(
+        margin: const EdgeInsets.only(left: 12, top: 8),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 28),
+          onPressed: () => Navigator.pop(context),
+          padding: const EdgeInsets.all(10),
+        ),
+      ),
+      actions: [
+        if (_isSearching)
+          Container(
+            margin: const EdgeInsets.only(right: 12, top: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.close, color: Colors.white, size: 24),
+              onPressed: _stopSearch,
+              padding: const EdgeInsets.all(10),
+            ),
+          )
+        else
+          Container(
+            margin: const EdgeInsets.only(right: 12, top: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.search_rounded, color: Colors.white, size: 24),
+              onPressed: _startSearch,
+              padding: const EdgeInsets.all(10),
+            ),
+          ),
+      ],
+      bottom: _isSearching
+          ? PreferredSize(
+              preferredSize: const Size.fromHeight(60),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    autofocus: true,
+                    onChanged: _updateSearchQuery,
+                    decoration: InputDecoration(
+                      hintText: 'Search assignments...',
+                      hintStyle: TextStyle(color: kTextSecondary, fontSize: 15),
+                      prefixIcon: Icon(Icons.search_rounded, color: kPrimaryBlue, size: 22),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: Icon(Icons.clear, color: kTextSecondary, size: 20),
+                              onPressed: () {
+                                _searchController.clear();
+                                _updateSearchQuery('');
+                              },
+                              padding: EdgeInsets.zero,
+                            )
+                          : null,
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    ),
+                    style: const TextStyle(color: kTextPrimary, fontSize: 15),
+                  ),
+                ),
+              ),
+            )
+          : null,
     );
   }
 
@@ -208,155 +381,7 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          // ---------------- APP BAR WITH GRADIENT ----------------
-          SliverAppBar(
-            expandedHeight: _isSearching ? 100 : 120,
-            pinned: true,
-            backgroundColor: kPrimaryBlue,
-            flexibleSpace: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
-                  stops: const [0.3, 0.7, 1.0],
-                ),
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(30),
-                  bottomRight: Radius.circular(30),
-                ),
-              ),
-              child: FlexibleSpaceBar(
-                titlePadding: const EdgeInsets.only(bottom: 20),
-                centerTitle: true,
-                title: _isSearching
-                    ? null
-                    : const Text(
-                        "Assignments",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 28,
-                        ),
-                      ),
-              ),
-            ),
-            leading: Container(
-              margin: const EdgeInsets.only(left: 12, top: 8),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: IconButton(
-                icon: const Icon(
-                  Icons.arrow_back_rounded,
-                  color: Colors.white,
-                  size: 28,
-                ),
-                onPressed: () => Navigator.pop(context),
-                padding: const EdgeInsets.all(10),
-              ),
-            ),
-            actions: [
-              if (_isSearching)
-                Container(
-                  margin: const EdgeInsets.only(right: 12, top: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: IconButton(
-                    icon: const Icon(
-                      Icons.close,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                    onPressed: _stopSearch,
-                    padding: const EdgeInsets.all(10),
-                  ),
-                )
-              else
-                Container(
-                  margin: const EdgeInsets.only(right: 12, top: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: IconButton(
-                    icon: const Icon(
-                      Icons.search_rounded,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                    onPressed: _startSearch,
-                    padding: const EdgeInsets.all(10),
-                  ),
-                ),
-            ],
-            bottom: _isSearching
-                ? PreferredSize(
-                    preferredSize: const Size.fromHeight(60),
-                    child: Container(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: TextField(
-                          controller: _searchController,
-                          autofocus: true,
-                          onChanged: _updateSearchQuery,
-                          decoration: InputDecoration(
-                            hintText: 'Search assignments...',
-                            hintStyle: TextStyle(
-                              color: kTextSecondary,
-                              fontSize: 15,
-                            ),
-                            prefixIcon: Icon(
-                              Icons.search_rounded,
-                              color: kPrimaryBlue,
-                              size: 22,
-                            ),
-                            suffixIcon: _searchQuery.isNotEmpty
-                                ? IconButton(
-                                    icon: Icon(
-                                      Icons.clear,
-                                      color: kTextSecondary,
-                                      size: 20,
-                                    ),
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      _updateSearchQuery('');
-                                    },
-                                    padding: EdgeInsets.zero,
-                                  )
-                                : null,
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 14,
-                            ),
-                          ),
-                          style: const TextStyle(
-                            color: kTextPrimary,
-                            fontSize: 15,
-                          ),
-                        ),
-                      ),
-                    ),
-                  )
-                : null,
-          ),
-
-          // ---------------- MAIN CONTENT (injected body) ----------------
+          _buildSliverAppBar(),
           SliverFillRemaining(
             hasScrollBody: false,
             child: body,
@@ -366,74 +391,5 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
     );
   }
 
-}
-
-// ---------------- API ASSIGNMENT CLASS CARD (grouped by class) ----------------
-class _ApiAssignmentClassCard extends StatelessWidget {
-  final String className;
-  final List<TeacherAssignmentModel> assignments;
-
-  const _ApiAssignmentClassCard({
-    required this.className,
-    required this.assignments,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final subjectNames = assignments.map((a) => a.subjectName).where((s) => s.isNotEmpty).toSet().toList();
-    if (subjectNames.isEmpty) subjectNames.add('—');
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: kPrimaryBlue.withOpacity(0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: kPrimaryBlue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.class_rounded, color: kPrimaryBlue, size: 22),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Class: $className',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: kTextPrimary,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ...subjectNames.map((s) => Padding(
-                padding: const EdgeInsets.only(left: 8, top: 4),
-                child: Row(
-                  children: [
-                    Icon(Icons.subject_rounded, size: 18, color: kTextSecondary),
-                    const SizedBox(width: 8),
-                    Text(s, style: TextStyle(fontSize: 15, color: kTextPrimary)),
-                  ],
-                ),
-              )),
-        ],
-      ),
-    );
-  }
 }
 

@@ -4,9 +4,10 @@ import 'package:http/http.dart' as http;
 
 import 'package:kobac/services/api_client.dart';
 import 'package:kobac/services/api_error_helpers.dart';
+import 'package:kobac/services/periods_service.dart';
 
 /// Timetable slot model (school-admin scope).
-/// API fields: id, class_id, subject_id, teacher_id, day, start_time, end_time
+/// API fields: id, class_id, subject_id, teacher_id, day, start_time, end_time, period_id, period
 class TimetableSlotModel {
   final int id;
   final int classId;
@@ -15,6 +16,8 @@ class TimetableSlotModel {
   final String day;
   final String startTime;
   final String endTime;
+  final int? periodId;
+  final PeriodModel? period;
 
   const TimetableSlotModel({
     required this.id,
@@ -24,6 +27,8 @@ class TimetableSlotModel {
     required this.day,
     required this.startTime,
     required this.endTime,
+    this.periodId,
+    this.period,
   });
 
   factory TimetableSlotModel.fromJson(Map<String, dynamic> json) {
@@ -34,14 +39,26 @@ class TimetableSlotModel {
       return 0;
     }
     String str(dynamic v) => v == null ? '' : v.toString().trim();
+    int? pid = parseId(json['period_id'] ?? json['periodId']);
+    if (pid == 0) pid = null;
+    
+    PeriodModel? periodMod;
+    final pObj = json['period'] ?? json['Period'];
+    if (pObj is Map<String, dynamic>) {
+      periodMod = PeriodModel.fromJson(pObj);
+      if (pid == null && periodMod.id > 0) pid = periodMod.id;
+    }
+
     return TimetableSlotModel(
       id: parseId(json['id'] ?? json['timetable_id']),
       classId: parseId(json['class_id'] ?? json['classId']),
       subjectId: parseId(json['subject_id'] ?? json['subjectId']),
       teacherId: parseId(json['teacher_id'] ?? json['teacherId']),
       day: str(json['day'] ?? 'MON').toUpperCase(),
-      startTime: TimetableSlotModel.normalizeTime(str(json['start_time'] ?? json['startTime'] ?? '')),
-      endTime: TimetableSlotModel.normalizeTime(str(json['end_time'] ?? json['endTime'] ?? '')),
+      startTime: TimetableSlotModel.normalizeTime(str(json['start_time'] ?? json['startTime'] ?? periodMod?.startTime ?? '')),
+      endTime: TimetableSlotModel.normalizeTime(str(json['end_time'] ?? json['endTime'] ?? periodMod?.endTime ?? '')),
+      periodId: pid,
+      period: periodMod,
     );
   }
 
@@ -175,7 +192,7 @@ class TimetablesService {
   }
 
   /// POST /api/school-admin/timetables
-  /// Body: class_id, subject_id, teacher_id, day, start_time, end_time (do NOT send id)
+  /// Body: class_id, subject_id, teacher_id, day, period_id (do NOT send id, start_time, end_time)
   Future<TimetableResult<TimetableSlotModel>> createTimetableSlot(Map<String, dynamic> payload) async {
     try {
       final body = <String, dynamic>{
@@ -183,9 +200,12 @@ class TimetablesService {
         'subject_id': payload['subject_id'] is int ? payload['subject_id'] as int : int.tryParse(payload['subject_id'].toString()) ?? 0,
         'teacher_id': payload['teacher_id'] is int ? payload['teacher_id'] as int : int.tryParse(payload['teacher_id'].toString()) ?? 0,
         'day': (payload['day'] as String? ?? '').toString().toUpperCase(),
-        'start_time': TimetableSlotModel.normalizeTime((payload['start_time'] as String? ?? '').toString().trim()),
-        'end_time': TimetableSlotModel.normalizeTime((payload['end_time'] as String? ?? '').toString().trim()),
       };
+      
+      if (payload['period_id'] != null) {
+        body['period_id'] = payload['period_id'] is int ? payload['period_id'] as int : int.tryParse(payload['period_id'].toString()) ?? 0;
+      }
+      
       final response = await _client.post(apiUrl(_base), body: body);
       devLogResponse('TimetablesService.createTimetableSlot', response.statusCode, response.body);
       if (response.statusCode == 201) {
@@ -196,6 +216,7 @@ class TimetablesService {
         if (slotMap is! Map<String, dynamic>) return TimetableError('Invalid response from server. Please try again.');
         return TimetableSuccess(TimetableSlotModel.fromJson(slotMap));
       }
+      if (response.statusCode == 409) return TimetableError('This teacher or class already has a timetable in that period.', 409);
       if (response.statusCode == 400) return TimetableError(_errorMessage(response) ?? 'Invalid data. Please try again.', 400);
       return TimetableError(_errorMessage(response) ?? 'Request failed. Please try again.', response.statusCode);
     } catch (e, st) {
@@ -204,13 +225,11 @@ class TimetablesService {
   }
 
   /// PATCH /api/school-admin/timetables/{id}
-  /// At minimum: day, start_time, end_time. Optionally class_id, subject_id, teacher_id.
   Future<TimetableResult<TimetableSlotModel>> updateTimetable(int id, Map<String, dynamic> payload) async {
     try {
       final body = <String, dynamic>{};
       if (payload.containsKey('day')) body['day'] = (payload['day'] as String? ?? '').toString().toUpperCase();
-      if (payload.containsKey('start_time')) body['start_time'] = TimetableSlotModel.normalizeTime((payload['start_time'] as String? ?? '').toString().trim());
-      if (payload.containsKey('end_time')) body['end_time'] = TimetableSlotModel.normalizeTime((payload['end_time'] as String? ?? '').toString().trim());
+      if (payload.containsKey('period_id')) body['period_id'] = payload['period_id'] is int ? payload['period_id'] as int : int.tryParse(payload['period_id'].toString()) ?? 0;
       if (payload.containsKey('class_id')) body['class_id'] = payload['class_id'] is int ? payload['class_id'] as int : int.tryParse(payload['class_id'].toString()) ?? 0;
       if (payload.containsKey('subject_id')) body['subject_id'] = payload['subject_id'] is int ? payload['subject_id'] as int : int.tryParse(payload['subject_id'].toString()) ?? 0;
       if (payload.containsKey('teacher_id')) body['teacher_id'] = payload['teacher_id'] is int ? payload['teacher_id'] as int : int.tryParse(payload['teacher_id'].toString()) ?? 0;
@@ -218,6 +237,7 @@ class TimetablesService {
       final response = await _client.patch(apiUrl('$_base/$id'), body: body);
       devLogResponse('TimetablesService.updateTimetable', response.statusCode, response.body);
       if (response.statusCode == 404) return TimetableError('Timetable slot not found.', 404);
+      if (response.statusCode == 409) return TimetableError('This teacher or class already has a timetable in that period.', 409);
       if (response.statusCode != 200) {
         return TimetableError(_errorMessage(response) ?? 'Could not update. Please try again.', response.statusCode);
       }

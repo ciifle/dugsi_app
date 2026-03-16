@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:kobac/school_admin/pages/admin_assignments_screen.dart';
 import 'package:kobac/school_admin/pages/admin_profile.dart';
 import 'package:kobac/school_admin/pages/admin_timetable_screen.dart';
+import 'package:kobac/school_admin/pages/admin_periods_screen.dart';
 import 'package:kobac/school_admin/pages/admin_exams_screen.dart';
 import 'package:kobac/school_admin/pages/admin_marks_screen.dart';
 import 'package:kobac/school_admin/pages/admin_notices_screen.dart';
@@ -11,7 +12,6 @@ import 'package:kobac/school_admin/pages/school_admin_screen.dart';
 import 'package:kobac/school_admin/pages/admin_parents_screen.dart';
 import 'package:kobac/school_admin/pages/admin_fees_screen.dart';
 import 'package:kobac/school_admin/pages/admin_attendance_screen.dart';
-import 'package:kobac/school_admin/pages/messages_inbox_screen.dart';
 import 'package:provider/provider.dart';
 
 import 'package:kobac/services/auth_provider.dart';
@@ -87,6 +87,12 @@ class AppDrawer extends StatelessWidget {
                           icon: Icons.schedule_rounded,
                           label: 'Timetable',
                           onTap: () => _navTo(context, const AdminTimetableScreen()),
+                        ),
+                        const SizedBox(height: 12),
+                        _DrawerMenuCard(
+                          icon: Icons.access_time_filled_rounded,
+                          label: 'Periods',
+                          onTap: () => _navTo(context, const AdminPeriodsScreen()),
                         ),
                         const SizedBox(height: 12),
                         _DrawerMenuCard(

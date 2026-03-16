@@ -9,10 +9,12 @@ import 'package:kobac/school_admin/pages/admin_assignments_screen.dart';
 import 'package:kobac/school_admin/pages/timetable_detail_page.dart';
 import 'package:kobac/school_admin/widgets/delete_confirm_dialog.dart';
 import 'package:kobac/widgets/form_3d/form_3d.dart';
+import 'package:kobac/services/periods_service.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
 const Color kPrimaryGreen = Color(0xFF5AB04B);
 const Color kBgColor = Color(0xFFF0F3F7);
+const Color kTextPrimary = Color(0xFF2D3436);
 const double kCardRadius = 28.0;
 
 const List<String> kDays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
@@ -131,8 +133,7 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
         initialSubjectId: slot.subjectId,
         initialTeacherId: slot.teacherId,
         initialDay: slot.day,
-        initialStartTime: slot.startTime,
-        initialEndTime: slot.endTime,
+        initialPeriodId: slot.periodId,
         slotId: slot.id,
         isCreate: false,
         onSave: (ctx, payload) => _updateSlotFromDialog(ctx, slot.id, payload),
@@ -399,66 +400,182 @@ class _SlotCard extends StatelessWidget {
     required this.onDelete,
   });
 
+  String _formatShift(String? shift) {
+    if (shift == null || shift.isEmpty) return '';
+    final s = shift.toLowerCase();
+    if (s == 'morning') return 'Morning';
+    if (s == 'afternoon') return 'Afternoon';
+    return shift;
+  }
+
   @override
   Widget build(BuildContext context) {
     final timeStr = '${_timeDisplay(slot.startTime)} - ${_timeDisplay(slot.endTime)}';
+    final shift = _formatShift(slot.period?.shift);
+    final isAfternoon = slot.period?.shift.toLowerCase() == 'afternoon';
+    final periodName = slot.period != null ? (slot.period!.name.isNotEmpty ? slot.period!.name : 'Period ${slot.period!.periodNumber}') : null;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(kCardRadius),
         child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(kCardRadius),
-          boxShadow: [
-            BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 6)),
-            BoxShadow(color: kPrimaryBlue.withOpacity(0.03), blurRadius: 32, offset: const Offset(0, 12)),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: kPrimaryBlue.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: const Icon(Icons.schedule_rounded, color: kPrimaryBlue, size: 28),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    timeStr,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+          margin: const EdgeInsets.only(bottom: 14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(kCardRadius),
+            boxShadow: [
+              BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 6)),
+            ],
+            border: Border.all(color: Colors.grey.shade100),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(kCardRadius),
+            child: Stack(
+              children: [
+                // Shift indicator bar
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 4,
+                    color: isAfternoon ? Colors.orange : kPrimaryBlue,
                   ),
-                  const SizedBox(height: 4),
-                  Text(subjectName, style: TextStyle(fontSize: 14, color: Colors.grey[800])),
-                  Text(teacherName, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
-                  if (className != null) Text(className!, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
-                ],
-              ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 4),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: (isAfternoon ? Colors.orange : kPrimaryBlue).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Icon(
+                          isAfternoon ? Icons.wb_twilight_rounded : Icons.wb_sunny_rounded,
+                          color: isAfternoon ? Colors.orange : kPrimaryBlue,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                if (periodName != null)
+                                  Text(
+                                    periodName,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: kPrimaryBlue,
+                                    ),
+                                  ),
+                                if (shift.isNotEmpty)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: (isAfternoon ? Colors.orange : kPrimaryBlue).withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      shift.toUpperCase(),
+                                      style: TextStyle(
+                                        color: isAfternoon ? Colors.orange : kPrimaryBlue,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              subjectName,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: kTextPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                Icon(Icons.person_outline_rounded, size: 14, color: Colors.grey[600]),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    teacherName,
+                                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (className != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.class_outlined, size: 14, color: Colors.grey[500]),
+                                    const SizedBox(width: 4),
+                                    Text(className!, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                                  ],
+                                ),
+                              ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Icon(Icons.access_time_rounded, size: 14, color: kPrimaryGreen),
+                                const SizedBox(width: 4),
+                                Text(
+                                  timeStr,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: kPrimaryGreen,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Column(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined, size: 20, color: kPrimaryGreen),
+                            onPressed: onEdit,
+                            constraints: const BoxConstraints(),
+                            padding: const EdgeInsets.all(8),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.delete_outline, size: 20, color: Colors.red[400]),
+                            onPressed: onDelete,
+                            constraints: const BoxConstraints(),
+                            padding: const EdgeInsets.all(8),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            IconButton(
-              icon: const Icon(Icons.edit_outlined, size: 22, color: kPrimaryGreen),
-              onPressed: onEdit,
-              tooltip: 'Edit',
-            ),
-            IconButton(
-              icon: Icon(Icons.delete_outline, size: 22, color: Colors.red[400]),
-              onPressed: onDelete,
-              tooltip: 'Delete',
-            ),
-          ],
+          ),
         ),
       ),
-    ),
     );
   }
 
@@ -476,8 +593,7 @@ class _TimetableSlotFormDialog extends StatefulWidget {
   final int? initialSubjectId;
   final int? initialTeacherId;
   final String initialDay;
-  final String initialStartTime;
-  final String initialEndTime;
+  final int? initialPeriodId;
   final int? slotId;
   final bool isCreate;
   final Future<bool> Function(BuildContext ctx, Map<String, dynamic> payload) onSave;
@@ -489,8 +605,7 @@ class _TimetableSlotFormDialog extends StatefulWidget {
     this.initialSubjectId,
     this.initialTeacherId,
     this.initialDay = 'MON',
-    this.initialStartTime = '09:00:00',
-    this.initialEndTime = '09:45:00',
+    this.initialPeriodId,
     this.slotId,
     required this.isCreate,
     required this.onSave,
@@ -505,13 +620,14 @@ class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
   late int? _subjectId;
   late int? _teacherId;
   late String _day;
-  late TextEditingController _startController;
-  late TextEditingController _endController;
+  late int? _periodId;
   bool _submitting = false;
   List<TeacherModel> _classTeachers = [];
   List<ClassSubjectItem> _classSubjects = [];
+  List<PeriodModel> _periods = [];
   bool _loadingTeachers = false;
   bool _loadingSubjects = false;
+  bool _loadingPeriods = true;
 
   @override
   void initState() {
@@ -520,8 +636,8 @@ class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
     _subjectId = widget.initialSubjectId;
     _teacherId = widget.initialTeacherId;
     _day = widget.initialDay;
-    _startController = TextEditingController(text: _formatTimeForInput(widget.initialStartTime));
-    _endController = TextEditingController(text: _formatTimeForInput(widget.initialEndTime));
+    _periodId = widget.initialPeriodId;
+    _loadPeriods();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.initialClassId != null && widget.initialClassId! > 0) {
         _loadClassSubjects(widget.initialClassId!);
@@ -568,16 +684,22 @@ class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
     });
   }
 
-  String _formatTimeForInput(String t) {
-    final parts = t.split(':');
-    if (parts.length >= 2) return '${parts[0]}:${parts[1]}';
-    return t;
+  Future<void> _loadPeriods() async {
+    final result = await PeriodsService().getPeriods();
+    if (!mounted) return;
+    setState(() {
+      _loadingPeriods = false;
+      if (result is PeriodSuccess<List<PeriodModel>>) {
+        _periods = result.data;
+        if (_periodId != null && !_periods.any((p) => p.id == _periodId)) {
+          _periodId = null;
+        }
+      }
+    });
   }
 
   @override
   void dispose() {
-    _startController.dispose();
-    _endController.dispose();
     super.dispose();
   }
 
@@ -610,36 +732,25 @@ class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
     if (_classTeachers.any((t) => t.id == _teacherId)) return _teacherId;
     return null;
   }
+  
+  int? get _effectivePeriodId {
+    if (_periodId == null) return null;
+    if (_periods.any((p) => p.id == _periodId)) return _periodId;
+    return null;
+  }
 
   bool _canSubmit() {
     if (_submitting) return false;
     if (widget.isCreate) {
-      if (_classId == null || _subjectId == null || _teacherId == null) return false;
-      if (_startController.text.trim().isEmpty || _endController.text.trim().isEmpty) return false;
+      if (_classId == null || _subjectId == null || _teacherId == null || _periodId == null) return false;
     }
     return true;
   }
 
   Future<void> _submit() async {
-    final startRaw = _startController.text.trim();
-    final endRaw = _endController.text.trim();
-    if (startRaw.isEmpty || endRaw.isEmpty) {
+    if (widget.isCreate && (_classId == null || _subjectId == null || _teacherId == null || _periodId == null)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Start time and end time are required'), backgroundColor: Colors.red),
-      );
-      return;
-    }
-    final startTime = TimetableSlotModel.normalizeTime(startRaw);
-    final endTime = TimetableSlotModel.normalizeTime(endRaw);
-    if (startTime.compareTo(endTime) >= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Start time must be before end time'), backgroundColor: Colors.red),
-      );
-      return;
-    }
-    if (widget.isCreate && (_classId == null || _subjectId == null || _teacherId == null)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select class, subject and teacher'), backgroundColor: Colors.red),
+        const SnackBar(content: Text('Please select class, subject, teacher and period'), backgroundColor: Colors.red),
       );
       return;
     }
@@ -647,9 +758,10 @@ class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
     setState(() => _submitting = true);
     final payload = <String, dynamic>{
       'day': _day,
-      'start_time': startTime,
-      'end_time': endTime,
     };
+    if (_periodId != null) {
+      payload['period_id'] = _periodId!;
+    }
     if (widget.isCreate) {
       if (_classId == null || _subjectId == null || _teacherId == null) {
         setState(() => _submitting = false);
@@ -778,18 +890,20 @@ class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
                 onChanged: (v) => setState(() => _day = v ?? 'MON'),
               ),
               const SizedBox(height: 16),
-              Input3D(
-                controller: _startController,
-                label: 'Start time',
-                hint: '09:00 or 09:00:00',
-                onSubmitted: (_) => _submit(),
-              ),
-              const SizedBox(height: 16),
-              Input3D(
-                controller: _endController,
-                label: 'End time',
-                hint: '09:45 or 09:45:00',
-                onSubmitted: (_) => _submit(),
+              Select3D<int?>(
+                value: _effectivePeriodId,
+                label: 'Period',
+                items: [
+                  DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text(_loadingPeriods ? 'Loading periods...' : 'Select period'),
+                  ),
+                  ..._periods.map((p) => DropdownMenuItem<int?>(
+                    value: p.id,
+                    child: Text('${p.name.isNotEmpty ? p.name : 'Period ${p.periodNumber}'} (${p.shift.isNotEmpty ? p.shift : 'No Shift'}) - ${p.startTime.substring(0, 5)} to ${p.endTime.substring(0, 5)}'),
+                  )),
+                ],
+                onChanged: _loadingPeriods ? null : (v) => setState(() => _periodId = v),
               ),
               const SizedBox(height: 24),
               Row(

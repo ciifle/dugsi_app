@@ -7,6 +7,8 @@ import 'package:kobac/teacher/pages/teacher_classes_screen.dart';
 import 'package:kobac/teacher/pages/teacher_dashboard.dart';
 import 'package:kobac/teacher/pages/teacher_marks_screen.dart';
 import 'package:kobac/teacher/pages/teacher_profile.dart';
+import 'package:kobac/teacher/pages/teacher_students_list_screen.dart';
+import 'package:kobac/messages/messages_screen.dart';
 
 // =======================
 //  TEACHER DRAWER COLORS - MATCHING STUDENT DASHBOARD
@@ -82,7 +84,9 @@ class TeacherDrawer extends StatelessWidget {
                         _MenuItem(icon: Icons.dashboard_rounded, label: 'Dashboard', color: kPrimaryBlue),
                         _MenuItem(icon: Icons.assignment_rounded, label: 'My Assignments', color: kPrimaryGreen),
                         _MenuItem(icon: Icons.class_rounded, label: 'Classes', color: kPrimaryBlue),
+                        _MenuItem(icon: Icons.people_rounded, label: 'My Students', color: kSoftOrange),
                         _MenuItem(icon: Icons.assignment_turned_in_rounded, label: 'Take Attendance', color: kPrimaryBlue),
+                        _MenuItem(icon: Icons.message_rounded, label: 'Messages', color: kPrimaryBlue),
                         _MenuItem(icon: Icons.grade_rounded, label: 'Marks', color: kSoftOrange),
                         _MenuItem(icon: Icons.person_rounded, label: 'Profile', color: kSoftOrange),
                       ],
@@ -468,11 +472,17 @@ class TeacherDrawer extends StatelessWidget {
       case 'Classes':
         screen = const TeacherClassesScreen();
         break;
+      case 'My Students':
+        screen = const TeacherStudentsListScreen();
+        break;
       case 'Take Attendance':
         screen = const TeacherAttendanceScreen();
         break;
       case 'Marks':
         screen = const TeacherMarksScreen();
+        break;
+      case 'Messages':
+        screen = const MessagesScreen();
         break;
       case 'Profile':
         screen = const TeacherProfileScreen();

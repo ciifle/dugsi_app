@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:kobac/parent/pages/parent_children_list_screen.dart';
 import 'package:kobac/parent/pages/parent_fee_payment_screen.dart';
 import 'package:kobac/services/auth_provider.dart';
+import 'package:kobac/messages/messages_screen.dart';
 
 // ---------- COMPLETE COLOR PALETTE ----------
 const Color kPrimaryBlue = Color(0xFF023471);
@@ -166,6 +167,21 @@ class ParentDrawer extends StatelessWidget {
                       onTap: () {
                         Navigator.pop(context);
                         onAttendanceTap();
+                      },
+                    ),
+                    _buildDrawerItem(
+                      icon: Icons.message_rounded,
+                      label: 'Messages',
+                      color: kPrimaryBlue,
+                      badge: null,
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const MessagesScreen(),
+                          ),
+                        );
                       },
                     ),
                     _buildDrawerItem(

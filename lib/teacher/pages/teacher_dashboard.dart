@@ -4,7 +4,9 @@ import 'package:kobac/teacher/pages/assignments_screen.dart';
 import 'package:kobac/teacher/pages/attendance_mark.dart';
 import 'package:kobac/teacher/pages/teacher_classes_screen.dart';
 import 'package:kobac/teacher/pages/teacher_marks_screen.dart';
+import 'package:kobac/teacher/pages/teacher_students_list_screen.dart';
 import 'package:kobac/teacher/pages/teacher_drawer.dart';
+import 'package:kobac/teacher/pages/weakly_schedule.dart';
 import 'package:kobac/services/teacher_service.dart';
 import 'package:kobac/services/auth_provider.dart';
 
@@ -77,9 +79,9 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final user = auth.user;
-    final name = auth.teacherProfile?.fullName?.isNotEmpty == true
-        ? auth.teacherProfile!.fullName!
-        : (user?.name ?? 'Teacher');
+    final name = auth.teacherProfile?.fullName?.trim().isNotEmpty == true
+        ? auth.teacherProfile!.fullName!.trim()
+        : (user?.name?.trim().isNotEmpty == true ? user!.name.trim() : 'Teacher');
     final initials = name.isNotEmpty ? name.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase() : 'T';
     final roleLabel = user != null ? user.role.replaceAll('_', ' ') : 'Teacher';
 
@@ -244,21 +246,21 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
                           value: '${_assignments.length}',
                           label: 'Assignments',
                           color: kPrimaryGreen,
-                          onTap: () => _navigateToScreen(context, const TeacherAssignmentsScreen()),
+                          onTap: () => _navigateToScreen(context, TeacherAssignmentsScreen(initialDashboard: _dashboard)),
                         ),
                         _StatCard(
                           icon: Icons.people_rounded,
-                          value: '—',
+                          value: _dashboard != null ? '${_assignedClasses.length}' : '—',
                           label: 'Students',
                           color: kSoftOrange,
-                          onTap: () => _navigateToScreen(context, const TeacherAttendanceScreen()),
+                          onTap: () => _navigateToScreen(context, TeacherStudentsListScreen(initialDashboard: _dashboard)),
                         ),
                         _StatCard(
-                          icon: Icons.today_rounded,
+                          icon: Icons.calendar_month_rounded,
                           value: '—',
-                          label: "Today's",
+                          label: 'Timetable',
                           color: kDarkBlue,
-                          onTap: () => _navigateToScreen(context, const TeacherAttendanceScreen()),
+                          onTap: () => _navigateToScreen(context, const TeacherWeeklyScheduleScreen()),
                         ),
                       ],
                     ),
@@ -307,7 +309,7 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
                               icon: Icons.assignment_rounded,
                               label: 'My Assignments',
                               color: kDarkBlue,
-                              onTap: () => _navigateToScreen(context, const TeacherAssignmentsScreen()),
+                              onTap: () => _navigateToScreen(context, TeacherAssignmentsScreen(initialDashboard: _dashboard)),
                             ),
                           ],
                         ),
@@ -470,13 +472,25 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: _timetables.take(6).map((t) => Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: Text(
-            '${t.day} ${t.timeRange} — ${t.subjectDisplayName} — ${t.classDisplayName}',
-            style: const TextStyle(fontSize: 13, color: kTextPrimary),
-          ),
-        )).toList(),
+        children: _timetables.take(6).map((t) {
+          final timeStr = t.period != null 
+              ? (t.period!.name.isNotEmpty ? t.period!.name : 'P${t.period!.periodNumber}') 
+              : t.timeRange;
+          
+          String shiftStr = '';
+          if (t.period?.shift.isNotEmpty == true) {
+            final s = t.period!.shift.toLowerCase();
+            shiftStr = ' (${s == 'morning' ? 'Morning' : (s == 'afternoon' ? 'Afternoon' : s)})';
+          }
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Text(
+              '${t.day} $timeStr$shiftStr — ${t.subjectDisplayName} — ${t.classDisplayName}',
+              style: const TextStyle(fontSize: 13, color: kTextPrimary),
+            ),
+          );
+        }).toList(),
       ),
     );
   }

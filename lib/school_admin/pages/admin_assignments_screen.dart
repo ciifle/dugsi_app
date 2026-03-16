@@ -146,6 +146,23 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
     }
   }
 
+  Future<void> _openEdit(AssignmentModel a) async {
+    final updated = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => _EditAssignmentDialog(
+        assignment: a,
+        classes: _classes,
+        onSaved: () => _loadAssignments(),
+      ),
+    );
+    if (updated == true && mounted) {
+      _loadAssignments();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Assignment updated'), backgroundColor: kPrimaryGreen, behavior: SnackBarBehavior.floating),
+      );
+    }
+  }
+
   Future<void> _deleteAssignment(AssignmentModel a) async {
     final confirmed = await showDeleteConfirmDialog(
       context,
@@ -217,7 +234,7 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
                         if (_error != null) _buildErrorCard(),
                         if (_loading) _buildSkeleton(),
                         if (!_loading && _error == null && _assignments.isEmpty) _buildEmpty(),
-                        if (!_loading && _error == null && _assignments.isNotEmpty) ..._assignments.map((a) => _AssignmentCard(assignment: a, onDelete: () => _deleteAssignment(a))),
+                        if (!_loading && _error == null && _assignments.isNotEmpty) ..._assignments.map((a) => _AssignmentCard(assignment: a, onEdit: () => _openEdit(a), onDelete: () => _deleteAssignment(a))),
                         const SizedBox(height: 24),
                       ],
                     ),
@@ -335,9 +352,10 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
 
 class _AssignmentCard extends StatelessWidget {
   final AssignmentModel assignment;
+  final VoidCallback onEdit;
   final VoidCallback onDelete;
 
-  const _AssignmentCard({required this.assignment, required this.onDelete});
+  const _AssignmentCard({required this.assignment, required this.onEdit, required this.onDelete});
 
   @override
   Widget build(BuildContext context) {
@@ -365,6 +383,11 @@ class _AssignmentCard extends StatelessWidget {
                   Text(assignment.teacherEmail!, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
               ],
             ),
+          ),
+          IconButton(
+            icon: Icon(Icons.edit_outlined, color: kPrimaryBlue, size: 22),
+            onPressed: onEdit,
+            tooltip: 'Edit assignment',
           ),
           IconButton(
             icon: Icon(Icons.delete_outline_rounded, color: Colors.red[400], size: 24),
@@ -554,6 +577,217 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
                     flex: 2,
                     child: PrimaryButton3D(
                       label: 'Create',
+                      onPressed: _submit,
+                      loading: _saving,
+                      height: 48,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Edit assignment: prefilled with current teacher, class, subject. PATCH /api/school-admin/assignments/:id.
+class _EditAssignmentDialog extends StatefulWidget {
+  final AssignmentModel assignment;
+  final List<ClassModel> classes;
+  final VoidCallback onSaved;
+
+  const _EditAssignmentDialog({
+    required this.assignment,
+    required this.classes,
+    required this.onSaved,
+  });
+
+  @override
+  State<_EditAssignmentDialog> createState() => _EditAssignmentDialogState();
+}
+
+class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
+  late int? _classId;
+  late int? _subjectId;
+  late int? _teacherId;
+  List<SubjectModel> _subjects = [];
+  bool _subjectsLoading = true;
+  bool _saving = false;
+  List<TeacherModel> _allTeachers = [];
+  bool _teachersLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _classId = widget.assignment.classId > 0 ? widget.assignment.classId : null;
+    _subjectId = widget.assignment.subjectId > 0 ? widget.assignment.subjectId : null;
+    _teacherId = widget.assignment.teacherId > 0 ? widget.assignment.teacherId : null;
+    _loadAllSubjects();
+    _loadAllTeachers();
+  }
+
+  Future<void> _loadAllSubjects() async {
+    setState(() => _subjectsLoading = true);
+    final result = await SubjectsService().listSubjects();
+    if (!mounted) return;
+    setState(() {
+      _subjectsLoading = false;
+      if (result is SubjectSuccess<List<SubjectModel>>) _subjects = result.data;
+    });
+  }
+
+  Future<void> _loadAllTeachers() async {
+    setState(() => _teachersLoading = true);
+    final result = await TeachersService().listTeachers();
+    if (!mounted) return;
+    setState(() {
+      _teachersLoading = false;
+      if (result is TeacherSuccess<List<TeacherModel>>) _allTeachers = result.data;
+    });
+  }
+
+  void _onClassChanged(int? v) => setState(() {
+    _classId = v;
+    _subjectId = null;
+    _teacherId = null;
+  });
+
+  void _onSubjectChanged(int? v) => setState(() => _subjectId = v);
+
+  Future<void> _submit() async {
+    if (_classId == null || _subjectId == null || _teacherId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select class, subject and teacher'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    final result = await SchoolAdminAssignmentsService().updateAssignment(
+      widget.assignment.id,
+      teacherId: _teacherId,
+      classId: _classId,
+      subjectId: _subjectId,
+    );
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (result is AssignmentSuccess<AssignmentModel>) {
+      widget.onSaved();
+      Navigator.pop(context, true);
+    } else {
+      final err = result as AssignmentError;
+      if (err.statusCode == 409) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Duplicate assignment. That teacher/class/subject combination already exists.'),
+            backgroundColor: Colors.orange,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else if (err.statusCode == 404) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(err.message),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(err.message), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final subjectHint = _subjectsLoading
+        ? 'Loading...'
+        : _subjects.isEmpty
+            ? 'No subjects in school.'
+            : null;
+    final teacherHint = _teachersLoading
+        ? null
+        : _allTeachers.isEmpty
+            ? 'No teachers available.'
+            : null;
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+      child: FormCard(
+        padding: const EdgeInsets.all(24),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('Edit Assignment', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
+              const SizedBox(height: 8),
+              Text(
+                'ID: ${widget.assignment.id}',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 20),
+              Select3D<int?>(
+                value: _classId,
+                label: 'Class',
+                items: [
+                  const DropdownMenuItem<int?>(value: null, child: Text('Select class')),
+                  ...widget.classes.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name))),
+                ],
+                onChanged: _onClassChanged,
+              ),
+              const SizedBox(height: 16),
+              if (subjectHint != null) Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(subjectHint, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              ),
+              Select3D<int?>(
+                value: _subjectId,
+                label: 'Subject',
+                items: [
+                  DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text(_subjectsLoading ? 'Loading...' : _subjects.isEmpty ? 'No subjects in school' : 'Select subject'),
+                  ),
+                  ..._subjects.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text(s.name))),
+                ],
+                onChanged: _subjectsLoading ? null : _onSubjectChanged,
+              ),
+              const SizedBox(height: 16),
+              if (teacherHint != null) Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(teacherHint, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              ),
+              Select3D<int?>(
+                value: _teacherId,
+                label: 'Teacher',
+                items: [
+                  DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text(_teachersLoading ? 'Loading...' : _allTeachers.isEmpty ? 'No teachers in school' : 'Select teacher'),
+                  ),
+                  ..._allTeachers.map((t) => DropdownMenuItem<int?>(value: t.id, child: Text(t.fullName))),
+                ],
+                onChanged: _teachersLoading ? null : (v) => setState(() => _teacherId = v),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: _saving ? null : () => Navigator.pop(context, false),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: PrimaryButton3D(
+                      label: 'Save',
                       onPressed: _submit,
                       loading: _saving,
                       height: 48,

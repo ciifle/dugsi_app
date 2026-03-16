@@ -340,12 +340,23 @@ class _TimetableSlotCard extends StatelessWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
+                        if (slot.period != null) ...[
+                          Text(
+                            slot.period!.name.isNotEmpty ? slot.period!.name : 'P${slot.period!.periodNumber}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: accentColor,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                        ],
                         Text(
                           slot.startTime ?? '—',
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: slot.period != null ? 12 : 13,
                             fontWeight: FontWeight.bold,
-                            color: accentColor,
+                            color: slot.period != null ? kTextSecondary : accentColor,
                           ),
                         ),
                         Padding(

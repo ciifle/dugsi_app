@@ -131,6 +131,9 @@ class _TeacherWeeklyScheduleScreenState
       'time': t.timeRange,
       'room': '—',
       'icon': Icons.class_rounded,
+      'period_name': t.period != null ? (t.period!.name.isNotEmpty ? t.period!.name : 'Period ${t.period!.periodNumber}') : null,
+      'shift': t.period?.shift,
+      'raw': t,
     }).toList();
   }
 
@@ -493,161 +496,407 @@ class _ClassCard extends StatelessWidget {
 
   const _ClassCard({required this.classData});
 
+  String _formatShift(String? shift) {
+    if (shift == null || shift.isEmpty) return '';
+    final s = shift.toLowerCase();
+    if (s == 'morning') return 'Morning';
+    if (s == 'afternoon') return 'Afternoon';
+    return shift;
+  }
+
+  void _showDetails(BuildContext context) {
+    final TeacherTimetableEntryModel t = classData['raw'];
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _TimetableDetailSheet(t: t),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-        border: Border.all(color: Colors.grey.shade100, width: 1.5),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            // Left side - Icon with gradient
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [kPrimaryBlue, kPrimaryGreen],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: kPrimaryBlue.withOpacity(0.3),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Icon(
-                classData['icon'] ?? Icons.class_rounded,
-                color: Colors.white,
-                size: 26,
-              ),
-            ),
-            const SizedBox(width: 14),
+    final shift = _formatShift(classData['shift']);
+    final isAfternoon = classData['shift']?.toString().toLowerCase() == 'afternoon';
 
-            // Right side - Class details
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          classData['class'],
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: kTextPrimary,
-                            fontSize: 16,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: kPrimaryGreen.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          classData['subject'],
-                          style: TextStyle(
-                            color: kPrimaryGreen,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 16,
-                    runSpacing: 8,
-                    children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: kPrimaryBlue.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Icon(
-                              Icons.access_time_rounded,
-                              size: 14,
-                              color: kPrimaryBlue,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            classData['time'],
-                            style: TextStyle(
-                              color: kTextSecondary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: kSoftOrange.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Icon(
-                              Icons.meeting_room_rounded,
-                              size: 14,
-                              color: kSoftOrange,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            "Room ${classData['room']}",
-                            style: TextStyle(
-                              color: kTextSecondary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+    return InkWell(
+      onTap: () => _showDetails(context),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
             ),
           ],
+          border: Border.all(color: Colors.grey.shade100, width: 1.5),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            children: [
+              // Shift indicator bar on the left
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: Container(
+                  width: 4,
+                  color: isAfternoon ? kSoftOrange : kPrimaryBlue,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    const SizedBox(width: 4),
+                    // Left side - Icon with gradient
+                    Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: isAfternoon 
+                              ? [kSoftOrange, kSoftOrange.withOpacity(0.7)]
+                              : [kPrimaryBlue, kPrimaryGreen],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: (isAfternoon ? kSoftOrange : kPrimaryBlue).withOpacity(0.3),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        classData['icon'] ?? Icons.class_rounded,
+                        color: Colors.white,
+                        size: 26,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+
+                    // Right side - Class details
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  classData['class'],
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: kTextPrimary,
+                                    fontSize: 16,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (shift.isNotEmpty)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: (isAfternoon ? kSoftOrange : kPrimaryBlue).withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        isAfternoon ? Icons.wb_twilight_rounded : Icons.wb_sunny_rounded,
+                                        size: 10,
+                                        color: isAfternoon ? kSoftOrange : kPrimaryBlue,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        shift.toUpperCase(),
+                                        style: TextStyle(
+                                          color: isAfternoon ? kSoftOrange : kPrimaryBlue,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            classData['subject'],
+                            style: TextStyle(
+                              color: kPrimaryGreen,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.grid_view_rounded,
+                                size: 14,
+                                color: kTextSecondary.withOpacity(0.7),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                classData['period_name'] ?? 'No Period',
+                                style: TextStyle(
+                                  color: kTextPrimary.withOpacity(0.8),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Icon(
+                                Icons.access_time_rounded,
+                                size: 14,
+                                color: kTextSecondary.withOpacity(0.7),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                classData['time'],
+                                style: TextStyle(
+                                  color: kTextSecondary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
+
+class _TimetableDetailSheet extends StatelessWidget {
+  final TeacherTimetableEntryModel t;
+  const _TimetableDetailSheet({required this.t});
+
+  String _formatShift(String? shift) {
+    if (shift == null || shift.isEmpty) return '—';
+    final s = shift.toLowerCase();
+    if (s == 'morning') return 'Morning';
+    if (s == 'afternoon') return 'Afternoon';
+    return shift;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final shift = _formatShift(t.period?.shift);
+    final isAfternoon = t.period?.shift.toLowerCase() == 'afternoon';
+    final periodName = t.period != null ? (t.period!.name.isNotEmpty ? t.period!.name : 'Period ${t.period!.periodNumber}') : '—';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(32),
+          topRight: Radius.circular(32),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 50,
+              height: 5,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: (isAfternoon ? kSoftOrange : kPrimaryBlue).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(
+                  Icons.class_rounded,
+                  color: isAfternoon ? kSoftOrange : kPrimaryBlue,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      t.subjectDisplayName,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: kTextPrimary,
+                      ),
+                    ),
+                    Text(
+                      t.classDisplayName,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: kTextSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.grey.shade100),
+            ),
+            child: Column(
+              children: [
+                _DetailRow(
+                  icon: Icons.calendar_today_rounded,
+                  label: 'Day',
+                  value: t.day,
+                  color: kPrimaryBlue,
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Divider(height: 1),
+                ),
+                _DetailRow(
+                  icon: Icons.grid_view_rounded,
+                  label: 'Period',
+                  value: periodName,
+                  color: kPrimaryGreen,
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Divider(height: 1),
+                ),
+                _DetailRow(
+                  icon: Icons.access_time_rounded,
+                  label: 'Time',
+                  value: t.timeRange,
+                  color: kDarkBlue,
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Divider(height: 1),
+                ),
+                _DetailRow(
+                  icon: isAfternoon ? Icons.wb_twilight_rounded : Icons.wb_sunny_rounded,
+                  label: 'Shift',
+                  value: shift,
+                  color: kSoftOrange,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kPrimaryBlue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                elevation: 8,
+                shadowColor: kPrimaryBlue.withOpacity(0.3),
+              ),
+              child: const Text(
+                'Got it!',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  const _DetailRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: color, size: 18),
+        ),
+        const SizedBox(width: 16),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            color: kTextSecondary,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const Spacer(),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: kTextPrimary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 
 // ---------------- NOTIFICATION SHEET ----------------
 class _NotificationSheet extends StatelessWidget {

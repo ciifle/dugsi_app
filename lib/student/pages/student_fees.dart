@@ -165,9 +165,12 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
 
   @override
   Widget build(BuildContext context) {
-    return FeesFeatureGuard(
-      child: Container(
-        decoration: const BoxDecoration(
+    return FeesFeatureGuard(child: _buildFeesContent(context));
+  }
+
+  Widget _buildFeesContent(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
@@ -176,10 +179,10 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
           ),
         ),
         child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
+          backgroundColor: Colors.transparent,
+          body: CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
             // ---------------- REDESIGNED APP BAR (Matching Dashboard) ----------------
             SliverToBoxAdapter(
               child: Container(
@@ -450,7 +453,6 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
           ),
         ],
       ),
-    ),
     );
   }
 

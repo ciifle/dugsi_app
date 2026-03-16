@@ -13,6 +13,7 @@ import 'package:kobac/student/pages/student_marks_screen.dart';
 import 'package:kobac/student/pages/student_timetable_screen.dart';
 import 'package:kobac/student/pages/student_payments_screen.dart';
 import 'package:kobac/student/pages/student_pay_fee_screen.dart';
+import 'package:kobac/messages/messages_screen.dart';
 
 // ---------- COLOR PALETTE (Matching Dashboard) ----------
 const Color kPrimaryBlue = Color(0xFF023471);
@@ -100,6 +101,11 @@ class AppDrawer extends StatelessWidget {
       screen: AllNoticesScreen(),
     ),
     DrawerItem(
+      label: "Messages",
+      icon: Icons.message_rounded,
+      screen: const MessagesScreen(),
+    ),
+    DrawerItem(
       label: "Profile",
       icon: Icons.person_rounded,
       screen: StudentProfileScreen(),
@@ -143,7 +149,7 @@ class AppDrawer extends StatelessWidget {
                 child: Column(
                   children: [
                     const SizedBox(height: 16),
-                    _buildMenuItems(),
+                    _buildMenuItems(context),
                     _buildLogoutButton(context),
                     const SizedBox(height: 20),
                   ],
@@ -290,7 +296,7 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuItems() {
+  Widget _buildMenuItems(BuildContext context) {
     final feesEnabled = context.watch<AuthProvider>().feesEnabled;
     final items = feesEnabled
         ? _allItems

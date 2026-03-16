@@ -27,7 +27,7 @@ import 'package:kobac/services/teachers_service.dart';
 import 'package:kobac/services/students_service.dart';
 import 'package:kobac/services/classes_service.dart';
 import 'package:kobac/services/subjects_service.dart';
-import 'package:kobac/school_admin/pages/messages_inbox_screen.dart';
+import 'package:kobac/messages/messages_screen.dart';
 import 'package:kobac/services/auth_provider.dart';
 import 'package:kobac/shared/widgets/fees_feature_guard.dart';
 import 'package:provider/provider.dart';
@@ -248,7 +248,7 @@ class _SchoolAdminScreenState extends State<SchoolAdminScreen> {
     final feesEnabled = context.watch<AuthProvider>().feesEnabled;
     switch (_bottomNavIndex) {
       case 1:
-        return const MessagesInboxScreen(embedInParent: true);
+        return const MessagesScreen(embedInParent: true);
       case 2:
         return feesEnabled
             ? const FeesFeatureGuard(child: PaymentsScreen(embedInParent: true))

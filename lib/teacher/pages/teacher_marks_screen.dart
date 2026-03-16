@@ -384,8 +384,8 @@ class _AddMarkDialog extends StatefulWidget {
 class _AddMarkDialogState extends State<_AddMarkDialog> {
   int? _subjectId;
   int? _studentId;
-  int? _examId;
   final _studentIdController = TextEditingController(text: '');
+  final _examIdController = TextEditingController(text: '');
   final _marksController = TextEditingController(text: '');
   final _maxController = TextEditingController(text: '100');
   bool _saving = false;
@@ -401,6 +401,7 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
   @override
   void dispose() {
     _studentIdController.dispose();
+    _examIdController.dispose();
     _marksController.dispose();
     _maxController.dispose();
     super.dispose();
@@ -426,7 +427,7 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
       );
       return;
     }
-    final examId = _examId ?? 0;
+    final examId = int.tryParse(_examIdController.text.trim()) ?? 0;
     if (examId <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Enter a valid Exam ID'), backgroundColor: kErrorColor, behavior: SnackBarBehavior.floating),
@@ -480,70 +481,238 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Add marks'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Class: ${widget.className}', style: TextStyle(fontSize: 14, color: kTextSecondary)),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<int>(
-              value: _subjectId,
-              decoration: InputDecoration(labelText: 'Subject', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
-              items: widget.subjects.map((s) => DropdownMenuItem<int>(value: s.id, child: Text(s.name))).toList(),
-              onChanged: (v) => setState(() => _subjectId = v),
-            ),
-            const SizedBox(height: 10),
-            if (_hasStudentList)
-              DropdownButtonFormField<int>(
-                value: _studentId,
-                decoration: InputDecoration(labelText: 'Student', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
-                items: widget.students.map((s) => DropdownMenuItem<int>(value: s.id, child: Text(s.name ?? '${s.emisNumber ?? s.id}'))).toList(),
-                onChanged: (v) => setState(() => _studentId = v),
-              )
-            else ...[
-              TextFormField(
-                controller: _studentIdController,
-                decoration: InputDecoration(
-                  labelText: 'Student ID',
-                  hintText: 'Enter student ID',
-                  helperText: 'Student list not available. Enter the student ID from your class.',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+    final maxH = MediaQuery.sizeOf(context).height * 0.85;
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxH),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.white, width: 1.5),
+            boxShadow: [
+              BoxShadow(color: Colors.white, blurRadius: 14, offset: const Offset(-4, -4), spreadRadius: 0.5),
+              BoxShadow(color: kPrimaryBlue.withOpacity(0.12), blurRadius: 24, offset: const Offset(6, 8)),
+              BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 12, offset: const Offset(3, 5)),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.max,
+            children: [
+              // Header — gradient, 3D style
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
+                    stops: [0.3, 0.7, 1.0],
+                  ),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                  boxShadow: [
+                    BoxShadow(color: kPrimaryBlue.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4)),
+                  ],
                 ),
-                keyboardType: TextInputType.number,
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 6, offset: const Offset(0, 2)),
+                        ],
+                      ),
+                      child: const Icon(Icons.edit_note_rounded, color: Colors.white, size: 26),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Add marks',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Class: ${widget.className}',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.9),
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Scrollable form — takes remaining space, scrolls when needed
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      DropdownButtonFormField<int>(
+                        value: _subjectId,
+                        decoration: InputDecoration(
+                          labelText: 'Subject',
+                          filled: true,
+                          fillColor: kSoftBlue.withOpacity(0.4),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        ),
+                        items: widget.subjects.map((s) => DropdownMenuItem<int>(value: s.id, child: Text(s.name))).toList(),
+                        onChanged: (v) => setState(() => _subjectId = v),
+                      ),
+                      const SizedBox(height: 12),
+                      if (_hasStudentList)
+                        DropdownButtonFormField<int>(
+                          value: _studentId,
+                          decoration: InputDecoration(
+                            labelText: 'Student',
+                            filled: true,
+                            fillColor: kSoftBlue.withOpacity(0.4),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          ),
+                          items: widget.students.map((s) => DropdownMenuItem<int>(value: s.id, child: Text(s.name ?? '${s.emisNumber ?? s.id}'))).toList(),
+                          onChanged: (v) => setState(() => _studentId = v),
+                        )
+                      else
+                        TextFormField(
+                          controller: _studentIdController,
+                          decoration: InputDecoration(
+                            labelText: 'Student ID',
+                            hintText: 'Enter student ID',
+                            helperText: 'Student list not available. Enter the student ID from your class.',
+                            filled: true,
+                            fillColor: kSoftBlue.withOpacity(0.4),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _examIdController,
+                        decoration: InputDecoration(
+                          labelText: 'Exam ID',
+                          hintText: 'e.g. 1',
+                          filled: true,
+                          fillColor: kSoftBlue.withOpacity(0.4),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _marksController,
+                        decoration: InputDecoration(
+                          labelText: 'Marks obtained',
+                          filled: true,
+                          fillColor: kSoftBlue.withOpacity(0.4),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _maxController,
+                        decoration: InputDecoration(
+                          labelText: 'Max marks',
+                          filled: true,
+                          fillColor: kSoftBlue.withOpacity(0.4),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Actions — 3D-style buttons
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _saving ? null : () => Navigator.pop(context),
+                          borderRadius: BorderRadius.circular(14),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: kTextSecondary.withOpacity(0.3)),
+                              boxShadow: [
+                                BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 8, offset: const Offset(0, 2)),
+                              ],
+                            ),
+                            child: const Center(
+                              child: Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600, color: kTextPrimary, fontSize: 15)),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _saving ? null : _submit,
+                          borderRadius: BorderRadius.circular(14),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            decoration: BoxDecoration(
+                              color: kPrimaryGreen,
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: [
+                                BoxShadow(color: kPrimaryGreen.withOpacity(0.35), blurRadius: 12, offset: const Offset(0, 4)),
+                                BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 6, offset: const Offset(0, 2)),
+                              ],
+                            ),
+                            child: _saving
+                                ? const SizedBox(
+                                    height: 22,
+                                    width: 22,
+                                    child: Center(
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                    ),
+                                  )
+                                : const Center(
+                                    child: Text('Save', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 15)),
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
-            const SizedBox(height: 10),
-            TextFormField(
-              initialValue: _examId?.toString() ?? '',
-              decoration: InputDecoration(labelText: 'Exam ID', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
-              keyboardType: TextInputType.number,
-              onChanged: (s) => setState(() => _examId = int.tryParse(s)),
-            ),
-            const SizedBox(height: 10),
-            TextFormField(
-              controller: _marksController,
-              decoration: InputDecoration(labelText: 'Marks obtained', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            ),
-            const SizedBox(height: 10),
-            TextFormField(
-              controller: _maxController,
-              decoration: InputDecoration(labelText: 'Max marks', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
-              keyboardType: TextInputType.number,
-            ),
-          ],
+          ),
         ),
       ),
-      actions: [
-        TextButton(onPressed: _saving ? null : () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(
-          onPressed: _saving ? null : _submit,
-          style: FilledButton.styleFrom(backgroundColor: kPrimaryGreen),
-          child: _saving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Save'),
-        ),
-      ],
     );
   }
 }

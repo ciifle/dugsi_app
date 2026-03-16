@@ -21,16 +21,22 @@ class TeacherClassesScreen extends StatefulWidget {
 }
 
 class _TeacherClassesScreenState extends State<TeacherClassesScreen> {
-  List<TeacherAssignmentModel> _assignments = [];
+  TeacherDashboardModel? _dashboard;
   bool _loading = true;
   String? _error;
 
-  /// Unique classes from assignments (by classId). Never show "class 0"; use Unassigned.
+  List<TeacherAssignmentModel> get _assignments => _dashboard?.assignments ?? [];
+
+  /// Unique classes: prefer dashboard.assignedClasses, else derive from assignments. Never show "class 0".
   List<({int id, String name})> get _uniqueClasses {
+    final assigned = _dashboard?.assignedClasses ?? [];
+    if (assigned.isNotEmpty) {
+      return assigned.map((c) => (id: c.id, name: c.displayName)).toList();
+    }
     final seen = <int>{};
     final out = <({int id, String name})>[];
     for (final a in _assignments) {
-      if (seen.add(a.classId)) {
+      if (a.classId > 0 && seen.add(a.classId)) {
         out.add((id: a.classId, name: a.classDisplayName));
       }
     }
@@ -40,23 +46,23 @@ class _TeacherClassesScreenState extends State<TeacherClassesScreen> {
   @override
   void initState() {
     super.initState();
-    _loadAssignments();
+    _loadDashboard();
   }
 
-  Future<void> _loadAssignments() async {
+  Future<void> _loadDashboard() async {
     setState(() {
       _loading = true;
       _error = null;
     });
-    final result = await TeacherService().listAssignments();
+    final result = await TeacherService().getDashboard();
     if (!mounted) return;
     setState(() {
       _loading = false;
-      if (result is TeacherSuccess<List<TeacherAssignmentModel>>) {
-        _assignments = result.data;
+      if (result is TeacherSuccess<TeacherDashboardModel>) {
+        _dashboard = result.data;
         _error = null;
       } else {
-        _assignments = [];
+        _dashboard = null;
         _error = (result as TeacherError).message;
       }
     });
@@ -178,7 +184,7 @@ class _TeacherClassesScreenState extends State<TeacherClassesScreen> {
                       ),
                       const SizedBox(height: 24),
                       TextButton.icon(
-                        onPressed: _loadAssignments,
+                        onPressed: _loadDashboard,
                         icon: const Icon(Icons.refresh_rounded),
                         label: const Text('Retry'),
                         style: TextButton.styleFrom(foregroundColor: kPrimaryBlue),
@@ -205,7 +211,7 @@ class _TeacherClassesScreenState extends State<TeacherClassesScreen> {
                       ),
                       const SizedBox(height: 24),
                       TextButton.icon(
-                        onPressed: _loadAssignments,
+                        onPressed: _loadDashboard,
                         icon: const Icon(Icons.refresh_rounded),
                         label: const Text('Retry'),
                         style: TextButton.styleFrom(foregroundColor: kPrimaryBlue),

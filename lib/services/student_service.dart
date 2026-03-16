@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import 'package:kobac/services/api_client.dart';
 import 'package:kobac/services/api_error_helpers.dart';
+import 'package:kobac/services/periods_service.dart';
 
 const String _base = 'api/student';
 
@@ -227,6 +228,8 @@ class StudentTimetableSlotModel {
   final String? endTime;
   final Map<String, dynamic>? subject;
   final Map<String, dynamic>? teacher;
+  final int? periodId;
+  final PeriodModel? period;
 
   StudentTimetableSlotModel({
     required this.id,
@@ -235,16 +238,37 @@ class StudentTimetableSlotModel {
     this.endTime,
     this.subject,
     this.teacher,
+    this.periodId,
+    this.period,
   });
 
   factory StudentTimetableSlotModel.fromJson(Map<String, dynamic> json) {
+    PeriodModel? periodMod;
+    if (json['period'] is Map<String, dynamic>) {
+      periodMod = PeriodModel.fromJson(json['period']);
+    }
+    
+    int? pid;
+    if (json['period_id'] != null) pid = int.tryParse(json['period_id'].toString());
+    if (json['periodId'] != null) pid = int.tryParse(json['periodId'].toString());
+    if (pid == 0) pid = null;
+    if (pid == null && periodMod != null && periodMod.id > 0) pid = periodMod.id;
+
+    String? startStr = _strOpt(json['start_time'] ?? json['startTime']);
+    if ((startStr == null || startStr.isEmpty) && periodMod != null) startStr = periodMod.startTime;
+    
+    String? endStr = _strOpt(json['end_time'] ?? json['endTime']);
+    if ((endStr == null || endStr.isEmpty) && periodMod != null) endStr = periodMod.endTime;
+
     return StudentTimetableSlotModel(
       id: _parseId(json['id']),
       day: _strOpt(json['day']),
-      startTime: _strOpt(json['start_time'] ?? json['startTime']),
-      endTime: _strOpt(json['end_time'] ?? json['endTime']),
+      startTime: startStr,
+      endTime: endStr,
       subject: json['subject'] is Map ? json['subject'] as Map<String, dynamic> : null,
       teacher: json['teacher'] is Map ? json['teacher'] as Map<String, dynamic> : null,
+      periodId: pid,
+      period: periodMod,
     );
   }
 }

@@ -37,14 +37,17 @@ class AuthUser {
     return 0;
   }
 
+  static String _str(dynamic v) => v == null ? '' : v.toString().trim();
+
   factory AuthUser.fromJson(Map<String, dynamic> json) {
+    final name = _str(json['name'] ?? json['full_name'] ?? json['fullName']);
     return AuthUser(
       id: _parseId(json['id']),
-      name: json['name'] as String? ?? '',
+      name: name.isEmpty ? '' : name,
       email: json['email'] as String?,
-      emisNumber: json['emis_number'] as String?,
+      emisNumber: json['emis_number'] as String? ?? json['emisNumber'] as String?,
       role: json['role'] as String? ?? 'STUDENT',
-      schoolId: json['school_id'] != null ? _parseId(json['school_id']) : null,
+      schoolId: json['school_id'] != null ? _parseId(json['school_id']) : (json['schoolId'] != null ? _parseId(json['schoolId']) : null),
     );
   }
 

@@ -46,14 +46,14 @@ class TeacherProfile {
   factory TeacherProfile.fromJson(Map<String, dynamic> json) {
     return TeacherProfile(
       id: _parseId(json['id']),
-      userId: json['user_id'] != null ? _parseId(json['user_id']) : null,
-      schoolId: json['school_id'] != null ? _parseId(json['school_id']) : null,
-      fullName: _strOpt(json['full_name'] ?? json['fullName'] ?? json['name']),
-      phone: _strOpt(json['phone']),
+      userId: json['user_id'] != null ? _parseId(json['user_id']) : (json['userId'] != null ? _parseId(json['userId']) : null),
+      schoolId: json['school_id'] != null ? _parseId(json['school_id']) : (json['schoolId'] != null ? _parseId(json['schoolId']) : null),
+      fullName: _strOpt(json['full_name'] ?? json['fullName'] ?? json['name'] ?? json['teacher_name']),
+      phone: _strOpt(json['phone'] ?? json['telephone'] ?? json['mobile'] ?? json['phone_number']),
       motherName: _strOpt(json['mother_name'] ?? json['motherName']),
-      graduatedUniversity: _strOpt(json['graduated_university'] ?? json['graduatedUniversity']),
-      gender: _strOpt(json['gender']),
-      address: _strOpt(json['address']),
+      graduatedUniversity: _strOpt(json['graduated_university'] ?? json['graduatedUniversity'] ?? json['university']),
+      gender: _strOpt(json['gender'] ?? json['sex']),
+      address: _strOpt(json['address'] ?? json['location']),
       email: _strOpt(json['email']),
       createdAt: _strOpt(json['created_at'] ?? json['createdAt']),
       updatedAt: _strOpt(json['updated_at'] ?? json['updatedAt']),
@@ -267,13 +267,17 @@ class AuthMeResponse {
 }
 
 /// Parse profile map by role. Never store password fields.
+/// For TEACHER, accepts nested profile.teacher or profile.teacher_profile if present.
 dynamic parseProfileByRole(String role, dynamic profileJson) {
   if (profileJson == null) return null;
   if (profileJson is! Map<String, dynamic>) return null;
   final roleUpper = role.toUpperCase();
   switch (roleUpper) {
-    case 'TEACHER':
+    case 'TEACHER': {
+      final map = profileJson['teacher'] ?? profileJson['teacher_profile'] ?? profileJson['data'] ?? profileJson;
+      if (map is Map<String, dynamic>) return TeacherProfile.fromJson(map);
       return TeacherProfile.fromJson(profileJson);
+    }
     case 'STUDENT':
       return StudentProfile.fromJson(profileJson);
     case 'PARENT':

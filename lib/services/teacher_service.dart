@@ -1,9 +1,11 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:kobac/services/api_client.dart';
 import 'package:kobac/services/api_error_helpers.dart';
+import 'package:kobac/services/periods_service.dart';
 
 const String _base = 'api/teacher';
 
@@ -53,6 +55,14 @@ List<dynamic> _extractList(dynamic raw, List<String> keys) {
   return [];
 }
 
+/// Unwrap { data: { ... } } so both top-level and nested payloads work.
+Map<String, dynamic> _unwrapPayload(Map<String, dynamic> raw) {
+  final data = raw['data'];
+  if (data is Map<String, dynamic>) return data;
+  if (data is Map) return Map<String, dynamic>.from(data as Map);
+  return raw;
+}
+
 void devLogResponse(String context, int statusCode, String body) {
   print('[$context] API response: status=$statusCode body=${body.length > 500 ? "${body.substring(0, 500)}..." : body}');
 }
@@ -85,6 +95,8 @@ class TeacherTimetableEntryModel {
   final String className;
   final int subjectId;
   final String subjectName;
+  final int? periodId;
+  final PeriodModel? period;
 
   TeacherTimetableEntryModel({
     required this.id,
@@ -95,6 +107,8 @@ class TeacherTimetableEntryModel {
     required this.className,
     required this.subjectId,
     required this.subjectName,
+    this.periodId,
+    this.period,
   });
 
   String get classDisplayName => (classId == 0 || className.isEmpty) ? 'Unassigned' : className;
@@ -131,8 +145,25 @@ class TeacherTimetableEntryModel {
     }
     String day = str(json['day'] ?? '');
     if (day.isEmpty) day = '—';
+    
+    PeriodModel? periodMod;
+    final periodObj = json['period'] ?? json['Period'];
+    if (periodObj is Map<String, dynamic>) {
+      periodMod = PeriodModel.fromJson(periodObj);
+    }
+    
+    int? pid;
+    if (json['period_id'] != null) pid = int.tryParse(json['period_id'].toString());
+    if (json['periodId'] != null) pid = int.tryParse(json['periodId'].toString());
+    if (pid == 0) pid = null;
+    if (pid == null && periodMod != null && periodMod.id > 0) pid = periodMod.id;
+
     String start = str(json['start_time'] ?? json['startTime'] ?? '');
+    if (start.isEmpty && periodMod != null) start = periodMod.startTime;
+    
     String end = str(json['end_time'] ?? json['endTime'] ?? '');
+    if (end.isEmpty && periodMod != null) end = periodMod.endTime;
+    
     if (start.length == 5) start = '$start:00';
     if (end.length == 5) end = '$end:00';
     return TeacherTimetableEntryModel(
@@ -144,6 +175,8 @@ class TeacherTimetableEntryModel {
       className: cName,
       subjectId: sId,
       subjectName: sName,
+      periodId: pid,
+      period: periodMod,
     );
   }
 }
@@ -174,8 +207,21 @@ class TeacherDashboardModel {
     }).toList();
     final assignments = assignmentsRaw.whereType<Map<String, dynamic>>().map(TeacherAssignmentModel.fromJson).toList();
     final timetables = timetablesRaw.whereType<Map<String, dynamic>>().map(TeacherTimetableEntryModel.fromJson).toList();
+    // If backend omits assignedClasses but returns assignments, derive unique classes so UI never shows 0 when data exists.
+    List<TeacherAssignedClassModel> finalClasses = classes;
+    if (finalClasses.isEmpty && assignments.isNotEmpty) {
+      final seen = <int>{};
+      final derived = <TeacherAssignedClassModel>[];
+      for (final a in assignments) {
+        final id = a.classId;
+        if (id > 0 && seen.add(id)) {
+          derived.add(TeacherAssignedClassModel(id: id, name: a.className.isNotEmpty ? a.className : 'Class $id'));
+        }
+      }
+      finalClasses = derived;
+    }
     return TeacherDashboardModel(
-      assignedClasses: classes,
+      assignedClasses: finalClasses,
       assignments: assignments,
       timetables: timetables,
     );
@@ -348,7 +394,9 @@ class TeacherService {
       if (raw is! Map<String, dynamic>) {
         return TeacherError('Invalid dashboard response.');
       }
-      final model = TeacherDashboardModel.fromJson(raw);
+      final payload = _unwrapPayload(raw);
+      final model = TeacherDashboardModel.fromJson(payload);
+      debugPrint('TeacherService.getDashboard: assignments=${model.assignments.length}, assignedClasses=${model.assignedClasses.length}, timetables=${model.timetables.length}');
       return TeacherSuccess(model);
     } catch (e, st) {
       return TeacherError(userFriendlyMessage(e, st, 'TeacherService.getDashboard'));
@@ -367,7 +415,8 @@ class TeacherService {
         return TeacherError(_errorMessage(response) ?? 'Could not load assignments.', response.statusCode);
       }
       final raw = _parseJson(response.body);
-      final list = _extractList(raw, ['assignments', 'data', 'items']);
+      final payload = raw is Map ? _unwrapPayload(Map<String, dynamic>.from(raw as Map)) : <String, dynamic>{};
+      final list = _extractList(payload.isNotEmpty ? payload : raw, ['assignments', 'data', 'items']);
       final items = list.whereType<Map<String, dynamic>>().map((e) => TeacherAssignmentModel.fromJson(e)).toList();
       return TeacherSuccess(items);
     } catch (e, st) {
@@ -390,7 +439,8 @@ class TeacherService {
         return TeacherError(_errorMessage(response) ?? 'Could not load students.', response.statusCode);
       }
       final raw = _parseJson(response.body);
-      final list = _extractList(raw, ['students', 'data', 'items']);
+      final payload = raw is Map ? _unwrapPayload(Map<String, dynamic>.from(raw as Map)) : <String, dynamic>{};
+      final list = _extractList(payload.isNotEmpty ? payload : raw, ['students', 'data', 'items']);
       final items = list.whereType<Map<String, dynamic>>().map((e) => TeacherStudentModel.fromJson(e)).toList();
       return TeacherSuccess(items);
     } catch (e, st) {

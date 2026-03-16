@@ -132,8 +132,12 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
     final auth = context.watch<AuthProvider>();
     final user = auth.user;
     final prof = auth.teacherProfile;
-    final name = prof?.fullName?.isNotEmpty == true ? prof!.fullName! : (user?.name ?? '—');
-    final email = prof?.email?.isNotEmpty == true ? prof!.email! : (user?.email ?? user?.emisNumber ?? '—');
+    final name = prof?.fullName?.trim().isNotEmpty == true
+        ? prof!.fullName!.trim()
+        : (user?.name?.trim().isNotEmpty == true ? user!.name.trim() : 'Teacher');
+    final email = prof?.email?.trim().isNotEmpty == true
+        ? prof!.email!
+        : (user?.email?.trim().isNotEmpty == true ? user!.email! : (user?.emisNumber?.trim().isNotEmpty == true ? user!.emisNumber! : '—'));
     final role = user != null ? user.role.replaceAll('_', ' ') : 'Teacher';
     final employeeId = user != null ? 'ID ${user.id}' : '—';
 

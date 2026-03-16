@@ -8,13 +8,27 @@ String userFriendlyMessage(
   String? context,
 ]) {
   final prefix = context != null ? '[$context] ' : '';
-  // Dev: print exact error so developers can debug
-  print('$prefix API error (exact): $error');
-  if (stackTrace != null) {
-    print('$prefix StackTrace: $stackTrace');
+  final s = error.toString().toLowerCase();
+  final isConnectionError = s.contains('socket') ||
+      s.contains('connection') ||
+      s.contains('clientexception') ||
+      s.contains('connection refused') ||
+      s.contains('network') ||
+      s.contains('failed host lookup') ||
+      s.contains('nodata') ||
+      error is TimeoutException ||
+      s.contains('timeout');
+
+  // Avoid log spam: for connection errors only one short line (no stack). Full log for other errors.
+  if (isConnectionError) {
+    print('$prefix Connection error: ${error.toString().split('\n').first}');
+  } else {
+    print('$prefix API error (exact): $error');
+    if (stackTrace != null) {
+      print('$prefix StackTrace: $stackTrace');
+    }
   }
 
-  final s = error.toString().toLowerCase();
   if (s.contains('socket') || s.contains('connection') || s.contains('clientexception') || s.contains('connection refused') || s.contains('network')) {
     return 'Cannot connect. Please check your internet connection and try again.';
   }

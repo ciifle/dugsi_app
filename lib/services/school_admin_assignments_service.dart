@@ -213,6 +213,40 @@ class SchoolAdminAssignmentsService {
     }
   }
 
+  /// PATCH /api/school-admin/assignments/:id
+  /// Body: teacher_id (optional), class_id (optional), subject_id (optional).
+  /// Response: { "assignment": { id, teacherId, classId, subjectId, Teacher, Class, Subject } }
+  Future<AssignmentResult<AssignmentModel>> updateAssignment(
+    int id, {
+    int? teacherId,
+    int? classId,
+    int? subjectId,
+  }) async {
+    try {
+      final body = <String, dynamic>{};
+      if (teacherId != null && teacherId > 0) body['teacher_id'] = teacherId;
+      if (classId != null && classId > 0) body['class_id'] = classId;
+      if (subjectId != null && subjectId > 0) body['subject_id'] = subjectId;
+      final response = await _client.patch(apiUrl('$_base/assignments/$id'), body: body);
+      devLogResponse('SchoolAdminAssignmentsService.updateAssignment', response.statusCode, response.body);
+      if (response.statusCode == 404) {
+        return AssignmentError(_errorMessage(response) ?? 'Assignment not found.', 404);
+      }
+      if (response.statusCode == 409) {
+        return AssignmentError(_errorMessage(response) ?? 'Duplicate assignment.', 409);
+      }
+      if (response.statusCode != 200) {
+        return AssignmentError(_errorMessage(response) ?? 'Could not update assignment.', response.statusCode);
+      }
+      final raw = _parseJson(response.body);
+      final map = raw is Map ? (raw['assignment'] ?? raw['data'] ?? raw) : null;
+      if (map is! Map<String, dynamic>) return AssignmentError('Invalid response.');
+      return AssignmentSuccess(AssignmentModel.fromJson(map));
+    } catch (e, st) {
+      return AssignmentError(userFriendlyMessage(e, st, 'SchoolAdminAssignmentsService.updateAssignment'));
+    }
+  }
+
   /// DELETE /api/school-admin/assignments/{id}
   Future<AssignmentResult<void>> deleteAssignment(int id) async {
     try {

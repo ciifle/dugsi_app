@@ -175,9 +175,20 @@ class _OverviewCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (slot.period != null) ...[
+            Text(
+              slot.period!.name.isNotEmpty ? slot.period!.name : 'Period ${slot.period!.periodNumber}',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+            ),
+            const SizedBox(height: 4),
+          ],
           Text(
             timeStr,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+            style: TextStyle(
+              fontSize: slot.period != null ? 16 : 20, 
+              fontWeight: slot.period != null ? FontWeight.normal : FontWeight.bold, 
+              color: slot.period != null ? Colors.grey[700] : kPrimaryBlue
+            ),
           ),
           const SizedBox(height: 16),
           _InfoRow(icon: Icons.menu_book_rounded, label: 'Subject', value: subjectName),
@@ -187,6 +198,14 @@ class _OverviewCard extends StatelessWidget {
           _InfoRow(icon: Icons.person_rounded, label: 'Teacher', value: teacherName),
           const SizedBox(height: 10),
           _InfoRow(icon: Icons.calendar_view_week_rounded, label: 'Day', value: slot.day),
+          if (slot.period?.shift != null && slot.period!.shift.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _InfoRow(
+              icon: slot.period!.shift.toLowerCase() == 'afternoon' ? Icons.wb_twilight_rounded : Icons.wb_sunny_rounded, 
+              label: 'Shift', 
+              value: slot.period!.shift.toLowerCase() == 'afternoon' ? 'Afternoon' : 'Morning'
+            ),
+          ],
         ],
       ),
     );
