@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
@@ -299,6 +300,101 @@ class MarksService {
       return MarkSuccess(true);
     } catch (e, st) {
       return MarkError(userFriendlyMessage(e, st, 'MarksService.deleteMark'));
+    }
+  }
+
+  /// PATCH /api/school-admin/marks/bulk-teacher
+  /// Body: { class_id, subject_id, teacher_id, exam_id }
+  Future<MarkResult<bool>> bulkUpdateTeacher({
+    required int classId,
+    required int subjectId,
+    required int teacherId,
+    required int examId,
+  }) async {
+    try {
+      final body = {
+        'class_id': classId,
+        'subject_id': subjectId,
+        'teacher_id': teacherId,
+        'exam_id': examId,
+      };
+      final response = await _client.patch(apiUrl('$_base/bulk-teacher'), body: body);
+      devLogResponse('MarksService.bulkUpdateTeacher', response.statusCode, response.body);
+      if (response.statusCode != 200) {
+        return MarkError(_errorMessage(response) ?? 'Could not update teacher.', response.statusCode);
+      }
+      return MarkSuccess(true);
+    } catch (e, st) {
+      return MarkError(userFriendlyMessage(e, st, 'MarksService.bulkUpdateTeacher'));
+    }
+  }
+
+  /// GET /api/school-admin/marks/export?class_id={id}&exam_id={id}
+  /// Returns Excel file for download
+  Future<MarkResult<String>> exportMarks({
+    required int classId,
+    required int examId,
+  }) async {
+    try {
+      final uri = apiUrl('$_base/export').replace(queryParameters: {
+        'class_id': classId.toString(),
+        'exam_id': examId.toString(),
+      });
+      final response = await _client.get(uri);
+      devLogResponse('MarksService.exportMarks', response.statusCode, 'Excel file response - ${response.bodyBytes.length} bytes');
+      
+      if (response.statusCode != 200) {
+        return MarkError(_errorMessage(response) ?? 'Could not export marks.', response.statusCode);
+      }
+
+      // Validate that we received binary data
+      final bytes = response.bodyBytes;
+      if (bytes.isEmpty) {
+        return MarkError('Export failed: Empty file received from server.');
+      }
+
+      // Check if content type indicates Excel file
+      final contentType = response.headers['content-type']?.toLowerCase() ?? '';
+      if (!contentType.contains('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') && 
+          !contentType.contains('application/octet-stream') &&
+          !contentType.contains('application/vnd.ms-excel')) {
+        // Log warning but continue - some servers may not set correct content type
+        print('Warning: Unexpected content type: $contentType');
+      }
+
+      // Extract filename from Content-Disposition header if available
+      String filename = 'marks_export.xlsx';
+      final contentDisposition = response.headers['content-disposition'];
+      if (contentDisposition != null) {
+        final filenameMatch = RegExp(r'filename="?([^"]+)"?').firstMatch(contentDisposition);
+        if (filenameMatch != null) {
+          filename = filenameMatch.group(1) ?? filename;
+        }
+      }
+
+      // Ensure filename has .xlsx extension
+      if (!filename.toLowerCase().endsWith('.xlsx')) {
+        filename = filename.replaceAll(RegExp(r'\.[^.]+$'), '') + '.xlsx';
+      }
+
+      // Save file to downloads directory
+      final downloadsDir = Directory('/storage/emulated/0/Download');
+      if (!await downloadsDir.exists()) {
+        await downloadsDir.create(recursive: true);
+      }
+      final file = File('${downloadsDir.path}/$filename');
+      
+      // Write the exact bytes received from server
+      await file.writeAsBytes(bytes, flush: true);
+      
+      // Verify file was written correctly
+      if (!await file.exists() || await file.length() == 0) {
+        return MarkError('Export failed: Could not save file to storage.');
+      }
+
+      return MarkSuccess(file.path);
+    } catch (e, st) {
+      return MarkError(userFriendlyMessage(e, st, 'MarksService.exportMarks'));
     }
   }
 }

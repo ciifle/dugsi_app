@@ -107,6 +107,59 @@ class _TeacherMarksScreenState extends State<TeacherMarksScreen> {
     });
   }
 
+  void _showEditMarkDialog(TeacherMarkModel mark) {
+    showDialog(
+      context: context,
+      builder: (ctx) => _EditMarkDialog(
+        mark: mark,
+        onUpdated: () {
+          _loadMarks();
+        },
+      ),
+    );
+  }
+
+  void _showDeleteConfirmDialog(TeacherMarkModel mark) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Mark'),
+        content: Text('Are you sure you want to delete the mark for ${mark.studentName ?? 'Student ${mark.studentId}'}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final result = await TeacherService().deleteMark(mark.id);
+              if (!mounted) return;
+              
+              if (result is TeacherSuccess) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Mark deleted successfully'),
+                    backgroundColor: kPrimaryGreen,
+                  ),
+                );
+                _loadMarks();
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text((result as TeacherError).message),
+                    backgroundColor: kErrorColor,
+                  ),
+                );
+              }
+            },
+            child: const Text('Delete', style: TextStyle(color: kErrorColor)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -243,44 +296,71 @@ class _TeacherMarksScreenState extends State<TeacherMarksScreen> {
                                 return Card(
                                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                   elevation: 2,
-                                  child: ListTile(
-                                    contentPadding: const EdgeInsets.all(16),
-                                    title: Text(
-                                      mark.studentName ?? 'Student ${mark.studentId}',
-                                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-                                    ),
-                                    subtitle: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Column(
                                       children: [
-                                        Text(
-                                          mark.subjectName ?? 'Subject ${mark.subjectId}',
-                                          style: TextStyle(color: kTextSecondary, fontSize: 14),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    mark.studentName ?? 'Student ${mark.studentId}',
+                                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    mark.subjectName ?? 'Subject ${mark.subjectId}',
+                                                    style: TextStyle(color: kTextSecondary, fontSize: 14),
+                                                  ),
+                                                  const SizedBox(height: 2),
+                                                  Text(
+                                                    mark.examName ?? 'Exam ${mark.examId}',
+                                                    style: TextStyle(color: kTextSecondary, fontSize: 12),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            Column(
+                                              crossAxisAlignment: CrossAxisAlignment.end,
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  '${mark.marksObtained}',
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 18,
+                                                    color: kPrimaryBlue,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  '/${mark.maxMarks}',
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    color: kTextSecondary,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
                                         ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          mark.examName ?? 'Exam ${mark.examId}',
-                                          style: TextStyle(color: kTextSecondary, fontSize: 12),
-                                        ),
-                                      ],
-                                    ),
-                                    trailing: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.end,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          '${mark.marksObtained}',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 18,
-                                            color: kPrimaryBlue,
-                                          ),
-                                        ),
-                                        Text(
-                                          '/${mark.maxMarks}',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: kTextSecondary,
-                                          ),
+                                        const SizedBox(height: 12),
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.end,
+                                          children: [
+                                            IconButton(
+                                              onPressed: () => _showEditMarkDialog(mark),
+                                              icon: const Icon(Icons.edit_outlined, size: 20, color: kPrimaryGreen),
+                                              tooltip: 'Edit',
+                                            ),
+                                            IconButton(
+                                              onPressed: () => _showDeleteConfirmDialog(mark),
+                                              icon: Icon(Icons.delete_outline, size: 20, color: kErrorColor),
+                                              tooltip: 'Delete',
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),
@@ -880,6 +960,291 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EditMarkDialog extends StatefulWidget {
+  final TeacherMarkModel mark;
+  final VoidCallback onUpdated;
+
+  const _EditMarkDialog({
+    required this.mark,
+    required this.onUpdated,
+  });
+
+  @override
+  State<_EditMarkDialog> createState() => _EditMarkDialogState();
+}
+
+class _EditMarkDialogState extends State<_EditMarkDialog> {
+  late final TextEditingController _marksObtained;
+  late final TextEditingController _maxMarks;
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _marksObtained = TextEditingController(text: widget.mark.marksObtained.toString());
+    _maxMarks = TextEditingController(text: widget.mark.maxMarks.toString());
+  }
+
+  @override
+  void dispose() {
+    _marksObtained.dispose();
+    _maxMarks.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final marksObtained = _marksObtained.text.trim();
+    final maxMarks = _maxMarks.text.trim();
+    
+    if (marksObtained.isEmpty || maxMarks.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter both marks obtained and max marks'),
+          backgroundColor: kErrorColor,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _submitting = true);
+    
+    final result = await TeacherService().updateMark(
+      widget.mark.id,
+      marksObtained: double.tryParse(marksObtained) ?? 0,
+      maxMarks: double.tryParse(maxMarks) ?? 0,
+    );
+    
+    if (!mounted) return;
+    setState(() => _submitting = false);
+    
+    if (result is TeacherSuccess) {
+      widget.onUpdated();
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Mark updated successfully'),
+          backgroundColor: kPrimaryGreen,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text((result as TeacherError).message),
+          backgroundColor: kErrorColor,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.white, width: 1.5),
+          boxShadow: [
+            BoxShadow(color: Colors.white, blurRadius: 14, offset: const Offset(-4, -4), spreadRadius: 0.5),
+            BoxShadow(color: kPrimaryBlue.withOpacity(0.12), blurRadius: 24, offset: const Offset(6, 8)),
+            BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 12, offset: const Offset(3, 5)),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
+                  stops: [0.3, 0.7, 1.0],
+                ),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                boxShadow: [
+                  BoxShadow(color: kPrimaryBlue.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4)),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 6, offset: const Offset(0, 2)),
+                      ],
+                    ),
+                    child: const Icon(Icons.edit_note_rounded, color: Colors.white, size: 26),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Edit marks',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Student: ${widget.mark.studentName ?? 'Student ${widget.mark.studentId}'}',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Subject: ${widget.mark.subjectName ?? 'Subject ${widget.mark.subjectId}'}',
+                    style: TextStyle(color: kTextSecondary, fontSize: 14),
+                  ),
+                  Text(
+                    'Exam: ${widget.mark.examName ?? 'Exam ${widget.mark.examId}'}',
+                    style: TextStyle(color: kTextSecondary, fontSize: 14),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _marksObtained,
+                          decoration: InputDecoration(
+                            labelText: 'Marks Obtained',
+                            filled: true,
+                            fillColor: kSoftBlue.withOpacity(0.4),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _maxMarks,
+                          decoration: InputDecoration(
+                            labelText: 'Max Marks',
+                            filled: true,
+                            fillColor: kSoftBlue.withOpacity(0.4),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _submitting ? null : () => Navigator.pop(context),
+                        borderRadius: BorderRadius.circular(14),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: kPrimaryBlue.withOpacity(0.2)),
+                            boxShadow: [
+                              BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2)),
+                            ],
+                          ),
+                          child: const Center(
+                            child: Text(
+                              'Cancel',
+                              style: TextStyle(
+                                color: kPrimaryBlue,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _submitting ? null : _submit,
+                        borderRadius: BorderRadius.circular(14),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [kPrimaryGreen, kPrimaryGreen],
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(color: kPrimaryGreen.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4)),
+                            ],
+                          ),
+                          child: Center(
+                            child: _submitting
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Text(
+                                    'Update',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

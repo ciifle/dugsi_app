@@ -244,6 +244,42 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
     }
   }
 
+  Future<void> _openUpdateTeacherDialog() async {
+    if (!_refDataLoaded) return;
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => _UpdateTeacherDialog(
+        classes: _classes,
+        subjects: _subjects,
+        teachers: _teachers,
+        exams: _exams,
+        classSubjects: _classSubjects,
+        loadingClassSubjects: _loadingClassSubjects,
+        onLoadClassSubjects: _onFilterClassChanged,
+      ),
+    );
+    if (result == true && mounted) {
+      _loadMarks();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Teacher updated successfully'), backgroundColor: kPrimaryGreen),
+      );
+    }
+  }
+
+  Future<void> _openExportDialog() async {
+    if (!_refDataLoaded) return;
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => _ExportMarksDialog(
+        classes: _classes,
+        exams: _exams,
+      ),
+    );
+    if (result == true && mounted) {
+      // Success message is shown in the dialog
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -269,6 +305,10 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                     const Expanded(
                       child: Text('Marks', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
                     ),
+                    _UpdateTeacherButton(onPressed: _openUpdateTeacherDialog),
+                    const SizedBox(width: 8),
+                    _ExportButton(onPressed: _openExportDialog),
+                    const SizedBox(width: 8),
                     _AddButton(onPressed: _openAddMarks),
                   ],
                 ),
@@ -950,6 +990,284 @@ class _AddButton extends StatelessWidget {
           boxShadow: [BoxShadow(color: kPrimaryGreen.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))],
         ),
         child: const Icon(Icons.add_rounded, color: kPrimaryGreen, size: 24),
+      ),
+    );
+  }
+}
+
+class _UpdateTeacherButton extends StatelessWidget {
+  final VoidCallback onPressed;
+  const _UpdateTeacherButton({required this.onPressed});
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.orange.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [BoxShadow(color: Colors.orange.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))],
+        ),
+        child: const Icon(Icons.person, color: Colors.orange, size: 24),
+      ),
+    );
+  }
+}
+
+class _ExportButton extends StatelessWidget {
+  final VoidCallback onPressed;
+  const _ExportButton({required this.onPressed});
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.blue.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))],
+        ),
+        child: const Icon(Icons.download_rounded, color: Colors.blue, size: 24),
+      ),
+    );
+  }
+}
+
+class _UpdateTeacherDialog extends StatefulWidget {
+  final List<ClassModel> classes;
+  final List<SubjectModel> subjects;
+  final List<TeacherModel> teachers;
+  final List<ExamModel> exams;
+  final List<ClassSubjectItem> classSubjects;
+  final bool loadingClassSubjects;
+  final void Function(int?) onLoadClassSubjects;
+
+  const _UpdateTeacherDialog({
+    required this.classes,
+    required this.subjects,
+    required this.teachers,
+    required this.exams,
+    required this.classSubjects,
+    required this.loadingClassSubjects,
+    required this.onLoadClassSubjects,
+  });
+
+  @override
+  State<_UpdateTeacherDialog> createState() => _UpdateTeacherDialogState();
+}
+
+class _UpdateTeacherDialogState extends State<_UpdateTeacherDialog> {
+  int? _classId;
+  int? _subjectId;
+  int? _teacherId;
+  int? _examId;
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _classId = null;
+    _subjectId = null;
+    _teacherId = null;
+    _examId = null;
+  }
+
+  Future<void> _onClassChanged(int? classId) async {
+    setState(() {
+      _classId = classId;
+      _subjectId = null;
+    });
+    widget.onLoadClassSubjects(classId);
+  }
+
+  List<SubjectModel> get _effectiveSubjects {
+    if (_classId != null && widget.classSubjects.isNotEmpty) {
+      return widget.classSubjects.map((cs) => SubjectModel(id: cs.id, name: cs.name)).toList();
+    }
+    return widget.subjects;
+  }
+
+  Future<void> _submit() async {
+    if (_classId == null || _subjectId == null || _teacherId == null || _examId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select class, subject, teacher and exam'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    if (_submitting) return;
+    setState(() => _submitting = true);
+    
+    final result = await MarksService().bulkUpdateTeacher(
+      classId: _classId!,
+      subjectId: _subjectId!,
+      teacherId: _teacherId!,
+      examId: _examId!,
+    );
+    
+    if (!mounted) return;
+    setState(() => _submitting = false);
+    
+    if (result is MarkSuccess) {
+      Navigator.of(context).pop(true);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text((result as MarkError).message), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+      child: FormCard(
+        padding: const EdgeInsets.all(24),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('Update Class Teacher', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
+              const SizedBox(height: 20),
+              Select3D<int?>(
+                value: _classId,
+                label: 'Class',
+                items: [const DropdownMenuItem<int?>(value: null, child: Text('Select class')), ...widget.classes.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name)))],
+                onChanged: (v) => _onClassChanged(v),
+              ),
+              const SizedBox(height: 16),
+              Select3D<int?>(
+                value: _subjectId,
+                label: 'Subject',
+                items: [
+                  DropdownMenuItem<int?>(value: null, child: Text(widget.loadingClassSubjects ? 'Loading...' : (_classId == null ? 'Select class first' : 'Select subject'))),
+                  ..._effectiveSubjects.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text(s.name))),
+                ],
+                onChanged: widget.loadingClassSubjects ? null : (v) => setState(() => _subjectId = v),
+              ),
+              const SizedBox(height: 16),
+              Select3D<int?>(
+                value: _teacherId,
+                label: 'New Teacher',
+                items: [const DropdownMenuItem<int?>(value: null, child: Text('Select teacher')), ...widget.teachers.map((t) => DropdownMenuItem<int?>(value: t.id, child: Text(t.fullName)))],
+                onChanged: (v) => setState(() => _teacherId = v),
+              ),
+              const SizedBox(height: 16),
+              Select3D<int?>(
+                value: _examId,
+                label: 'Exam',
+                items: [const DropdownMenuItem<int?>(value: null, child: Text('Select exam')), ...widget.exams.map((e) => DropdownMenuItem<int?>(value: e.id, child: Text(e.name)))],
+                onChanged: (v) => setState(() => _examId = v),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(child: TextButton(onPressed: _submitting ? null : () => Navigator.pop(context), child: const Text('Cancel'))),
+                  const SizedBox(width: 12),
+                  Expanded(flex: 2, child: PrimaryButton3D(label: 'Update Teacher', onPressed: _submit, loading: _submitting, height: 48)),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExportMarksDialog extends StatefulWidget {
+  final List<ClassModel> classes;
+  final List<ExamModel> exams;
+
+  const _ExportMarksDialog({
+    required this.classes,
+    required this.exams,
+  });
+
+  @override
+  State<_ExportMarksDialog> createState() => _ExportMarksDialogState();
+}
+
+class _ExportMarksDialogState extends State<_ExportMarksDialog> {
+  int? _classId;
+  int? _examId;
+  bool _submitting = false;
+
+  Future<void> _submit() async {
+    if (_classId == null || _examId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select class and exam'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    if (_submitting) return;
+    setState(() => _submitting = true);
+    
+    final result = await MarksService().exportMarks(
+      classId: _classId!,
+      examId: _examId!,
+    );
+    
+    if (!mounted) return;
+    setState(() => _submitting = false);
+    
+    if (result is MarkSuccess) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Marks exported successfully'),
+          backgroundColor: kPrimaryGreen,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      Navigator.of(context).pop(true);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text((result as MarkError).message), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+      child: FormCard(
+        padding: const EdgeInsets.all(24),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('Export Marks', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
+              const SizedBox(height: 20),
+              Select3D<int?>(
+                value: _classId,
+                label: 'Class',
+                items: [const DropdownMenuItem<int?>(value: null, child: Text('Select class')), ...widget.classes.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name)))],
+                onChanged: (v) => setState(() => _classId = v),
+              ),
+              const SizedBox(height: 16),
+              Select3D<int?>(
+                value: _examId,
+                label: 'Exam',
+                items: [const DropdownMenuItem<int?>(value: null, child: Text('Select exam')), ...widget.exams.map((e) => DropdownMenuItem<int?>(value: e.id, child: Text(e.name)))],
+                onChanged: (v) => setState(() => _examId = v),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(child: TextButton(onPressed: _submitting ? null : () => Navigator.pop(context), child: const Text('Cancel'))),
+                  const SizedBox(width: 12),
+                  Expanded(flex: 2, child: PrimaryButton3D(label: 'Export Excel', onPressed: _submit, loading: _submitting, height: 48)),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

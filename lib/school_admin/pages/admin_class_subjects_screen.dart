@@ -225,9 +225,10 @@ class _AdminClassSubjectsScreenState extends State<AdminClassSubjectsScreen> {
                           )
                         : Padding(
                             padding: const EdgeInsets.all(20),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
+                            child: SingleChildScrollView(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
                                 // Class Selector
                                 Text(
                                   'Select Class:',
@@ -316,8 +317,10 @@ class _AdminClassSubjectsScreenState extends State<AdminClassSubjectsScreen> {
                                       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextSecondaryColor),
                                     ),
                                     const SizedBox(height: 8),
-                                    Expanded(
+                                    Container(
+                                      constraints: const BoxConstraints(maxHeight: 300),
                                       child: ListView(
+                                        shrinkWrap: true,
                                         children: _allSubjects.map((subject) {
                                           final isSelected = _selectedSubjectIds.contains(subject.id);
                                           return CheckboxListTile(
@@ -364,7 +367,8 @@ class _AdminClassSubjectsScreenState extends State<AdminClassSubjectsScreen> {
                                     ),
                                   ],
                                 ],
-                              ],
+                                ],
+                              ),
                             ),
                           ),
               ),
