@@ -6,6 +6,7 @@ import 'package:kobac/services/api_client.dart';
 import 'package:kobac/services/api_error_helpers.dart';
 
 /// Marks entry model (school-admin scope).
+/// Now includes nested objects: exam, subject, teacher, class, student.
 class MarkModel {
   final int id;
   final int examId;
@@ -16,6 +17,13 @@ class MarkModel {
   final int? teacherId;
   final String? grade;
   final String? createdAt;
+  
+  // Nested objects for better UI
+  final Map<String, dynamic>? exam;
+  final Map<String, dynamic>? subject;
+  final Map<String, dynamic>? teacher;
+  final Map<String, dynamic>? classData;
+  final Map<String, dynamic>? student;
 
   const MarkModel({
     required this.id,
@@ -27,6 +35,11 @@ class MarkModel {
     this.teacherId,
     this.grade,
     this.createdAt,
+    this.exam,
+    this.subject,
+    this.teacher,
+    this.classData,
+    this.student,
   });
 
   factory MarkModel.fromJson(Map<String, dynamic> json) {
@@ -55,10 +68,27 @@ class MarkModel {
       }
       return fallback;
     }
+
+    String? nameFrom(dynamic v) {
+      if (v == null) return null;
+      if (v is String) return v.isNotEmpty ? v : null;
+      if (v is Map && v['name'] != null) return v['name'].toString();
+      if (v is Map && v['studentName'] != null) return v['studentName'].toString();
+      if (v is Map && v['fullName'] != null) return v['fullName'].toString();
+      return null;
+    }
+
     // Support all common backend key variants; do not default to 0 when a value exists under another key.
     final obtainedRaw = m['marks_obtained'] ?? m['marksObtained'] ?? m['obtained'] ?? m['score'] ?? m['obtained_marks'];
-    final maxRaw = m['max_marks'] ?? m['maxMarks'] ?? m['max'] ?? m['total_marks'] ?? m['totalMarks'] ?? m['total'] ?? m['out_of'];
-    String? strOpt(dynamic v) => v == null ? null : v.toString().trim();
+    final maxRaw = m['max_marks'] ?? m['maxMarks'] ?? m['max'] ?? m['total_marks'] ?? m['totalMarks'] ?? m['out_of'];
+    
+    // Extract nested objects
+    final student = m['student'] ?? m['Student'];
+    final exam = m['exam'] ?? m['Exam'];
+    final subject = m['subject'] ?? m['Subject'];
+    final classObj = m['class'] ?? m['Class'];
+    final teacher = m['teacher'] ?? m['Teacher'];
+
     return MarkModel(
       id: parseId(m['id'] ?? m['mark_id']),
       examId: parseId(m['exam_id'] ?? m['examId']),
@@ -67,10 +97,24 @@ class MarkModel {
       marksObtained: parseMarksNum(obtainedRaw, 0),
       maxMarks: parseMarksNum(maxRaw, 100),
       teacherId: m['teacher_id'] != null || m['teacherId'] != null ? parseId(m['teacher_id'] ?? m['teacherId']) : null,
-      grade: strOpt(m['grade']),
-      createdAt: strOpt(m['created_at'] ?? m['createdAt']),
+      grade: m['grade'] != null ? m['grade'].toString() : null,
+      createdAt: m['created_at'] != null ? m['created_at'].toString() : null,
+      
+      // Nested objects
+      exam: exam is Map<String, dynamic> ? exam : null,
+      subject: subject is Map<String, dynamic> ? subject : null,
+      teacher: teacher is Map<String, dynamic> ? teacher : null,
+      classData: classObj is Map<String, dynamic> ? classObj : null,
+      student: student is Map<String, dynamic> ? student : null,
     );
   }
+
+  // Backward compatibility getters
+  String? get studentName => student?['studentName'] ?? student?['name'];
+  String? get examName => exam?['examName'] ?? exam?['name'];
+  String? get subjectName => subject?['subjectName'] ?? subject?['name'];
+  String? get teacherName => teacher?['teacherName'] ?? teacher?['fullName'] ?? teacher?['name'];
+  String? get className => classData?['className'] ?? classData?['name'];
 }
 
 sealed class MarkResult<T> {}

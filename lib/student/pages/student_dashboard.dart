@@ -2,17 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:kobac/services/auth_provider.dart';
 import 'package:kobac/services/student_service.dart';
-import 'package:kobac/student/pages/exam_schedule.dart';
 import 'package:kobac/student/pages/student_attendance.dart';
 import 'package:kobac/student/pages/student_fees.dart';
-import 'package:kobac/student/pages/student_notices.dart';
 import 'package:kobac/student/pages/student_profile.dart';
 import 'package:kobac/student/pages/student_result.dart';
 import 'package:kobac/student/pages/student_marks_screen.dart';
 import 'package:kobac/student/pages/student_timetable_screen.dart';
 import 'package:kobac/student/pages/student_pay_fee_screen.dart';
-import 'package:kobac/student/pages/student_payments_screen.dart';
 import 'package:kobac/student/widgets/student_drawer.dart';
+import 'package:kobac/student/pages/student_notices.dart';
+import 'package:kobac/messages/messages_screen.dart';
 
 // ---------- COLOR PALETTE (Only two colors) ----------
 const Color kPrimaryBlue = Color(0xFF023471); // Dark blue
@@ -43,111 +42,28 @@ class _FeatureCardData {
 }
 
 // ---------------- DASHBOARD SCREEN ----------------
-class StudentDashboardScreen extends StatefulWidget {
+class StudentDashboardScreen extends StatelessWidget {
   const StudentDashboardScreen({Key? key}) : super(key: key);
 
   @override
-  State<StudentDashboardScreen> createState() => _StudentDashboardScreenState();
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => _StudentDashboardScreenState(),
+      child: const _StudentDashboardScreenView(),
+    );
+  }
 }
 
-class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
-  int _selectedIndex = 0;
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-
-  // Define all the screens for bottom navigation
-  late final List<Widget> _screens = [
-    const _DashboardHomeContent(),
-    StudentExamScheduleScreen(),
-    const AllNoticesScreen(), // This now shows the actual AllNoticesScreen
-    StudentProfileScreen(),
-  ];
-
-  final List<_FeatureCardData> _featureCards = [
-    _FeatureCardData(
-      title: 'View Timetable',
-      subtitle: "Today's schedule",
-      icon: Icons.schedule_rounded,
-      onTap: (context) => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const StudentTimetableScreen()),
-      ),
-    ),
-    _FeatureCardData(
-      title: 'My Marks',
-      subtitle: 'Grades by exam',
-      icon: Icons.grade_rounded,
-      onTap: (context) => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const StudentMarksScreen()),
-      ),
-    ),
-    _FeatureCardData(
-      title: 'Exam Results',
-      subtitle: 'Result reports',
-      icon: Icons.stars_rounded,
-      onTap: (context) => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => StudentResultsScreen()),
-      ),
-    ),
-    _FeatureCardData(
-      title: 'Fees',
-      subtitle: 'Payment status',
-      icon: Icons.account_balance_wallet_rounded,
-      onTap: (context) => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const StudentFeesScreen()),
-      ),
-    ),
-    _FeatureCardData(
-      title: 'Pay Fee',
-      subtitle: 'Make a payment',
-      icon: Icons.payment_rounded,
-      onTap: (context) => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const StudentPayFeeScreen()),
-      ),
-    ),
-    _FeatureCardData(
-      title: 'Attendance',
-      subtitle: 'My attendance',
-      icon: Icons.calendar_month_rounded,
-      onTap: (context) => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const StudentAttendanceScreen()),
-      ),
-    ),
-    _FeatureCardData(
-      title: 'Notices',
-      subtitle: 'Announcements',
-      icon: Icons.campaign_rounded,
-      onTap: (context) => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const AllNoticesScreen()),
-      ),
-    ),
-  ];
-
-  // Navigation items
-  final List<Map<String, dynamic>> _navItems = [
-    {'icon': Icons.home_rounded, 'label': 'Home'},
-    {'icon': Icons.calendar_month_rounded, 'label': 'Schedule'},
-    {'icon': Icons.notifications_rounded, 'label': 'Notices'},
-    {'icon': Icons.person_rounded, 'label': 'Profile'},
-  ];
-
-  void _onNavItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
+class _StudentDashboardScreenView extends StatelessWidget {
+  const _StudentDashboardScreenView({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    final state = context.watch<_StudentDashboardScreenState>();
     return Scaffold(
-      key: _scaffoldKey,
+      key: state._scaffoldKey,
       drawer: AppDrawer(), // Drawer opens from left
-      body: IndexedStack(index: _selectedIndex, children: _screens),
+      body: IndexedStack(index: state._selectedIndex, children: state._screens),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           boxShadow: [
@@ -164,14 +80,14 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
             topRight: Radius.circular(30),
           ),
           child: BottomNavigationBar(
-            items: _navItems.map((item) {
+            items: state._navItems.map((item) {
               return BottomNavigationBarItem(
                 icon: Icon(item['icon']),
                 label: item['label'],
               );
             }).toList(),
-            currentIndex: _selectedIndex,
-            onTap: _onNavItemTapped,
+            currentIndex: state._selectedIndex,
+            onTap: state._onNavItemTapped,
             backgroundColor: Colors.white,
             selectedItemColor: kPrimaryBlue,
             unselectedItemColor: kTextSecondary.withOpacity(0.6),
@@ -194,9 +110,40 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
   }
 }
 
+class _StudentDashboardScreenState with ChangeNotifier {
+  int _selectedIndex = 0;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  
+  // Expose the scaffold key for access by child widgets
+  GlobalKey<ScaffoldState> get scaffoldKey => _scaffoldKey;
+
+  // Define all screens for bottom navigation (only 4 items in navbar)
+  late final List<Widget> _screens = [
+    _DashboardHomeContent(navigateToTab: _onNavItemTapped),
+    const StudentAttendanceScreen(),
+    const MessagesScreen(embedInParent: true), // Messages - proper messages screen
+    StudentProfileScreen(),
+  ];
+
+  // Navigation items (only 4 items)
+  final List<Map<String, dynamic>> _navItems = [
+    {'icon': Icons.home_rounded, 'label': 'Home'},
+    {'icon': Icons.calendar_month_rounded, 'label': 'Attendance'},
+    {'icon': Icons.notifications_rounded, 'label': 'Messages'},
+    {'icon': Icons.person_rounded, 'label': 'Profile'},
+  ];
+
+  void _onNavItemTapped(int index) {
+    _selectedIndex = index;
+    notifyListeners();
+  }
+}
+
 // Dashboard Home Content — API-driven, clean layout
 class _DashboardHomeContent extends StatefulWidget {
-  const _DashboardHomeContent({Key? key}) : super(key: key);
+  final void Function(int index) navigateToTab;
+  
+  const _DashboardHomeContent({Key? key, required this.navigateToTab}) : super(key: key);
 
   @override
   State<_DashboardHomeContent> createState() => _DashboardHomeContentState();
@@ -222,9 +169,76 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
   late Future<StudentResult<List<StudentNoticeModel>>> _noticesFuture;
   late Future<StudentResult<List<StudentFeeModel>>> _feesFuture;
 
+  late final List<_FeatureCardData> _featureCards;
+
   @override
   void initState() {
     super.initState();
+    
+    // Initialize feature cards after widget is available (ALL ORIGINAL CARDS)
+    _featureCards = [
+      _FeatureCardData(
+        title: 'View Timetable',
+        subtitle: "Today's schedule",
+        icon: Icons.schedule_rounded,
+        onTap: (context) => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const StudentTimetableScreen()),
+        ),
+      ),
+      _FeatureCardData(
+        title: 'My Marks',
+        subtitle: 'Grades by exam',
+        icon: Icons.grade_rounded,
+        onTap: (context) => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const StudentMarksScreen()),
+        ),
+      ),
+      _FeatureCardData(
+        title: 'Exam Results',
+        subtitle: 'Result reports',
+        icon: Icons.stars_rounded,
+        onTap: (context) => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => StudentResultsScreen()),
+        ),
+      ),
+      _FeatureCardData(
+        title: 'Fees',
+        subtitle: 'Payment status',
+        icon: Icons.account_balance_wallet_rounded,
+        onTap: (context) => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const StudentFeesScreen()),
+        ),
+      ),
+      _FeatureCardData(
+        title: 'Pay Fee',
+        subtitle: 'Make a payment',
+        icon: Icons.payment_rounded,
+        onTap: (context) => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const StudentPayFeeScreen()),
+        ),
+      ),
+      _FeatureCardData(
+        title: 'Attendance',
+        subtitle: 'My attendance',
+        icon: Icons.calendar_month_rounded,
+        onTap: (context) => widget.navigateToTab(1),
+      ),
+      _FeatureCardData(
+        title: 'Notices',
+        subtitle: 'Announcements',
+        icon: Icons.campaign_rounded,
+        onTap: (context) => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const AllNoticesScreen()),
+        ),
+      ),
+    ];
+    
     final wd = DateTime.now().weekday;
     final todayIndex = (wd == DateTime.sunday ? 7 : wd) - 1;
     final todayDay = _kDays[todayIndex.clamp(0, 6)];
@@ -245,20 +259,10 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
     });
   }
 
-  static final List<_FeatureCardData> _quickActions = [
-    _FeatureCardData(title: 'Timetable', subtitle: "Today's schedule", icon: Icons.schedule_rounded, onTap: (c) => Navigator.push(c, MaterialPageRoute(builder: (_) => const StudentTimetableScreen()))),
-    _FeatureCardData(title: 'My Marks', subtitle: 'Grades by exam', icon: Icons.grade_rounded, onTap: (c) => Navigator.push(c, MaterialPageRoute(builder: (_) => const StudentMarksScreen()))),
-    _FeatureCardData(title: 'Exam Results', subtitle: 'Result reports', icon: Icons.stars_rounded, onTap: (c) => Navigator.push(c, MaterialPageRoute(builder: (_) => StudentResultsScreen()))),
-    _FeatureCardData(title: 'Fees', subtitle: 'Payment status', icon: Icons.account_balance_wallet_rounded, onTap: (c) => Navigator.push(c, MaterialPageRoute(builder: (_) => const StudentFeesScreen()))),
-    _FeatureCardData(title: 'Payments', subtitle: 'Payment history', icon: Icons.payment_rounded, onTap: (c) => Navigator.push(c, MaterialPageRoute(builder: (_) => const StudentPaymentsScreen()))),
-    _FeatureCardData(title: 'Attendance', subtitle: 'My attendance', icon: Icons.calendar_month_rounded, onTap: (c) => Navigator.push(c, MaterialPageRoute(builder: (_) => const StudentAttendanceScreen()))),
-    _FeatureCardData(title: 'Notices', subtitle: 'Announcements', icon: Icons.campaign_rounded, onTap: (c) => Navigator.push(c, MaterialPageRoute(builder: (_) => const AllNoticesScreen()))),
-  ];
-
   List<_FeatureCardData> _visibleQuickActions(BuildContext context) {
     final feesEnabled = context.watch<AuthProvider>().feesEnabled;
-    if (feesEnabled) return _quickActions;
-    return _quickActions.where((c) => c.title != 'Fees' && c.title != 'Payments').toList();
+    if (feesEnabled) return _featureCards;
+    return _featureCards.where((c) => c.title != 'Fees' && c.title != 'Payments').toList();
   }
 
   @override
@@ -275,7 +279,7 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // ---------- SECTION 1: Header (from GET /api/auth/me profile) ----------
+                // ---------- SECTION 1: Header ----------
                 Builder(
                   builder: (context) {
                     final auth = context.watch<AuthProvider>();
@@ -335,103 +339,120 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
                               ),
                             ),
                           ),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
+                          Column(
                             children: [
-                              // Left: circular hamburger
-                              GestureDetector(
-                                onTap: () => Scaffold.of(context).openDrawer(),
-                                child: Container(
-                                  width: 44,
-                                  height: 44,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(Icons.menu_rounded, color: Colors.white, size: 28),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              // Center: welcome, name, pill (class • EMIS) — centered like original
-                              Expanded(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      'Welcome back! 👋',
-                                      style: TextStyle(
-                                        color: Colors.white.withOpacity(0.9),
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w500,
-                                        letterSpacing: 0.5,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      name,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 0.5,
-                                        height: 1.2,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.2),
-                                        borderRadius: BorderRadius.circular(30),
-                                      ),
-                                      child: Text(
-                                        'Class: $className • EMIS: $emis',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
+                              const SizedBox(height: 20),
+                              // Menu button and profile avatar row
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  // Menu button to open drawer
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(12),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: kPrimaryBlue.withOpacity(0.1),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
                                         ),
-                                        textAlign: TextAlign.center,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
+                                      ],
+                                    ),
+                                    child: IconButton(
+                                      icon: const Icon(Icons.menu_rounded, color: kPrimaryBlue),
+                                      onPressed: () {
+                                        // Access the dashboard state through the provider and open drawer
+                                        final dashboardState = context.read<_StudentDashboardScreenState>();
+                                        dashboardState._scaffoldKey.currentState?.openDrawer();
+                                      },
+                                      tooltip: 'Menu',
+                                    ),
+                                  ),
+                                  // Profile avatar
+                                  Container(
+                                    width: 90,
+                                    height: 90,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      gradient: LinearGradient(
+                                        colors: [kSoftBlue, kSoftGreen],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      border: Border.all(color: Colors.white, width: 4),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: kPrimaryBlue.withOpacity(0.2),
+                                          blurRadius: 20,
+                                          offset: const Offset(0, 8),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        initials,
+                                        style: const TextStyle(
+                                          fontSize: 32,
+                                          fontWeight: FontWeight.bold,
+                                          color: kPrimaryBlue,
+                                        ),
                                       ),
                                     ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              // Right: circular white avatar (like original)
-                              Container(
-                                width: 56,
-                                height: 56,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors.white,
-                                  border: Border.all(color: Colors.white, width: 3),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.2),
-                                      blurRadius: 15,
-                                      spreadRadius: 2,
-                                    ),
-                                  ],
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  initials,
-                                  style: const TextStyle(
-                                    color: kPrimaryBlue,
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 0.5,
                                   ),
-                                ),
+                                  const SizedBox(width: 48), // Spacer to balance the menu button
+                                ],
                               ),
+                              const SizedBox(height: 20),
+                              // Name
+                              Text(
+                                name,
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 6),
+                              // Class & EMIS
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      className,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      'EMIS: $emis',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 20),
                             ],
                           ),
                         ],
@@ -452,7 +473,10 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kTextPrimary),
                       ),
                       TextButton(
-                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StudentTimetableScreen())),
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const StudentTimetableScreen()),
+                        ),
                         style: TextButton.styleFrom(foregroundColor: kPrimaryBlue),
                         child: const Text('View Full Timetable'),
                       ),
@@ -574,7 +598,7 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
                   ),
                 ),
 
-                // ---------- SECTION 4: Latest Notices (same design as All Notices) ----------
+                // ---------- SECTION 4: Latest Notices ----------
                 const SizedBox(height: 24),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -586,9 +610,10 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kTextPrimary),
                       ),
                       TextButton(
-                        onPressed: () {
-                          context.findAncestorStateOfType<_StudentDashboardScreenState>()?._onNavItemTapped(2);
-                        },
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const AllNoticesScreen()),
+                        ),
                         style: TextButton.styleFrom(foregroundColor: kPrimaryBlue),
                         child: const Text('View All Notices'),
                       ),
@@ -647,7 +672,7 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
                   },
                 ),
 
-                // ---------- SECTION 5: Fees Summary (hide if 403) ----------
+                // ---------- SECTION 5: Fees Summary ----------
                 FutureBuilder<StudentResult<List<StudentFeeModel>>>(
                   future: _feesFuture,
                   builder: (context, snap) {
@@ -660,19 +685,22 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
                     final fees = (snap.data as StudentSuccess<List<StudentFeeModel>>).data;
                     num remaining = 0;
                     int unpaidCount = 0;
-                    for (final f in fees) {
-                      remaining += f.remainingAmount;
-                      if (f.status == 'UNPAID' || f.status == 'PARTIAL') unpaidCount++;
+                    for (final fee in fees) {
+                      if (fee.status?.toUpperCase() == 'UNPAID') {
+                        remaining += fee.amount ?? 0;
+                        unpaidCount++;
+                      }
                     }
-                    if (fees.isEmpty) return const SizedBox.shrink();
-                    return Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                    return SliverToBoxAdapter(
                       child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 20),
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(18),
-                          boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 4))],
+                          color: kCardColor,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 20, offset: const Offset(0, 8)),
+                          ],
                         ),
                         child: Row(
                           children: [
@@ -734,7 +762,7 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
   }
 }
 
-// Notice card for dashboard (same design as All Notices screen)
+// Notice card for dashboard
 class _DashboardNoticeCard extends StatelessWidget {
   final StudentNoticeModel notice;
   final VoidCallback? onTap;
@@ -925,4 +953,3 @@ class _DashboardFeatureCard extends StatelessWidget {
     );
   }
 }
-

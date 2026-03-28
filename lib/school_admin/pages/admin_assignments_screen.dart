@@ -90,7 +90,23 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
       if (!mounted) return;
       setState(() {
         _filterSubjectsLoading = false;
-        if (result is AssignmentSuccess<List<ClassSubjectItem>>) _classSubjects = result.data;
+        if (result is AssignmentSuccess<List<ClassSubjectItem>>) {
+          _classSubjects = result.data;
+        } else {
+          final error = result as AssignmentError;
+          _classSubjects = [];
+          // Show user-friendly error message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(error.statusCode == 404 ? 
+                'No subjects assigned to this class.' : 
+                'Failed to load subjects: ${error.message}'
+              ),
+              backgroundColor: error.statusCode == 404 ? Colors.orange : Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       });
     }
     _loadAssignments();
@@ -108,7 +124,23 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
       if (!mounted) return;
       setState(() {
         _filterTeachersLoading = false;
-        if (result is AssignmentSuccess<List<TeacherModel>>) _classSubjectTeachers = result.data;
+        if (result is AssignmentSuccess<List<TeacherModel>>) {
+          _classSubjectTeachers = result.data;
+        } else {
+          final error = result as AssignmentError;
+          _classSubjectTeachers = [];
+          // Show user-friendly error message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(error.statusCode == 404 ? 
+                'No teachers assigned to this class-subject.' : 
+                'Failed to load teachers: ${error.message}'
+              ),
+              backgroundColor: error.statusCode == 404 ? Colors.orange : Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       });
     }
     _loadAssignments();

@@ -41,12 +41,14 @@ class ConversationModel {
   final String name;
   final String lastMessage;
   final String createdAt;
+  final int unreadCount;
 
   ConversationModel({
     required this.userId,
     required this.name,
     required this.lastMessage,
     required this.createdAt,
+    this.unreadCount = 0,
   });
 
   factory ConversationModel.fromJson(Map<String, dynamic> json) {
@@ -54,7 +56,14 @@ class ConversationModel {
     final name = _str(json['name'] ?? json['userName'] ?? json['user_name'] ?? 'Unknown');
     final msg = _str(json['lastMessage'] ?? json['last_message'] ?? json['message'] ?? '');
     final at = _str(json['created_at'] ?? json['createdAt'] ?? '');
-    return ConversationModel(userId: uid, name: name, lastMessage: msg, createdAt: at);
+    final unread = _parseId(json['unreadCount'] ?? json['unread_count'] ?? json['unread'] ?? 0);
+    return ConversationModel(
+      userId: uid, 
+      name: name, 
+      lastMessage: msg, 
+      createdAt: at,
+      unreadCount: unread,
+    );
   }
 }
 

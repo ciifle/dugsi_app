@@ -8,10 +8,11 @@ import 'package:kobac/widgets/form_3d/form_3d.dart';
 const Color kPrimaryBlue = Color(0xFF023471);
 const Color kPrimaryGreen = Color(0xFF5AB04B);
 const Color kBgColor = Color(0xFFF0F3F7);
+const Color kTextSecondaryColor = Color(0xFF636E72);
 const double kCardRadius = 28.0;
 
 class AdminSubjectsScreen extends StatefulWidget {
-  /// When true, opens the "Add Subject" dialog after the first frame.
+  /// When true, opens "Add Subject" dialog after first frame.
   final bool openCreateOnLoad;
 
   const AdminSubjectsScreen({Key? key, this.openCreateOnLoad = false}) : super(key: key);
@@ -51,10 +52,9 @@ class _AdminSubjectsScreenState extends State<AdminSubjectsScreen> {
       context: context,
       builder: (ctx) => _SubjectFormDialog(
         title: 'Add Subject',
-        initialName: '',
         submitLabel: 'Create',
-        onSave: (name) async {
-          final result = await SubjectsService().createSubject({'name': name});
+        onSave: (data) async {
+          final result = await SubjectsService().createSubject(data);
           if (result is SubjectSuccess) return true;
           if (ctx.mounted) {
             ScaffoldMessenger.of(ctx).showSnackBar(
@@ -82,8 +82,8 @@ class _AdminSubjectsScreenState extends State<AdminSubjectsScreen> {
         title: 'Edit Subject',
         initialName: subject.name,
         submitLabel: 'Save',
-        onSave: (name) async {
-          final result = await SubjectsService().updateSubject(subject.id, {'name': name});
+        onSave: (data) async {
+          final result = await SubjectsService().updateSubject(subject.id, data);
           if (result is SubjectSuccess) return true;
           if (ctx.mounted) {
             ScaffoldMessenger.of(ctx).showSnackBar(
@@ -108,7 +108,7 @@ class _AdminSubjectsScreenState extends State<AdminSubjectsScreen> {
     final confirmed = await showDeleteConfirmDialog(
       context,
       title: 'Delete subject?',
-      message: 'Delete subject ${subject.name}?',
+      message: 'Remove ${subject.name}?',
     );
     if (confirmed != true) return;
     final result = await SubjectsService().deleteSubject(subject.id);
@@ -116,7 +116,7 @@ class _AdminSubjectsScreenState extends State<AdminSubjectsScreen> {
     if (result is SubjectSuccess) {
       _loadSubjects();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${subject.name} deleted'), backgroundColor: kPrimaryGreen),
+        SnackBar(content: Text('${subject.name} removed'), backgroundColor: kPrimaryGreen),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -254,38 +254,27 @@ class _AdminSubjectsScreenState extends State<AdminSubjectsScreen> {
                             Center(
                               child: Column(
                                 children: [
-                                  Icon(Icons.menu_book_rounded, size: 60, color: Colors.grey[300]),
+                                  Icon(Icons.subject_rounded, size: 56, color: Colors.grey[400]),
                                   const SizedBox(height: 12),
                                   Text(
-                                    searchQuery.isEmpty ? 'No subjects yet' : 'No subjects match your search',
-                                    style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                                    'No subjects found. Add subjects to get started.',
+                                    style: TextStyle(fontSize: 13, color: Colors.orange[800]),
                                   ),
-                                  if (searchQuery.isEmpty) ...[
-                                    const SizedBox(height: 16),
-                                    TextButton.icon(
-                                      onPressed: _openCreateSubject,
-                                      icon: const Icon(Icons.add_rounded),
-                                      label: const Text('Add Subject'),
-                                    ),
-                                  ],
                                 ],
                               ),
                             ),
                           ],
                         );
                       }
-                      return ListView.builder(
+                      return ListView(
                         physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                        itemCount: subjects.length,
-                        itemBuilder: (context, index) {
-                          final subject = subjects[index];
-                          return _SubjectCard(
-                            subject: subject,
-                            onEdit: () => _openEditSubject(subject),
-                            onDelete: () => _deleteSubject(subject),
-                          );
-                        },
+                        children: [
+                          ...subjects.map((s) => _SubjectCard(
+                            subject: s,
+                            onEdit: () => _openEditSubject(s),
+                            onDelete: () => _deleteSubject(s),
+                          )).toList(),
+                        ],
                       );
                     },
                   ),
@@ -302,13 +291,13 @@ class _AdminSubjectsScreenState extends State<AdminSubjectsScreen> {
 /// Dialog for Create/Edit subject: single "name" field, Save/Create button.
 class _SubjectFormDialog extends StatefulWidget {
   final String title;
-  final String initialName;
+  final String? initialName;
   final String submitLabel;
-  final Future<bool> Function(String name) onSave;
+  final Future<bool> Function(Map<String, dynamic> data) onSave;
 
   const _SubjectFormDialog({
     required this.title,
-    required this.initialName,
+    this.initialName,
     required this.submitLabel,
     required this.onSave,
   });
@@ -324,7 +313,7 @@ class _SubjectFormDialogState extends State<_SubjectFormDialog> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.initialName);
+    _nameController = TextEditingController(text: widget.initialName ?? '');
   }
 
   @override
@@ -343,7 +332,11 @@ class _SubjectFormDialogState extends State<_SubjectFormDialog> {
     }
     if (_submitting) return;
     setState(() => _submitting = true);
-    final ok = await widget.onSave(name);
+    
+    final data = <String, dynamic>{
+      'name': name,
+    };
+    final ok = await widget.onSave(data);
     if (!mounted) return;
     setState(() => _submitting = false);
     if (ok) Navigator.of(context).pop(true);
@@ -480,7 +473,7 @@ class _SubjectCard extends StatelessWidget {
             Expanded(
               child: Text(
                 subject.name,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimaryBlue),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),

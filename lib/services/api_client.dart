@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:http/http.dart' as http;
 
 /// Base URL for Dugsi API. Use API_URL in production web (e.g. https://api.dugsi.so).
@@ -50,10 +49,18 @@ class ApiClient {
     Object? body,
     Encoding? encoding,
   }) async {
+    // Convert body to JSON string if it's a Map
+    String? bodyStr;
+    if (body is Map) {
+      bodyStr = jsonEncode(body);
+    } else if (body is String) {
+      bodyStr = body;
+    }
+    
     final response = await http.post(
       url,
       headers: {..._defaultHeaders, ...?headers},
-      body: body is String ? body : (body != null ? jsonEncode(body) : null),
+      body: bodyStr,
       encoding: encoding,
     );
     _handleStatus(response);

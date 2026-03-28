@@ -1,18 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:kobac/services/auth_provider.dart';
-import 'package:kobac/student/pages/academic_activity.dart';
-import 'package:kobac/student/pages/exam_schedule.dart';
-import 'package:kobac/student/pages/student_attendance.dart';
-import 'package:kobac/student/pages/student_fees.dart';
-import 'package:kobac/student/pages/student_notices.dart';
-import 'package:kobac/student/pages/student_profile.dart';
-import 'package:kobac/student/pages/student_quizzes.dart';
-import 'package:kobac/student/pages/student_result.dart';
-import 'package:kobac/student/pages/student_marks_screen.dart';
 import 'package:kobac/student/pages/student_timetable_screen.dart';
+import 'package:kobac/student/pages/student_marks_screen.dart';
+import 'package:kobac/student/pages/student_result.dart';
+import 'package:kobac/student/pages/student_fees.dart';
+import 'package:kobac/student/pages/student_attendance.dart';
+import 'package:kobac/student/pages/student_profile.dart';
+import 'package:kobac/student/pages/student_notices.dart';
 import 'package:kobac/student/pages/student_payments_screen.dart';
-import 'package:kobac/student/pages/student_pay_fee_screen.dart';
 import 'package:kobac/messages/messages_screen.dart';
 
 // ---------- COLOR PALETTE (Matching Dashboard) ----------
@@ -79,21 +75,6 @@ class AppDrawer extends StatelessWidget {
       label: "Attendance",
       icon: Icons.calendar_month_rounded,
       screen: StudentAttendanceScreen(),
-    ),
-    DrawerItem(
-      label: "Academic Activity",
-      icon: Icons.auto_stories_rounded,
-      screen: StudentAcademicActivityScreen(),
-    ),
-    DrawerItem(
-      label: "Quizzes",
-      icon: Icons.quiz_rounded,
-      screen: StudentQuizzesScreen(),
-    ),
-    DrawerItem(
-      label: "Exam Schedule",
-      icon: Icons.event_available_rounded,
-      screen: StudentExamScheduleScreen(),
     ),
     DrawerItem(
       label: "Notices",
@@ -391,11 +372,11 @@ class AppDrawer extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                     child: const Text(
-                      '3',
+                      '',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 9,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   )

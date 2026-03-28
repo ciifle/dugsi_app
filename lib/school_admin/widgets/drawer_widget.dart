@@ -12,6 +12,8 @@ import 'package:kobac/school_admin/pages/school_admin_screen.dart';
 import 'package:kobac/school_admin/pages/admin_parents_screen.dart';
 import 'package:kobac/school_admin/pages/admin_fees_screen.dart';
 import 'package:kobac/school_admin/pages/admin_attendance_screen.dart';
+import 'package:kobac/school_admin/pages/admin_class_subjects_screen.dart';
+import 'package:kobac/services/classes_service.dart';
 import 'package:provider/provider.dart';
 
 import 'package:kobac/services/auth_provider.dart';
@@ -99,6 +101,12 @@ class AppDrawer extends StatelessWidget {
                           icon: Icons.assignment_rounded,
                           label: 'Assignments',
                           onTap: () => _navTo(context, const AdminAssignmentsScreen()),
+                        ),
+                        const SizedBox(height: 12),
+                        _DrawerMenuCard(
+                          icon: Icons.menu_book_rounded,
+                          label: 'Class Subjects',
+                          onTap: () => _navTo(context, const AdminClassSubjectsScreen()),
                         ),
                         const SizedBox(height: 12),
                         _DrawerMenuCard(

@@ -12,7 +12,7 @@ const Color kTextSecondary = Color(0xFF4F5A5E);
 const List<String> kDays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 const List<String> kDayFullNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-/// Subject accent colors for left bar (same palette, consistent)
+/// Subject accent colors for better visual hierarchy
 final List<Color> kSlotAccentColors = [
   kPrimaryBlue,
   kPrimaryGreen,
@@ -20,6 +20,8 @@ final List<Color> kSlotAccentColors = [
   const Color(0xFF4A6FA5), // soft purple
   const Color(0xFF3D8C30), // dark green
   const Color(0xFF0EA5E9), // sky
+  const Color(0xFFE91E63), // pink
+  const Color(0xFF9C27B0), // purple
 ];
 
 class StudentTimetableScreen extends StatefulWidget {
@@ -29,18 +31,30 @@ class StudentTimetableScreen extends StatefulWidget {
   State<StudentTimetableScreen> createState() => _StudentTimetableScreenState();
 }
 
-class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
+class _StudentTimetableScreenState extends State<StudentTimetableScreen>
+    with TickerProviderStateMixin {
   late int _dayIndex;
   late Future<StudentResult<List<StudentTimetableSlotModel>>> _timetableFuture;
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+    
     final now = DateTime.now();
     int wd = now.weekday;
     if (wd == DateTime.sunday) wd = 7;
     _dayIndex = (wd - 1).clamp(0, 6);
     _loadTimetable();
+    _animationController.forward();
   }
 
   void _loadTimetable() {
@@ -54,6 +68,23 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
     int wd = now.weekday;
     if (wd == DateTime.sunday) wd = 7;
     return (wd - 1).clamp(0, 6) == _dayIndex;
+  }
+
+  String _getShiftDisplay() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) {
+      return '🌅 Morning Shift';
+    } else if (hour < 17) {
+      return '☀️ Afternoon Shift';
+    } else {
+      return '🌆 Evening Shift';
+    }
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
   }
 
   @override
@@ -78,18 +109,23 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
                 child: Row(
                   children: [
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(color: kPrimaryBlue.withOpacity(0.12), blurRadius: 12, offset: const Offset(0, 4)),
-                          ],
-                        ),
-                        child: const Icon(Icons.arrow_back_rounded, color: kPrimaryBlue, size: 24),
+                    // Back button
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: kPrimaryBlue.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.arrow_back_rounded, color: kPrimaryBlue),
+                        onPressed: () => Navigator.pop(context),
+                        tooltip: 'Back',
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -103,7 +139,7 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '${kDayFullNames[_dayIndex]}',
+                            '${kDayFullNames[_dayIndex]} • ${_getShiftDisplay()}',
                             style: TextStyle(fontSize: 14, color: kTextSecondary, fontWeight: FontWeight.w500),
                           ),
                         ],
@@ -115,146 +151,162 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
 
               // ---------- 2) DAY SELECTOR ----------
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-                child: SizedBox(
-                  height: 44,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: kDays.length,
-                    itemBuilder: (context, i) {
-                      final isSelected = _dayIndex == i;
-                      final isToday = _isTodayDay(i);
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 10),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeOutCubic,
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () {
-                                setState(() {
-                                  _dayIndex = i;
-                                  _loadTimetable();
-                                });
-                              },
-                              borderRadius: BorderRadius.circular(14),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: isSelected ? kPrimaryBlue : Colors.white.withOpacity(0.9),
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(
-                                    color: isSelected ? kPrimaryBlue : kPrimaryBlue.withOpacity(0.2),
-                                    width: isSelected ? 0 : 1.5,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: kPrimaryBlue.withOpacity(0.08),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: List.generate(kDays.length, (i) {
+                      final isToday = _isToday && i == _dayIndex;
+                      final isSelected = i == _dayIndex;
+                      return Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            _dayIndex = i;
+                            _loadTimetable();
+                            _animationController.reset();
+                            _animationController.forward();
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.all(2),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: isSelected ? kPrimaryBlue : Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: isSelected
+                                  ? [
+                                      BoxShadow(
+                                        color: kPrimaryBlue.withOpacity(0.2),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  kDays[i],
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: isSelected ? Colors.white : kTextSecondary,
                                   ),
-                                  boxShadow: isSelected
-                                      ? [
-                                          BoxShadow(
-                                            color: kPrimaryBlue.withOpacity(0.25),
-                                            blurRadius: 12,
-                                            offset: const Offset(0, 4),
-                                          ),
-                                        ]
-                                      : [
-                                          BoxShadow(
-                                            color: kPrimaryBlue.withOpacity(0.06),
-                                            blurRadius: 8,
-                                            offset: const Offset(0, 2),
-                                          ),
-                                        ],
                                 ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      kDays[i],
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        color: isSelected ? Colors.white : kTextPrimary,
-                                      ),
+                                if (isToday) ...[
+                                  const SizedBox(height: 2),
+                                  Container(
+                                    width: 4,
+                                    height: 4,
+                                    decoration: const BoxDecoration(
+                                      color: kPrimaryGreen,
+                                      shape: BoxShape.circle,
                                     ),
-                                    if (isToday) ...[
-                                      const SizedBox(width: 6),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: (isSelected ? Colors.white : kPrimaryGreen).withOpacity(isSelected ? 0.25 : 0.2),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: Text(
-                                          'Today',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w600,
-                                            color: isSelected ? Colors.white : kPrimaryGreen,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                         ),
                       );
-                    },
+                    }),
                   ),
                 ),
               ),
 
-              // ---------- 3) MAIN TIMETABLE (time-based layout) ----------
+              // ---------- 3) TIMETABLE LIST ----------
               Expanded(
-                child: RefreshIndicator(
-                  onRefresh: () async => _loadTimetable(),
-                  color: kPrimaryGreen,
-                  child: FutureBuilder<StudentResult<List<StudentTimetableSlotModel>>>(
-                    future: _timetableFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              CircularProgressIndicator(color: kPrimaryBlue),
-                              SizedBox(height: 16),
-                              Text('Loading timetable…', style: TextStyle(color: kTextSecondary, fontSize: 14)),
-                            ],
-                          ),
-                        );
-                      }
-                      if (snapshot.hasError || snapshot.data is StudentError) {
-                        final msg = snapshot.data is StudentError
-                            ? (snapshot.data as StudentError).message
-                            : 'Could not load timetable.';
-                        return _ErrorState(message: msg);
-                      }
-                      final list = (snapshot.data as StudentSuccess<List<StudentTimetableSlotModel>>).data;
-                      list.sort((a, b) {
-                        final t1 = a.startTime ?? '';
-                        final t2 = b.startTime ?? '';
-                        return t1.compareTo(t2);
-                      });
-                      if (list.isEmpty) {
-                        return _EmptyState(dayName: kDayFullNames[_dayIndex]);
-                      }
-                      return ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                        itemCount: list.length,
+                child: FutureBuilder<StudentResult<List<StudentTimetableSlotModel>>>(
+                  future: _timetableFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: CircularProgressIndicator(color: kPrimaryBlue),
+                      );
+                    }
+                    if (snapshot.hasError || snapshot.data is StudentError) {
+                      final msg = snapshot.data is StudentError
+                          ? (snapshot.data as StudentError).message
+                          : 'Could not load timetable.';
+                      return Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.error_outline_rounded, size: 56, color: kErrorColor.withOpacity(0.8)),
+                            const SizedBox(height: 16),
+                            Text(
+                              msg,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(color: kTextPrimary, fontSize: 15),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton.icon(
+                              onPressed: _loadTimetable,
+                              icon: const Icon(Icons.refresh_rounded, size: 18),
+                              label: const Text('Retry'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: kPrimaryBlue,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    final slots = (snapshot.data as StudentSuccess<List<StudentTimetableSlotModel>>).data;
+                    if (slots.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.schedule_rounded, size: 56, color: kTextSecondary.withOpacity(0.5)),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No classes on ${kDayFullNames[_dayIndex]}',
+                              style: TextStyle(fontSize: 16, color: kTextSecondary),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Enjoy your day!',
+                              style: TextStyle(fontSize: 14, color: kTextSecondary.withOpacity(0.7)),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    slots.sort((a, b) => (a.startTime ?? '').compareTo(b.startTime ?? ''));
+                    return FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                        itemCount: slots.length,
                         itemBuilder: (context, index) {
-                          final s = list[index];
+                          final slot = slots[index];
                           final accentColor = kSlotAccentColors[index % kSlotAccentColors.length];
                           return _TimetableSlotCard(
-                            slot: s,
+                            slot: slot,
                             accentColor: accentColor,
-                            isToday: _isToday,
+                            index: index,
                           );
                         },
-                      );
-                    },
-                  ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ],
@@ -263,269 +315,212 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
       ),
     );
   }
-
-  bool _isTodayDay(int i) {
-    final now = DateTime.now();
-    int wd = now.weekday;
-    if (wd == DateTime.sunday) wd = 7;
-    return (wd - 1).clamp(0, 6) == i;
-  }
 }
 
-// ---------- SLOT CARD (time bar left, subject + teacher right) ----------
+// ---------- TIMETABLE SLOT CARD ----------
 class _TimetableSlotCard extends StatelessWidget {
   final StudentTimetableSlotModel slot;
   final Color accentColor;
-  final bool isToday;
+  final int index;
 
   const _TimetableSlotCard({
     required this.slot,
     required this.accentColor,
-    required this.isToday,
-  });
+    required this.index,
+    Key? key,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final subjectName = slot.subject?['name']?.toString() ?? '—';
     final teacherName = slot.teacher?['fullName']?.toString() ?? slot.teacher?['name']?.toString() ?? '—';
+    final startTime = slot.startTime ?? '—';
+    final endTime = slot.endTime ?? '—';
+    
+    // Extract period information
+    final periodName = slot.period?.name ?? 
+                      (slot.period?.periodNumber != null ? 'Period ${slot.period?.periodNumber}' : 
+                      '—');
+    final periodNumber = slot.period?.periodNumber ?? 0;
+    final periodShift = slot.period?.shift ?? '—';
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {},
-          borderRadius: BorderRadius.circular(20),
-          child: Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: kPrimaryBlue.withOpacity(0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Left accent bar with period info
+          Container(
+            width: 60,
+            height: 100,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: kPrimaryBlue.withOpacity(0.08),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                ),
-                if (isToday)
-                  BoxShadow(
-                    color: kPrimaryGreen.withOpacity(0.12),
-                    blurRadius: 20,
-                    offset: const Offset(0, 4),
-                  ),
-              ],
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white,
-                  accentColor.withOpacity(0.04),
-                ],
+              color: accentColor,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                bottomLeft: Radius.circular(16),
               ),
-              border: isToday ? Border.all(color: kPrimaryGreen.withOpacity(0.3), width: 1) : null,
             ),
-            child: IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  periodNumber > 0 ? '$periodNumber' : '—',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  periodName.length > 8 ? periodName.substring(0, 8) + '...' : periodName,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Left: vertical time bar + time block
-                  Container(
-                    width: 72,
-                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
-                    decoration: BoxDecoration(
-                      color: accentColor.withOpacity(0.12),
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(20),
-                        bottomLeft: Radius.circular(20),
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (slot.period != null) ...[
-                          Text(
-                            slot.period!.name.isNotEmpty ? slot.period!.name : 'P${slot.period!.periodNumber}',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: accentColor,
+                  // Time row
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: accentColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.access_time_rounded, size: 14, color: accentColor),
+                            const SizedBox(width: 4),
+                            Text(
+                              '$startTime - $endTime',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: accentColor,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 2),
-                        ],
-                        Text(
-                          slot.startTime ?? '—',
+                          ],
+                        ),
+                      ),
+                      const Spacer(),
+                      // Shift indicator
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _getShiftColor(startTime).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          _getShiftLabel(startTime),
                           style: TextStyle(
-                            fontSize: slot.period != null ? 12 : 13,
-                            fontWeight: FontWeight.bold,
-                            color: slot.period != null ? kTextSecondary : accentColor,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: _getShiftColor(startTime),
                           ),
                         ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Container(
-                            width: 16,
-                            height: 1,
-                            color: accentColor.withOpacity(0.4),
-                          ),
-                        ),
-                        Text(
-                          slot.endTime ?? '—',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Subject name
+                  Text(
+                    subjectName,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: kTextPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Teacher name
+                  Row(
+                    children: [
+                      Icon(Icons.person_rounded, size: 16, color: kTextSecondary.withOpacity(0.7)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          teacherName,
                           style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
                             color: kTextSecondary,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  // 6px colored strip
-                  Container(
-                    width: 6,
-                    decoration: BoxDecoration(
-                      color: accentColor,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(3),
-                        bottomLeft: Radius.circular(3),
                       ),
-                    ),
+                    ],
                   ),
-                  // Right: subject + teacher
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: accentColor.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: Icon(Icons.menu_book_rounded, size: 22, color: accentColor),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  subjectName,
-                                  style: const TextStyle(
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.bold,
-                                    color: kTextPrimary,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  teacherName,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: kTextSecondary,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                  const SizedBox(height: 8),
+                  // Additional info row
+                  Row(
+                    children: [
+                      Icon(Icons.class_rounded, size: 16, color: kTextSecondary.withOpacity(0.7)),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$periodName • $periodShift',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: kTextSecondary.withOpacity(0.8),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ],
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
-}
 
-// ---------- EMPTY STATE ----------
-class _EmptyState extends StatelessWidget {
-  final String dayName;
-
-  const _EmptyState({required this.dayName});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(28),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.7),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: kPrimaryBlue.withOpacity(0.08),
-                    blurRadius: 24,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Icon(Icons.schedule_rounded, size: 64, color: kPrimaryBlue.withOpacity(0.5)),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'No classes scheduled for $dayName',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: kTextPrimary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Your schedule is clear for this day.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: kTextSecondary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  Color _getShiftColor(String? startTime) {
+    if (startTime == null) return kPrimaryBlue;
+    
+    final hour = int.tryParse(startTime.split(':')[0]) ?? 0;
+    if (hour < 12) {
+      return const Color(0xFFF59E0B); // Morning - amber
+    } else if (hour < 17) {
+      return kPrimaryBlue; // Afternoon - blue
+    } else {
+      return const Color(0xFF9C27B0); // Evening - purple
+    }
   }
-}
 
-// ---------- ERROR STATE ----------
-class _ErrorState extends StatelessWidget {
-  final String message;
-
-  const _ErrorState({required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.error_outline_rounded, size: 56, color: kErrorColor.withOpacity(0.8)),
-            const SizedBox(height: 16),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: kTextPrimary, fontSize: 15),
-            ),
-          ],
-        ),
-      ),
-    );
+  String _getShiftLabel(String? startTime) {
+    if (startTime == null) return '—';
+    
+    final hour = int.tryParse(startTime.split(':')[0]) ?? 0;
+    if (hour < 12) {
+      return 'Morning';
+    } else if (hour < 17) {
+      return 'Afternoon';
+    } else {
+      return 'Evening';
+    }
   }
 }

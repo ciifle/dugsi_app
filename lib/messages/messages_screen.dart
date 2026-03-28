@@ -7,7 +7,6 @@ import 'package:kobac/messages/message_time_utils.dart';
 const Color _kPrimaryBlue = Color(0xFF023471);
 const Color _kPrimaryGreen = Color(0xFF5AB04B);
 const Color _kBgColor = Color(0xFFF0F3F7);
-const Color _kCardColor = Colors.white;
 const Color _kTextPrimary = Color(0xFF2D3436);
 const Color _kTextSecondary = Color(0xFF636E72);
 
@@ -67,183 +66,304 @@ class _MessagesScreenState extends State<MessagesScreen> {
   @override
   Widget build(BuildContext context) {
     final content = Container(
-      color: _kBgColor,
+      color: Colors.white, // Modern light background
       child: SafeArea(
         bottom: false,
         child: Stack(
           children: [
             Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Messages',
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: _kPrimaryBlue),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _conversations.isEmpty && !_loading ? "No messages yet" : "${_conversations.length} conversation(s)",
-                    style: const TextStyle(fontSize: 14, color: _kTextSecondary, fontWeight: FontWeight.w500),
-                  ),
-                ],
-              ),
-            ),
-            if (_loading)
-              const Expanded(
-                child: Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: CircularProgressIndicator(color: _kPrimaryBlue),
-                  ),
-                ),
-              )
-            else if (_error != null)
-              Expanded(
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.error_outline_rounded, size: 56, color: Colors.red.shade400),
-                        const SizedBox(height: 16),
-                        Text(
-                          _error!,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 16, color: _kTextPrimary),
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Messages',
+                        style: TextStyle(
+                          fontSize: 32, 
+                          fontWeight: FontWeight.w800, 
+                          color: _kPrimaryBlue,
+                          letterSpacing: -0.5,
                         ),
-                        const SizedBox(height: 24),
-                        TextButton.icon(
-                          onPressed: _load,
-                          icon: const Icon(Icons.refresh_rounded),
-                          label: const Text('Retry'),
-                          style: TextButton.styleFrom(foregroundColor: _kPrimaryBlue),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _kPrimaryBlue.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(20),
                         ),
-                      ],
-                    ),
-                  ),
-                ),
-              )
-            else if (_conversations.isEmpty)
-              const Expanded(
-                child: Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.chat_bubble_outline_rounded, size: 64, color: _kTextSecondary),
-                        SizedBox(height: 16),
-                        Text(
-                          'No messages yet',
-                          style: TextStyle(fontSize: 18, color: _kTextSecondary, fontWeight: FontWeight.w500),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              )
-            else
-              Expanded(
-                child: RefreshIndicator(
-                  onRefresh: _load,
-                  color: _kPrimaryGreen,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                    physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-                    itemCount: _conversations.length,
-                    itemBuilder: (context, i) {
-                      final c = _conversations[i];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => ChatScreen(
-                                    userId: c.userId,
-                                    name: c.name,
-                                  ),
-                                ),
-                              ).then((_) => _load());
-                            },
-                            borderRadius: BorderRadius.circular(16),
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: _kCardColor,
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: _kPrimaryBlue.withOpacity(0.06),
-                                    blurRadius: 12,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                children: [
-                                  CircleAvatar(
-                                    radius: 26,
-                                    backgroundColor: _kPrimaryBlue.withOpacity(0.12),
-                                    child: const Icon(Icons.person_rounded, color: _kPrimaryBlue, size: 28),
-                                  ),
-                                  const SizedBox(width: 14),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          c.name,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                            color: _kPrimaryBlue,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          c.lastMessage.isEmpty ? '—' : c.lastMessage,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(fontSize: 14, color: _kTextSecondary),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    MessageTimeUtils.formatConversationTime(c.createdAt),
-                                    style: const TextStyle(fontSize: 12, color: _kTextSecondary),
-                                  ),
-                                ],
-                              ),
-                            ),
+                        child: Text(
+                          _conversations.isEmpty && !_loading ? "No conversations" : "${_conversations.length} Active Chats",
+                          style: const TextStyle(
+                            fontSize: 12, 
+                            color: _kPrimaryBlue, 
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                      );
-                    },
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            ],
-          ),
+                if (_loading)
+                  const Expanded(
+                    child: Center(
+                      child: CircularProgressIndicator(color: _kPrimaryBlue, strokeWidth: 3),
+                    ),
+                  )
+                else if (_error != null)
+                  Expanded(
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade50,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(Icons.error_outline_rounded, size: 48, color: Colors.red.shade400),
+                            ),
+                            const SizedBox(height: 20),
+                            Text(
+                              _error!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontSize: 16, color: _kTextPrimary, fontWeight: FontWeight.w500),
+                            ),
+                            const SizedBox(height: 24),
+                            ElevatedButton.icon(
+                              onPressed: _load,
+                              icon: const Icon(Icons.refresh_rounded),
+                              label: const Text('Try Again'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _kPrimaryBlue,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                elevation: 0,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  )
+                else if (_conversations.isEmpty)
+                  Expanded(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(30),
+                            decoration: BoxDecoration(
+                              color: _kBgColor,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(Icons.chat_bubble_outline_rounded, size: 80, color: _kPrimaryBlue.withOpacity(0.3)),
+                          ),
+                          const SizedBox(height: 24),
+                          const Text(
+                            'No conversations yet',
+                            style: TextStyle(fontSize: 20, color: _kPrimaryBlue, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Start a conversation with teachers,\nparents or students.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 15, color: _kTextSecondary.withOpacity(0.8), height: 1.5),
+                          ),
+                          const SizedBox(height: 32),
+                          ElevatedButton(
+                            onPressed: _openNewMessage,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _kPrimaryBlue,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                              elevation: 8,
+                              shadowColor: _kPrimaryBlue.withOpacity(0.4),
+                            ),
+                            child: const Text('Start Chatting', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: _load,
+                      color: _kPrimaryGreen,
+                      edgeOffset: 20,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: _conversations.length,
+                        itemBuilder: (context, i) {
+                          final c = _conversations[i];
+                          final hasUnread = c.unreadCount > 0;
+                          
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => ChatScreen(
+                                        userId: c.userId,
+                                        name: c.name,
+                                      ),
+                                    ),
+                                  ).then((_) => _load());
+                                },
+                                borderRadius: BorderRadius.circular(20),
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(20),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: _kPrimaryBlue.withOpacity(0.08),
+                                        blurRadius: 15,
+                                        offset: const Offset(0, 5),
+                                      ),
+                                    ],
+                                    border: Border.all(
+                                      color: hasUnread ? _kPrimaryBlue.withOpacity(0.1) : Colors.transparent,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Stack(
+                                        children: [
+                                          CircleAvatar(
+                                            radius: 30,
+                                            backgroundColor: _kPrimaryBlue.withOpacity(0.1),
+                                            child: Text(
+                                              c.name.isNotEmpty ? c.name[0].toUpperCase() : '?',
+                                              style: const TextStyle(
+                                                color: _kPrimaryBlue,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 22,
+                                              ),
+                                            ),
+                                          ),
+                                          if (hasUnread)
+                                            Positioned(
+                                              right: 0,
+                                              top: 0,
+                                              child: Container(
+                                                width: 14,
+                                                height: 14,
+                                                decoration: BoxDecoration(
+                                                  color: _kPrimaryGreen,
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(color: Colors.white, width: 2),
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    c.name,
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                      fontSize: 17,
+                                                      fontWeight: hasUnread ? FontWeight.w800 : FontWeight.bold,
+                                                      color: _kTextPrimary,
+                                                    ),
+                                                  ),
+                                                ),
+                                                Text(
+                                                  MessageTimeUtils.formatConversationTime(c.createdAt),
+                                                  style: TextStyle(
+                                                    fontSize: 12, 
+                                                    color: hasUnread ? _kPrimaryBlue : _kTextSecondary,
+                                                    fontWeight: hasUnread ? FontWeight.bold : FontWeight.normal,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 6),
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    c.lastMessage.isEmpty ? 'Tap to start chatting' : c.lastMessage,
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                      fontSize: 14, 
+                                                      color: hasUnread ? _kTextPrimary : _kTextSecondary,
+                                                      fontWeight: hasUnread ? FontWeight.w600 : FontWeight.normal,
+                                                    ),
+                                                  ),
+                                                ),
+                                                if (hasUnread)
+                                                  Container(
+                                                    margin: const EdgeInsets.only(left: 8),
+                                                    padding: const EdgeInsets.all(6),
+                                                    decoration: const BoxDecoration(
+                                                      color: _kPrimaryBlue,
+                                                      shape: BoxShape.circle,
+                                                    ),
+                                                    child: Text(
+                                                      '${c.unreadCount}',
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 10,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+              ],
+            ),
             Positioned(
-              right: 18,
+              right: 20,
               bottom: widget.embedInParent ? 86 : 24,
-              child: FloatingActionButton(
+              child: FloatingActionButton.extended(
                 onPressed: _openNewMessage,
-                backgroundColor: _kPrimaryGreen,
-                child: const Icon(Icons.add_rounded, color: Colors.white),
+                backgroundColor: _kPrimaryBlue,
+                elevation: 12,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                icon: const Icon(Icons.add_comment_rounded, color: Colors.white),
+                label: const Text('New Chat', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
               ),
             ),
           ],

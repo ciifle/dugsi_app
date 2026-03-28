@@ -72,6 +72,7 @@ class StudentMarkModel {
   final Map<String, dynamic> exam;
   final Map<String, dynamic> subject;
   final Map<String, dynamic>? teacher;
+  final Map<String, dynamic>? class_;
   final num marksObtained;
   final num maxMarks;
   final num? percentage;
@@ -82,6 +83,7 @@ class StudentMarkModel {
     required this.exam,
     required this.subject,
     this.teacher,
+    this.class_,
     required this.marksObtained,
     required this.maxMarks,
     this.percentage,
@@ -89,11 +91,18 @@ class StudentMarkModel {
   });
 
   factory StudentMarkModel.fromJson(Map<String, dynamic> json) {
+    Map<String, dynamic> parseNested(dynamic v, String nameKey, String fallbackName) {
+      if (v is Map) return Map<String, dynamic>.from(v);
+      if (v is String) return {'id': 0, 'name': v};
+      return {'id': 0, 'name': _str(json[nameKey] ?? fallbackName)};
+    }
+
     return StudentMarkModel(
       id: _parseId(json['id']),
-      exam: json['exam'] is Map ? json['exam'] as Map<String, dynamic> : {'id': 0, 'name': _str(json['exam_name'] ?? json['examName'])},
-      subject: json['subject'] is Map ? json['subject'] as Map<String, dynamic> : {'id': 0, 'name': _str(json['subject_name'] ?? json['subjectName'])},
-      teacher: json['teacher'] is Map ? json['teacher'] as Map<String, dynamic> : null,
+      exam: parseNested(json['exam'] ?? json['Exam'], 'exam_name', 'Exam'),
+      subject: parseNested(json['subject'] ?? json['Subject'], 'subject_name', 'Subject'),
+      teacher: json['teacher'] is Map ? Map<String, dynamic>.from(json['teacher'] as Map) : (json['Teacher'] is Map ? Map<String, dynamic>.from(json['Teacher'] as Map) : null),
+      class_: json['class'] is Map ? Map<String, dynamic>.from(json['class'] as Map) : (json['Class'] is Map ? Map<String, dynamic>.from(json['Class'] as Map) : null),
       marksObtained: _parseNum(json['marks_obtained'] ?? json['marksObtained'] ?? 0),
       maxMarks: _parseNum(json['max_marks'] ?? json['maxMarks'] ?? 100),
       percentage: json['percentage'] != null ? _parseNum(json['percentage']) : null,
@@ -117,12 +126,31 @@ class StudentResultReportModel {
   });
 
   factory StudentResultReportModel.fromJson(Map<String, dynamic> json) {
-    List<dynamic> r = json['results'] is List ? json['results'] as List : [];
+    // Handle both 'results' and 'subjects' from API response
+    List<dynamic> r = [];
+    if (json['results'] is List) {
+      r = json['results'] as List;
+    } else if (json['subjects'] is List) {
+      r = json['subjects'] as List;
+    }
+    
+    // Update summary field names to match API response
+    Map<String, dynamic>? summary = json['summary'] is Map ? json['summary'] as Map<String, dynamic> : null;
+    if (summary != null) {
+      // Map API summary fields to expected field names
+      summary = {
+        'total_marks_obtained': summary['total_marks_obtained'] ?? summary['total_obtained'] ?? 0,
+        'total_max_marks': summary['total_max_marks'] ?? summary['total_max'] ?? 0,
+        'percentage': summary['overall_percentage'] ?? summary['percentage'] ?? 0,
+        'grade': summary['overall_grade'] ?? summary['grade'] ?? 'N/A',
+      };
+    }
+    
     return StudentResultReportModel(
       exam: json['exam'] is Map ? json['exam'] as Map<String, dynamic> : {'id': 0, 'name': ''},
       student: json['student'] is Map ? json['student'] as Map<String, dynamic> : null,
       results: r.map((e) => e is Map<String, dynamic> ? e : <String, dynamic>{}).toList(),
-      summary: json['summary'] is Map ? json['summary'] as Map<String, dynamic> : null,
+      summary: summary,
     );
   }
 }
@@ -246,8 +274,10 @@ class StudentTimetableSlotModel {
     PeriodModel? periodMod;
     if (json['period'] is Map<String, dynamic>) {
       periodMod = PeriodModel.fromJson(json['period']);
+    } else if (json['Period'] is Map<String, dynamic>) {
+      periodMod = PeriodModel.fromJson(json['Period']);
     }
-    
+
     int? pid;
     if (json['period_id'] != null) pid = int.tryParse(json['period_id'].toString());
     if (json['periodId'] != null) pid = int.tryParse(json['periodId'].toString());
@@ -256,7 +286,7 @@ class StudentTimetableSlotModel {
 
     String? startStr = _strOpt(json['start_time'] ?? json['startTime']);
     if ((startStr == null || startStr.isEmpty) && periodMod != null) startStr = periodMod.startTime;
-    
+
     String? endStr = _strOpt(json['end_time'] ?? json['endTime']);
     if ((endStr == null || endStr.isEmpty) && periodMod != null) endStr = periodMod.endTime;
 

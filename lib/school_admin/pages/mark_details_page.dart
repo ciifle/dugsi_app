@@ -138,10 +138,10 @@ class _MarkDetailsPageState extends State<MarkDetailsPage> {
                         children: [
                           _OverviewCard(
                             mark: mark,
-                            studentName: _studentName(mark.studentId),
-                            examName: _examName(mark.examId),
-                            subjectName: _subjectName(mark.subjectId),
-                            teacherName: _teacherName(mark.teacherId),
+                            studentName: mark.studentName ?? _studentName(mark.studentId),
+                            examName: mark.examName ?? _examName(mark.examId),
+                            subjectName: mark.subjectName ?? _subjectName(mark.subjectId),
+                            teacherName: mark.teacherName ?? _teacherName(mark.teacherId),
                             percentage: pct,
                           ),
                           const SizedBox(height: 24),

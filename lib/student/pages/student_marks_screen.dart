@@ -200,6 +200,8 @@ class _StudentMarksScreenState extends State<StudentMarksScreen> {
                           final examName = m.exam['name']?.toString() ?? '—';
                           final subjectName = m.subject['name']?.toString() ?? '—';
                           final teacherName = m.teacher?['fullName']?.toString() ?? m.teacher?['name']?.toString() ?? '—';
+                          final className = m.class_?['name']?.toString() ?? '—';
+                          
                           return Container(
                             margin: const EdgeInsets.only(bottom: 12),
                             padding: const EdgeInsets.all(18),
@@ -229,7 +231,7 @@ class _StudentMarksScreenState extends State<StudentMarksScreen> {
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(subjectName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
-                                          Text(examName, style: TextStyle(fontSize: 13, color: kTextSecondary)),
+                                          Text('$examName ${className != '—' ? '· $className' : ''}', style: TextStyle(fontSize: 13, color: kTextSecondary)),
                                         ],
                                       ),
                                     ),

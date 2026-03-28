@@ -42,4 +42,21 @@ class MessageTimeUtils {
     }
     return '${local.day}/${local.month}';
   }
+
+  /// Returns "Today", "Yesterday", or "16 Mar" for message dividers.
+  static String formatMessageDate(String? createdAt) {
+    final local = parseToLocal(createdAt);
+    if (local == null) return '';
+    final now = DateTime.now().toLocal();
+    final today = DateTime(now.year, now.month, now.day);
+    final date = DateTime(local.year, local.month, local.day);
+    
+    if (date == today) return 'Today';
+    
+    final yesterday = today.subtract(const Duration(days: 1));
+    if (date == yesterday) return 'Yesterday';
+    
+    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${local.day} ${months[local.month - 1]}';
+  }
 }

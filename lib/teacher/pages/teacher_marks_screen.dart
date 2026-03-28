@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:kobac/services/teacher_service.dart';
+import 'package:kobac/teacher/pages/teacher_drawer.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
 const Color kPrimaryGreen = Color(0xFF5AB04B);
 const Color kSoftBlue = Color(0xFFE6F0FF);
 const Color kSoftGreen = Color(0xFFEDF7EB);
+const Color kDarkGreen = Color(0xFF3A7A30);
 const Color kDarkBlue = Color(0xFF01255C);
 const Color kTextPrimary = Color(0xFF2D3436);
 const Color kTextSecondary = Color(0xFF636E72);
 const Color kErrorColor = Color(0xFFEF4444);
+const Color kSoftOrange = Color(0xFFF59E0B);
+const Color kCardColor = Colors.white;
+const double kTopPadding = 40.0;
 
 class TeacherMarksScreen extends StatefulWidget {
   const TeacherMarksScreen({Key? key}) : super(key: key);
@@ -19,67 +24,76 @@ class TeacherMarksScreen extends StatefulWidget {
 
 class _TeacherMarksScreenState extends State<TeacherMarksScreen> {
   List<TeacherAssignmentModel> _assignments = [];
+  List<({int id, String name})> _exams = [];
+  List<({int id, String name})> _students = [];
+  List<TeacherMarkModel> _marks = [];
+  bool _loading = true;
+  String? _error;
+  
   int? _filterClassId;
   int? _filterSubjectId;
+  int? _filterStudentId;
   int? _filterExamId;
-  List<TeacherMarkModel> _marks = [];
-  bool _loading = false;
-  String? _error;
-
-  List<({int id, String name})> get _uniqueClasses {
-    final seen = <int>{};
-    final out = <({int id, String name})>[];
-    for (final a in _assignments) {
-      if (seen.add(a.classId)) {
-        out.add((id: a.classId, name: a.classDisplayName));
-      }
-    }
-    return out;
-  }
-
-  List<({int id, String name})> get _subjectsForSelectedClass {
-    if (_filterClassId == null) return [];
-    final out = <({int id, String name})>[];
-    final seen = <int>{};
-    for (final a in _assignments) {
-      if (a.classId == _filterClassId! && seen.add(a.subjectId)) {
-        out.add((id: a.subjectId, name: a.subjectName.isEmpty ? 'Subject ${a.subjectId}' : a.subjectName));
-      }
-    }
-    return out;
-  }
 
   @override
   void initState() {
     super.initState();
-    _loadAssignments();
+    _loadInitialData();
   }
 
-  Future<void> _loadAssignments() async {
-    final result = await TeacherService().listAssignments();
+  Future<void> _loadInitialData() async {
+    setState(() => _loading = true);
+    final results = await Future.wait([
+      TeacherService().listAssignments(),
+      TeacherService().listExams(),
+    ]);
+    
     if (!mounted) return;
     setState(() {
-      if (result is TeacherSuccess<List<TeacherAssignmentModel>>) {
-        _assignments = result.data;
+      _loading = false;
+      final assignmentsResult = results[0];
+      final examsResult = results[1];
+
+      if (assignmentsResult is TeacherSuccess<List<TeacherAssignmentModel>>) {
+        _assignments = assignmentsResult.data;
         if (_assignments.isNotEmpty && _filterClassId == null) {
           _filterClassId = _assignments.first.classId;
           _filterSubjectId = _assignments.first.subjectId;
         }
-        _loadMarks();
+      }
+
+      if (examsResult is TeacherSuccess<List<({int id, String name})>>) {
+        _exams = examsResult.data;
       }
     });
   }
 
-  Future<void> _loadMarks() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    final result = await TeacherService().listMarks(
-      examId: _filterExamId,
-      classId: _filterClassId,
-      subjectId: _filterSubjectId,
+  void _showAddMark() async {
+    if (_filterClassId == null) return;
+    
+    await showDialog(
+      context: context,
+      builder: (ctx) => _AddMarkDialog(
+        classId: _filterClassId!,
+        className: 'Class $_filterClassId',
+        onSaved: () {
+          _loadMarks();
+        },
+        assignments: _assignments,
+      ),
     );
+  }
+
+  Future<void> _loadMarks() async {
+    if (_filterClassId == null) return;
+    
+    setState(() => _loading = true);
+    final result = await TeacherService().listMarks(
+      classId: _filterClassId!,
+      subjectId: _filterSubjectId,
+      examId: _filterExamId,
+    );
+    
     if (!mounted) return;
     setState(() {
       _loading = false;
@@ -93,112 +107,189 @@ class _TeacherMarksScreenState extends State<TeacherMarksScreen> {
     });
   }
 
-  void _showAddMark() async {
-    if (_filterClassId == null) return;
-    final studentsResult = await TeacherService().listStudentsByClass(_filterClassId!);
-    if (!mounted) return;
-    List<TeacherStudentModel> students = [];
-    if (studentsResult is TeacherSuccess<List<TeacherStudentModel>>) {
-      students = studentsResult.data;
-    }
-    final subjects = _subjectsForSelectedClass;
-    if (subjects.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No subject selected'), backgroundColor: kErrorColor, behavior: SnackBarBehavior.floating),
-      );
-      return;
-    }
-    await showDialog(
-      context: context,
-      builder: (ctx) => _AddMarkDialog(
-        classId: _filterClassId!,
-        className: _uniqueClasses.firstWhere((c) => c.id == _filterClassId, orElse: () => (id: _filterClassId!, name: 'Unassigned')).name,
-        subjects: subjects,
-        students: students,
-        onSaved: () {
-          _loadMarks();
-        },
-      ),
-    );
-  }
-
-  void _showEditMark(TeacherMarkModel mark) async {
-    await showDialog(
-      context: context,
-      builder: (ctx) => _EditMarkDialog(
-        mark: mark,
-        onSaved: () => _loadMarks(),
-      ),
-    );
-  }
-
-  void _confirmDelete(TeacherMarkModel mark) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete mark?'),
-        content: Text(
-          'Marks ${mark.marksObtained}/${mark.maxMarks} for student ${mark.studentId} will be removed.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: kErrorColor),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true || !mounted) return;
-    final result = await TeacherService().deleteMark(mark.id);
-    if (!mounted) return;
-    if (result is TeacherSuccess) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Mark deleted'), backgroundColor: kPrimaryGreen, behavior: SnackBarBehavior.floating),
-      );
-      _loadMarks();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text((result as TeacherError).message), backgroundColor: kErrorColor, behavior: SnackBarBehavior.floating),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kSoftBlue,
       appBar: AppBar(
-        title: const Text('Marks', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-        backgroundColor: kPrimaryBlue,
-        foregroundColor: Colors.white,
+        title: const Text('Marks', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+        backgroundColor: Colors.transparent,
         elevation: 0,
+        centerTitle: true,
+        titleSpacing: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-      ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          await _loadAssignments();
-        },
-        color: kPrimaryGreen,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildFilters(),
-              const SizedBox(height: 16),
-              if (_error != null) _buildErrorCard(),
-              if (_loading) const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator(color: kPrimaryBlue))),
-              if (!_loading && _error == null && _marks.isEmpty) _buildEmpty(),
-              if (!_loading && _error == null && _marks.isNotEmpty) ..._marks.map((m) => _MarkTile(mark: m, onEdit: () => _showEditMark(m), onDelete: () => _confirmDelete(m))),
-              const SizedBox(height: 24),
-            ],
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
+              stops: [0.3, 0.7, 1.0],
+            ),
           ),
+        ),
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Filters section
+            Container(
+              padding: const EdgeInsets.all(12),
+              color: Colors.white,
+              child: Column(
+                children: [
+                  // Class filter
+                  DropdownButtonFormField<int?>(
+                    value: _filterClassId,
+                    decoration: InputDecoration(
+                      labelText: 'Class',
+                      filled: true,
+                      fillColor: kSoftBlue.withOpacity(0.3),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                    items: _assignments
+                      .map((a) => (id: a.classId, name: 'Class ${a.classId}'))
+                      .toSet()
+                      .map((c) => DropdownMenuItem<int?>(
+                            value: c.id,
+                            child: Text(c.name),
+                          ))
+                      .toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _filterClassId = value;
+                        _filterSubjectId = null;
+                        _filterExamId = null;
+                      });
+                      _loadMarks();
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  // Subject filter
+                  DropdownButtonFormField<int?>(
+                    value: _filterSubjectId,
+                    decoration: InputDecoration(
+                      labelText: 'Subject',
+                      filled: true,
+                      fillColor: kSoftBlue.withOpacity(0.3),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                    items: _filterClassId != null
+                        ? _assignments
+                            .where((a) => a.classId == _filterClassId)
+                            .map((a) => DropdownMenuItem<int?>(
+                                  value: a.subjectId,
+                                  child: Text(a.subjectName),
+                                ))
+                            .toSet()
+                            .toList()
+                        : [],
+                    onChanged: (value) {
+                      setState(() {
+                        _filterSubjectId = value;
+                        _filterExamId = null;
+                      });
+                      _loadMarks();
+                    },
+                  ),
+                  const SizedBox(height: 6),
+                  // Exam filter
+                  DropdownButtonFormField<int?>(
+                    value: _filterExamId,
+                    decoration: InputDecoration(
+                      labelText: 'Exam',
+                      filled: true,
+                      fillColor: kSoftBlue.withOpacity(0.3),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                    items: _exams.map((e) => DropdownMenuItem<int?>(
+                      value: e.id,
+                      child: Text(e.name),
+                    )).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _filterExamId = value;
+                      });
+                      _loadMarks();
+                    },
+                  ),
+                ],
+              ),
+            ),
+            // Marks list
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator(color: kPrimaryBlue))
+                  : _error != null
+                      ? Center(child: Text(_error!))
+                      : _marks.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'No marks found for selected filters',
+                                style: TextStyle(fontSize: 16, color: kTextSecondary),
+                              ),
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.all(8),
+                              itemCount: _marks.length,
+                              itemBuilder: (ctx, i) {
+                                final mark = _marks[i];
+                                return Card(
+                                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  elevation: 2,
+                                  child: ListTile(
+                                    contentPadding: const EdgeInsets.all(16),
+                                    title: Text(
+                                      mark.studentName ?? 'Student ${mark.studentId}',
+                                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                                    ),
+                                    subtitle: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          mark.subjectName ?? 'Subject ${mark.subjectId}',
+                                          style: TextStyle(color: kTextSecondary, fontSize: 14),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          mark.examName ?? 'Exam ${mark.examId}',
+                                          style: TextStyle(color: kTextSecondary, fontSize: 12),
+                                        ),
+                                      ],
+                                    ),
+                                    trailing: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          '${mark.marksObtained}',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 18,
+                                            color: kPrimaryBlue,
+                                          ),
+                                        ),
+                                        Text(
+                                          '/${mark.maxMarks}',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: kTextSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                        ),
+          ],
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -209,173 +300,20 @@ class _TeacherMarksScreenState extends State<TeacherMarksScreen> {
       ),
     );
   }
-
-  Widget _buildFilters() {
-    final classes = _uniqueClasses;
-    final subjects = _subjectsForSelectedClass;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Filters', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kTextPrimary)),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<int>(
-            value: _filterClassId,
-            decoration: InputDecoration(
-              labelText: 'Class',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            ),
-            items: [const DropdownMenuItem<int>(value: null, child: Text('All classes')), ...classes.map((c) => DropdownMenuItem<int>(value: c.id, child: Text(c.name)))],
-            onChanged: (v) {
-              setState(() {
-                _filterClassId = v;
-                _filterSubjectId = null;
-                if (v != null) {
-                  final first = _assignments.cast<TeacherAssignmentModel?>().firstWhere(
-                        (e) => e?.classId == v,
-                        orElse: () => null,
-                      );
-                  if (first != null) _filterSubjectId = first.subjectId;
-                }
-                _loadMarks();
-              });
-            },
-          ),
-          const SizedBox(height: 10),
-          DropdownButtonFormField<int>(
-            value: _filterSubjectId,
-            decoration: InputDecoration(
-              labelText: 'Subject',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            ),
-            items: [
-              const DropdownMenuItem<int>(value: null, child: Text('All subjects')),
-              ...subjects.map((s) => DropdownMenuItem<int>(value: s.id, child: Text(s.name))),
-            ],
-            onChanged: (v) {
-              setState(() {
-                _filterSubjectId = v;
-                _loadMarks();
-              });
-            },
-          ),
-          const SizedBox(height: 10),
-          TextFormField(
-            initialValue: _filterExamId?.toString() ?? '',
-            decoration: InputDecoration(
-              labelText: 'Exam ID (optional)',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            ),
-            keyboardType: TextInputType.number,
-            onChanged: (s) {
-              final id = int.tryParse(s);
-              setState(() {
-                _filterExamId = (id != null && id > 0) ? id : null;
-                _loadMarks();
-              });
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildErrorCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: kErrorColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kErrorColor.withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.error_outline_rounded, color: kErrorColor, size: 24),
-          const SizedBox(width: 12),
-          Expanded(child: Text(_error ?? '', style: const TextStyle(color: kTextPrimary, fontSize: 14))),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmpty() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 40),
-      child: Column(
-        children: [
-          Icon(Icons.assignment_rounded, size: 56, color: kTextSecondary.withOpacity(0.6)),
-          const SizedBox(height: 12),
-          const Text('No marks found for selected filters', style: TextStyle(fontSize: 16, color: kTextPrimary), textAlign: TextAlign.center),
-        ],
-      ),
-    );
-  }
-}
-
-class _MarkTile extends StatelessWidget {
-  final TeacherMarkModel mark;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-
-  const _MarkTile({required this.mark, required this.onEdit, required this.onDelete});
-
-  @override
-  Widget build(BuildContext context) {
-    final studentLabel = mark.studentName?.isNotEmpty == true ? mark.studentName! : 'Student ${mark.studentId}';
-    final examLabel = mark.examName?.isNotEmpty == true ? mark.examName! : 'Exam ${mark.examId}';
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 3))],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(studentLabel, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: kTextPrimary), maxLines: 1, overflow: TextOverflow.ellipsis),
-                Text(examLabel, style: TextStyle(fontSize: 12, color: kTextSecondary)),
-              ],
-            ),
-          ),
-          Text('${mark.marksObtained}/${mark.maxMarks}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: kPrimaryBlue)),
-          if (mark.grade != null && mark.grade!.isNotEmpty) ...[const SizedBox(width: 8), Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(color: kSoftGreen, borderRadius: BorderRadius.circular(8)),
-            child: Text(mark.grade!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kPrimaryGreen)),
-          )],
-          const SizedBox(width: 8),
-          IconButton(icon: const Icon(Icons.edit_rounded, size: 20), onPressed: onEdit, color: kPrimaryBlue),
-          IconButton(icon: const Icon(Icons.delete_outline_rounded, size: 20), onPressed: onDelete, color: kErrorColor),
-        ],
-      ),
-    );
-  }
 }
 
 class _AddMarkDialog extends StatefulWidget {
   final int classId;
   final String className;
-  final List<({int id, String name})> subjects;
-  final List<TeacherStudentModel> students;
   final VoidCallback onSaved;
+  final List<TeacherAssignmentModel> assignments;
 
-  const _AddMarkDialog({required this.classId, required this.className, required this.subjects, required this.students, required this.onSaved});
+  const _AddMarkDialog({
+    required this.classId,
+    required this.className,
+    required this.onSaved,
+    required this.assignments,
+  });
 
   @override
   State<_AddMarkDialog> createState() => _AddMarkDialogState();
@@ -384,98 +322,184 @@ class _AddMarkDialog extends StatefulWidget {
 class _AddMarkDialogState extends State<_AddMarkDialog> {
   int? _subjectId;
   int? _studentId;
-  final _studentIdController = TextEditingController(text: '');
-  final _examIdController = TextEditingController(text: '');
-  final _marksController = TextEditingController(text: '');
-  final _maxController = TextEditingController(text: '100');
-  bool _saving = false;
-  bool get _hasStudentList => widget.students.isNotEmpty;
+  int? _examId;
+  
+  bool _loadingSubjects = true;
+  bool _loadingStudents = true;
+  bool _loadingExams = false;
+  
+  List<({int id, String name})> _subjects = [];
+  List<({int id, String name})> _students = [];
+  List<TeacherExamModel> _exams = [];
+  
+  String? _subjectsError;
+  String? _studentsError;
+  String? _examsError;
+
+  final _marksObtained = TextEditingController();
+  final _maxMarks = TextEditingController();
+  bool _submitting = false;
 
   @override
   void initState() {
     super.initState();
-    if (widget.subjects.isNotEmpty) _subjectId = widget.subjects.first.id;
-    if (widget.students.isNotEmpty) _studentId = widget.students.first.id;
+    _loadInitialData();
   }
 
-  @override
-  void dispose() {
-    _studentIdController.dispose();
-    _examIdController.dispose();
-    _marksController.dispose();
-    _maxController.dispose();
-    super.dispose();
+  Future<void> _loadInitialData() async {
+    await Future.wait([
+      _loadSubjects(),
+      _loadStudents(),
+      _fetchExams(),
+    ]);
   }
 
-  int? _resolveStudentId() {
-    if (_hasStudentList) return _studentId;
-    final s = _studentIdController.text.trim();
-    if (s.isEmpty) return null;
-    final id = int.tryParse(s);
-    return (id != null && id > 0) ? id : null;
+  Future<void> _loadSubjects() async {
+    setState(() {
+      _loadingSubjects = true;
+      _subjectsError = null;
+      _subjects = [];
+      _subjectId = null;
+    });
+    
+    try {
+      final classAssignments = widget.assignments.where((a) => a.classId == widget.classId).toList();
+      final subjectList = classAssignments.map((a) => (
+        id: a.subjectId, 
+        name: a.subjectName
+      )).toList();
+      
+      setState(() {
+        _loadingSubjects = false;
+        _subjects = subjectList;
+        if (_subjects.isNotEmpty) {
+          _subjectId = _subjects.first.id;
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadingSubjects = false;
+        _subjectsError = 'Failed to load subjects: $e';
+      });
+    }
+  }
+
+  Future<void> _loadStudents() async {
+    setState(() {
+      _loadingStudents = true;
+      _studentsError = null;
+      _students = [];
+      _studentId = null;
+    });
+    
+    try {
+      final result = await TeacherService().listStudentsByClass(widget.classId);
+      
+      if (!mounted) return;
+      
+      if (result is TeacherSuccess<List<TeacherStudentModel>>) {
+        setState(() {
+          _loadingStudents = false;
+          _students = result.data.map((s) => (id: s.id, name: s.name ?? 'Student ${s.id}')).toList();
+          if (_students.isNotEmpty) {
+            _studentId = _students.first.id;
+          }
+        });
+      } else {
+        final error = result as TeacherError;
+        setState(() {
+          _loadingStudents = false;
+          _studentsError = error.message;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadingStudents = false;
+        _studentsError = 'Failed to load students: $e';
+      });
+    }
+  }
+
+  Future<void> _fetchExams() async {
+    setState(() {
+      _loadingExams = true;
+      _examsError = null;
+      _exams = [];
+      _examId = null;
+    });
+    
+    final result = await TeacherService().listExams();
+    
+    if (!mounted) return;
+    
+    setState(() {
+      _loadingExams = false;
+      if (result is TeacherSuccess<List<TeacherExamModel>>) {
+        _exams = result.data;
+        if (_exams.isNotEmpty) {
+          _examId = _exams.first.id;
+        }
+      } else {
+        _examsError = (result as TeacherError).message;
+      }
+    });
   }
 
   Future<void> _submit() async {
-    final resolvedStudentId = _resolveStudentId();
-    if (_subjectId == null || resolvedStudentId == null) {
+    if (_subjectId == null || _studentId == null || _examId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_hasStudentList ? 'Select student' : 'Enter a valid Student ID'),
+        const SnackBar(
+          content: Text('Please select exam, student, and subject'),
           backgroundColor: kErrorColor,
-          behavior: SnackBarBehavior.floating,
         ),
       );
       return;
     }
-    final examId = int.tryParse(_examIdController.text.trim()) ?? 0;
-    if (examId <= 0) {
+
+    final marksObtained = _marksObtained.text.trim();
+    final maxMarks = _maxMarks.text.trim();
+    
+    if (marksObtained.isEmpty || maxMarks.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid Exam ID'), backgroundColor: kErrorColor, behavior: SnackBarBehavior.floating),
+        const SnackBar(
+          content: Text('Please enter both marks obtained and max marks'),
+          backgroundColor: kErrorColor,
+        ),
       );
       return;
     }
-    final marks = num.tryParse(_marksController.text);
-    final max = num.tryParse(_maxController.text) ?? 100;
-    if (marks == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter marks obtained'), backgroundColor: kErrorColor, behavior: SnackBarBehavior.floating),
-      );
-      return;
-    }
-    setState(() => _saving = true);
+
+    setState(() => _submitting = true);
+    
     final result = await TeacherService().createMark(
-      examId: examId,
-      studentId: resolvedStudentId,
+      examId: _examId!,
+      studentId: _studentId!,
       subjectId: _subjectId!,
-      marksObtained: marks,
-      maxMarks: max,
+      marksObtained: double.tryParse(marksObtained) ?? 0,
+      maxMarks: double.tryParse(maxMarks) ?? 0,
     );
+    
     if (!mounted) return;
-    setState(() => _saving = false);
+    setState(() => _submitting = false);
+    
     if (result is TeacherSuccess) {
       widget.onSaved();
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Marks saved'), backgroundColor: kPrimaryGreen, behavior: SnackBarBehavior.floating),
+        const SnackBar(
+          content: Text('Mark added successfully'),
+          backgroundColor: kPrimaryGreen,
+        ),
       );
     } else {
-      final err = result as TeacherError;
-      if (err.statusCode == 409) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Marks already exist'),
-            content: const Text('Marks already exist for this exam/student/subject. Edit instead.'),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
-            ],
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(err.message), backgroundColor: kErrorColor, behavior: SnackBarBehavior.floating),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text((result as TeacherError).message),
+          backgroundColor: kErrorColor,
+        ),
+      );
     }
   }
 
@@ -499,9 +523,8 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
             ],
           ),
           child: Column(
-            mainAxisSize: MainAxisSize.max,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // Header — gradient, 3D style
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
@@ -557,14 +580,52 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
                   ],
                 ),
               ),
-              // Scrollable form — takes remaining space, scrolls when needed
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
+              SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_loadingSubjects)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Center(child: CircularProgressIndicator(color: kPrimaryBlue, strokeWidth: 2)),
+                      )
+                    else if (_subjectsError != null)
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: kErrorColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: kErrorColor.withOpacity(0.3)),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(Icons.error_outline_rounded, color: kErrorColor, size: 24),
+                            const SizedBox(height: 8),
+                            Text(_subjectsError!, style: TextStyle(color: kErrorColor, fontSize: 14)),
+                          ],
+                        ),
+                      )
+                    else if (_subjects.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: kTextSecondary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(Icons.info_outline_rounded, color: kTextSecondary, size: 24),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'No subjects found for this class.',
+                              style: TextStyle(color: kTextSecondary, fontSize: 14),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
                       DropdownButtonFormField<int>(
                         value: _subjectId,
                         decoration: InputDecoration(
@@ -574,79 +635,170 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         ),
-                        items: widget.subjects.map((s) => DropdownMenuItem<int>(value: s.id, child: Text(s.name))).toList(),
+                        items: _subjects.map((s) => DropdownMenuItem<int>(
+                          value: s.id, 
+                          child: Text(s.name)
+                        )).toList(),
                         onChanged: (v) => setState(() => _subjectId = v),
                       ),
-                      const SizedBox(height: 12),
-                      if (_hasStudentList)
-                        DropdownButtonFormField<int>(
-                          value: _studentId,
-                          decoration: InputDecoration(
-                            labelText: 'Student',
-                            filled: true,
-                            fillColor: kSoftBlue.withOpacity(0.4),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    
+                    const SizedBox(height: 12),
+                    
+                    if (_loadingStudents)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Center(child: CircularProgressIndicator(color: kPrimaryBlue, strokeWidth: 2)),
+                      )
+                    else if (_studentsError != null)
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: kErrorColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: kErrorColor.withOpacity(0.3)),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(Icons.error_outline_rounded, color: kErrorColor, size: 24),
+                            const SizedBox(height: 8),
+                            Text(_studentsError!, style: TextStyle(color: kErrorColor, fontSize: 14)),
+                          ],
+                        ),
+                      )
+                    else if (_students.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: kTextSecondary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(Icons.info_outline_rounded, color: kTextSecondary, size: 24),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'No students found in this class.',
+                              style: TextStyle(color: kTextSecondary, fontSize: 14),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      DropdownButtonFormField<int>(
+                        value: _studentId,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          labelText: 'Student',
+                          filled: true,
+                          fillColor: kSoftBlue.withOpacity(0.4),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        ),
+                        items: _students.map((s) => DropdownMenuItem<int>(
+                          value: s.id, 
+                          child: Text(
+                            s.name,
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          )
+                        )).toList(),
+                        onChanged: (v) => setState(() => _studentId = v),
+                      ),
+                    
+                    const SizedBox(height: 12),
+                    
+                    if (_loadingExams)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Center(child: CircularProgressIndicator(color: kPrimaryBlue, strokeWidth: 2)),
+                      )
+                    else if (_examsError != null)
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: kErrorColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: kErrorColor.withOpacity(0.3)),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(Icons.error_outline_rounded, color: kErrorColor, size: 24),
+                            const SizedBox(height: 8),
+                            Text(_examsError!, style: TextStyle(color: kErrorColor, fontSize: 14)),
+                          ],
+                        ),
+                      )
+                    else if (_exams.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: kTextSecondary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(Icons.info_outline_rounded, color: kTextSecondary, size: 24),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'No exams available.',
+                              style: TextStyle(color: kTextSecondary, fontSize: 14),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      DropdownButtonFormField<int>(
+                        value: _examId,
+                        decoration: InputDecoration(
+                          labelText: 'Exam',
+                          filled: true,
+                          fillColor: kSoftBlue.withOpacity(0.4),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        ),
+                        items: _exams.map((e) => DropdownMenuItem<int>(
+                          value: e.id, 
+                          child: Text(e.name)
+                        )).toList(),
+                        onChanged: (v) => setState(() => _examId = v),
+                      ),
+                    
+                    const SizedBox(height: 20),
+                    
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _marksObtained,
+                            decoration: InputDecoration(
+                              labelText: 'Marks Obtained',
+                              filled: true,
+                              fillColor: kSoftBlue.withOpacity(0.4),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            ),
+                            keyboardType: TextInputType.number,
                           ),
-                          items: widget.students.map((s) => DropdownMenuItem<int>(value: s.id, child: Text(s.name ?? '${s.emisNumber ?? s.id}'))).toList(),
-                          onChanged: (v) => setState(() => _studentId = v),
-                        )
-                      else
-                        TextFormField(
-                          controller: _studentIdController,
-                          decoration: InputDecoration(
-                            labelText: 'Student ID',
-                            hintText: 'Enter student ID',
-                            helperText: 'Student list not available. Enter the student ID from your class.',
-                            filled: true,
-                            fillColor: kSoftBlue.withOpacity(0.4),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _maxMarks,
+                            decoration: InputDecoration(
+                              labelText: 'Max Marks',
+                              filled: true,
+                              fillColor: kSoftBlue.withOpacity(0.4),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            ),
+                            keyboardType: TextInputType.number,
                           ),
-                          keyboardType: TextInputType.number,
                         ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _examIdController,
-                        decoration: InputDecoration(
-                          labelText: 'Exam ID',
-                          hintText: 'e.g. 1',
-                          filled: true,
-                          fillColor: kSoftBlue.withOpacity(0.4),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                        ),
-                        keyboardType: TextInputType.number,
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _marksController,
-                        decoration: InputDecoration(
-                          labelText: 'Marks obtained',
-                          filled: true,
-                          fillColor: kSoftBlue.withOpacity(0.4),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                        ),
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _maxController,
-                        decoration: InputDecoration(
-                          labelText: 'Max marks',
-                          filled: true,
-                          fillColor: kSoftBlue.withOpacity(0.4),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                        ),
-                        keyboardType: TextInputType.number,
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              // Actions — 3D-style buttons
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                 child: Row(
@@ -655,20 +807,27 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
                       child: Material(
                         color: Colors.transparent,
                         child: InkWell(
-                          onTap: _saving ? null : () => Navigator.pop(context),
+                          onTap: _submitting ? null : () => Navigator.pop(context),
                           borderRadius: BorderRadius.circular(14),
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: kTextSecondary.withOpacity(0.3)),
+                              border: Border.all(color: kPrimaryBlue.withOpacity(0.2)),
                               boxShadow: [
-                                BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 8, offset: const Offset(0, 2)),
+                                BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2)),
                               ],
                             ),
                             child: const Center(
-                              child: Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600, color: kTextPrimary, fontSize: 15)),
+                              child: Text(
+                                'Cancel',
+                                style: TextStyle(
+                                  color: kPrimaryBlue,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -676,32 +835,42 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
+                      flex: 2,
                       child: Material(
                         color: Colors.transparent,
                         child: InkWell(
-                          onTap: _saving ? null : _submit,
+                          onTap: _submitting ? null : _submit,
                           borderRadius: BorderRadius.circular(14),
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             decoration: BoxDecoration(
-                              color: kPrimaryGreen,
+                              gradient: const LinearGradient(
+                                colors: [kPrimaryGreen, kPrimaryGreen],
+                              ),
                               borderRadius: BorderRadius.circular(14),
                               boxShadow: [
-                                BoxShadow(color: kPrimaryGreen.withOpacity(0.35), blurRadius: 12, offset: const Offset(0, 4)),
-                                BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 6, offset: const Offset(0, 2)),
+                                BoxShadow(color: kPrimaryGreen.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4)),
                               ],
                             ),
-                            child: _saving
-                                ? const SizedBox(
-                                    height: 22,
-                                    width: 22,
-                                    child: Center(
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: Center(
+                              child: _submitting
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Text(
+                                      'Save',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
                                     ),
-                                  )
-                                : const Center(
-                                    child: Text('Save', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 15)),
-                                  ),
+                            ),
                           ),
                         ),
                       ),
@@ -713,90 +882,6 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _EditMarkDialog extends StatefulWidget {
-  final TeacherMarkModel mark;
-  final VoidCallback onSaved;
-
-  const _EditMarkDialog({required this.mark, required this.onSaved});
-
-  @override
-  State<_EditMarkDialog> createState() => _EditMarkDialogState();
-}
-
-class _EditMarkDialogState extends State<_EditMarkDialog> {
-  late TextEditingController _marksController;
-  late TextEditingController _maxController;
-  bool _saving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _marksController = TextEditingController(text: widget.mark.marksObtained.toString());
-    _maxController = TextEditingController(text: widget.mark.maxMarks.toString());
-  }
-
-  @override
-  void dispose() {
-    _marksController.dispose();
-    _maxController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    final marks = num.tryParse(_marksController.text);
-    final max = num.tryParse(_maxController.text) ?? 100;
-    if (marks == null) return;
-    setState(() => _saving = true);
-    final result = await TeacherService().updateMark(widget.mark.id, marksObtained: marks, maxMarks: max);
-    if (!mounted) return;
-    setState(() => _saving = false);
-    if (result is TeacherSuccess) {
-      widget.onSaved();
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Marks updated'), backgroundColor: kPrimaryGreen, behavior: SnackBarBehavior.floating),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text((result as TeacherError).message), backgroundColor: kErrorColor, behavior: SnackBarBehavior.floating),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Edit marks'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('Student ID: ${widget.mark.studentId}', style: TextStyle(fontSize: 14, color: kTextSecondary)),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: _marksController,
-            decoration: InputDecoration(labelText: 'Marks obtained', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          ),
-          const SizedBox(height: 10),
-          TextFormField(
-            controller: _maxController,
-            decoration: InputDecoration(labelText: 'Max marks', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
-            keyboardType: TextInputType.number,
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(onPressed: _saving ? null : () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(
-          onPressed: _saving ? null : _submit,
-          style: FilledButton.styleFrom(backgroundColor: kPrimaryGreen),
-          child: _saving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Update'),
-        ),
-      ],
     );
   }
 }

@@ -5,6 +5,7 @@ import 'package:kobac/school_admin/pages/admin_classes.dart';
 import 'package:kobac/school_admin/pages/admin_profile.dart';
 import 'package:kobac/school_admin/pages/admin_subjects_screen.dart';
 import 'package:kobac/school_admin/pages/admin_assignments_screen.dart';
+import 'package:kobac/school_admin/pages/admin_class_subjects_screen.dart';
 import 'package:kobac/school_admin/pages/admin_timetable_screen.dart';
 import 'package:kobac/school_admin/pages/admin_exams_screen.dart';
 import 'package:kobac/school_admin/pages/admin_marks_screen.dart';
@@ -522,6 +523,12 @@ class _SchoolAdminScreenState extends State<SchoolAdminScreen> {
                 label: "Add Subject",
                 color: kPrimaryBlue,
                 onTap: () => _nestedNavKey.currentState?.push(MaterialPageRoute(builder: (_) => const AdminSubjectsScreen(openCreateOnLoad: true))).then((_) => _loadData()),
+              ),
+              _QuickActionButton(
+                icon: Icons.class_rounded,
+                label: "Class Subjects",
+                color: kPrimaryGreen,
+                onTap: () => _nestedNavKey.currentState?.push(MaterialPageRoute(builder: (_) => const AdminClassSubjectsScreen())).then((_) => _loadData()),
               ),
               _QuickActionButton(
                 icon: Icons.assignment_rounded,

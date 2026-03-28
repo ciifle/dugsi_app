@@ -6,6 +6,7 @@ import 'package:kobac/services/classes_service.dart';
 import 'package:kobac/services/subjects_service.dart';
 import 'package:kobac/services/teachers_service.dart';
 import 'package:kobac/services/students_service.dart';
+import 'package:kobac/services/school_admin_assignments_service.dart';
 import 'package:kobac/services/api_error_helpers.dart';
 import 'package:kobac/school_admin/widgets/delete_confirm_dialog.dart';
 import 'package:kobac/school_admin/pages/mark_details_page.dart';
@@ -36,7 +37,9 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
   List<SubjectModel> _subjects = [];
   List<StudentModel> _students = [];
   List<TeacherModel> _teachers = [];
+  List<ClassSubjectItem> _classSubjects = [];
   bool _refDataLoaded = false;
+  bool _loadingClassSubjects = false;
 
   @override
   void initState() {
@@ -80,8 +83,43 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
       _filterClassId = null;
       _filterSubjectId = null;
       _filterStudentId = null;
+      _classSubjects = [];
       _loadMarks();
     });
+  }
+
+  Future<void> _onFilterClassChanged(int? classId) async {
+    setState(() {
+      _filterClassId = classId;
+      _filterSubjectId = null;
+      _classSubjects = [];
+      _loadingClassSubjects = true;
+    });
+    
+    if (classId != null) {
+      final result = await SchoolAdminAssignmentsService().listClassSubjects(classId);
+      if (!mounted) return;
+      setState(() {
+        _loadingClassSubjects = false;
+        if (result is AssignmentSuccess<List<ClassSubjectItem>>) {
+          _classSubjects = result.data;
+        }
+      });
+    } else {
+      setState(() {
+        _loadingClassSubjects = false;
+      });
+    }
+    
+    _loadMarks();
+  }
+
+  List<SubjectModel> get _effectiveSubjects {
+    if (_filterClassId != null && _classSubjects.isNotEmpty) {
+      // Convert ClassSubjectItem to SubjectModel for display
+      return _classSubjects.map((cs) => SubjectModel(id: cs.id, name: cs.name)).toList();
+    }
+    return _subjects; // Fallback to all subjects if no class selected
   }
 
   String _examName(int id) {
@@ -265,7 +303,7 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                                   const DropdownMenuItem<int?>(value: null, child: Text('All')),
                                   ..._classes.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name))),
                                 ],
-                                onChanged: (v) => setState(() { _filterClassId = v; _loadMarks(); }),
+                                onChanged: (v) => _onFilterClassChanged(v),
                               ),
                             ),
                           ],
@@ -278,10 +316,10 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                                 value: _filterSubjectId,
                                 label: 'Subject',
                                 items: [
-                                  const DropdownMenuItem<int?>(value: null, child: Text('All')),
-                                  ..._subjects.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text(s.name))),
+                                  DropdownMenuItem<int?>(value: null, child: Text(_loadingClassSubjects ? 'Loading...' : (_filterClassId == null ? 'Select class first' : 'All'))),
+                                  ..._effectiveSubjects.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text(s.name))),
                                 ],
-                                onChanged: (v) => setState(() { _filterSubjectId = v; _loadMarks(); }),
+                                onChanged: _loadingClassSubjects ? null : (v) => setState(() { _filterSubjectId = v; _loadMarks(); }),
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -350,11 +388,38 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+                                Icon(
+                                  result.statusCode == 404 ? Icons.info_outline : Icons.error_outline, 
+                                  size: 48, 
+                                  color: result.statusCode == 404 ? Colors.orange[300] : Colors.red[300]
+                                ),
                                 const SizedBox(height: 12),
-                                Text(result.message, textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.grey[800])),
+                                Text(
+                                  result.message, 
+                                  textAlign: TextAlign.center, 
+                                  style: TextStyle(
+                                    fontSize: 16, 
+                                    color: result.statusCode == 404 ? Colors.grey[700] : Colors.grey[800]
+                                  )
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  result.statusCode == 404 ? 
+                                    'This might mean no marks exist for the selected filters.' : 
+                                    'Please check your connection and try again.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                    fontStyle: FontStyle.italic
+                                  ),
+                                ),
                                 const SizedBox(height: 16),
-                                TextButton.icon(onPressed: _loadMarks, icon: const Icon(Icons.refresh), label: const Text('Retry')),
+                                TextButton.icon(
+                                  onPressed: _loadMarks, 
+                                  icon: const Icon(Icons.refresh), 
+                                  label: const Text('Retry')
+                                ),
                               ],
                             ),
                           ),
@@ -393,12 +458,12 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                           final pct = mark.maxMarks > 0 ? (mark.marksObtained / mark.maxMarks * 100).toStringAsFixed(1) : '—';
                           return _MarkCard(
                             mark: mark,
-                            studentName: _studentName(mark.studentId),
+                            studentName: mark.studentName ?? _studentName(mark.studentId),
                             emis: _studentEmis(mark.studentId),
-                            className: _studentClass(mark.studentId),
-                            subjectName: _subjectName(mark.subjectId),
-                            examName: _examName(mark.examId),
-                            teacherName: _teacherName(mark.teacherId ?? 0),
+                            className: mark.className ?? _studentClass(mark.studentId),
+                            subjectName: mark.subjectName ?? _subjectName(mark.subjectId),
+                            examName: mark.examName ?? _examName(mark.examId),
+                            teacherName: mark.teacherName ?? _teacherName(mark.teacherId ?? 0),
                             percentage: pct,
                             onTap: () => Navigator.of(context).push(
                               MaterialPageRoute(
@@ -557,11 +622,57 @@ class _AddMarksDialogState extends State<_AddMarksDialog> {
   final _marksObtained = TextEditingController(text: '0');
   final _maxMarks = TextEditingController(text: '100');
   bool _submitting = false;
+  List<ClassSubjectItem> _classSubjects = [];
+  bool _loadingClassSubjects = false;
 
   @override
   void initState() {
     super.initState();
+    _examId = null;
     _classId = widget.selectedClassId;
+    _studentId = null;
+    _subjectId = null;
+    _teacherId = null;
+    if (_classId != null) {
+      _loadClassSubjects(_classId!);
+    }
+  }
+
+  Future<void> _loadClassSubjects(int classId) async {
+    setState(() => _loadingClassSubjects = true);
+    final result = await SchoolAdminAssignmentsService().listClassSubjects(classId);
+    if (!mounted) return;
+    setState(() {
+      _loadingClassSubjects = false;
+      if (result is AssignmentSuccess<List<ClassSubjectItem>>) {
+        _classSubjects = result.data;
+        final currentId = _subjectId;
+        final inList = currentId != null && _classSubjects.any((s) => s.id == currentId);
+        if (!inList) _subjectId = null;
+      } else {
+        _classSubjects = [];
+        _subjectId = null;
+      }
+    });
+  }
+
+  Future<void> _onClassChanged(int? classId) async {
+    setState(() {
+      _classId = classId;
+      _subjectId = null;
+      _classSubjects = [];
+    });
+    if (classId != null) {
+      await _loadClassSubjects(classId);
+    }
+  }
+
+  List<SubjectModel> get _effectiveSubjects {
+    if (_classId != null && _classSubjects.isNotEmpty) {
+      // Convert ClassSubjectItem to SubjectModel for display
+      return _classSubjects.map((cs) => SubjectModel(id: cs.id, name: cs.name)).toList();
+    }
+    return widget.subjects; // Fallback to all subjects if no class selected
   }
 
   @override
@@ -639,7 +750,7 @@ class _AddMarksDialogState extends State<_AddMarksDialog> {
                 value: _classId,
                 label: 'Class (filter)',
                 items: [const DropdownMenuItem<int?>(value: null, child: Text('All')), ...widget.classes.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name)))],
-                onChanged: (v) => setState(() { _classId = v; _studentId = null; }),
+                onChanged: (v) => _onClassChanged(v),
               ),
               const SizedBox(height: 16),
               Select3D<int?>(
@@ -652,8 +763,11 @@ class _AddMarksDialogState extends State<_AddMarksDialog> {
               Select3D<int?>(
                 value: _subjectId,
                 label: 'Subject',
-                items: [const DropdownMenuItem<int?>(value: null, child: Text('Select subject')), ...widget.subjects.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text(s.name)))],
-                onChanged: (v) => setState(() => _subjectId = v),
+                items: [
+                  DropdownMenuItem<int?>(value: null, child: Text(_loadingClassSubjects ? 'Loading...' : (_classId == null ? 'Select class first' : 'Select subject'))),
+                  ..._effectiveSubjects.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text(s.name))),
+                ],
+                onChanged: _loadingClassSubjects ? null : (v) => setState(() => _subjectId = v),
               ),
               const SizedBox(height: 16),
               Select3D<int?>(

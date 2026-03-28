@@ -2,10 +2,10 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-
 import 'package:kobac/services/api_client.dart';
 import 'package:kobac/services/api_error_helpers.dart';
 import 'package:kobac/services/periods_service.dart';
+import 'package:kobac/services/class_subjects_service.dart';
 
 const String _base = 'api/teacher';
 
@@ -305,7 +305,48 @@ class TeacherAttendanceRecord {
   Map<String, dynamic> toJson() => {'student_id': studentId, 'status': status};
 }
 
-/// GET /api/teacher/marks -> Mark list item
+/// Exam list item for marks entry (GET /api/teacher/exams)
+class TeacherExamModel {
+  final int id;
+  final String name;
+  final String? date;
+  final int? classId;
+  final int? subjectId;
+  final String? className;
+  final String? subjectName;
+
+  TeacherExamModel({
+    required this.id,
+    required this.name,
+    this.date,
+    this.classId,
+    this.subjectId,
+    this.className,
+    this.subjectName,
+  });
+
+  factory TeacherExamModel.fromJson(Map<String, dynamic> json) {
+    return TeacherExamModel(
+      id: _parseId(json['id']),
+      name: _str(json['name']),
+      date: _strOpt(json['date']),
+      classId: json['classId'] != null ? _parseId(json['classId']) : (json['class_id'] != null ? _parseId(json['class_id']) : null),
+      subjectId: json['subjectId'] != null ? _parseId(json['subjectId']) : (json['subject_id'] != null ? _parseId(json['subject_id']) : null),
+      className: _strOpt(json['className'] ?? json['class_name']),
+      subjectName: _strOpt(json['subjectName'] ?? json['subject_name']),
+    );
+  }
+
+  String get displayLabel {
+    final dateStr = date != null && date!.length >= 10 ? ' (${date!.substring(0, 10)})' : '';
+    if (className != null && subjectName != null) {
+      return '$name — $className — $subjectName$dateStr';
+    }
+    return '$name$dateStr';
+  }
+}
+
+/// Marks entry result from GET /api/teacher/marks. 
 class TeacherMarkModel {
   final int id;
   final int examId;
@@ -338,11 +379,15 @@ class TeacherMarkModel {
       if (v == null) return null;
       if (v is String) return v.isNotEmpty ? v : null;
       if (v is Map && v['name'] != null) return v['name'].toString();
+      if (v is Map && v['studentName'] != null) return v['studentName'].toString();
+      if (v is Map && v['fullName'] != null) return v['fullName'].toString();
       return null;
     }
     final student = json['student'] ?? json['Student'];
     final exam = json['exam'] ?? json['Exam'];
     final subject = json['subject'] ?? json['Subject'];
+    final classObj = json['class'] ?? json['Class'];
+    
     return TeacherMarkModel(
       id: _parseId(json['id']),
       examId: _parseId(json['exam_id'] ?? json['examId']),
@@ -378,6 +423,58 @@ class TeacherService {
   TeacherService._();
   static final TeacherService _instance = TeacherService._();
   factory TeacherService() => _instance;
+
+  /// GET /api/teacher/class-subjects?class_id=
+  Future<TeacherResult<List<ClassSubjectModel>>> listClassSubjects(int classId) async {
+    try {
+      final response = await _client.get(apiUrl('$_base/class-subjects?class_id=$classId'));
+      devLogResponse('TeacherService.listClassSubjects', response.statusCode, response.body);
+      
+      if (response.statusCode != 200) {
+        return TeacherError(_errorMessage(response) ?? 'Could not load class subjects. Please try again.', response.statusCode);
+      }
+      
+      final raw = _parseJson(response.body);
+      List<dynamic> list;
+      if (raw is List) {
+        list = raw;
+      } else if (raw is Map<String, dynamic>) {
+        final data = raw['data'];
+        if (data is List) {
+          list = data;
+        } else if (data is Map<String, dynamic>) {
+          list = data['class_subjects'] as List<dynamic>? ?? 
+                   data['items'] as List<dynamic>? ?? 
+                   data['data'] as List<dynamic>? ?? [];
+        } else if (raw['class_subjects'] is List) {
+          list = raw['class_subjects'] as List<dynamic>;
+        } else if (raw['items'] is List) {
+          list = raw['items'] as List<dynamic>;
+        } else {
+          List<dynamic>? found;
+          for (final value in raw.values) {
+            if (value is List) { found = value; break; }
+          }
+          if (found == null) return TeacherError('Invalid response from server. Please try again.');
+          list = found;
+        }
+      } else {
+        return TeacherError('Invalid response from server. Please try again.');
+      }
+      
+      final classSubjects = <ClassSubjectModel>[];
+      for (final e in list) {
+        if (e is Map<String, dynamic>) {
+          try {
+            classSubjects.add(ClassSubjectModel.fromJson(e));
+          } catch (_) {}
+        }
+      }
+      return TeacherSuccess(classSubjects);
+    } catch (e, st) {
+      return TeacherError(userFriendlyMessage(e, st, 'TeacherService.listClassSubjects'));
+    }
+  }
 
   /// GET /api/teacher/dashboard — source of truth for teacher panel (assignedClasses, assignments, timetables).
   Future<TeacherResult<TeacherDashboardModel>> getDashboard() async {
@@ -520,6 +617,25 @@ class TeacherService {
       return TeacherSuccess(items);
     } catch (e, st) {
       return TeacherError(userFriendlyMessage(e, st, 'TeacherService.listMarks'));
+    }
+  }
+
+  /// GET /api/teacher/exams — school-wide exams (no class/subject filtering)
+  Future<TeacherResult<List<TeacherExamModel>>> listExams({int? classId, int? subjectId}) async {
+    try {
+      // Exams are now school-wide, ignore class/subject filters
+      final response = await _client.get(apiUrl('$_base/exams'));
+      devLogResponse('TeacherService.listExams', response.statusCode, response.body);
+      if (response.statusCode != 200) {
+        return TeacherError(_errorMessage(response) ?? 'Could not load exams.', response.statusCode);
+      }
+      final raw = _parseJson(response.body);
+      final payload = raw is Map ? _unwrapPayload(Map<String, dynamic>.from(raw as Map)) : <String, dynamic>{};
+      final list = _extractList(payload.isNotEmpty ? payload : raw, ['exams', 'data', 'items']);
+      final items = list.whereType<Map<String, dynamic>>().map((e) => TeacherExamModel.fromJson(e)).toList();
+      return TeacherSuccess(items);
+    } catch (e, st) {
+      return TeacherError(userFriendlyMessage(e, st, 'TeacherService.listExams'));
     }
   }
 

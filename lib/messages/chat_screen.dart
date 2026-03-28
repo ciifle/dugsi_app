@@ -8,7 +8,6 @@ import 'package:kobac/messages/message_time_utils.dart';
 
 const Color _kPrimaryBlue = Color(0xFF023471);
 const Color _kPrimaryGreen = Color(0xFF5AB04B);
-const Color _kBgColor = Color(0xFFF5F6FA);
 const Color _kTextPrimary = Color(0xFF2D3436);
 const Color _kTextSecondary = Color(0xFF636E72);
 
@@ -127,198 +126,288 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
-  String _formatTime(String createdAt) {
-    if (createdAt.isEmpty) return '';
-    try {
-      final dt = DateTime.tryParse(createdAt);
-      if (dt == null) return '';
-      return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-    } catch (_) {
-      return '';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final currentId = _currentUserId ?? 0;
 
     return Scaffold(
-      backgroundColor: _kBgColor,
+      backgroundColor: const Color(0xFFF7F9FC), // Modern light chat background
       appBar: AppBar(
-        title: Text(
-          widget.name,
-          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 18),
+        backgroundColor: Colors.white,
+        elevation: 0.5,
+        centerTitle: false,
+        leadingWidth: 40,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: _kTextPrimary, size: 20),
+          onPressed: () => Navigator.pop(context),
         ),
-        backgroundColor: _kPrimaryBlue,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: Column(
-        children: [
-          if (_loading && _messages.isEmpty)
-            const Expanded(
-              child: Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: CircularProgressIndicator(color: _kPrimaryBlue),
+        title: Row(
+          children: [
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: _kPrimaryBlue.withOpacity(0.1),
+              child: Text(
+                widget.name.isNotEmpty ? widget.name[0].toUpperCase() : '?',
+                style: const TextStyle(
+                  color: _kPrimaryBlue, 
+                  fontWeight: FontWeight.bold, 
+                  fontSize: 14,
                 ),
-              ),
-            )
-          else if (_error != null && _messages.isEmpty)
-            Expanded(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.error_outline_rounded, size: 56, color: Colors.red.shade400),
-                      const SizedBox(height: 16),
-                      Text(_error!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, color: _kTextPrimary)),
-                      const SizedBox(height: 24),
-                      TextButton.icon(
-                        onPressed: () => _loadMessages(),
-                        icon: const Icon(Icons.refresh_rounded),
-                        label: const Text('Retry'),
-                        style: TextButton.styleFrom(foregroundColor: _kPrimaryBlue),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            )
-          else if (_messages.isEmpty)
-            const Expanded(
-              child: Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.chat_bubble_outline_rounded, size: 64, color: _kTextSecondary),
-                      SizedBox(height: 16),
-                      Text(
-                        'Start the conversation',
-                        style: TextStyle(fontSize: 16, color: _kTextSecondary),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            )
-          else
-            Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                itemCount: _messages.length,
-                itemBuilder: (context, i) {
-                  final m = _messages[i];
-                  final isMe = m.senderId == currentId;
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Row(
-                      mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        if (!isMe) const SizedBox(width: 48),
-                        Flexible(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                            decoration: BoxDecoration(
-                              color: isMe ? _kPrimaryBlue : Colors.white,
-                              borderRadius: BorderRadius.only(
-                                topLeft: const Radius.circular(16),
-                                topRight: const Radius.circular(16),
-                                bottomLeft: Radius.circular(isMe ? 16 : 4),
-                                bottomRight: Radius.circular(isMe ? 4 : 16),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.06),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  m.message,
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    color: isMe ? Colors.white : _kTextPrimary,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  MessageTimeUtils.formatBubbleTime(m.createdAt),
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: isMe ? Colors.white70 : _kTextSecondary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        if (isMe) const SizedBox(width: 48),
-                      ],
-                    ),
-                  );
-                },
               ),
             ),
-          Container(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-            color: Colors.white,
-            child: SafeArea(
-              child: Row(
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _textController,
-                      decoration: InputDecoration(
-                        hintText: 'Type a message...',
-                        hintStyle: const TextStyle(color: _kTextSecondary),
-                        filled: true,
-                        fillColor: _kBgColor,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                      ),
-                      textCapitalization: TextCapitalization.sentences,
-                      onSubmitted: (_) => _send(),
+                  Text(
+                    widget.name,
+                    style: const TextStyle(
+                      fontSize: 16, 
+                      fontWeight: FontWeight.bold, 
+                      color: _kTextPrimary,
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Material(
-                    color: _sending ? _kPrimaryBlue.withOpacity(0.5) : _kPrimaryGreen,
-                    borderRadius: BorderRadius.circular(24),
-                    child: InkWell(
-                      onTap: _sending ? null : _send,
-                      borderRadius: BorderRadius.circular(24),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        child: _sending
-                            ? const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                              )
-                            : const Icon(Icons.send_rounded, color: Colors.white, size: 24),
-                      ),
+                  const Text(
+                    'Online',
+                    style: TextStyle(
+                      fontSize: 11, 
+                      color: _kPrimaryGreen, 
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
               ),
             ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.more_vert_rounded, color: _kTextSecondary),
+            onPressed: () {},
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: _loading && _messages.isEmpty
+                ? const Center(child: CircularProgressIndicator(color: _kPrimaryBlue, strokeWidth: 3))
+                : _messages.isEmpty
+                    ? Center(child: _buildEmptyState())
+                    : RefreshIndicator(        
+                        onRefresh: () => _loadMessages(showLoading: false),
+                        color: _kPrimaryGreen,
+                        child: ListView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: _messages.length,
+                          itemBuilder: (context, i) {
+                            final m = _messages[i];
+                            final isMe = m.senderId == currentId;
+                            final showTime = i == 0 || _shouldShowTime(m, _messages[i-1]);
+
+                            return Column(
+                              children: [
+                                if (showTime)
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    child: Center(
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(10),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(0.03),
+                                              blurRadius: 4,
+                                            ),
+                                          ],
+                                        ),
+                                        child: Text(
+                                          MessageTimeUtils.formatMessageDate(m.createdAt),
+                                          style: TextStyle(fontSize: 11, color: _kTextSecondary, fontWeight: FontWeight.w600),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                Align(
+                                  alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                                  child: Container(
+                                    margin: EdgeInsets.only(
+                                      bottom: 6,
+                                      left: isMe ? 60 : 0,
+                                      right: isMe ? 0 : 60,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                    decoration: BoxDecoration(
+                                      color: isMe ? _kPrimaryBlue : Colors.white,
+                                      borderRadius: BorderRadius.only(
+                                        topLeft: const Radius.circular(18),
+                                        topRight: const Radius.circular(18),
+                                        bottomLeft: Radius.circular(isMe ? 18 : 4),
+                                        bottomRight: Radius.circular(isMe ? 4 : 18),
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.04),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          m.message,
+                                          style: TextStyle(
+                                            color: isMe ? Colors.white : _kTextPrimary,
+                                            fontSize: 15,
+                                            height: 1.3,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          MessageTimeUtils.formatBubbleTime(m.createdAt),
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            color: isMe ? Colors.white.withOpacity(0.7) : _kTextSecondary,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+          ),
+          if (_error != null)
+            Container(
+              color: Colors.red.shade50,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(Icons.error_outline, size: 16, color: Colors.red.shade700),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _error!,
+                      style: TextStyle(color: Colors.red.shade700, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          _buildInput(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 20,
+              ),
+            ],
+          ),
+          child: Icon(Icons.chat_bubble_outline_rounded, size: 48, color: _kPrimaryBlue.withOpacity(0.2)),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Say hello to ${widget.name.split(' ')[0]}!',
+          style: TextStyle(color: _kTextSecondary, fontWeight: FontWeight.w500),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInput() {
+    return Container(
+      padding: EdgeInsets.fromLTRB(12, 8, 12, 8 + MediaQuery.of(context).padding.bottom),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F3F6),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: TextField(
+                controller: _textController,
+                decoration: const InputDecoration(
+                  hintText: 'Type a message...',
+                  hintStyle: TextStyle(color: _kTextSecondary, fontSize: 14),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(vertical: 12),
+                ),
+                maxLines: 4,
+                minLines: 1,
+                style: const TextStyle(fontSize: 15, color: _kTextPrimary),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          GestureDetector(
+            onTap: _sending ? null : _send,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _sending ? _kPrimaryBlue.withOpacity(0.5) : _kPrimaryBlue,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: _kPrimaryBlue.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: _sending
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+            ),
           ),
         ],
       ),
     );
+  }
+
+  bool _shouldShowTime(MessageModel current, MessageModel previous) {
+    try {
+      final cAt = DateTime.parse(current.createdAt);
+      final pAt = DateTime.parse(previous.createdAt);
+      return cAt.difference(pAt).inMinutes > 30;
+    } catch (_) {
+      return false;
+    }
   }
 }

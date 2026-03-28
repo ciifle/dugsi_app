@@ -6,23 +6,23 @@ import 'package:kobac/services/api_client.dart';
 import 'package:kobac/services/api_error_helpers.dart';
 
 /// Exam model (school-admin scope).
-/// POST /api/school-admin/exams requires: name, class_id, subject_id, date.
-/// Backend may include class_name, subject_name (flattened) for display.
+/// POST /api/school-admin/exams requires: name, date, exam_type, weight.
+/// Backend may include className, subjectName for display (from class_subjects).
 class ExamModel {
   final int id;
   final String name;
-  final int? classId;
-  final int? subjectId;
   final String? date;
+  final String? examType;
+  final double? weight;
   final String? className;
   final String? subjectName;
 
   const ExamModel({
     required this.id,
     required this.name,
-    this.classId,
-    this.subjectId,
     this.date,
+    this.examType,
+    this.weight,
     this.className,
     this.subjectName,
   });
@@ -36,12 +36,13 @@ class ExamModel {
     }
     String str(dynamic v) => v == null ? '' : v.toString().trim();
     String? strOpt(dynamic v) => v == null ? null : v.toString().trim();
+    
     return ExamModel(
       id: parseId(json['id'] ?? json['exam_id']),
       name: str(json['name'] ?? json['exam_name'] ?? json['examName']),
-      classId: json['class_id'] != null || json['classId'] != null ? parseId(json['class_id'] ?? json['classId']) : null,
-      subjectId: json['subject_id'] != null || json['subjectId'] != null ? parseId(json['subject_id'] ?? json['subjectId']) : null,
       date: strOpt(json['date']),
+      examType: strOpt(json['exam_type']),
+      weight: json['weight'] != null ? (json['weight'] is num ? json['weight'].toDouble() : double.tryParse(json['weight'].toString())) : null,
       className: strOpt(json['class_name'] ?? json['className'] ?? json['class'] is Map ? (json['class'] as Map)['name'] : null),
       subjectName: strOpt(json['subject_name'] ?? json['subjectName'] ?? json['subject'] is Map ? (json['subject'] as Map)['name'] : null),
     );
@@ -87,25 +88,26 @@ class ExamsService {
   static final ExamsService _instance = ExamsService._();
   factory ExamsService() => _instance;
 
-  /// POST /api/school-admin/exams  Body: { name, class_id, subject_id, date }
+  /// POST /api/school-admin/exams  Body: { name, date, exam_type, weight }
   Future<ExamResult<ExamModel>> createExam(Map<String, dynamic> data) async {
     try {
       int toInt(dynamic v) => v == null ? 0 : (v is int ? v : int.tryParse(v.toString()) ?? 0);
+      double? toDouble(dynamic v) => v == null ? null : (v is double ? v : double.tryParse(v.toString()));
+      
       final body = <String, dynamic>{
-        'name': data['name'] is String ? data['name'] as String : data['name'].toString(),
-        'class_id': toInt(data['class_id'] ?? data['classId']),
-        'subject_id': toInt(data['subject_id'] ?? data['subjectId']),
-        'date': data['date'] is String ? data['date'] as String : data['date']?.toString() ?? '',
+        'name': data['name']?.toString().trim() ?? '',
+        'date': data['date']?.toString().trim() ?? '',
+        'exam_type': data['exam_type']?.toString().trim(),
+        'weight': toDouble(data['weight']),
       };
+      
       final response = await _client.post(apiUrl(_base), body: body);
       devLogResponse('ExamsService.createExam', response.statusCode, response.body);
+      
       if (response.statusCode == 201) {
         final raw = _parseJson(response.body);
-        if (raw == null || raw is! Map) return ExamError('Invalid response from server. Please try again.');
-        final m = raw as Map<String, dynamic>;
-        final examMap = m['exam'] ?? m['data'] ?? m;
-        if (examMap is! Map<String, dynamic>) return ExamError('Invalid response from server. Please try again.');
-        return ExamSuccess(ExamModel.fromJson(examMap));
+        if (raw == null || raw is! Map<String, dynamic>) return ExamError('Invalid response from server. Please try again.');
+        return ExamSuccess(ExamModel.fromJson(raw));
       }
       if (response.statusCode == 400) return ExamError(_errorMessage(response) ?? 'Invalid data. Please try again.', 400);
       return ExamError(_errorMessage(response) ?? 'Request failed. Please try again.', response.statusCode);
@@ -186,15 +188,16 @@ class ExamsService {
     }
   }
 
-  /// PATCH /api/school-admin/exams/{id}  Body: same as create — name, class_id, subject_id, date
+  /// PATCH /api/school-admin/exams/{id}  Body: same as create — name, date, exam_type, weight
   Future<ExamResult<ExamModel>> updateExam(int id, Map<String, dynamic> data) async {
     try {
-      int toInt(dynamic v) => v == null ? 0 : (v is int ? v : int.tryParse(v.toString()) ?? 0);
+      double? toDouble(dynamic v) => v == null ? null : (v is double ? v : double.tryParse(v.toString()));
+      
       final body = <String, dynamic>{
         'name': data['name'] is String ? data['name'] as String : data['name'].toString(),
-        'class_id': toInt(data['class_id'] ?? data['classId']),
-        'subject_id': toInt(data['subject_id'] ?? data['subjectId']),
         'date': data['date'] is String ? data['date'] as String : data['date']?.toString() ?? '',
+        'exam_type': data['exam_type']?.toString(),
+        'weight': toDouble(data['weight']),
       };
       final response = await _client.patch(apiUrl('$_base/$id'), body: body);
       devLogResponse('ExamsService.updateExam', response.statusCode, response.body);

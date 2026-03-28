@@ -83,9 +83,9 @@ class _AdminExamsScreenState extends State<AdminExamsScreen> {
       builder: (ctx) => _ExamFormDialog(
         title: 'Edit Exam',
         initialName: exam.name,
-        initialClassId: exam.classId,
-        initialSubjectId: exam.subjectId,
         initialDate: exam.date,
+        initialExamType: exam.examType,
+        initialWeight: exam.weight,
         submitLabel: 'Save',
         isCreate: false,
         examId: exam.id,
@@ -314,9 +314,9 @@ class _AdminExamsScreenState extends State<AdminExamsScreen> {
 class _ExamFormDialog extends StatefulWidget {
   final String title;
   final String initialName;
-  final int? initialClassId;
-  final int? initialSubjectId;
   final String? initialDate;
+  final String? initialExamType;
+  final double? initialWeight;
   final String submitLabel;
   final bool isCreate;
   final int? examId;
@@ -325,9 +325,9 @@ class _ExamFormDialog extends StatefulWidget {
   const _ExamFormDialog({
     required this.title,
     required this.initialName,
-    this.initialClassId,
-    this.initialSubjectId,
     this.initialDate,
+    this.initialExamType,
+    this.initialWeight,
     required this.submitLabel,
     required this.isCreate,
     this.examId,
@@ -340,26 +340,20 @@ class _ExamFormDialog extends StatefulWidget {
 
 class _ExamFormDialogState extends State<_ExamFormDialog> {
   late TextEditingController _nameController;
+  late TextEditingController _examTypeController;
+  late TextEditingController _weightController;
+  late TextEditingController _dateController;
   bool _submitting = false;
-  List<ClassModel> _classes = [];
-  List<ClassSubjectItem> _subjects = [];
-  int? _selectedClassId;
-  int? _selectedSubjectId;
-  String _dateStr = '';
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.initialName);
-    _dateStr = widget.initialDate?.isNotEmpty == true
+    _examTypeController = TextEditingController(text: widget.initialExamType ?? '');
+    _weightController = TextEditingController(text: widget.initialWeight?.toString() ?? '');
+    _dateController = TextEditingController(text: widget.initialDate?.isNotEmpty == true
         ? widget.initialDate!
-        : _formatDate(DateTime.now());
-    _selectedClassId = widget.initialClassId;
-    _selectedSubjectId = widget.initialSubjectId;
-    _loadClasses();
-    if (widget.initialClassId != null && widget.initialClassId! > 0) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _loadSubjectsForClass(widget.initialClassId!));
-    }
+        : _formatDate(DateTime.now()));
   }
 
   String _formatDate(DateTime d) {
@@ -369,59 +363,34 @@ class _ExamFormDialogState extends State<_ExamFormDialog> {
     return '$y-$m-$day';
   }
 
-  Future<void> _loadClasses() async {
-    final result = await ClassesService().listClasses();
-    if (!mounted) return;
-    if (result is ClassSuccess<List<ClassModel>>) {
-      setState(() => _classes = result.data);
-    }
-  }
-
-  Future<void> _loadSubjectsForClass(int classId) async {
-    final result = await SchoolAdminAssignmentsService().listClassSubjects(classId);
-    if (!mounted) return;
-    if (result is AssignmentSuccess<List<ClassSubjectItem>>) {
-      setState(() {
-        _subjects = result.data;
-        final keepId = (classId == widget.initialClassId) ? widget.initialSubjectId : null;
-        final inList = keepId != null && _subjects.any((s) => s.id == keepId);
-        _selectedSubjectId = inList ? keepId : (_subjects.isNotEmpty ? _subjects.first.id : null);
-      });
-    } else {
-      setState(() {
-        _subjects = [];
-        _selectedSubjectId = null;
-      });
-    }
-  }
-
   @override
   void dispose() {
     _nameController.dispose();
+    _examTypeController.dispose();
+    _weightController.dispose();
+    _dateController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     final name = _nameController.text.trim();
+    final examType = _examTypeController.text.trim();
+    final weightText = _weightController.text.trim();
+    final weight = weightText.isNotEmpty ? double.tryParse(weightText) : null;
+    
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Exam name is required'), backgroundColor: Colors.red),
       );
       return;
     }
-    if (_selectedClassId == null || _selectedClassId! <= 0) {
+    if (weight == null || weight! <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a class'), backgroundColor: Colors.red),
+        const SnackBar(content: Text('Please enter a valid weight'), backgroundColor: Colors.red),
       );
       return;
     }
-    if (_selectedSubjectId == null || _selectedSubjectId! <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a subject'), backgroundColor: Colors.red),
-      );
-      return;
-    }
-    if (_dateStr.isEmpty) {
+    if (_dateController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a date'), backgroundColor: Colors.red),
       );
@@ -429,11 +398,12 @@ class _ExamFormDialogState extends State<_ExamFormDialog> {
     }
     if (_submitting) return;
     setState(() => _submitting = true);
+    
     final data = <String, dynamic>{
       'name': name,
-      'class_id': _selectedClassId,
-      'subject_id': _selectedSubjectId,
-      'date': _dateStr,
+      'date': _dateController.text,
+      'exam_type': examType.isNotEmpty ? examType : null,
+      'weight': weight,
     };
     final ok = await widget.onSave(data);
     if (!mounted) return;
@@ -466,40 +436,29 @@ class _ExamFormDialogState extends State<_ExamFormDialog> {
                 onSubmitted: (_) => _submit(),
               ),
               const SizedBox(height: 16),
-              Select3D<int?>(
-                value: _selectedClassId,
-                label: 'Class',
-                items: [
-                  const DropdownMenuItem<int?>(value: null, child: Text('Select class')),
-                  ..._classes.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name))),
-                ],
-                onChanged: (v) {
-                  setState(() {
-                    _selectedClassId = v;
-                    _subjects = [];
-                    _selectedSubjectId = null;
-                  });
-                  if (v != null && v > 0) _loadSubjectsForClass(v);
-                },
+              Input3D(
+                controller: _examTypeController,
+                label: 'Exam type (optional)',
+                hint: 'e.g. Mid-term, Final, Quiz',
+                textCapitalization: TextCapitalization.words,
+                onSubmitted: (_) => _submit(),
               ),
               const SizedBox(height: 16),
-              Select3D<int?>(
-                value: _selectedSubjectId != null && _subjects.any((s) => s.id == _selectedSubjectId) ? _selectedSubjectId : null,
-                label: 'Subject',
-                items: [
-                  const DropdownMenuItem<int?>(value: null, child: Text('Select subject')),
-                  ..._subjects.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text(s.name))),
-                ],
-                onChanged: (v) => setState(() => _selectedSubjectId = v),
+              Input3D(
+                controller: _weightController,
+                label: 'Weight (optional)',
+                hint: 'e.g. 20, 50, 100',
+                keyboardType: TextInputType.number,
+                onSubmitted: (_) => _submit(),
               ),
               const SizedBox(height: 16),
               DatePicker3D(
                 label: 'Date',
-                value: _dateStr,
-                initialDate: DateTime.tryParse(_dateStr) ?? DateTime.now(),
+                value: _dateController.text,
+                initialDate: DateTime.tryParse(_dateController.text) ?? DateTime.now(),
                 firstDate: DateTime(2020),
                 lastDate: DateTime.now().add(const Duration(days: 365)),
-                onDatePicked: (d) => setState(() => _dateStr = _formatDate(d)),
+                onDatePicked: (d) => setState(() => _dateController.text = _formatDate(d)),
               ),
               const SizedBox(height: 24),
               Row(

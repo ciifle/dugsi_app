@@ -4,11 +4,14 @@ import 'package:provider/provider.dart';
 import 'package:printing/printing.dart';
 import 'package:kobac/services/students_service.dart';
 import 'package:kobac/services/classes_service.dart';
+import 'package:kobac/services/class_subjects_service.dart';
+import 'package:kobac/services/subjects_service.dart';
 import 'package:kobac/services/api_error_helpers.dart';
 import 'package:kobac/services/auth_provider.dart';
 import 'package:kobac/printing/class_letter_pdf.dart';
 import 'package:kobac/school_admin/pages/create_student_screen.dart';
 import 'package:kobac/school_admin/pages/student_detail_screen.dart';
+import 'package:kobac/school_admin/pages/class_subject_management_screen.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
 const Color kPrimaryGreen = Color(0xFF5AB04B);
@@ -39,6 +42,23 @@ class _AdminClassDetailsScreenState extends State<AdminClassDetailsScreen> {
   void initState() {
     super.initState();
     _loadStudents();
+  }
+
+  Future<void> _manageClassSubjects() async {
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => ClassSubjectManagementScreen(
+          classId: widget.classId,
+          className: widget.className,
+        ),
+      ),
+    );
+    if (result == true && mounted) {
+      // No need to reload students, just show success message if needed
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Class subjects updated'), backgroundColor: kPrimaryGreen),
+      );
+    }
   }
 
   Future<void> _loadStudents() async {
@@ -132,6 +152,19 @@ class _AdminClassDetailsScreenState extends State<AdminClassDetailsScreen> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: kPrimaryGreen,
                           side: const BorderSide(color: kPrimaryGreen),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _loading ? null : () => _manageClassSubjects(),
+                        icon: const Icon(Icons.menu_book_rounded, size: 20),
+                        label: const Text('Manage subjects'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: kPrimaryGreen,
+                          foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                       ),
