@@ -1224,9 +1224,23 @@ class _ExportMarksDialogState extends State<_ExportMarksDialog> {
       );
       Navigator.of(context).pop(true);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text((result as MarkError).message), backgroundColor: Colors.red),
-      );
+      final error = result as MarkError;
+      print('DEBUG: Export error in dialog: ${error.message}');
+      
+      // Handle user cancellation gracefully - don't show error message
+      if (error.message == 'USER_CANCELLED') {
+        print('DEBUG: User cancelled export - no error message shown');
+        Navigator.of(context).pop(false);
+      } else {
+        // Show user-friendly error message for actual failures
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not save the Excel file. Please try again.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
     }
   }
 

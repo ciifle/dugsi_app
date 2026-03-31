@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:file_picker/file_picker.dart';
 
 import 'package:kobac/services/api_client.dart';
 import 'package:kobac/services/api_error_helpers.dart';
@@ -340,61 +341,81 @@ class MarksService {
         'class_id': classId.toString(),
         'exam_id': examId.toString(),
       });
+      
+      print('DEBUG: Export URL: $uri');
+      print('DEBUG: Selected class_id: $classId, exam_id: $examId');
+      
       final response = await _client.get(uri);
-      devLogResponse('MarksService.exportMarks', response.statusCode, 'Excel file response - ${response.bodyBytes.length} bytes');
+      print('DEBUG: Response status: ${response.statusCode}');
+      print('DEBUG: Response body length: ${response.bodyBytes.length} bytes');
+      print('DEBUG: Content-Type: ${response.headers['content-type']}');
       
       if (response.statusCode != 200) {
+        print('DEBUG: Export failed with status ${response.statusCode}');
+        print('DEBUG: Response body: ${response.body}');
         return MarkError(_errorMessage(response) ?? 'Could not export marks.', response.statusCode);
       }
 
       // Validate that we received binary data
       final bytes = response.bodyBytes;
       if (bytes.isEmpty) {
+        print('DEBUG: Empty response bytes received');
         return MarkError('Export failed: Empty file received from server.');
       }
 
-      // Check if content type indicates Excel file
-      final contentType = response.headers['content-type']?.toLowerCase() ?? '';
-      if (!contentType.contains('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') && 
-          !contentType.contains('application/octet-stream') &&
-          !contentType.contains('application/vnd.ms-excel')) {
-        // Log warning but continue - some servers may not set correct content type
-        print('Warning: Unexpected content type: $contentType');
-      }
+      print('DEBUG: Received ${bytes.length} bytes of data');
 
-      // Extract filename from Content-Disposition header if available
-      String filename = 'marks_export.xlsx';
-      final contentDisposition = response.headers['content-disposition'];
-      if (contentDisposition != null) {
-        final filenameMatch = RegExp(r'filename="?([^"]+)"?').firstMatch(contentDisposition);
-        if (filenameMatch != null) {
-          filename = filenameMatch.group(1) ?? filename;
+      // Generate default filename
+      final defaultFilename = 'class_${classId}_exam_${examId}_results.xlsx';
+      print('DEBUG: Default filename: $defaultFilename');
+
+      // Open file picker to let user choose save location
+      String? savedPath;
+      try {
+        print('DEBUG: Opening file picker for save dialog');
+        
+        final result = await FilePicker.platform.saveFile(
+          fileName: defaultFilename,
+          bytes: bytes,
+          type: FileType.custom,
+        );
+
+        if (result != null && result.isNotEmpty) {
+          savedPath = result;
+          print('DEBUG: User selected save path: $savedPath');
+          
+          // Verify file was saved
+          final file = File(savedPath!);
+          if (await file.exists()) {
+            final fileSize = await file.length();
+            print('DEBUG: File saved successfully, size: $fileSize bytes');
+            
+            if (fileSize > 0) {
+              print('DEBUG: Export completed successfully');
+              return MarkSuccess(savedPath!);
+            } else {
+              print('DEBUG: Error - saved file is empty');
+              return MarkError('Could not save the Excel file. Please try again.');
+            }
+          } else {
+            print('DEBUG: Error - file does not exist after save');
+            return MarkError('Could not save the Excel file. Please try again.');
+          }
+        } else {
+          print('DEBUG: User cancelled file picker');
+          // User cancelled - return success but no file path
+          return MarkError('USER_CANCELLED');
         }
+      } catch (e, st) {
+        print('DEBUG: Exception in file picker: $e');
+        print('DEBUG: Stack trace: $st');
+        return MarkError('Could not save the Excel file. Please try again.');
       }
 
-      // Ensure filename has .xlsx extension
-      if (!filename.toLowerCase().endsWith('.xlsx')) {
-        filename = filename.replaceAll(RegExp(r'\.[^.]+$'), '') + '.xlsx';
-      }
-
-      // Save file to downloads directory
-      final downloadsDir = Directory('/storage/emulated/0/Download');
-      if (!await downloadsDir.exists()) {
-        await downloadsDir.create(recursive: true);
-      }
-      final file = File('${downloadsDir.path}/$filename');
-      
-      // Write the exact bytes received from server
-      await file.writeAsBytes(bytes, flush: true);
-      
-      // Verify file was written correctly
-      if (!await file.exists() || await file.length() == 0) {
-        return MarkError('Export failed: Could not save file to storage.');
-      }
-
-      return MarkSuccess(file.path);
     } catch (e, st) {
-      return MarkError(userFriendlyMessage(e, st, 'MarksService.exportMarks'));
+      print('DEBUG: Exception in exportMarks: $e');
+      print('DEBUG: Stack trace: $st');
+      return MarkError('Could not save the Excel file. Please try again.');
     }
   }
 }
