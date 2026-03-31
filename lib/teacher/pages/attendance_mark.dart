@@ -162,10 +162,13 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
       records: records,
     );
     if (!mounted) return;
-    if (result is TeacherSuccess) {
+    if (result is TeacherSuccess<Map<String, dynamic>>) {
+      final responseData = result.data;
+      final message = responseData['message'] ?? 'Attendance saved successfully';
+      final savedCount = responseData['saved_count'] ?? records.length;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Attendance saved.'),
+          content: Text('$message ($savedCount students)'),
           backgroundColor: kPrimaryGreen,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

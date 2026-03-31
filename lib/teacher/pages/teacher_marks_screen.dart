@@ -28,6 +28,7 @@ class _TeacherMarksScreenState extends State<TeacherMarksScreen> {
   List<({int id, String name})> _students = [];
   List<TeacherMarkModel> _marks = [];
   bool _loading = true;
+  bool _initialLoadComplete = false;
   String? _error;
   
   int? _filterClassId;
@@ -38,11 +39,14 @@ class _TeacherMarksScreenState extends State<TeacherMarksScreen> {
   @override
   void initState() {
     super.initState();
+    debugPrint('[Teacher Marks] Initial load started');
     _loadInitialData();
   }
 
   Future<void> _loadInitialData() async {
     setState(() => _loading = true);
+    debugPrint('[Teacher Marks] Loading assignments and exams');
+    
     final results = await Future.wait([
       TeacherService().listAssignments(),
       TeacherService().listExams(),
@@ -56,16 +60,28 @@ class _TeacherMarksScreenState extends State<TeacherMarksScreen> {
 
       if (assignmentsResult is TeacherSuccess<List<TeacherAssignmentModel>>) {
         _assignments = assignmentsResult.data;
+        debugPrint('[Teacher Marks] Loaded ${_assignments.length} assignments');
         if (_assignments.isNotEmpty && _filterClassId == null) {
           _filterClassId = _assignments.first.classId;
           _filterSubjectId = _assignments.first.subjectId;
+          debugPrint('[Teacher Marks] Auto-selected class: $_filterClassId, subject: $_filterSubjectId');
         }
       }
 
       if (examsResult is TeacherSuccess<List<({int id, String name})>>) {
         _exams = examsResult.data;
+        debugPrint('[Teacher Marks] Loaded ${_exams.length} exams');
       }
     });
+    
+    // Load marks after setting initial filters
+    if (_filterClassId != null) {
+      debugPrint('[Teacher Marks] Loading marks with initial filters');
+      _loadMarks();
+    } else {
+      debugPrint('[Teacher Marks] No class assigned, loading all marks');
+      _loadAllMarks();
+    }
   }
 
   void _showAddMark() async {
@@ -84,10 +100,40 @@ class _TeacherMarksScreenState extends State<TeacherMarksScreen> {
     );
   }
 
+  Future<void> _loadAllMarks() async {
+    debugPrint('[Teacher Marks] Loading all marks without filters');
+    setState(() => _loading = true);
+    
+    final result = await TeacherService().listMarks();
+    
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      _initialLoadComplete = true;
+      if (result is TeacherSuccess<List<TeacherMarkModel>>) {
+        _marks = result.data;
+        _error = null;
+        debugPrint('[Teacher Marks] Parsed marks count: ${_marks.length}');
+      } else {
+        _marks = [];
+        _error = (result as TeacherError).message;
+        debugPrint('[Teacher Marks] Error loading marks: $_error');
+      }
+    });
+    debugPrint('[Teacher Marks] Displayed marks count: ${_marks.length}');
+  }
+
   Future<void> _loadMarks() async {
-    if (_filterClassId == null) return;
+    debugPrint('[Teacher Marks] Selected filters: class=$_filterClassId, subject=$_filterSubjectId, exam=$_filterExamId, student=$_filterStudentId');
+    
+    if (_filterClassId == null) {
+      debugPrint('[Teacher Marks] No class filter, loading all marks');
+      _loadAllMarks();
+      return;
+    }
     
     setState(() => _loading = true);
+    
     final result = await TeacherService().listMarks(
       classId: _filterClassId!,
       subjectId: _filterSubjectId,
@@ -97,14 +143,18 @@ class _TeacherMarksScreenState extends State<TeacherMarksScreen> {
     if (!mounted) return;
     setState(() {
       _loading = false;
+      _initialLoadComplete = true;
       if (result is TeacherSuccess<List<TeacherMarkModel>>) {
         _marks = result.data;
         _error = null;
+        debugPrint('[Teacher Marks] Parsed marks count: ${_marks.length}');
       } else {
         _marks = [];
         _error = (result as TeacherError).message;
+        debugPrint('[Teacher Marks] Error loading marks: $_error');
       }
     });
+    debugPrint('[Teacher Marks] Displayed marks count: ${_marks.length}');
   }
 
   void _showEditMarkDialog(TeacherMarkModel mark) {
@@ -213,6 +263,7 @@ class _TeacherMarksScreenState extends State<TeacherMarksScreen> {
                           ))
                       .toList(),
                     onChanged: (value) {
+                      debugPrint('[Teacher Marks] Class filter changed: $_filterClassId -> $value');
                       setState(() {
                         _filterClassId = value;
                         _filterSubjectId = null;
@@ -281,93 +332,95 @@ class _TeacherMarksScreenState extends State<TeacherMarksScreen> {
                   ? const Center(child: CircularProgressIndicator(color: kPrimaryBlue))
                   : _error != null
                       ? Center(child: Text(_error!))
-                      : _marks.isEmpty
-                          ? const Center(
-                              child: Text(
-                                'No marks found for selected filters',
-                                style: TextStyle(fontSize: 16, color: kTextSecondary),
-                              ),
-                            )
-                          : ListView.builder(
-                              padding: const EdgeInsets.all(8),
-                              itemCount: _marks.length,
-                              itemBuilder: (ctx, i) {
-                                final mark = _marks[i];
-                                return Card(
-                                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                  elevation: 2,
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(16),
-                                    child: Column(
-                                      children: [
-                                        Row(
+                      : !_initialLoadComplete
+                          ? const Center(child: CircularProgressIndicator(color: kPrimaryBlue))
+                          : _marks.isEmpty
+                              ? const Center(
+                                  child: Text(
+                                    'No marks found for selected filters',
+                                    style: TextStyle(fontSize: 16, color: kTextSecondary),
+                                  ),
+                                )
+                              : ListView.builder(
+                                  padding: const EdgeInsets.all(8),
+                                  itemCount: _marks.length,
+                                  itemBuilder: (ctx, i) {
+                                    final mark = _marks[i];
+                                    return Card(
+                                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                      elevation: 2,
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(16),
+                                        child: Column(
                                           children: [
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    mark.studentName ?? 'Student ${mark.studentId}',
-                                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-                                                  ),
-                                                  const SizedBox(height: 4),
-                                                  Text(
-                                                    mark.subjectName ?? 'Subject ${mark.subjectId}',
-                                                    style: TextStyle(color: kTextSecondary, fontSize: 14),
-                                                  ),
-                                                  const SizedBox(height: 2),
-                                                  Text(
-                                                    mark.examName ?? 'Exam ${mark.examId}',
-                                                    style: TextStyle(color: kTextSecondary, fontSize: 12),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            Column(
-                                              crossAxisAlignment: CrossAxisAlignment.end,
-                                              mainAxisSize: MainAxisSize.min,
+                                            Row(
                                               children: [
-                                                Text(
-                                                  '${mark.marksObtained}',
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 18,
-                                                    color: kPrimaryBlue,
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text(
+                                                        mark.studentName ?? 'Student ${mark.studentId}',
+                                                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                                                      ),
+                                                      const SizedBox(height: 4),
+                                                      Text(
+                                                        mark.subjectName ?? 'Subject ${mark.subjectId}',
+                                                        style: TextStyle(color: kTextSecondary, fontSize: 14),
+                                                      ),
+                                                      const SizedBox(height: 2),
+                                                      Text(
+                                                        mark.examName ?? 'Exam ${mark.examId}',
+                                                        style: TextStyle(color: kTextSecondary, fontSize: 12),
+                                                      ),
+                                                    ],
                                                   ),
                                                 ),
-                                                Text(
-                                                  '/${mark.maxMarks}',
-                                                  style: TextStyle(
-                                                    fontSize: 14,
-                                                    color: kTextSecondary,
-                                                  ),
+                                                Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Text(
+                                                      '${mark.marksObtained}',
+                                                      style: const TextStyle(
+                                                        fontWeight: FontWeight.bold,
+                                                        fontSize: 18,
+                                                        color: kPrimaryBlue,
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      '/${mark.maxMarks}',
+                                                      style: TextStyle(
+                                                        fontSize: 14,
+                                                        color: kTextSecondary,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 12),
+                                            Row(
+                                              mainAxisAlignment: MainAxisAlignment.end,
+                                              children: [
+                                                IconButton(
+                                                  onPressed: () => _showEditMarkDialog(mark),
+                                                  icon: const Icon(Icons.edit_outlined, size: 20, color: kPrimaryGreen),
+                                                  tooltip: 'Edit',
+                                                ),
+                                                IconButton(
+                                                  onPressed: () => _showDeleteConfirmDialog(mark),
+                                                  icon: Icon(Icons.delete_outline, size: 20, color: kErrorColor),
+                                                  tooltip: 'Delete',
                                                 ),
                                               ],
                                             ),
                                           ],
                                         ),
-                                        const SizedBox(height: 12),
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.end,
-                                          children: [
-                                            IconButton(
-                                              onPressed: () => _showEditMarkDialog(mark),
-                                              icon: const Icon(Icons.edit_outlined, size: 20, color: kPrimaryGreen),
-                                              tooltip: 'Edit',
-                                            ),
-                                            IconButton(
-                                              onPressed: () => _showDeleteConfirmDialog(mark),
-                                              icon: Icon(Icons.delete_outline, size: 20, color: kErrorColor),
-                                              tooltip: 'Delete',
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
+                                      ),
+                                    );
+                                  },
+                                ),
                         ),
           ],
         ),

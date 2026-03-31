@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 
@@ -52,6 +53,9 @@ class MarkModel {
             ? json['data'] as Map<String, dynamic>
             : json;
 
+    debugPrint('[MarkModel] Raw JSON keys: ${json.keys.toList()}');
+    debugPrint('[MarkModel] Parsed object keys: ${m.keys.toList()}');
+
     int parseId(dynamic v) {
       if (v == null) return 0;
       if (v is int) return v;
@@ -84,12 +88,15 @@ class MarkModel {
     final obtainedRaw = m['marks_obtained'] ?? m['marksObtained'] ?? m['obtained'] ?? m['score'] ?? m['obtained_marks'];
     final maxRaw = m['max_marks'] ?? m['maxMarks'] ?? m['max'] ?? m['total_marks'] ?? m['totalMarks'] ?? m['out_of'];
     
-    // Extract nested objects
+    // Extract nested objects with debug logging
     final student = m['student'] ?? m['Student'];
     final exam = m['exam'] ?? m['Exam'];
     final subject = m['subject'] ?? m['Subject'];
     final classObj = m['class'] ?? m['Class'];
     final teacher = m['teacher'] ?? m['Teacher'];
+    
+    debugPrint('[MarkModel] Raw exam object: $exam');
+    debugPrint('[MarkModel] Raw teacher object: $teacher');
 
     return MarkModel(
       id: parseId(m['id'] ?? m['mark_id']),
@@ -112,11 +119,35 @@ class MarkModel {
   }
 
   // Backward compatibility getters
-  String? get studentName => student?['studentName'] ?? student?['name'];
-  String? get examName => exam?['examName'] ?? exam?['name'];
-  String? get subjectName => subject?['subjectName'] ?? subject?['name'];
-  String? get teacherName => teacher?['teacherName'] ?? teacher?['fullName'] ?? teacher?['name'];
-  String? get className => classData?['className'] ?? classData?['name'];
+  String? get studentName {
+    final name = student?['studentName'] ?? student?['name'];
+    debugPrint('[MarkModel] studentName: $name (student object: $student)');
+    return name;
+  }
+  
+  String? get examName {
+    final name = exam?['examName'] ?? exam?['name'];
+    debugPrint('[MarkModel] examName: $name (exam object: $exam)');
+    return name;
+  }
+  
+  String? get subjectName {
+    final name = subject?['subjectName'] ?? subject?['name'];
+    debugPrint('[MarkModel] subjectName: $name (subject object: $subject)');
+    return name;
+  }
+  
+  String? get teacherName {
+    final name = teacher?['teacherName'] ?? teacher?['fullName'] ?? teacher?['name'];
+    debugPrint('[MarkModel] teacherName: $name (teacher object: $teacher)');
+    return name;
+  }
+  
+  String? get className {
+    final name = classData?['className'] ?? classData?['name'];
+    debugPrint('[MarkModel] className: $name (class object: $classData)');
+    return name;
+  }
 }
 
 sealed class MarkResult<T> {}
@@ -270,21 +301,34 @@ class MarksService {
       if (payload.containsKey('max_marks')) body['max_marks'] = payload['max_marks'] is int ? payload['max_marks'] as int : int.tryParse(payload['max_marks'].toString()) ?? 100;
       if (payload.containsKey('teacher_id')) body['teacher_id'] = payload['teacher_id'] is int ? payload['teacher_id'] as int : int.tryParse(payload['teacher_id'].toString()) ?? 0;
       if (body.isEmpty) return MarkError('No fields to update.');
+      
+      debugPrint('[Admin Marks PATCH] URL: ${apiUrl('$_base/$id')}');
+      debugPrint('[Admin Marks PATCH] Body: ${jsonEncode(body)}');
+      
       final response = await _client.patch(apiUrl('$_base/$id'), body: body);
-      devLogResponse('MarksService.updateMark', response.statusCode, response.body);
+      
+      debugPrint('[Admin Marks PATCH] Response Status: ${response.statusCode}');
+      debugPrint('[Admin Marks PATCH] Response Body: ${response.body}');
+      
       if (response.statusCode == 404) return MarkError('Marks entry not found.', 404);
       if (response.statusCode != 200) {
         return MarkError(_errorMessage(response) ?? 'Could not update.', response.statusCode);
       }
+      
       final raw = _parseJson(response.body);
       Map<String, dynamic> map;
       if (raw is Map<String, dynamic>) {
-        map = raw['mark'] as Map<String, dynamic>? ?? raw['data'] as Map<String, dynamic>? ?? raw;
+        map = raw['mark'] is Map<String, dynamic> ? raw['mark'] as Map<String, dynamic> : raw;
       } else {
         return MarkError('Invalid response from server.');
       }
+      
+      debugPrint('[Admin Marks PATCH] Parsed exam name: ${map['exam']?['name']}');
+      
       return MarkSuccess(MarkModel.fromJson(map));
     } catch (e, st) {
+      debugPrint('[Admin Marks PATCH] Exception: $e');
+      debugPrint('[Admin Marks PATCH] Stack Trace: $st');
       return MarkError(userFriendlyMessage(e, st, 'MarksService.updateMark'));
     }
   }
@@ -349,6 +393,7 @@ class MarksService {
       print('DEBUG: Response status: ${response.statusCode}');
       print('DEBUG: Response body length: ${response.bodyBytes.length} bytes');
       print('DEBUG: Content-Type: ${response.headers['content-type']}');
+      print('DEBUG: Content-Disposition: ${response.headers['content-disposition']}');
       
       if (response.statusCode != 200) {
         print('DEBUG: Export failed with status ${response.statusCode}');
@@ -365,17 +410,34 @@ class MarksService {
 
       print('DEBUG: Received ${bytes.length} bytes of data');
 
-      // Generate default filename
-      final defaultFilename = 'class_${classId}_exam_${examId}_results.xlsx';
-      print('DEBUG: Default filename: $defaultFilename');
-
+      // Extract filename from Content-Disposition header
+      String? filename;
+      final contentDisposition = response.headers['content-disposition'];
+      if (contentDisposition != null && contentDisposition.isNotEmpty) {
+        // Parse Content-Disposition header: "attachment; filename=\"6A_Term_1_Final_Results.xlsx\""
+        final regex = RegExp(r'filename="?([^"]+)"?');
+        final match = regex.firstMatch(contentDisposition);
+        if (match != null) {
+          filename = match.group(1);
+          print('DEBUG: Extracted filename from header: $filename');
+        } else {
+          print('DEBUG: Could not parse filename from Content-Disposition: $contentDisposition');
+        }
+      }
+      
+      // Fallback to generated filename if header parsing fails
+      if (filename == null || filename.isEmpty) {
+        filename = 'class_${classId}_exam_${examId}_results.xlsx';
+        print('DEBUG: Using fallback filename: $filename');
+      }
+      
       // Open file picker to let user choose save location
       String? savedPath;
       try {
         print('DEBUG: Opening file picker for save dialog');
         
         final result = await FilePicker.platform.saveFile(
-          fileName: defaultFilename,
+          fileName: filename,
           bytes: bytes,
           type: FileType.custom,
         );

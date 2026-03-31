@@ -305,6 +305,60 @@ class TeacherAttendanceRecord {
   Map<String, dynamic> toJson() => {'student_id': studentId, 'status': status};
 }
 
+/// Teacher attendance model for GET response (camelCase fields)
+class TeacherAttendanceModel {
+  final int id;
+  final int studentId;
+  final String studentName;
+  final int classId;
+  final String className;
+  final int subjectId;
+  final String subjectName;
+  final int teacherId;
+  final String teacherName;
+  final String date;
+  final String time;
+  final String period;
+  final String status;
+  final int schoolId;
+
+  TeacherAttendanceModel({
+    required this.id,
+    required this.studentId,
+    required this.studentName,
+    required this.classId,
+    required this.className,
+    required this.subjectId,
+    required this.subjectName,
+    required this.teacherId,
+    required this.teacherName,
+    required this.date,
+    required this.time,
+    required this.period,
+    required this.status,
+    required this.schoolId,
+  });
+
+  factory TeacherAttendanceModel.fromJson(Map<String, dynamic> json) {
+    return TeacherAttendanceModel(
+      id: _parseId(json['id']),
+      studentId: _parseId(json['studentId']),
+      studentName: _str(json['studentName']),
+      classId: _parseId(json['classId']),
+      className: _str(json['className']),
+      subjectId: _parseId(json['subjectId']),
+      subjectName: _str(json['subjectName']),
+      teacherId: _parseId(json['teacherId']),
+      teacherName: _str(json['teacherName']),
+      date: _str(json['date']),
+      time: _str(json['time']),
+      period: _str(json['period']),
+      status: _str(json['status']),
+      schoolId: _parseId(json['schoolId']),
+    );
+  }
+}
+
 /// Exam list item for marks entry (GET /api/teacher/exams)
 class TeacherExamModel {
   final int id;
@@ -546,7 +600,7 @@ class TeacherService {
   }
 
   /// POST /api/teacher/attendance  Body: { class_id, date, records: [{ student_id, status }] }
-  Future<TeacherResult<void>> takeAttendance({
+  Future<TeacherResult<Map<String, dynamic>>> takeAttendance({
     required int classId,
     required String date,
     required List<TeacherAttendanceRecord> records,
@@ -557,36 +611,143 @@ class TeacherService {
         'date': date,
         'records': records.map((r) => r.toJson()).toList(),
       };
+      
+      debugPrint('[Teacher Attendance POST] URL: ${apiUrl('$_base/attendance')}');
+      debugPrint('[Teacher Attendance POST] Body: ${jsonEncode(body)}');
+      
       final response = await _client.post(apiUrl('$_base/attendance'), body: body);
-      devLogResponse('TeacherService.takeAttendance', response.statusCode, response.body);
-      if (response.statusCode == 403) {
-        return TeacherError(_errorMessage(response) ?? 'Not allowed to take attendance for this class.', 403);
+      
+      debugPrint('[Teacher Attendance POST] Response Status: ${response.statusCode}');
+      debugPrint('[Teacher Attendance POST] Response Body: ${response.body}');
+      
+      if (response.statusCode == 400) {
+        return TeacherError(_errorMessage(response) ?? 'Invalid request body.', 400);
       }
-      if (response.statusCode != 200 && response.statusCode != 201) {
+      if (response.statusCode == 403) {
+        return TeacherError(_errorMessage(response) ?? 'Not allowed to take attendance for this class or invalid time window.', 403);
+      }
+      if (response.statusCode == 404) {
+        return TeacherError(_errorMessage(response) ?? 'Class not found.', 404);
+      }
+      if (response.statusCode == 409) {
+        return TeacherError(_errorMessage(response) ?? 'Attendance already exists for this class and date.', 409);
+      }
+      if (response.statusCode != 200) {
         return TeacherError(_errorMessage(response) ?? 'Could not save attendance.', response.statusCode);
       }
-      return TeacherSuccess(null);
+      
+      final responseData = _parseJson(response.body);
+      if (responseData is Map<String, dynamic>) {
+        return TeacherSuccess(responseData);
+      } else {
+        return TeacherError('Invalid response format.');
+      }
     } catch (e, st) {
+      debugPrint('[Teacher Attendance POST] Exception: $e');
+      debugPrint('[Teacher Attendance POST] Stack Trace: $st');
       return TeacherError(userFriendlyMessage(e, st, 'TeacherService.takeAttendance'));
     }
   }
 
-  /// PATCH /api/teacher/attendance  Body: { attendance_id, status }
-  Future<TeacherResult<void>> updateAttendance({
-    required int attendanceId,
-    required String status,
+  /// GET /api/teacher/attendance?class_id=1&date=2026-03-31
+  Future<TeacherResult<List<TeacherAttendanceModel>>> listAttendance({
+    int? classId,
+    String? date,
   }) async {
     try {
-      final body = {'attendance_id': attendanceId, 'status': status};
+      final params = <String, String>{};
+      if (classId != null && classId > 0) params['class_id'] = classId.toString();
+      if (date != null && date.isNotEmpty) params['date'] = date;
+      
+      final uri = params.isEmpty ? apiUrl('$_base/attendance') : apiUrl('$_base/attendance').replace(queryParameters: params);
+      
+      debugPrint('[Teacher Attendance GET] URL: $uri');
+      
+      final response = await _client.get(uri);
+      
+      debugPrint('[Teacher Attendance GET] Response Status: ${response.statusCode}');
+      debugPrint('[Teacher Attendance GET] Response Body: ${response.body}');
+      
+      if (response.statusCode != 200) {
+        return TeacherError(_errorMessage(response) ?? 'Could not load attendance.', response.statusCode);
+      }
+      
+      final raw = _parseJson(response.body);
+      List<dynamic> list;
+      if (raw is Map<String, dynamic>) {
+        if (raw['attendance'] is List) {
+          list = raw['attendance'] as List<dynamic>;
+        } else {
+          return TeacherError('Invalid response format: missing attendance array.');
+        }
+      } else if (raw is List) {
+        list = raw;
+      } else {
+        return TeacherError('Invalid response format.');
+      }
+      
+      final records = <TeacherAttendanceModel>[];
+      for (final e in list) {
+        if (e is Map<String, dynamic>) {
+          try { 
+            records.add(TeacherAttendanceModel.fromJson(e)); 
+          } catch (err) {
+            debugPrint('[Teacher Attendance GET] Error parsing record: $err');
+          }
+        }
+      }
+      
+      return TeacherSuccess(records);
+    } catch (e, st) {
+      debugPrint('[Teacher Attendance GET] Exception: $e');
+      debugPrint('[Teacher Attendance GET] Stack Trace: $st');
+      return TeacherError(userFriendlyMessage(e, st, 'TeacherService.listAttendance'));
+    }
+  }
+
+  /// PATCH /api/teacher/attendance  Body: { class_id, date, records: [{ student_id, status }] }
+  Future<TeacherResult<Map<String, dynamic>>> updateAttendance({
+    required int classId,
+    required String date,
+    required List<TeacherAttendanceRecord> records,
+  }) async {
+    try {
+      final body = {
+        'class_id': classId,
+        'date': date,
+        'records': records.map((r) => r.toJson()).toList(),
+      };
+      
+      debugPrint('[Teacher Attendance PATCH] URL: ${apiUrl('$_base/attendance')}');
+      debugPrint('[Teacher Attendance PATCH] Body: ${jsonEncode(body)}');
+      
       final response = await _client.patch(apiUrl('$_base/attendance'), body: body);
-      devLogResponse('TeacherService.updateAttendance', response.statusCode, response.body);
-      if (response.statusCode == 403) return TeacherError(_errorMessage(response) ?? 'Not allowed.', 403);
-      if (response.statusCode == 404) return TeacherError('Attendance record not found.', 404);
+      
+      debugPrint('[Teacher Attendance PATCH] Response Status: ${response.statusCode}');
+      debugPrint('[Teacher Attendance PATCH] Response Body: ${response.body}');
+      
+      if (response.statusCode == 400) {
+        return TeacherError(_errorMessage(response) ?? 'Invalid request body.', 400);
+      }
+      if (response.statusCode == 403) {
+        return TeacherError(_errorMessage(response) ?? 'Not allowed to update attendance for this class or invalid time window.', 403);
+      }
+      if (response.statusCode == 404) {
+        return TeacherError(_errorMessage(response) ?? 'Class not found.', 404);
+      }
       if (response.statusCode != 200) {
         return TeacherError(_errorMessage(response) ?? 'Could not update attendance.', response.statusCode);
       }
-      return TeacherSuccess(null);
+      
+      final responseData = _parseJson(response.body);
+      if (responseData is Map<String, dynamic>) {
+        return TeacherSuccess(responseData);
+      } else {
+        return TeacherError('Invalid response format.');
+      }
     } catch (e, st) {
+      debugPrint('[Teacher Attendance PATCH] Exception: $e');
+      debugPrint('[Teacher Attendance PATCH] Stack Trace: $st');
       return TeacherError(userFriendlyMessage(e, st, 'TeacherService.updateAttendance'));
     }
   }
