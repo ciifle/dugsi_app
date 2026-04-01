@@ -562,10 +562,10 @@ class _MarkCard extends StatelessWidget {
   final String teacherName;
   final String percentage;
   final VoidCallback? onTap;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
-  const _MarkCard({
+  _MarkCard({
     required this.mark,
     required this.studentName,
     required this.emis,
@@ -575,9 +575,13 @@ class _MarkCard extends StatelessWidget {
     required this.teacherName,
     required this.percentage,
     this.onTap,
-    required this.onEdit,
-    required this.onDelete,
-  });
+    this.onEdit,
+    this.onDelete,
+  }) {
+    print('[AdminMarks] _MarkCard received examName: $examName');
+    print('[AdminMarks] _MarkCard mark.examName: ${mark.examName}');
+    print('[AdminMarks] _MarkCard mark.exam object: ${mark.exam}');
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -1,12 +1,42 @@
 import 'dart:convert';
 import 'dart:io';
-
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
-
 import 'package:kobac/services/api_client.dart';
 import 'package:kobac/services/api_error_helpers.dart';
+
+// Conditional export for web vs mobile
+export '../utils/download_helper_stub.dart'
+    if (dart.library.html) '../utils/download_helper_web.dart';
+
+import '../utils/download_helper.dart';
+
+// Import TimeoutException from dart:async
+import 'dart:async';
+
+final _client = ApiClient();
+const _base = 'api/school-admin/marks';
+
+dynamic _parseJson(String body) {
+  try {
+    return body.isNotEmpty ? jsonDecode(body) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+String? _errorMessage(http.Response response) {
+  if (response.body.isEmpty) return null;
+  try {
+    final m = jsonDecode(response.body);
+    if (m is Map && m['message'] != null) return m['message'] as String;
+    if (m is Map && m['error'] != null) return m['error'] as String;
+  } catch (_) {}
+  return null;
+}
 
 /// Marks entry model (school-admin scope).
 /// Now includes nested objects: exam, subject, teacher, class, student.
@@ -126,7 +156,7 @@ class MarkModel {
   }
   
   String? get examName {
-    final name = exam?['examName'] ?? exam?['name'];
+    final name = exam?['name'] ?? exam?['examName'];
     debugPrint('[MarkModel] examName: $name (exam object: $exam)');
     return name;
   }
@@ -161,37 +191,6 @@ class MarkError extends MarkResult<Never> {
   final String message;
   final int? statusCode;
   MarkError(this.message, [this.statusCode]);
-}
-
-final _client = ApiClient();
-const _base = 'api/school-admin/marks';
-
-dynamic _parseJson(String body) {
-  try {
-    return body.isNotEmpty ? jsonDecode(body) : null;
-  } catch (_) {
-    return null;
-  }
-}
-
-String? _errorMessage(http.Response response) {
-  if (response.body.isEmpty) return null;
-  try {
-    final m = jsonDecode(response.body);
-    if (m is Map && m['message'] != null) return m['message'] as String;
-    if (m is Map && m['error'] != null) return m['error'] as String;
-  } catch (_) {}
-  return null;
-}
-
-Uri _listUrl({int? examId, int? studentId, int? classId, int? subjectId}) {
-  final params = <String, String>{};
-  if (examId != null && examId > 0) params['exam_id'] = examId.toString();
-  if (studentId != null && studentId > 0) params['student_id'] = studentId.toString();
-  if (classId != null && classId > 0) params['class_id'] = classId.toString();
-  if (subjectId != null && subjectId > 0) params['subject_id'] = subjectId.toString();
-  final uri = apiUrl(_base);
-  return params.isEmpty ? uri : uri.replace(queryParameters: params);
 }
 
 class MarksService {
@@ -239,6 +238,16 @@ class MarksService {
     } catch (e, st) {
       return MarkError(userFriendlyMessage(e, st, 'MarksService.listMarks'));
     }
+  }
+
+  Uri _listUrl({int? examId, int? studentId, int? classId, int? subjectId}) {
+    final params = <String, String>{};// Add the following line of code after this line
+    if (examId != null && examId > 0) params['exam_id'] = examId.toString();
+    if (studentId != null && studentId > 0) params['student_id'] = studentId.toString();
+    if (classId != null && classId > 0) params['class_id'] = classId.toString();
+    if (subjectId != null && subjectId > 0) params['subject_id'] = subjectId.toString();
+    final uri = apiUrl(_base);
+    return params.isEmpty ? uri : uri.replace(queryParameters: params);
   }
 
   /// GET /api/school-admin/marks/{id}
@@ -428,22 +437,26 @@ class MarksService {
       // Fallback to generated filename if header parsing fails
       if (filename == null || filename.isEmpty) {
         filename = 'class_${classId}_exam_${examId}_results.xlsx';
-        print('DEBUG: Using fallback filename: $filename');
       }
-      
-      // Open file picker to let user choose save location
-      String? savedPath;
-      try {
+
+      // Handle download differently for web vs mobile
+      if (kIsWeb) {
+        // Web download using extracted filename
+        print('DEBUG: Web download triggered for filename: $filename');
+        downloadFile(bytes, filename);
+        return MarkSuccess('Web download initiated: $filename');
+      } else {
+        // Mobile download using FilePicker with extracted filename
         print('DEBUG: Opening file picker for save dialog');
         
         final result = await FilePicker.platform.saveFile(
           fileName: filename,
-          bytes: bytes,
+          bytes: Uint8List.fromList(bytes),
           type: FileType.custom,
         );
 
         if (result != null && result.isNotEmpty) {
-          savedPath = result;
+          final savedPath = result;
           print('DEBUG: User selected save path: $savedPath');
           
           // Verify file was saved
@@ -468,10 +481,6 @@ class MarksService {
           // User cancelled - return success but no file path
           return MarkError('USER_CANCELLED');
         }
-      } catch (e, st) {
-        print('DEBUG: Exception in file picker: $e');
-        print('DEBUG: Stack trace: $st');
-        return MarkError('Could not save the Excel file. Please try again.');
       }
 
     } catch (e, st) {

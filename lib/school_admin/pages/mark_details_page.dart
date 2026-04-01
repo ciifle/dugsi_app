@@ -33,6 +33,7 @@ class _MarkDetailsPageState extends State<MarkDetailsPage> {
   @override
   void initState() {
     super.initState();
+    print('[AdminMarksDetail] received mark id: ${widget.markId}');
     _markFuture = MarksService().getMark(widget.markId);
     _loadRefData();
   }
@@ -128,6 +129,8 @@ class _MarkDetailsPageState extends State<MarkDetailsPage> {
                       );
                     }
                     final mark = (result as MarkSuccess<MarkModel>).data;
+                    print('[AdminMarksDetail] received examName: ${mark.examName}');
+                    print('[AdminMarksDetail] received exam object: ${mark.exam}');
                     final pct = mark.maxMarks > 0
                         ? (mark.marksObtained / mark.maxMarks * 100).toStringAsFixed(1)
                         : '—';

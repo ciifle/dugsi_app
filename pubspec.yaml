@@ -111,6 +111,10 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
+  web:
+    generate: true
+    image_path: assets/dugsi_app_icon.png
+    favicon_path: assets/dugsi_app_icon.png
   image_path: assets/dugsi_app_icon.png
   adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: assets/dugsi_app_icon.png
