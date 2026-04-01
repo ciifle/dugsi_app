@@ -67,6 +67,10 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
   }
 
   void _loadMarks() {
+    print('[Marks Filter] Selected exam: $_filterExamId');
+    print('[Marks Filter] Selected class: $_filterClassId');
+    print('[Marks Filter] Selected student: $_filterStudentId');
+    print('[Marks Filter] Selected subject: $_filterSubjectId');
     setState(() {
       _marksFuture = MarksService().listMarks(
         examId: _filterExamId,
@@ -466,11 +470,37 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                         );
                       }
                       final marks = (result as MarkSuccess<List<MarkModel>>).data;
-                      marks.sort((a, b) {
+                      print('[Marks Filter] Total marks before filtering: ${marks.length}');
+                      
+                      // Apply local filtering to ensure subject filter works
+                      List<MarkModel> filteredMarks = marks.where((mark) {
+                        // Filter by subject if selected
+                        final subjectId = _filterSubjectId;
+                        if (subjectId != null && subjectId > 0) {
+                          // Prefer filtering by subject_id
+                          if (mark.subjectId != null) {
+                            return mark.subjectId == subjectId;
+                          }
+                          // Fallback to subject name comparison if subject_id is null
+                          final selectedSubject = _effectiveSubjects.firstWhere(
+                            (s) => s.id == subjectId,
+                            orElse: () => SubjectModel(id: subjectId, name: ''),
+                          );
+                          return mark.subjectName == selectedSubject.name;
+                        }
+                        return true; // No subject filter applied
+                      }).toList();
+                      
+                      print('[Marks Filter] Total marks after filtering: ${filteredMarks.length}');
+                      for (final mark in filteredMarks) {
+                        print('[Marks Filter] Subject of displayed mark: ${mark.subjectName} (ID: ${mark.subjectId})');
+                      }
+                      
+                      filteredMarks.sort((a, b) {
                         if (a.createdAt != null && b.createdAt != null) return b.createdAt!.compareTo(a.createdAt!);
                         return b.id.compareTo(a.id);
                       });
-                      if (marks.isEmpty) {
+                      if (filteredMarks.isEmpty) {
                         return ListView(
                           physics: const AlwaysScrollableScrollPhysics(),
                           children: [
@@ -492,9 +522,9 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                       return ListView.builder(
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                        itemCount: marks.length,
+                        itemCount: filteredMarks.length,
                         itemBuilder: (context, index) {
-                          final mark = marks[index];
+                          final mark = filteredMarks[index];
                           final pct = mark.maxMarks > 0 ? (mark.marksObtained / mark.maxMarks * 100).toStringAsFixed(1) : '—';
                           return _MarkCard(
                             mark: mark,
