@@ -80,11 +80,17 @@ class _MessagesInboxScreenState extends State<MessagesInboxScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final q = _search.text.trim().toLowerCase();
+    print('[Messages Search] query: $q');
+    print('[Messages Search] page: MessagesInboxScreen');
+    
     final filtered = _threads.where((t) {
-      final q = _search.text.trim().toLowerCase();
       if (q.isEmpty) return true;
       return t.name.toLowerCase().contains(q) || t.message.toLowerCase().contains(q);
     }).toList();
+    
+    print('[Messages Search] total threads before filter: ${_threads.length}');
+    print('[Messages Search] total threads after filter: ${filtered.length}');
 
     final unreadCount = _threads.fold<int>(0, (sum, t) => sum + (t.unread));
 

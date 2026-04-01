@@ -163,9 +163,15 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                     ),
                     child: CircleAvatar(
                       radius: 40,
-                      backgroundColor: kPrimaryBlue.withOpacity(0.08),
-                      backgroundImage: const AssetImage('assets/images/profile.jpg'),
-                      child: const Icon(Icons.person, size: 40, color: kPrimaryBlue),
+                      backgroundColor: const Color(0xFF5B9BD5).withOpacity(0.2),
+                      child: Text(
+                        'A',
+                        style: const TextStyle(
+                          color: Color(0xFF023471),
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
                   Positioned(

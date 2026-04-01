@@ -24,13 +24,42 @@ class MessagesScreen extends StatefulWidget {
 
 class _MessagesScreenState extends State<MessagesScreen> {
   List<ConversationModel> _conversations = [];
+  List<ConversationModel> _filteredConversations = [];
   bool _loading = true;
   String? _error;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _load();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    final query = _searchController.text.trim().toLowerCase();
+    print('[Messages Search] query: $query');
+    print('[Messages Search] page: MessagesScreen');
+    
+    setState(() {
+      if (query.isEmpty) {
+        _filteredConversations = _conversations;
+      } else {
+        _filteredConversations = _conversations.where((conversation) {
+          return conversation.name.toLowerCase().contains(query) ||
+                 conversation.lastMessage.toLowerCase().contains(query);
+        }).toList();
+      }
+      print('[Messages Search] total conversations before filter: ${_conversations.length}');
+      print('[Messages Search] total conversations after filter: ${_filteredConversations.length}');
+    });
   }
 
   Future<void> _load() async {
@@ -44,9 +73,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
       _loading = false;
       if (result is MessageSuccess<List<ConversationModel>>) {
         _conversations = result.data;
+        _filteredConversations = result.data; // Initialize filtered list
         _error = null;
       } else {
         _conversations = [];
+        _filteredConversations = []; // Initialize filtered list
         _error = (result as MessageError).message;
       }
     });
@@ -89,6 +120,25 @@ class _MessagesScreenState extends State<MessagesScreen> {
                         ),
                       ),
                       const SizedBox(height: 4),
+                      // Search Bar
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _kPrimaryBlue.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            hintText: 'Search conversations...',
+                            prefixIcon: const Icon(Icons.search, color: _kPrimaryBlue),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          ),
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                         decoration: BoxDecoration(
@@ -96,7 +146,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          _conversations.isEmpty && !_loading ? "No conversations" : "${_conversations.length} Active Chats",
+                          _conversations.isEmpty && !_loading ? "No conversations" : "${_filteredConversations.length} Active Chats",
                           style: const TextStyle(
                             fontSize: 12, 
                             color: _kPrimaryBlue, 
@@ -153,7 +203,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                       ),
                     ),
                   )
-                else if (_conversations.isEmpty)
+                else if (_filteredConversations.isEmpty)
                   Expanded(
                     child: Center(
                       child: Column(
@@ -204,9 +254,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
                       child: ListView.builder(
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
                         physics: const BouncingScrollPhysics(),
-                        itemCount: _conversations.length,
+                        itemCount: _filteredConversations.length,
                         itemBuilder: (context, i) {
-                          final c = _conversations[i];
+                          final c = _filteredConversations[i];
                           final hasUnread = c.unreadCount > 0;
                           
                           return Padding(
