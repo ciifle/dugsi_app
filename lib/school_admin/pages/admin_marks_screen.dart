@@ -664,7 +664,7 @@ class _AddMarksDialogState extends State<_AddMarksDialog> {
   int? _subjectId;
   int? _teacherId;
   final _marksObtained = TextEditingController(text: '0');
-  final _maxMarks = TextEditingController(text: '100');
+  final _maxMarks = TextEditingController();
   bool _submitting = false;
   List<ClassSubjectItem> _classSubjects = [];
   bool _loadingClassSubjects = false;
