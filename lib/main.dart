@@ -22,7 +22,7 @@ class AppRoot extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => AuthProvider(),
       child: MaterialApp(
-        title: 'kobac',
+        title: 'Dugsi',
         debugShowCheckedModeBanner: false,
         navigatorKey: authNavigatorKey,
         theme: ThemeData(
