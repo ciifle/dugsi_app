@@ -13,7 +13,6 @@ const Color kTextSecondary = Color(0xFF636E72);
 const Color kErrorColor = Color(0xFFEF4444);
 const Color kSoftOrange = Color(0xFFF59E0B);
 const Color kCardColor = Colors.white;
-const Color kBgColor = kSoftBlue;
 const double kTopPadding = 40.0;
 
 class TeacherMarksScreen extends StatefulWidget {
@@ -89,13 +88,13 @@ class _TeacherMarksScreenState extends State<TeacherMarksScreen> {
         }
       }
       
-      if (examsResult is TeacherSuccess<List<TeacherExamModel>>) {
+      if (examsResult is TeacherSuccess<List<ExamModel>>) {
         _exams = examsResult.data.map((e) => (id: e.id, name: e.name)).toList();
         debugPrint('[Teacher Marks] Loaded ${_exams.length} exams');
       }
       
       _error = (dashboardResult is TeacherError) ? dashboardResult.message : null;
-      _error = examsResult is TeacherError ? examsResult.message : _error;
+      _error = (_error ?? (examsResult is TeacherError)) ? examsResult.message : _error;
     });
     
     // Load marks after setting initial filters
@@ -189,11 +188,8 @@ class _TeacherMarksScreenState extends State<TeacherMarksScreen> {
         backgroundColor: kPrimaryBlue,
         foregroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
       ),
+      drawer: const TeacherDrawer(),
       body: SafeArea(
         child: Column(
           children: [
@@ -398,10 +394,9 @@ class _MarkCard extends StatelessWidget {
   final VoidCallback onUpdated;
 
   const _MarkCard({
-    Key? key,
     required this.mark,
     required this.onUpdated,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -461,7 +456,7 @@ class _MarkCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        mark.studentName ?? 'Unknown Student',
+                        mark.studentName,
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -482,25 +477,13 @@ class _MarkCard extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '${mark.marksObtained}/${mark.maxMarks}',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: kPrimaryBlue,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                          onPressed: () => _showDeleteConfirmation(mark.id, context),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                        ),
-                      ],
+                    Text(
+                      '${mark.marksObtained}/${mark.maxMarks}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: kPrimaryBlue,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -518,66 +501,6 @@ class _MarkCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  void _showDeleteConfirmation(int markId, BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Delete mark"),
-        content: const Text("Are you sure you want to delete this mark?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteMark(markId, context);
-            },
-            child: const Text("Delete", style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _deleteMark(int markId, BuildContext context) async {
-    try {
-      final result = await TeacherService().deleteMark(markId);
-      
-      if (result is TeacherSuccess) {
-        // Mark deleted successfully, callback will handle UI update
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Mark deleted successfully'),
-              backgroundColor: kPrimaryGreen,
-            ),
-          );
-          onUpdated();
-        }
-      } else {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text((result as TeacherError).message),
-              backgroundColor: kErrorColor,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to delete mark'),
-            backgroundColor: kErrorColor,
-          ),
-        );
-      }
-    }
   }
 }
 
@@ -643,7 +566,7 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
           debugPrint('[AddMarkDialog] Loaded ${_students.length} students');
         }
         
-        if (examsResult is TeacherSuccess<List<TeacherExamModel>>) {
+        if (examsResult is TeacherSuccess<List<ExamModel>>) {
           _exams = examsResult.data.map((e) => (id: e.id, name: e.name)).toList();
           debugPrint('[AddMarkDialog] Loaded ${_exams.length} exams');
         }
@@ -703,7 +626,7 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
           } else if (marksObtained != null) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Invalid marks for ${student.name ?? 'student'}. Must be between 0 and $maxMarks'),
+                content: Text('Invalid marks for ${student.name}. Must be between 0 and $maxMarks'),
                 backgroundColor: kErrorColor,
               ),
             );
@@ -778,12 +701,10 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
     )).toList();
 
     return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Container(
-        width: MediaQuery.of(context).size.width * 0.95,
+        width: MediaQuery.of(context).size.width * 0.9,
         constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.8),
-        color: Colors.white,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -839,7 +760,6 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
                             value: _subjectId,
                             decoration: InputDecoration(
                               labelText: 'Subject',
-                              hintText: 'Select subject',
                               filled: true,
                               fillColor: kSoftBlue.withOpacity(0.3),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -863,7 +783,6 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
                             value: _examId,
                             decoration: InputDecoration(
                               labelText: 'Exam',
-                              hintText: 'Select exam',
                               filled: true,
                               fillColor: kSoftBlue.withOpacity(0.3),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -887,7 +806,6 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
                             controller: _maxMarks,
                             decoration: InputDecoration(
                               labelText: 'Max Marks',
-                              hintText: 'Enter max marks',
                               filled: true,
                               fillColor: kSoftBlue.withOpacity(0.3),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -921,7 +839,7 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            student.name ?? 'Unknown student',
+                                            student.name,
                                             style: const TextStyle(
                                               fontSize: 14,
                                               fontWeight: FontWeight.w500,
@@ -1080,10 +998,9 @@ class _EditMarkDialogState extends State<_EditMarkDialog> {
         );
         widget.onUpdated();
       } else {
-        String message = (result as TeacherError).message;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(message),
+            content: Text((result as TeacherError).message),
             backgroundColor: kErrorColor,
           ),
         );
@@ -1092,7 +1009,7 @@ class _EditMarkDialogState extends State<_EditMarkDialog> {
       if (mounted) setState(() => _submitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('An error occurred while saving marks'),
+          content: Text('An error occurred while updating mark'),
           backgroundColor: kErrorColor,
         ),
       );

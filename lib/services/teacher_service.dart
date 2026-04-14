@@ -836,6 +836,44 @@ class TeacherService {
     }
   }
 
+  /// POST /api/teacher/marks (bulk)
+  Future<TeacherResult<List<TeacherMarkModel>>> createBulkMarks({
+    required int examId,
+    required int classId,
+    required int subjectId,
+    required int maxMarks,
+    required List<Map<String, dynamic>> records,
+  }) async {
+    try {
+      final body = {
+        'exam_id': examId,
+        'class_id': classId,
+        'subject_id': subjectId,
+        'max_marks': maxMarks,
+        'records': records,
+      };
+      final response = await _client.post(apiUrl('$_base/marks'), body: body);
+      devLogResponse('TeacherService.createBulkMarks', response.statusCode, response.body);
+      if (response.statusCode == 403) {
+        return TeacherError(_errorMessage(response) ?? 'Not allowed for this class/subject.', 403);
+      }
+      if (response.statusCode == 409) {
+        return TeacherError(_errorMessage(response) ?? 'Marks already exist for one or more students.', 409);
+      }
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        return TeacherError(_errorMessage(response) ?? 'Could not create marks.', response.statusCode);
+      }
+      final raw = _parseJson(response.body);
+      if (raw is! Map) return TeacherError('Invalid response.');
+      final marksData = raw['marks'] ?? raw['data'] ?? [];
+      if (marksData is! List) return TeacherError('Invalid response format.');
+      final items = marksData.whereType<Map<String, dynamic>>().map(TeacherMarkModel.fromJson).toList();
+      return TeacherSuccess(items);
+    } catch (e, st) {
+      return TeacherError(userFriendlyMessage(e, st, 'TeacherService.createBulkMarks'));
+    }
+  }
+
   /// PATCH /api/teacher/marks/{id}
   Future<TeacherResult<void>> updateMark(int id, {required num marksObtained, required num maxMarks}) async {
     try {
