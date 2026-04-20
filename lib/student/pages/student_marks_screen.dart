@@ -190,75 +190,162 @@ class _StudentMarksScreenState extends State<StudentMarksScreen> {
                           ),
                         );
                       }
-                      return ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                        itemCount: list.length,
-                        itemBuilder: (context, index) {
-                          final m = list[index];
-                          final examName = m.exam['name']?.toString() ?? '—';
-                          final subjectName = m.subject['name']?.toString() ?? '—';
-                          final teacherName = m.teacher?['fullName']?.toString() ?? m.teacher?['name']?.toString() ?? '—';
-                          final className = m.class_?['name']?.toString() ?? '—';
-                          
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            padding: const EdgeInsets.all(18),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(24),
-                              boxShadow: [
-                                BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 14, offset: const Offset(0, 6)),
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(10),
-                                      decoration: BoxDecoration(
-                                        color: kPrimaryBlue.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(14),
+
+                      // Calculate totals for released marks
+                      num totalObtained = 0;
+                      num totalMax = 0;
+                      for (final m in list) {
+                        totalObtained += m.marksObtained;
+                        totalMax += m.maxMarks;
+                      }
+                      final percentage = totalMax > 0 ? (totalObtained / totalMax) * 100 : 0.0;
+
+                      return Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                            child: Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [kPrimaryBlue, Color(0xFF01255C)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: kPrimaryBlue.withOpacity(0.3),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                children: [
+                                  const Text(
+                                    'Total So Far',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                                    textBaseline: TextBaseline.alphabetic,
+                                    children: [
+                                      Text(
+                                        totalObtained.toStringAsFixed(totalObtained.truncateToDouble() == totalObtained ? 0 : 1),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 32,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
-                                      child: const Icon(Icons.grade_rounded, color: kPrimaryBlue, size: 24),
-                                    ),
-                                    const SizedBox(width: 14),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(subjectName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
-                                          Text('$examName ${className != '—' ? '· $className' : ''}', style: TextStyle(fontSize: 13, color: kTextSecondary)),
-                                        ],
+                                      Text(
+                                        ' / ${totalMax.toStringAsFixed(totalMax.truncateToDouble() == totalMax ? 0 : 1)}',
+                                        style: const TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                       ),
-                                    ),
-                                    Text(
-                                      '${m.marksObtained}/${m.maxMarks}',
-                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimaryGreen),
-                                    ),
-                                    if (m.percentage != null) ...[
-                                      const SizedBox(width: 8),
-                                      Text('${m.percentage!.toStringAsFixed(0)}%', style: TextStyle(fontSize: 14, color: kTextSecondary)),
                                     ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(30),
+                                    ),
+                                    child: Text(
+                                      '${percentage.toStringAsFixed(1)}%',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                            itemCount: list.length,
+                            itemBuilder: (context, index) {
+                              final m = list[index];
+                              final examName = m.exam['name']?.toString() ?? '—';
+                              final subjectName = m.subject['name']?.toString() ?? '—';
+                              final teacherName = m.teacher?['fullName']?.toString() ?? m.teacher?['name']?.toString() ?? '—';
+                              final className = m.class_?['name']?.toString() ?? '—';
+                              
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.all(18),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(24),
+                                  boxShadow: [
+                                    BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 14, offset: const Offset(0, 6)),
                                   ],
                                 ),
-                                if (m.grade != null && m.grade!.isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 8),
-                                    child: Text('Grade: ${m.grade}', style: TextStyle(fontSize: 13, color: kTextSecondary)),
-                                  ),
-                                if (teacherName != '—')
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 4),
-                                    child: Text('Teacher: $teacherName', style: TextStyle(fontSize: 12, color: kTextSecondary)),
-                                  ),
-                              ],
-                            ),
-                          );
-                        },
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(10),
+                                          decoration: BoxDecoration(
+                                            color: kPrimaryBlue.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(14),
+                                          ),
+                                          child: const Icon(Icons.grade_rounded, color: kPrimaryBlue, size: 24),
+                                        ),
+                                        const SizedBox(width: 14),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(subjectName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
+                                              Text('$examName ${className != '—' ? '· $className' : ''}', style: TextStyle(fontSize: 13, color: kTextSecondary)),
+                                            ],
+                                          ),
+                                        ),
+                                        Text(
+                                          '${m.marksObtained}/${m.maxMarks}',
+                                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimaryGreen),
+                                        ),
+                                        if (m.percentage != null) ...[
+                                          const SizedBox(width: 8),
+                                          Text('${m.percentage!.toStringAsFixed(0)}%', style: TextStyle(fontSize: 14, color: kTextSecondary)),
+                                        ],
+                                      ],
+                                    ),
+                                    if (m.grade != null && m.grade!.isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 8),
+                                        child: Text('Grade: ${m.grade}', style: TextStyle(fontSize: 13, color: kTextSecondary)),
+                                      ),
+                                    if (teacherName != '—')
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 4),
+                                        child: Text('Teacher: $teacherName', style: TextStyle(fontSize: 12, color: kTextSecondary)),
+                                      ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ],
                       );
                     },
                   ),

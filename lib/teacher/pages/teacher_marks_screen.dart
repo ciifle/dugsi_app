@@ -117,18 +117,39 @@ class _TeacherMarksScreenState extends State<TeacherMarksScreen> {
   void _showAddMark() async {
     if (_filterClassId == null) return;
     
-    await showDialog(
+    final choice = await showDialog<String>(
       context: context,
-      builder: (ctx) => _AddMarkDialog(
-        classId: _filterClassId!,
-        className: _getClassName(_filterClassId),
-        dashboard: _dashboard,
-        onSaved: () {
-          _loadMarks();
-        },
-        assignments: _assignments,
-      ),
+      builder: (ctx) => _MarkChoiceDialog(),
     );
+
+    if (choice == 'bulk') {
+      if (!mounted) return;
+      await showDialog(
+        context: context,
+        builder: (ctx) => _AddMarkDialog(
+          classId: _filterClassId!,
+          className: _getClassName(_filterClassId),
+          dashboard: _dashboard,
+          onSaved: () {
+            _loadMarks();
+          },
+          assignments: _assignments,
+        ),
+      );
+    } else if (choice == 'single') {
+      if (!mounted) return;
+      await showDialog(
+        context: context,
+        builder: (ctx) => _AddSingleMarkDialog(
+          initialClassId: _filterClassId,
+          dashboard: _dashboard,
+          onSaved: () {
+            _loadMarks();
+          },
+          assignments: _assignments,
+        ),
+      );
+    }
   }
 
   Future<void> _loadAllMarks() async {
@@ -388,6 +409,446 @@ class _TeacherMarksScreenState extends State<TeacherMarksScreen> {
         backgroundColor: kPrimaryGreen,
         icon: const Icon(Icons.add_rounded),
         label: const Text('Add marks'),
+      ),
+    );
+  }
+}
+
+class _MarkChoiceDialog extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      backgroundColor: Colors.white,
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Add Marks',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: kPrimaryBlue,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            _ChoiceCard(
+              title: 'One Student',
+              icon: Icons.person_add_rounded,
+              onTap: () => Navigator.pop(context, 'single'),
+            ),
+            const SizedBox(height: 16),
+            _ChoiceCard(
+              title: 'Whole Class',
+              icon: Icons.groups_rounded,
+              onTap: () => Navigator.pop(context, 'bulk'),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel', style: TextStyle(color: kTextSecondary)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ChoiceCard extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _ChoiceCard({
+    required this.title,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: kPrimaryBlue.withOpacity(0.1)),
+          boxShadow: [
+            BoxShadow(
+              color: kPrimaryBlue.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: kPrimaryBlue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: kPrimaryBlue, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: kPrimaryBlue,
+              ),
+            ),
+            const Spacer(),
+            const Icon(Icons.arrow_forward_ios_rounded, color: kTextSecondary, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AddSingleMarkDialog extends StatefulWidget {
+  final int? initialClassId;
+  final TeacherDashboardModel? dashboard;
+  final VoidCallback onSaved;
+  final List<TeacherAssignmentModel> assignments;
+
+  const _AddSingleMarkDialog({
+    this.initialClassId,
+    required this.dashboard,
+    required this.onSaved,
+    required this.assignments,
+  });
+
+  @override
+  State<_AddSingleMarkDialog> createState() => _AddSingleMarkDialogState();
+}
+
+class _AddSingleMarkDialogState extends State<_AddSingleMarkDialog> {
+  int? _classId;
+  int? _subjectId;
+  int? _examId;
+  int? _studentId;
+  final TextEditingController _marksObtained = TextEditingController();
+  final TextEditingController _maxMarks = TextEditingController();
+  bool _submitting = false;
+  bool _loadingStudents = false;
+  List<TeacherStudentModel> _students = [];
+  List<({int id, String name})> _exams = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _classId = widget.initialClassId;
+    _loadExams();
+    if (_classId != null) {
+      _loadStudents(_classId!);
+    }
+  }
+
+  Future<void> _loadExams() async {
+    final result = await TeacherService().listExams();
+    if (result is TeacherSuccess<List<TeacherExamModel>>) {
+      setState(() {
+        _exams = result.data.map((e) => (id: e.id, name: e.name)).toList();
+      });
+    }
+  }
+
+  Future<void> _loadStudents(int classId) async {
+    setState(() => _loadingStudents = true);
+    final result = await TeacherService().listStudentsByClass(classId);
+    if (mounted) {
+      setState(() {
+        _loadingStudents = false;
+        if (result is TeacherSuccess<List<TeacherStudentModel>>) {
+          _students = result.data;
+        }
+      });
+    }
+  }
+
+  Future<void> _submit() async {
+    if (_classId == null || _subjectId == null || _examId == null || _studentId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select all fields')),
+      );
+      return;
+    }
+
+    final obtainedText = _marksObtained.text.trim();
+    final maxText = _maxMarks.text.trim();
+
+    if (obtainedText.isEmpty || maxText.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter marks')),
+      );
+      return;
+    }
+
+    final obtained = double.tryParse(obtainedText);
+    final max = double.tryParse(maxText);
+
+    if (obtained == null || max == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter valid numeric marks')),
+      );
+      return;
+    }
+
+    if (obtained > max) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Marks obtained cannot exceed max marks')),
+      );
+      return;
+    }
+
+    setState(() => _submitting = true);
+    final result = await TeacherService().createMarkForSingleStudent(
+      examId: _examId!,
+      classId: _classId!,
+      studentId: _studentId!,
+      subjectId: _subjectId!,
+      marksObtained: obtained,
+      maxMarks: max,
+    );
+
+    if (mounted) {
+      setState(() => _submitting = false);
+      if (result is TeacherSuccess) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Mark submitted successfully and is pending admin release'),
+            backgroundColor: kPrimaryGreen,
+          ),
+        );
+        widget.onSaved();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text((result as TeacherError).message),
+            backgroundColor: kErrorColor,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final classList = widget.dashboard?.assignedClasses ?? [];
+    final subjects = widget.assignments
+        .where((a) => a.classId == _classId)
+        .map((a) => (id: a.subjectId, name: a.subjectName))
+        .toSet()
+        .toList();
+
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      backgroundColor: Colors.white,
+      child: Container(
+        width: MediaQuery.of(context).size.width * 0.95,
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.9),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [kPrimaryBlue, kDarkBlue],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Add Mark for Student',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Individual entry',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    DropdownButtonFormField<int>(
+                      value: _classId,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: 'Class',
+                        hintText: 'Select class',
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                      items: classList.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name, overflow: TextOverflow.ellipsis))).toList(),
+                      onChanged: (v) {
+                        setState(() {
+                          _classId = v;
+                          _studentId = null;
+                          _subjectId = null;
+                        });
+                        if (v != null) _loadStudents(v);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<int>(
+                      value: _subjectId,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: 'Subject',
+                        hintText: 'Select subject',
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                      items: subjects.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name, overflow: TextOverflow.ellipsis))).toList(),
+                      onChanged: (v) => setState(() => _subjectId = v),
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<int>(
+                      value: _examId,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: 'Exam',
+                        hintText: 'Select exam',
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                      items: _exams.map((e) => DropdownMenuItem(value: e.id, child: Text(e.name, overflow: TextOverflow.ellipsis))).toList(),
+                      onChanged: (v) => setState(() => _examId = v),
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<int>(
+                      value: _studentId,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: 'Student',
+                        hintText: _loadingStudents ? 'Loading students...' : 'Select student',
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                      items: _students.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name ?? 'Student ${s.id}', overflow: TextOverflow.ellipsis))).toList(),
+                      onChanged: (v) => setState(() => _studentId = v),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _maxMarks,
+                      decoration: InputDecoration(
+                        labelText: 'Max Marks',
+                        hintText: 'Enter max marks',
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _marksObtained,
+                      decoration: InputDecoration(
+                        labelText: 'Marks Obtained',
+                        hintText: 'Enter marks obtained',
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Actions
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(20),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: _submitting ? null : () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: _submitting ? null : _submit,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: kPrimaryGreen,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: _submitting
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Text('Submit'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -740,7 +1201,7 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Marks created successfully for ${records.length} students'),
+            content: Text('Marks submitted successfully and are pending admin release'),
             backgroundColor: kPrimaryGreen,
           ),
         );
@@ -780,10 +1241,14 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      backgroundColor: Colors.white,
       child: Container(
         width: MediaQuery.of(context).size.width * 0.95,
         constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.8),
-        color: Colors.white,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -837,18 +1302,19 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
                           // Subject dropdown
                           DropdownButtonFormField<int?>(
                             value: _subjectId,
+                            isExpanded: true,
                             decoration: InputDecoration(
                               labelText: 'Subject',
                               hintText: 'Select subject',
                               filled: true,
-                              fillColor: kSoftBlue.withOpacity(0.3),
+                              fillColor: Colors.grey.shade50,
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                             ),
                             items: subjectList
                                 .map((s) => DropdownMenuItem<int?>(
                                       value: s.id,
-                                      child: Text(s.name),
+                                      child: Text(s.name, overflow: TextOverflow.ellipsis),
                                     ))
                                 .toList(),
                             onChanged: (value) {
@@ -861,18 +1327,19 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
                           // Exam dropdown
                           DropdownButtonFormField<int?>(
                             value: _examId,
+                            isExpanded: true,
                             decoration: InputDecoration(
                               labelText: 'Exam',
                               hintText: 'Select exam',
                               filled: true,
-                              fillColor: kSoftBlue.withOpacity(0.3),
+                              fillColor: Colors.grey.shade50,
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                             ),
                             items: _exams
                                 .map((e) => DropdownMenuItem<int?>(
                                       value: e.id,
-                                      child: Text(e.name),
+                                      child: Text(e.name, overflow: TextOverflow.ellipsis),
                                     ))
                                 .toList(),
                             onChanged: (value) {
@@ -889,7 +1356,7 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
                               labelText: 'Max Marks',
                               hintText: 'Enter max marks',
                               filled: true,
-                              fillColor: kSoftBlue.withOpacity(0.3),
+                              fillColor: Colors.grey.shade50,
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                             ),
@@ -946,7 +1413,7 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
                                         decoration: InputDecoration(
                                           labelText: 'Marks',
                                           filled: true,
-                                          fillColor: kSoftBlue.withOpacity(0.3),
+                                          fillColor: Colors.grey.shade50,
                                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                         ),
@@ -1103,8 +1570,13 @@ class _EditMarkDialogState extends State<_EditMarkDialog> {
   Widget build(BuildContext context) {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      backgroundColor: Colors.white,
       child: Container(
         padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1123,7 +1595,7 @@ class _EditMarkDialogState extends State<_EditMarkDialog> {
               decoration: InputDecoration(
                 labelText: 'Marks Obtained',
                 filled: true,
-                fillColor: kSoftBlue.withOpacity(0.3),
+                fillColor: Colors.grey.shade50,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
@@ -1135,7 +1607,7 @@ class _EditMarkDialogState extends State<_EditMarkDialog> {
               decoration: InputDecoration(
                 labelText: 'Max Marks',
                 filled: true,
-                fillColor: kSoftBlue.withOpacity(0.3),
+                fillColor: Colors.grey.shade50,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
@@ -1147,7 +1619,7 @@ class _EditMarkDialogState extends State<_EditMarkDialog> {
               children: [
                 TextButton(
                   onPressed: _submitting ? null : () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
+                  child: const Text('Cancel', style: TextStyle(color: kTextSecondary)),
                 ),
                 const SizedBox(width: 12),
                 ElevatedButton(

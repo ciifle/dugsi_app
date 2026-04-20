@@ -50,6 +50,9 @@ class MarkModel {
   final int? teacherId;
   final String? grade;
   final String? createdAt;
+  final String? status;
+  final String? releasedAt;
+  final String? releasedBy;
   
   // Nested objects for better UI
   final Map<String, dynamic>? exam;
@@ -68,6 +71,9 @@ class MarkModel {
     this.teacherId,
     this.grade,
     this.createdAt,
+    this.status,
+    this.releasedAt,
+    this.releasedBy,
     this.exam,
     this.subject,
     this.teacher,
@@ -114,6 +120,8 @@ class MarkModel {
       return null;
     }
 
+    String? strOpt(dynamic v) => v == null ? null : v.toString().trim();
+
     // Support all common backend key variants; do not default to 0 when a value exists under another key.
     final obtainedRaw = m['marks_obtained'] ?? m['marksObtained'] ?? m['obtained'] ?? m['score'] ?? m['obtained_marks'];
     final maxRaw = m['max_marks'] ?? m['maxMarks'] ?? m['max'] ?? m['total_marks'] ?? m['totalMarks'] ?? m['out_of'];
@@ -138,6 +146,9 @@ class MarkModel {
       teacherId: m['teacher_id'] != null || m['teacherId'] != null ? parseId(m['teacher_id'] ?? m['teacherId']) : null,
       grade: m['grade'] != null ? m['grade'].toString() : null,
       createdAt: m['created_at'] != null ? m['created_at'].toString() : null,
+      status: strOpt(m['status']),
+      releasedAt: strOpt(m['released_at'] ?? m['releasedAt']),
+      releasedBy: strOpt(m['released_by'] ?? m['releasedBy']),
       
       // Nested objects
       exam: exam is Map<String, dynamic> ? exam : null,
@@ -380,6 +391,36 @@ class MarksService {
       return MarkSuccess(true);
     } catch (e, st) {
       return MarkError(userFriendlyMessage(e, st, 'MarksService.bulkUpdateTeacher'));
+    }
+  }
+
+  /// POST /api/admin/marks/release
+  Future<MarkResult<Map<String, dynamic>>> releaseMarks({
+    required int classId,
+    required int examId,
+    required int subjectId,
+  }) async {
+    try {
+      final body = {
+        'class_id': classId,
+        'exam_id': examId,
+        'subject_id': subjectId,
+      };
+      // Use $_base/release which resolves to api/school-admin/marks/release
+      final response = await _client.post(apiUrl('$_base/release'), body: body);
+      devLogResponse('MarksService.releaseMarks', response.statusCode, response.body);
+      
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        return MarkError(_errorMessage(response) ?? 'Could not release marks.', response.statusCode);
+      }
+      
+      final raw = _parseJson(response.body);
+      if (raw is Map<String, dynamic>) {
+        return MarkSuccess(raw);
+      }
+      return MarkSuccess({'message': 'Marks released successfully'});
+    } catch (e, st) {
+      return MarkError(userFriendlyMessage(e, st, 'MarksService.releaseMarks'));
     }
   }
 

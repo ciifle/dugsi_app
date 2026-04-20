@@ -284,6 +284,24 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
     }
   }
 
+  Future<void> _openReleaseMarksDialog() async {
+    if (!_refDataLoaded) return;
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => _ReleaseMarksDialog(
+        classes: _classes,
+        exams: _exams,
+        subjects: _subjects,
+        initialClassId: _filterClassId,
+        initialExamId: _filterExamId,
+        initialSubjectId: _filterSubjectId,
+      ),
+    );
+    if (result == true && mounted) {
+      _loadMarks();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -310,6 +328,8 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                       child: Text('Marks', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
                     ),
                     _UpdateTeacherButton(onPressed: _openUpdateTeacherDialog),
+                    const SizedBox(width: 8),
+                    _ReleaseButton(onPressed: _openReleaseMarksDialog),
                     const SizedBox(width: 8),
                     _ExportButton(onPressed: _openExportDialog),
                     const SizedBox(width: 8),
@@ -1009,6 +1029,26 @@ class _BackButton extends StatelessWidget {
   }
 }
 
+class _ReleaseButton extends StatelessWidget {
+  final VoidCallback onPressed;
+  const _ReleaseButton({required this.onPressed});
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.deepPurple.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [BoxShadow(color: Colors.deepPurple.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))],
+        ),
+        child: const Icon(Icons.publish_rounded, color: Colors.deepPurple, size: 24),
+      ),
+    );
+  }
+}
+
 class _AddButton extends StatelessWidget {
   final VoidCallback onPressed;
   const _AddButton({required this.onPressed});
@@ -1311,6 +1351,135 @@ class _ExportMarksDialogState extends State<_ExportMarksDialog> {
                   Expanded(child: TextButton(onPressed: _submitting ? null : () => Navigator.pop(context), child: const Text('Cancel'))),
                   const SizedBox(width: 12),
                   Expanded(flex: 2, child: PrimaryButton3D(label: 'Export Excel', onPressed: _submit, loading: _submitting, height: 48)),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReleaseMarksDialog extends StatefulWidget {
+  final List<ClassModel> classes;
+  final List<ExamModel> exams;
+  final List<SubjectModel> subjects;
+  final int? initialClassId;
+  final int? initialExamId;
+  final int? initialSubjectId;
+
+  const _ReleaseMarksDialog({
+    required this.classes,
+    required this.exams,
+    required this.subjects,
+    this.initialClassId,
+    this.initialExamId,
+    this.initialSubjectId,
+  });
+
+  @override
+  State<_ReleaseMarksDialog> createState() => _ReleaseMarksDialogState();
+}
+
+class _ReleaseMarksDialogState extends State<_ReleaseMarksDialog> {
+  int? _classId;
+  int? _examId;
+  int? _subjectId;
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _classId = widget.initialClassId;
+    _examId = widget.initialExamId;
+    _subjectId = widget.initialSubjectId;
+  }
+
+  Future<void> _submit() async {
+    if (_classId == null || _examId == null || _subjectId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select class, exam and subject'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    
+    setState(() => _submitting = true);
+    
+    final result = await MarksService().releaseMarks(
+      classId: _classId!,
+      examId: _examId!,
+      subjectId: _subjectId!,
+    );
+    
+    if (!mounted) return;
+    setState(() => _submitting = false);
+    
+    if (result is MarkSuccess<Map<String, dynamic>>) {
+      final message = result.data['message'] ?? 'Marks released successfully';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: kPrimaryGreen),
+      );
+      Navigator.pop(context, true);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text((result as MarkError).message), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+      child: FormCard(
+        padding: const EdgeInsets.all(24),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Release Marks',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+              ),
+              const SizedBox(height: 24),
+              Select3D<int?>(
+                value: _classId,
+                label: 'Class',
+                items: [
+                  const DropdownMenuItem<int?>(value: null, child: Text('Select class')),
+                  ...widget.classes.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name))),
+                ],
+                onChanged: (v) => setState(() => _classId = v),
+              ),
+              const SizedBox(height: 16),
+              Select3D<int?>(
+                value: _examId,
+                label: 'Exam',
+                items: [
+                  const DropdownMenuItem<int?>(value: null, child: Text('Select exam')),
+                  ...widget.exams.map((e) => DropdownMenuItem<int?>(value: e.id, child: Text(e.name))),
+                ],
+                onChanged: (v) => setState(() => _examId = v),
+              ),
+              const SizedBox(height: 16),
+              Select3D<int?>(
+                value: _subjectId,
+                label: 'Subject',
+                items: [
+                  const DropdownMenuItem<int?>(value: null, child: Text('Select subject')),
+                  ...widget.subjects.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text(s.name))),
+                ],
+                onChanged: (v) => setState(() => _subjectId = v),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(child: TextButton(onPressed: _submitting ? null : () => Navigator.pop(context), child: const Text('Cancel'))),
+                  const SizedBox(width: 12),
+                  Expanded(flex: 2, child: PrimaryButton3D(label: 'Release Marks', onPressed: _submit, loading: _submitting, height: 48)),
                 ],
               ),
             ],

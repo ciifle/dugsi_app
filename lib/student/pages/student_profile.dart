@@ -321,8 +321,6 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
                     const SizedBox(height: 16),
                   ],
                   const SizedBox(height: 24),
-                  _buildEditButton(),
-                  const SizedBox(height: 20),
                   _buildLogoutButton(context),
                   const SizedBox(height: 32),
                 ]),
@@ -331,46 +329,6 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
           ],
         ),
       ),
-      ),
-    );
-  }
-
-  Widget _buildEditButton() {
-    return Container(
-      width: double.infinity,
-      height: 54,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [kPrimaryBlue, kPrimaryGreen],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
-        borderRadius: BorderRadius.circular(27),
-        boxShadow: [
-          BoxShadow(
-            color: kPrimaryBlue.withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {},
-          borderRadius: BorderRadius.circular(27),
-          child: const Center(
-            child: Text(
-              "Edit Profile",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }

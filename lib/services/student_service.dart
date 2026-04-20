@@ -77,6 +77,9 @@ class StudentMarkModel {
   final num maxMarks;
   final num? percentage;
   final String? grade;
+  final String? status;
+  final String? releasedAt;
+  final String? releasedBy;
 
   StudentMarkModel({
     required this.id,
@@ -88,6 +91,9 @@ class StudentMarkModel {
     required this.maxMarks,
     this.percentage,
     this.grade,
+    this.status,
+    this.releasedAt,
+    this.releasedBy,
   });
 
   factory StudentMarkModel.fromJson(Map<String, dynamic> json) {
@@ -107,6 +113,9 @@ class StudentMarkModel {
       maxMarks: _parseNum(json['max_marks'] ?? json['maxMarks'] ?? 100),
       percentage: json['percentage'] != null ? _parseNum(json['percentage']) : null,
       grade: _strOpt(json['grade']),
+      status: _strOpt(json['status']),
+      releasedAt: _strOpt(json['released_at'] ?? json['releasedAt']),
+      releasedBy: _strOpt(json['released_by'] ?? json['releasedBy']),
     );
   }
 }

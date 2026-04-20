@@ -413,6 +413,9 @@ class TeacherMarkModel {
   final String? studentName;
   final String? examName;
   final String? subjectName;
+  final String? status;
+  final String? releasedAt;
+  final String? releasedBy;
 
   TeacherMarkModel({
     required this.id,
@@ -426,6 +429,9 @@ class TeacherMarkModel {
     this.studentName,
     this.examName,
     this.subjectName,
+    this.status,
+    this.releasedAt,
+    this.releasedBy,
   });
 
   factory TeacherMarkModel.fromJson(Map<String, dynamic> json) {
@@ -454,6 +460,9 @@ class TeacherMarkModel {
       studentName: _strOpt(json['studentName'] ?? json['student_name']) ?? nameFrom(student),
       examName: _strOpt(json['examName'] ?? json['exam_name']) ?? nameFrom(exam),
       subjectName: _strOpt(json['subjectName'] ?? json['subject_name']) ?? nameFrom(subject),
+      status: _strOpt(json['status']),
+      releasedAt: _strOpt(json['released_at'] ?? json['releasedAt']),
+      releasedBy: _strOpt(json['released_by'] ?? json['releasedBy']),
     );
   }
 }
@@ -833,6 +842,44 @@ class TeacherService {
       return TeacherSuccess(TeacherMarkModel.fromJson(map));
     } catch (e, st) {
       return TeacherError(userFriendlyMessage(e, st, 'TeacherService.createMark'));
+    }
+  }
+
+  /// POST /api/teacher/marks/student (single student)
+  Future<TeacherResult<TeacherMarkModel>> createMarkForSingleStudent({
+    required int examId,
+    required int classId,
+    required int studentId,
+    required int subjectId,
+    required num marksObtained,
+    required num maxMarks,
+  }) async {
+    try {
+      final body = {
+        'exam_id': examId,
+        'class_id': classId,
+        'student_id': studentId,
+        'subject_id': subjectId,
+        'marks_obtained': marksObtained,
+        'max_marks': maxMarks,
+      };
+      final response = await _client.post(apiUrl('$_base/marks/student'), body: body);
+      devLogResponse('TeacherService.createMarkForSingleStudent', response.statusCode, response.body);
+      if (response.statusCode == 403) {
+        return TeacherError(_errorMessage(response) ?? 'Not allowed for this student/subject.', 403);
+      }
+      if (response.statusCode == 409) {
+        return TeacherError(_errorMessage(response) ?? 'Marks already exist for this student/exam/subject.', 409);
+      }
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        return TeacherError(_errorMessage(response) ?? 'Could not save mark.', response.statusCode);
+      }
+      final raw = _parseJson(response.body);
+      final map = raw is Map ? (raw['mark'] ?? raw['data'] ?? raw) : null;
+      if (map is! Map<String, dynamic>) return TeacherError('Invalid response.');
+      return TeacherSuccess(TeacherMarkModel.fromJson(map));
+    } catch (e, st) {
+      return TeacherError(userFriendlyMessage(e, st, 'TeacherService.createMarkForSingleStudent'));
     }
   }
 
