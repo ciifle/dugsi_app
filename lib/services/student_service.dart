@@ -148,10 +148,17 @@ class StudentResultReportModel {
     if (summary != null) {
       // Map API summary fields to expected field names
       summary = {
-        'total_marks_obtained': summary['total_marks_obtained'] ?? summary['total_obtained'] ?? 0,
+        // Support both old and new field names
+        'total_marks_obtained': summary['total_marks_obtained'] ?? summary['total_obtained'] ?? summary['total'] ?? 0,
         'total_max_marks': summary['total_max_marks'] ?? summary['total_max'] ?? 0,
-        'percentage': summary['overall_percentage'] ?? summary['percentage'] ?? 0,
+        'percentage': summary['overall_percentage'] ?? summary['percentage'] ?? summary['average'] ?? 0,
         'grade': summary['overall_grade'] ?? summary['grade'] ?? 'N/A',
+        'status': summary['status'],
+        'position': summary['position'],
+        // Also include new field names directly
+        'total': summary['total'] ?? summary['total_marks_obtained'] ?? summary['total_obtained'] ?? 0,
+        'total_max': summary['total_max'] ?? summary['total_max_marks'] ?? 0,
+        'average': summary['average'] ?? summary['overall_percentage'] ?? summary['percentage'] ?? 0,
       };
     }
     

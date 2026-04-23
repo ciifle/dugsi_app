@@ -23,6 +23,7 @@ class _StudentResultReportScreenState extends State<StudentResultReportScreen> {
   @override
   void initState() {
     super.initState();
+    print('DEBUG: StudentResultReportScreen calling getResultReport for examId: ${widget.examId}');
     _future = StudentService().getResultReport(widget.examId);
   }
 
@@ -100,8 +101,13 @@ class _StudentResultReportScreenState extends State<StudentResultReportScreen> {
                     final results = report.results;
                     final summary = report.summary;
                     final examName = report.exam['name']?.toString() ?? 'Exam';
+                    
+                    print('DEBUG: Parsed response - examName: $examName');
+                    print('DEBUG: Parsed response - summary keys: ${summary?.keys.toList()}');
+                    print('DEBUG: Parsed response - summary position: ${summary?['position']}');
+                    print('DEBUG: Parsed response - results count: ${results.length}');
 
-                    if (results.isEmpty && (summary == null || (summary['total_obtained'] == 0 && summary['total_max'] == 0))) {
+                    if (results.isEmpty && (summary == null || (summary['total'] == 0 && summary['total_max'] == 0))) {
                       return Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -135,9 +141,9 @@ class _StudentResultReportScreenState extends State<StudentResultReportScreen> {
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                                     children: [
-                                      _summaryChip('Total', '${summary['total_obtained'] ?? 0}/${summary['total_max'] ?? 0}'),
-                                      _summaryChip('Overall %', '${summary['overall_percentage'] ?? 0}%'),
-                                      _summaryChip('Grade', '${summary['overall_grade'] ?? '—'}'),
+                                      _summaryChip('Total', '${summary['total'] ?? summary['total_marks_obtained'] ?? 0}/${summary['total_max'] ?? summary['total_max_marks'] ?? 0}'),
+                                      _summaryChip('Average', '${summary['average'] ?? summary['overall_percentage'] ?? 0}%'),
+                                      _summaryChip('Status', '${summary['status'] ?? '—'}'),
                                     ],
                                   ),
                                 ],

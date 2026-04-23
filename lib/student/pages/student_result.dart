@@ -251,10 +251,10 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                               children: [
                                 // Exam Header
                                 Container(
-                                  padding: const EdgeInsets.all(16),
+                                  padding: const EdgeInsets.all(20),
                                   decoration: BoxDecoration(
                                     color: kPrimaryBlue.withOpacity(0.05),
-                                    borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.circular(16),
                                   ),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -263,59 +263,161 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                                         result.exam['name'] ?? 'Exam',
                                         style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue),
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'Date: ${result.exam['date'] ?? 'N/A'}',
-                                        style: TextStyle(fontSize: 14, color: kTextSecondaryColor),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          if (result.exam['exam_type'] != null) ...[
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: kPrimaryBlue.withOpacity(0.1),
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: Text(
+                                                result.exam['exam_type'],
+                                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kPrimaryBlue),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                          ],
+                                          Expanded(
+                                            child: Text(
+                                              'Date: ${result.exam['date'] ?? 'N/A'}',
+                                              style: TextStyle(fontSize: 14, color: kTextSecondaryColor),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
                                 ),
                                 const SizedBox(height: 16),
-                                // Results Table
+                                // Subject-by-Subject Results
                                 if (result.results.isNotEmpty)
                                   Container(
                                     decoration: BoxDecoration(
-                                      border: Border.all(color: Colors.grey.shade300),
-                                      borderRadius: BorderRadius.circular(12),
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(20),
+                                      boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 14, offset: const Offset(0, 6))],
                                     ),
                                     child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        // Table Header
+                                        // Header
                                         Container(
-                                          padding: const EdgeInsets.all(12),
+                                          padding: const EdgeInsets.all(20),
                                           decoration: BoxDecoration(
                                             color: kPrimaryBlue.withOpacity(0.05),
-                                            borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
+                                            borderRadius: const BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
                                           ),
-                                          child: const Row(
-                                            children: [
-                                              Expanded(flex: 3, child: Text('Subject', style: TextStyle(fontWeight: FontWeight.bold, color: kPrimaryBlue))),
-                                              Expanded(flex: 2, child: Text('Marks', style: TextStyle(fontWeight: FontWeight.bold, color: kPrimaryBlue))),
-                                              Expanded(flex: 2, child: Text('Grade', style: TextStyle(fontWeight: FontWeight.bold, color: kPrimaryBlue))),
-                                            ],
+                                          child: const Text(
+                                            'Subject Results',
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                              color: kPrimaryBlue,
+                                            ),
                                           ),
                                         ),
-                                        // Results Rows
+                                        const SizedBox(height: 8),
+                                        // Subject List
                                         ...result.results.map((r) => Container(
-                                          padding: const EdgeInsets.all(12),
+                                          margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                                          padding: const EdgeInsets.all(18),
                                           decoration: BoxDecoration(
-                                            border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(16),
+                                            border: Border.all(color: Colors.grey.shade200),
                                           ),
-                                          child: Row(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
-                                              Expanded(flex: 3, child: Text(
-                                                r['subject']?['name'] ?? r['subject_name'] ?? 'Subject', 
-                                                style: const TextStyle(fontSize: 14)
-                                              )),
-                                              Expanded(flex: 2, child: Text(
-                                                '${r['marks_obtained'] ?? 0}/${r['max_marks'] ?? 100}', 
-                                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)
-                                              )),
-                                              Expanded(flex: 2, child: Text(
-                                                r['grade'] ?? 'N/A', 
-                                                style: const TextStyle(fontSize: 14)
-                                              )),
+                                              // Subject Name
+                                              Text(
+                                                r['subject']?['name'] ?? r['subject_name'] ?? 'Subject',
+                                                style: const TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: kPrimaryBlue,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 12),
+                                              
+                                              // Marks and Percentage Row
+                                              Row(
+                                                children: [
+                                                  // Marks
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      children: [
+                                                        const Text(
+                                                          'Marks',
+                                                          style: TextStyle(
+                                                            fontSize: 12,
+                                                            fontWeight: FontWeight.w600,
+                                                            color: kTextSecondaryColor,
+                                                          ),
+                                                        ),
+                                                        const SizedBox(height: 4),
+                                                        Text(
+                                                          '${r['marks_obtained'] ?? 0} / ${r['max_marks'] ?? 100}',
+                                                          style: const TextStyle(
+                                                            fontSize: 20,
+                                                            fontWeight: FontWeight.bold,
+                                                            color: kPrimaryGreen,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 16),
+                                                  
+                                                  // Percentage
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      children: [
+                                                        const Text(
+                                                          'Percentage',
+                                                          style: TextStyle(
+                                                            fontSize: 12,
+                                                            fontWeight: FontWeight.w600,
+                                                            color: kTextSecondaryColor,
+                                                          ),
+                                                        ),
+                                                        const SizedBox(height: 4),
+                                                        Text(
+                                                          '${r['percentage'] ?? 0}%',
+                                                          style: const TextStyle(
+                                                            fontSize: 20,
+                                                            fontWeight: FontWeight.bold,
+                                                            color: kPrimaryBlue,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 12),
+                                              
+                                              // Grade
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                                decoration: BoxDecoration(
+                                                  color: kPrimaryGreen.withOpacity(0.1),
+                                                  borderRadius: BorderRadius.circular(20),
+                                                ),
+                                                child: Text(
+                                                  'Grade: ${r['grade'] ?? 'N/A'}',
+                                                  style: const TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: kPrimaryGreen,
+                                                  ),
+                                                ),
+                                              ),
                                             ],
                                           ),
                                         )).toList(),
@@ -348,34 +450,167 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                                     ),
                                   ),
                                 const SizedBox(height: 16),
-                                // Summary
+                                // Summary Section
                                 if (result.summary != null)
                                   Container(
-                                    padding: const EdgeInsets.all(16),
+                                    padding: const EdgeInsets.all(20),
                                     decoration: BoxDecoration(
-                                      color: kPrimaryGreen.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(12),
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(20),
+                                      boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.1), blurRadius: 12, offset: const Offset(0, 6))],
                                     ),
                                     child: Column(
                                       children: [
-                                        Text(
-                                          'Summary',
-                                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimaryGreen),
-                                        ),
-                                        const SizedBox(height: 8),
+                                        // Header
                                         Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                           children: [
-                                            Text('Total Marks: ${result.summary!['total_marks_obtained'] ?? 0}', style: const TextStyle(fontSize: 14)),
-                                            Text('Max Marks: ${result.summary!['total_max_marks'] ?? 0}', style: const TextStyle(fontSize: 14)),
+                                            Container(
+                                              padding: const EdgeInsets.all(8),
+                                              decoration: BoxDecoration(
+                                                color: kPrimaryBlue.withOpacity(0.1),
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                              child: const Icon(Icons.assessment_rounded, color: kPrimaryBlue, size: 24),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            const Text(
+                                              'Results Summary',
+                                              style: TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                                color: kPrimaryBlue,
+                                              ),
+                                            ),
                                           ],
                                         ),
-                                        const SizedBox(height: 4),
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        const SizedBox(height: 20),
+                                        
+                                        // Results Grid
+                                        Column(
                                           children: [
-                                            Text('Percentage: ${result.summary!['percentage'] ?? 0}%', style: const TextStyle(fontSize: 14)),
-                                            Text('Grade: ${result.summary!['grade'] ?? 'N/A'}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: kPrimaryGreen)),
+                                            // First row: TOTAL and AVERAGE
+                                            Row(
+                                              children: [
+                                                // TOTAL
+                                                Expanded(
+                                                  child: Container(
+                                                    padding: const EdgeInsets.all(16),
+                                                    decoration: BoxDecoration(
+                                                      color: kSoftBlue,
+                                                      borderRadius: BorderRadius.circular(16),
+                                                    ),
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      children: [
+                                                        const Text(
+                                                          'TOTAL',
+                                                          style: TextStyle(
+                                                            fontSize: 12,
+                                                            fontWeight: FontWeight.w600,
+                                                            color: kTextSecondaryColor,
+                                                          ),
+                                                        ),
+                                                        const SizedBox(height: 8),
+                                                        Row(
+                                                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                                                          textBaseline: TextBaseline.alphabetic,
+                                                          children: [
+                                                            Text(
+                                                              '${result.summary!['total'] ?? result.summary!['total_marks_obtained'] ?? 0}',
+                                                              style: const TextStyle(
+                                                                fontSize: 24,
+                                                                fontWeight: FontWeight.bold,
+                                                                color: kPrimaryBlue,
+                                                              ),
+                                                            ),
+                                                            if (result.summary!['total_max'] != null) ...[
+                                                              const SizedBox(width: 4),
+                                                              Text(
+                                                                '/ ${result.summary!['total_max']}',
+                                                                style: const TextStyle(
+                                                                  fontSize: 14,
+                                                                  fontWeight: FontWeight.w500,
+                                                                  color: kTextSecondaryColor,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ],
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 12),
+                                               
+                                                // AVERAGE
+                                                Expanded(
+                                                  child: Container(
+                                                    padding: const EdgeInsets.all(16),
+                                                    decoration: BoxDecoration(
+                                                      color: kSoftGreen,
+                                                      borderRadius: BorderRadius.circular(16),
+                                                    ),
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      children: [
+                                                        const Text(
+                                                          'AVERAGE',
+                                                          style: TextStyle(
+                                                            fontSize: 12,
+                                                            fontWeight: FontWeight.w600,
+                                                            color: kTextSecondaryColor,
+                                                          ),
+                                                        ),
+                                                        const SizedBox(height: 8),
+                                                        Text(
+                                                          '${result.summary!['average'] ?? result.summary!['percentage'] ?? 0}%',
+                                                          style: const TextStyle(
+                                                            fontSize: 24,
+                                                            fontWeight: FontWeight.bold,
+                                                            color: kPrimaryGreen,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 12),
+                                            
+                                            // STATUS - Single centered card
+                                            Center(
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                                decoration: BoxDecoration(
+                                                  color: (result.summary!['status'] == 'PASS' ? kPrimaryGreen : kErrorColor).withOpacity(0.1),
+                                                  borderRadius: BorderRadius.circular(16),
+                                                  border: Border.all(color: (result.summary!['status'] == 'PASS' ? kPrimaryGreen : kErrorColor).withOpacity(0.3)),
+                                                ),
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                                  children: [
+                                                    const Text(
+                                                      'STATUS',
+                                                      style: TextStyle(
+                                                        fontSize: 12,
+                                                        fontWeight: FontWeight.w600,
+                                                        color: kTextSecondaryColor,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 8),
+                                                    Text(
+                                                      result.summary!['status'] ?? 'N/A',
+                                                      style: TextStyle(
+                                                        fontSize: 20,
+                                                        fontWeight: FontWeight.bold,
+                                                        color: result.summary!['status'] == 'PASS' ? kPrimaryGreen : kErrorColor,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
                                           ],
                                         ),
                                       ],

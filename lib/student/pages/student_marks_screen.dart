@@ -198,7 +198,11 @@ class _StudentMarksScreenState extends State<StudentMarksScreen> {
                         totalObtained += m.marksObtained;
                         totalMax += m.maxMarks;
                       }
-                      final percentage = totalMax > 0 ? (totalObtained / totalMax) * 100 : 0.0;
+                      final average = totalMax > 0 ? (totalObtained / totalMax) * 100 : 0.0;
+                      
+                      // Determine status based on average - using 50% as pass threshold (common standard)
+                      final status = average >= 50 ? 'PASS' : 'FAIL';
+                      final statusColor = average >= 50 ? kPrimaryGreen : kErrorColor;
 
                       return Column(
                         children: [
@@ -207,15 +211,11 @@ class _StudentMarksScreenState extends State<StudentMarksScreen> {
                             child: Container(
                               padding: const EdgeInsets.all(20),
                               decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [kPrimaryBlue, Color(0xFF01255C)],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
+                                color: Colors.white,
                                 borderRadius: BorderRadius.circular(20),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: kPrimaryBlue.withOpacity(0.3),
+                                    color: kPrimaryBlue.withOpacity(0.1),
                                     blurRadius: 12,
                                     offset: const Offset(0, 6),
                                   ),
@@ -223,53 +223,155 @@ class _StudentMarksScreenState extends State<StudentMarksScreen> {
                               ),
                               child: Column(
                                 children: [
-                                  const Text(
-                                    'Total So Far',
-                                    style: TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
+                                  // Header
                                   Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                                    textBaseline: TextBaseline.alphabetic,
                                     children: [
-                                      Text(
-                                        totalObtained.toStringAsFixed(totalObtained.truncateToDouble() == totalObtained ? 0 : 1),
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 32,
-                                          fontWeight: FontWeight.bold,
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: kPrimaryBlue.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(12),
                                         ),
+                                        child: const Icon(Icons.assessment_rounded, color: kPrimaryBlue, size: 24),
                                       ),
-                                      Text(
-                                        ' / ${totalMax.toStringAsFixed(totalMax.truncateToDouble() == totalMax ? 0 : 1)}',
-                                        style: const TextStyle(
-                                          color: Colors.white70,
+                                      const SizedBox(width: 12),
+                                      const Text(
+                                        'Results Summary',
+                                        style: TextStyle(
                                           fontSize: 18,
-                                          fontWeight: FontWeight.w500,
+                                          fontWeight: FontWeight.bold,
+                                          color: kPrimaryBlue,
                                         ),
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 12),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(30),
-                                    ),
-                                    child: Text(
-                                      '${percentage.toStringAsFixed(1)}%',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
+                                  const SizedBox(height: 20),
+                                  
+                                  // Results Grid
+                                  Column(
+                                    children: [
+                                      // First row: TOTAL and AVERAGE
+                                      Row(
+                                        children: [
+                                          // TOTAL
+                                          Expanded(
+                                            child: Container(
+                                              padding: const EdgeInsets.all(16),
+                                              decoration: BoxDecoration(
+                                                color: kSoftBlue,
+                                                borderRadius: BorderRadius.circular(16),
+                                              ),
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  const Text(
+                                                    'TOTAL',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: kTextSecondary,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  Row(
+                                                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                                                    textBaseline: TextBaseline.alphabetic,
+                                                    children: [
+                                                      Text(
+                                                        totalObtained.toStringAsFixed(totalObtained.truncateToDouble() == totalObtained ? 0 : 1),
+                                                        style: const TextStyle(
+                                                          fontSize: 24,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: kPrimaryBlue,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                      Text(
+                                                        '/ ${totalMax.toStringAsFixed(totalMax.truncateToDouble() == totalMax ? 0 : 1)}',
+                                                        style: const TextStyle(
+                                                          fontSize: 14,
+                                                          fontWeight: FontWeight.w500,
+                                                          color: kTextSecondary,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          
+                                          // AVERAGE
+                                          Expanded(
+                                            child: Container(
+                                              padding: const EdgeInsets.all(16),
+                                              decoration: BoxDecoration(
+                                                color: kSoftGreen,
+                                                borderRadius: BorderRadius.circular(16),
+                                              ),
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  const Text(
+                                                    'AVERAGE',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: kTextSecondary,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  Text(
+                                                    '${average.toStringAsFixed(2)}%',
+                                                    style: const TextStyle(
+                                                      fontSize: 24,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: kPrimaryGreen,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    ),
+                                      const SizedBox(height: 12),
+                                      
+                                      // STATUS - Single centered card
+                                      Center(
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                                          decoration: BoxDecoration(
+                                            color: statusColor.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(16),
+                                            border: Border.all(color: statusColor.withOpacity(0.3)),
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.center,
+                                            children: [
+                                              const Text(
+                                                'STATUS',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: kTextSecondary,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                status,
+                                                style: TextStyle(
+                                                  fontSize: 20,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: statusColor,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
