@@ -424,6 +424,60 @@ class MarksService {
     }
   }
 
+  /// POST /api/school-admin/marks/release/class
+  Future<MarkResult<Map<String, dynamic>>> releaseClassMarks({
+    required int classId,
+    required int examId,
+  }) async {
+    try {
+      final body = {
+        'class_id': classId,
+        'exam_id': examId,
+      };
+      final response = await _client.post(apiUrl('$_base/release/class'), body: body);
+      devLogResponse('MarksService.releaseClassMarks', response.statusCode, response.body);
+      
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        return MarkError(_errorMessage(response) ?? 'Could not release class marks.', response.statusCode);
+      }
+      
+      final raw = _parseJson(response.body);
+      if (raw is Map<String, dynamic>) {
+        return MarkSuccess(raw);
+      }
+      return MarkSuccess({'message': 'Class marks released successfully'});
+    } catch (e, st) {
+      return MarkError(userFriendlyMessage(e, st, 'MarksService.releaseClassMarks'));
+    }
+  }
+
+  /// POST /api/school-admin/marks/release/classes
+  Future<MarkResult<Map<String, dynamic>>> releaseClassesMarks({
+    required List<int> classIds,
+    required int examId,
+  }) async {
+    try {
+      final body = {
+        'class_ids': classIds,
+        'exam_id': examId,
+      };
+      final response = await _client.post(apiUrl('$_base/release/classes'), body: body);
+      devLogResponse('MarksService.releaseClassesMarks', response.statusCode, response.body);
+      
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        return MarkError(_errorMessage(response) ?? 'Could not release classes marks.', response.statusCode);
+      }
+      
+      final raw = _parseJson(response.body);
+      if (raw is Map<String, dynamic>) {
+        return MarkSuccess(raw);
+      }
+      return MarkSuccess({'message': 'Classes marks released successfully'});
+    } catch (e, st) {
+      return MarkError(userFriendlyMessage(e, st, 'MarksService.releaseClassesMarks'));
+    }
+  }
+
   /// GET /api/school-admin/marks/export?class_id={id}&exam_id={id}
   /// Returns Excel file for download
   Future<MarkResult<String>> exportMarks({

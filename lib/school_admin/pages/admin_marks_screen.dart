@@ -1361,6 +1361,15 @@ class _ExportMarksDialogState extends State<_ExportMarksDialog> {
   }
 }
 
+enum ReleaseType {
+  oneSubject('One Subject'),
+  oneClass('One Class'),
+  classes('Classes');
+
+  const ReleaseType(this.label);
+  final String label;
+}
+
 class _ReleaseMarksDialog extends StatefulWidget {
   final List<ClassModel> classes;
   final List<ExamModel> exams;
@@ -1383,9 +1392,11 @@ class _ReleaseMarksDialog extends StatefulWidget {
 }
 
 class _ReleaseMarksDialogState extends State<_ReleaseMarksDialog> {
+  ReleaseType _releaseType = ReleaseType.oneSubject;
   int? _classId;
   int? _examId;
   int? _subjectId;
+  List<int> _selectedClassIds = [];
   bool _submitting = false;
 
   @override
@@ -1397,26 +1408,67 @@ class _ReleaseMarksDialogState extends State<_ReleaseMarksDialog> {
   }
 
   Future<void> _submit() async {
-    if (_classId == null || _examId == null || _subjectId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select class, exam and subject'), backgroundColor: Colors.red),
-      );
-      return;
-    }
+    // Validation based on release type
+      String? errorMessage;
+      switch (_releaseType) {
+        case ReleaseType.oneSubject:
+          if (_classId == null || _examId == null || _subjectId == null) {
+            errorMessage = 'Please select class, exam and subject';
+          }
+          break;
+        case ReleaseType.oneClass:
+          if (_classId == null || _examId == null) {
+            errorMessage = 'Please select class and exam';
+          }
+          break;
+        case ReleaseType.classes:
+          if (_selectedClassIds.isEmpty || _examId == null) {
+            errorMessage = 'Please select at least one class and exam';
+          }
+          break;
+      }
+      
+      if (errorMessage != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+        );
+        return;
+      }
     
     setState(() => _submitting = true);
     
-    final result = await MarksService().releaseMarks(
-      classId: _classId!,
-      examId: _examId!,
-      subjectId: _subjectId!,
-    );
+    MarkResult<Map<String, dynamic>> result;
+    switch (_releaseType) {
+      case ReleaseType.oneSubject:
+        result = await MarksService().releaseMarks(
+          classId: _classId!,
+          examId: _examId!,
+          subjectId: _subjectId!,
+        );
+        break;
+      case ReleaseType.oneClass:
+        result = await MarksService().releaseClassMarks(
+          classId: _classId!,
+          examId: _examId!,
+        );
+        break;
+      case ReleaseType.classes:
+        result = await MarksService().releaseClassesMarks(
+          classIds: _selectedClassIds,
+          examId: _examId!,
+        );
+        break;
+    }
     
     if (!mounted) return;
     setState(() => _submitting = false);
     
     if (result is MarkSuccess<Map<String, dynamic>>) {
-      final message = result.data['message'] ?? 'Marks released successfully';
+      String message = result.data['message'] ?? 'Marks released successfully';
+      // Add released count if available
+      if (result.data.containsKey('released_count')) {
+        message += ' (${result.data['released_count']} records)';
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message), backgroundColor: kPrimaryGreen),
       );
@@ -1445,16 +1497,118 @@ class _ReleaseMarksDialogState extends State<_ReleaseMarksDialog> {
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue),
               ),
               const SizedBox(height: 24),
-              Select3D<int?>(
-                value: _classId,
-                label: 'Class',
-                items: [
-                  const DropdownMenuItem<int?>(value: null, child: Text('Select class')),
-                  ...widget.classes.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name))),
-                ],
-                onChanged: (v) => setState(() => _classId = v),
+              
+              // Release Type Selector
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: kPrimaryBlue.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Release Type',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kPrimaryBlue),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: ReleaseType.values.map((type) {
+                        final isSelected = _releaseType == type;
+                        return Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() {
+                              _releaseType = type;
+                              // Clear values when switching types
+                              _subjectId = null;
+                              _selectedClassIds.clear();
+                            }),
+                            child: Container(
+                              margin: const EdgeInsets.only(right: 4),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: isSelected ? kPrimaryBlue : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                type.label,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: isSelected ? Colors.white : kPrimaryBlue,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(height: 24),
+              
+              // Conditional Form Fields
+              if (_releaseType == ReleaseType.classes) ...[
+                // Multi-class selector
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Selected Classes (${_selectedClassIds.length})',
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kPrimaryBlue),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _selectedClassIds.map((classId) {
+                          final className = widget.classes.firstWhere((c) => c.id == classId).name;
+                          return Chip(
+                            label: Text(className, style: const TextStyle(fontSize: 12)),
+                            backgroundColor: kPrimaryBlue.withOpacity(0.1),
+                            deleteIcon: const Icon(Icons.close, size: 16),
+                            onDeleted: () => setState(() => _selectedClassIds.remove(classId)),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 12),
+                      TextButton.icon(
+                        onPressed: _showClassSelector,
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text('Add Classes'),
+                        style: TextButton.styleFrom(
+                          backgroundColor: kPrimaryGreen.withOpacity(0.1),
+                          foregroundColor: kPrimaryGreen,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                // Single class selector
+                Select3D<int?>(
+                  value: _classId,
+                  label: 'Class',
+                  items: [
+                    const DropdownMenuItem<int?>(value: null, child: Text('Select class')),
+                    ...widget.classes.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name))),
+                  ],
+                  onChanged: (v) => setState(() => _classId = v),
+                ),
+              ],
+              
               const SizedBox(height: 16),
+              
+              // Exam selector (common for all types)
               Select3D<int?>(
                 value: _examId,
                 label: 'Exam',
@@ -1464,22 +1618,152 @@ class _ReleaseMarksDialogState extends State<_ReleaseMarksDialog> {
                 ],
                 onChanged: (v) => setState(() => _examId = v),
               ),
-              const SizedBox(height: 16),
-              Select3D<int?>(
-                value: _subjectId,
-                label: 'Subject',
-                items: [
-                  const DropdownMenuItem<int?>(value: null, child: Text('Select subject')),
-                  ...widget.subjects.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text(s.name))),
-                ],
-                onChanged: (v) => setState(() => _subjectId = v),
-              ),
+              
+              // Subject selector (only for One Subject)
+              if (_releaseType == ReleaseType.oneSubject) ...[
+                const SizedBox(height: 16),
+                Select3D<int?>(
+                  value: _subjectId,
+                  label: 'Subject',
+                  items: [
+                    const DropdownMenuItem<int?>(value: null, child: Text('Select subject')),
+                    ...widget.subjects.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text(s.name))),
+                  ],
+                  onChanged: (v) => setState(() => _subjectId = v),
+                ),
+              ],
+              
               const SizedBox(height: 24),
               Row(
                 children: [
                   Expanded(child: TextButton(onPressed: _submitting ? null : () => Navigator.pop(context), child: const Text('Cancel'))),
                   const SizedBox(width: 12),
-                  Expanded(flex: 2, child: PrimaryButton3D(label: 'Release Marks', onPressed: _submit, loading: _submitting, height: 48)),
+                  Expanded(flex: 2, child: PrimaryButton3D(label: _getSubmitButtonText(), onPressed: _submit, loading: _submitting, height: 48)),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _getSubmitButtonText() {
+    switch (_releaseType) {
+      case ReleaseType.oneSubject:
+        return 'Release Subject Marks';
+      case ReleaseType.oneClass:
+        return 'Release Class Marks';
+      case ReleaseType.classes:
+        return 'Release Classes Marks';
+    }
+  }
+
+  void _showClassSelector() {
+    showDialog(
+      context: context,
+      builder: (ctx) => _MultiClassSelectorDialog(
+        classes: widget.classes,
+        selectedClassIds: _selectedClassIds,
+        onSelectionChanged: (classIds) => setState(() => _selectedClassIds = classIds),
+      ),
+    );
+  }
+}
+
+class _MultiClassSelectorDialog extends StatefulWidget {
+  final List<ClassModel> classes;
+  final List<int> selectedClassIds;
+  final Function(List<int>) onSelectionChanged;
+
+  const _MultiClassSelectorDialog({
+    required this.classes,
+    required this.selectedClassIds,
+    required this.onSelectionChanged,
+  });
+
+  @override
+  State<_MultiClassSelectorDialog> createState() => _MultiClassSelectorDialogState();
+}
+
+class _MultiClassSelectorDialogState extends State<_MultiClassSelectorDialog> {
+  late List<int> _tempSelectedIds;
+
+  @override
+  void initState() {
+    super.initState();
+    _tempSelectedIds = List.from(widget.selectedClassIds);
+  }
+
+  void _toggleClass(int classId) {
+    setState(() {
+      if (_tempSelectedIds.contains(classId)) {
+        _tempSelectedIds.remove(classId);
+      } else {
+        _tempSelectedIds.add(classId);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+      child: FormCard(
+        padding: const EdgeInsets.all(24),
+        child: SizedBox(
+          width: double.maxFinite,
+          height: 400,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Select Classes',
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Selected: ${_tempSelectedIds.length} classes',
+                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: widget.classes.length,
+                  itemBuilder: (context, index) {
+                    final classModel = widget.classes[index];
+                    final isSelected = _tempSelectedIds.contains(classModel.id);
+                    return CheckboxListTile(
+                      value: isSelected,
+                      onChanged: (value) => _toggleClass(classModel.id),
+                      title: Text(classModel.name),
+                      activeColor: kPrimaryBlue,
+                      controlAffinity: ListTileControlAffinity.leading,
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: PrimaryButton3D(
+                      label: 'Select (${_tempSelectedIds.length})',
+                      onPressed: () {
+                        widget.onSelectionChanged(_tempSelectedIds);
+                        Navigator.pop(context);
+                      },
+                      height: 48,
+                    ),
+                  ),
                 ],
               ),
             ],
