@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:kobac/services/student_service.dart';
 
@@ -69,6 +70,11 @@ class StudentTotalPage extends StatelessWidget {
     final grandTotal = _calculateGrandTotal();
     final average = grandTotal['max']! > 0 ? (grandTotal['obtained']! / grandTotal['max']!) * 100 : 0.0;
     
+    // Get screen width for responsive layout
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isWeb = kIsWeb || screenWidth > 600;
+    final maxContentWidth = isWeb ? 800.0 : double.infinity;
+    
     return Scaffold(
       backgroundColor: kSoftBlue,
       body: Container(
@@ -81,237 +87,252 @@ class StudentTotalPage extends StatelessWidget {
           ),
         ),
         child: SafeArea(
-          child: CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-                  child: Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.9),
-                            borderRadius: BorderRadius.circular(14),
-                            boxShadow: [
-                              BoxShadow(color: kPrimaryBlue.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4)),
-                            ],
-                          ),
-                          child: const Icon(Icons.arrow_back_rounded, color: kPrimaryBlue, size: 24),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      const Expanded(
-                        child: Text(
-                          'Total',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: kPrimaryBlue,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: maxContentWidth,
               ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: kPrimaryBlue.withOpacity(0.1),
-                          blurRadius: 12,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        // Grand Total Header
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        isWeb ? 32 : 24, 
+                        16, 
+                        isWeb ? 32 : 24, 
+                        24
+                      ),
+                      child: Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () => Navigator.pop(context),
+                            child: Container(
+                              padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: kPrimaryBlue.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
+                                color: Colors.white.withOpacity(0.9),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(color: kPrimaryBlue.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4)),
+                                ],
                               ),
-                              child: const Icon(Icons.assessment_rounded, color: kPrimaryBlue, size: 24),
+                              child: const Icon(Icons.arrow_back_rounded, color: kPrimaryBlue, size: 24),
                             ),
-                            const SizedBox(width: 12),
-                            const Text(
-                              'Grand Total',
+                          ),
+                          const SizedBox(width: 16),
+                          const Expanded(
+                            child: Text(
+                              'Total',
                               style: TextStyle(
-                                fontSize: 18,
+                                fontSize: 22,
                                 fontWeight: FontWeight.bold,
                                 color: kPrimaryBlue,
                               ),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                        
-                        // Grand Total Value
-                        Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: kSoftBlue,
-                            borderRadius: BorderRadius.circular(16),
                           ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.baseline,
-                            textBaseline: TextBaseline.alphabetic,
-                            children: [
-                              Text(
-                                grandTotal['obtained']!.toStringAsFixed(1),
-                                style: const TextStyle(
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.bold,
-                                  color: kPrimaryBlue,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '/ ${grandTotal['max']!.toStringAsFixed(0)}',
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w500,
-                                  color: kTextSecondary,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: kPrimaryGreen.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  '${average.toStringAsFixed(1)}%',
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: kPrimaryGreen,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 20)),
-              
-              // Subject Totals
-              if (subjectTotals.isEmpty)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.all(40),
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.assignment_rounded, size: 56, color: Colors.grey[400]),
-                          const SizedBox(height: 12),
-                          Text('No marks available', style: TextStyle(fontSize: 16, color: kTextSecondary)),
                         ],
                       ),
                     ),
                   ),
-                )
-              else
-                SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final subjectName = subjectTotals.keys.elementAt(index);
-                      final subjectData = subjectTotals[subjectName]!;
-                      
-                      // Normalize to out of 100
-                      final subjectMax = subjectData['max'] ?? 0;
-                      final subjectObtained = subjectData['obtained'] ?? 0;
-                      final normalizedObtained = subjectMax > 0 ? (subjectObtained / subjectMax) * 100 : 0;
-                      final percentage = subjectMax > 0 ? (normalizedObtained / 100) * 100 : 0;
-                      
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-                        child: Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 14, offset: const Offset(0, 6)),
-                            ],
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      subjectName,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        color: kPrimaryBlue,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '${subjectData['count']} ${subjectData['count'] == 1 ? 'exam' : 'exams'}',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: kTextSecondary,
-                                      ),
-                                    ),
-                                  ],
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: isWeb ? 32 : 20),
+                      child: Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: kPrimaryBlue.withOpacity(0.1),
+                              blurRadius: 12,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            // Grand Total Header
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: kPrimaryBlue.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Icon(Icons.assessment_rounded, color: kPrimaryBlue, size: 24),
                                 ),
+                                const SizedBox(width: 12),
+                                const Text(
+                                  'Grand Total',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: kPrimaryBlue,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+                            
+                            // Grand Total Value
+                            Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: kSoftBlue,
+                                borderRadius: BorderRadius.circular(16),
                               ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.baseline,
+                                textBaseline: TextBaseline.alphabetic,
                                 children: [
                                   Text(
-                                    '${normalizedObtained.toStringAsFixed(1)} / 100',
+                                    grandTotal['obtained']!.toStringAsFixed(1),
                                     style: const TextStyle(
-                                      fontSize: 18,
+                                      fontSize: 32,
                                       fontWeight: FontWeight.bold,
                                       color: kPrimaryBlue,
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
+                                  const SizedBox(width: 8),
                                   Text(
-                                    '${percentage.toStringAsFixed(1)}%',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: percentage >= 50 ? kPrimaryGreen : kErrorColor,
-                                      fontWeight: FontWeight.w600,
+                                    '/ ${grandTotal['max']!.toStringAsFixed(0)}',
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w500,
+                                      color: kTextSecondary,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: kPrimaryGreen.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      '${average.toStringAsFixed(1)}%',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: kPrimaryGreen,
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                  
+                  // Subject Totals
+                  if (subjectTotals.isEmpty)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.all(40),
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.assignment_rounded, size: 56, color: Colors.grey[400]),
+                              const SizedBox(height: 12),
+                              Text('No marks available', style: TextStyle(fontSize: 16, color: kTextSecondary)),
                             ],
                           ),
                         ),
-                      );
-                    },
-                    childCount: subjectTotals.length,
-                  ),
-                ),
-              const SliverToBoxAdapter(child: SizedBox(height: 40)),
-            ],
+                      ),
+                    )
+                  else
+                    SliverPadding(
+                      padding: EdgeInsets.symmetric(horizontal: isWeb ? 32 : 20),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final subjectName = subjectTotals.keys.elementAt(index);
+                            final subjectData = subjectTotals[subjectName]!;
+                            
+                            // Normalize to out of 100
+                            final subjectMax = subjectData['max'] ?? 0;
+                            final subjectObtained = subjectData['obtained'] ?? 0;
+                            final normalizedObtained = subjectMax > 0 ? (subjectObtained / subjectMax) * 100 : 0;
+                            final percentage = subjectMax > 0 ? (normalizedObtained / 100) * 100 : 0;
+                            
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 6),
+                              child: Container(
+                                padding: const EdgeInsets.all(20),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                  boxShadow: [
+                                    BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 14, offset: const Offset(0, 6)),
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            subjectName,
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                              color: kPrimaryBlue,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            '${subjectData['count']} ${subjectData['count'] == 1 ? 'exam' : 'exams'}',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: kTextSecondary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          '${normalizedObtained.toStringAsFixed(1)} / 100',
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: kPrimaryBlue,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '${percentage.toStringAsFixed(1)}%',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: percentage >= 50 ? kPrimaryGreen : kErrorColor,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                          childCount: subjectTotals.length,
+                        ),
+                      ),
+                    ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 40)),
+                ],
+              ),
+            ),
           ),
         ),
       ),
