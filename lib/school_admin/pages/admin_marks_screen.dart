@@ -276,7 +276,6 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
       context: context,
       builder: (ctx) => _ExportMarksDialog(
         classes: _classes,
-        exams: _exams,
       ),
     );
     if (result == true && mounted) {
@@ -1254,11 +1253,9 @@ class _UpdateTeacherDialogState extends State<_UpdateTeacherDialog> {
 
 class _ExportMarksDialog extends StatefulWidget {
   final List<ClassModel> classes;
-  final List<ExamModel> exams;
 
   const _ExportMarksDialog({
     required this.classes,
-    required this.exams,
   });
 
   @override
@@ -1267,13 +1264,12 @@ class _ExportMarksDialog extends StatefulWidget {
 
 class _ExportMarksDialogState extends State<_ExportMarksDialog> {
   int? _classId;
-  int? _examId;
   bool _submitting = false;
 
   Future<void> _submit() async {
-    if (_classId == null || _examId == null) {
+    if (_classId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select class and exam'), backgroundColor: Colors.red),
+        const SnackBar(content: Text('Please select class'), backgroundColor: Colors.red),
       );
       return;
     }
@@ -1282,7 +1278,6 @@ class _ExportMarksDialogState extends State<_ExportMarksDialog> {
     
     final result = await MarksService().exportMarks(
       classId: _classId!,
-      examId: _examId!,
     );
     
     if (!mounted) return;
@@ -1337,13 +1332,6 @@ class _ExportMarksDialogState extends State<_ExportMarksDialog> {
                 label: 'Class',
                 items: [const DropdownMenuItem<int?>(value: null, child: Text('Select class')), ...widget.classes.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name)))],
                 onChanged: (v) => setState(() => _classId = v),
-              ),
-              const SizedBox(height: 16),
-              Select3D<int?>(
-                value: _examId,
-                label: 'Exam',
-                items: [const DropdownMenuItem<int?>(value: null, child: Text('Select exam')), ...widget.exams.map((e) => DropdownMenuItem<int?>(value: e.id, child: Text(e.name)))],
-                onChanged: (v) => setState(() => _examId = v),
               ),
               const SizedBox(height: 24),
               Row(

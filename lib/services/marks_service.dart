@@ -478,20 +478,18 @@ class MarksService {
     }
   }
 
-  /// GET /api/school-admin/marks/export?class_id={id}&exam_id={id}
+  /// GET /api/school-admin/marks/export?class_id={id}
   /// Returns Excel file for download
   Future<MarkResult<String>> exportMarks({
     required int classId,
-    required int examId,
   }) async {
     try {
       final uri = apiUrl('$_base/export').replace(queryParameters: {
         'class_id': classId.toString(),
-        'exam_id': examId.toString(),
       });
       
       print('DEBUG: Export URL: $uri');
-      print('DEBUG: Selected class_id: $classId, exam_id: $examId');
+      print('DEBUG: Selected class_id: $classId');
       
       final response = await _client.get(uri);
       print('DEBUG: Response status: ${response.statusCode}');
@@ -531,7 +529,7 @@ class MarksService {
       
       // Fallback to generated filename if header parsing fails
       if (filename == null || filename.isEmpty) {
-        filename = 'class_${classId}_exam_${examId}_results.xlsx';
+        filename = 'class_${classId}_results.xlsx';
       }
 
       // Handle download differently for web vs mobile
