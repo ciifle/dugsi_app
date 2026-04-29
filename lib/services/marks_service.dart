@@ -478,18 +478,27 @@ class MarksService {
     }
   }
 
-  /// GET /api/school-admin/marks/export?class_id={id}
+  /// GET /api/school-admin/marks/export?class_id={id}&exam_id={id}
   /// Returns Excel file for download
+  /// examId is optional - if null, exports total for class
   Future<MarkResult<String>> exportMarks({
     required int classId,
+    int? examId,
   }) async {
     try {
-      final uri = apiUrl('$_base/export').replace(queryParameters: {
+      final queryParams = <String, String>{
         'class_id': classId.toString(),
-      });
+      };
+      
+      // Add exam_id only if provided (per-exam export)
+      if (examId != null) {
+        queryParams['exam_id'] = examId.toString();
+      }
+      
+      final uri = apiUrl('$_base/export').replace(queryParameters: queryParams);
       
       print('DEBUG: Export URL: $uri');
-      print('DEBUG: Selected class_id: $classId');
+      print('DEBUG: Selected class_id: $classId, exam_id: $examId');
       
       final response = await _client.get(uri);
       print('DEBUG: Response status: ${response.statusCode}');

@@ -276,6 +276,7 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
       context: context,
       builder: (ctx) => _ExportMarksDialog(
         classes: _classes,
+        exams: _exams,
       ),
     );
     if (result == true && mounted) {
@@ -1253,17 +1254,29 @@ class _UpdateTeacherDialogState extends State<_UpdateTeacherDialog> {
 
 class _ExportMarksDialog extends StatefulWidget {
   final List<ClassModel> classes;
+  final List<ExamModel> exams;
 
   const _ExportMarksDialog({
     required this.classes,
+    required this.exams,
   });
 
   @override
   State<_ExportMarksDialog> createState() => _ExportMarksDialogState();
 }
 
+enum _ExportMode {
+  perExam('Per Exam Export'),
+  total('Total Export');
+
+  const _ExportMode(this.label);
+  final String label;
+}
+
 class _ExportMarksDialogState extends State<_ExportMarksDialog> {
   int? _classId;
+  int? _examId;
+  _ExportMode _exportMode = _ExportMode.total;
   bool _submitting = false;
 
   Future<void> _submit() async {
@@ -1273,11 +1286,21 @@ class _ExportMarksDialogState extends State<_ExportMarksDialog> {
       );
       return;
     }
+    
+    // Additional validation for per-exam export
+    if (_exportMode == _ExportMode.perExam && _examId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select exam'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    
     if (_submitting) return;
     setState(() => _submitting = true);
     
     final result = await MarksService().exportMarks(
       classId: _classId!,
+      examId: _exportMode == _ExportMode.perExam ? _examId : null,
     );
     
     if (!mounted) return;
@@ -1333,6 +1356,22 @@ class _ExportMarksDialogState extends State<_ExportMarksDialog> {
                 items: [const DropdownMenuItem<int?>(value: null, child: Text('Select class')), ...widget.classes.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name)))],
                 onChanged: (v) => setState(() => _classId = v),
               ),
+              const SizedBox(height: 16),
+              Select3D<_ExportMode>(
+                value: _exportMode,
+                label: 'Export Type',
+                items: _ExportMode.values.map((mode) => DropdownMenuItem<_ExportMode>(value: mode, child: Text(mode.label))).toList(),
+                onChanged: (v) => setState(() => _exportMode = v!),
+              ),
+              if (_exportMode == _ExportMode.perExam) ...[
+                const SizedBox(height: 16),
+                Select3D<int?>(
+                  value: _examId,
+                  label: 'Exam',
+                  items: [const DropdownMenuItem<int?>(value: null, child: Text('Select exam')), ...widget.exams.map((e) => DropdownMenuItem<int?>(value: e.id, child: Text(e.name)))],
+                  onChanged: (v) => setState(() => _examId = v),
+                ),
+              ],
               const SizedBox(height: 24),
               Row(
                 children: [
