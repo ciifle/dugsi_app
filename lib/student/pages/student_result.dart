@@ -34,6 +34,65 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
   StudentExamModel? _selectedExam;
   Future<StudentResult<StudentResultReportModel>>? _selectedExamResult;
 
+  // Exam weights for 4-exam system
+  static const Map<String, int> _examWeights = {
+    'M1': 10,
+    'Monthly 1': 10,
+    'M2': 10,
+    'Monthly 2': 10,
+    'Midterm': 30,
+    'Final': 50,
+  };
+
+  // Get exam weight by name
+  int _getExamWeight(String examName) {
+    final examNameLower = examName.toLowerCase();
+    
+    for (final entry in _examWeights.entries) {
+      if (examNameLower.contains(entry.key.toLowerCase())) {
+        return entry.value;
+      }
+    }
+    
+    // Additional pattern matching
+    if (examNameLower.contains('monthly 1') || examNameLower.contains('m1')) {
+      return 10;
+    }
+    if (examNameLower.contains('monthly 2') || examNameLower.contains('m2')) {
+      return 10;
+    }
+    if (examNameLower.contains('midterm') || examNameLower.contains('mid')) {
+      return 30;
+    }
+    if (examNameLower.contains('final') || examNameLower.contains('end')) {
+      return 50;
+    }
+    
+    return 10; // Default
+  }
+
+  // Calculate correct PASS/FAIL status
+  String _calculateCorrectStatus(StudentResultReportModel result) {
+    // Get exam type and weight
+    final examName = result.exam['name']?.toString() ?? '';
+    final examWeight = _getExamWeight(examName);
+    
+    // Get subject count from results
+    final subjectCount = result.results.length;
+    
+    // Calculate total exam max and pass mark
+    final totalExamMax = subjectCount * examWeight;
+    final passMark = totalExamMax / 2;
+    
+    // Get student's total obtained marks
+    final studentTotal = result.summary?['total_marks_obtained'] ?? 
+                        result.summary?['total_obtained'] ?? 
+                        result.summary?['total'] ?? 0;
+    
+    // Determine status
+    return studentTotal >= passMark ? 'PASS' : 'FAIL';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -488,60 +547,65 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                                         // Results Grid
                                         Column(
                                           children: [
-                                            // First row: TOTAL and AVERAGE
-                                            Row(
-                                              children: [
-                                                // TOTAL
-                                                Expanded(
-                                                  child: Container(
-                                                    padding: const EdgeInsets.all(16),
-                                                    decoration: BoxDecoration(
-                                                      color: kSoftBlue,
-                                                      borderRadius: BorderRadius.circular(16),
-                                                    ),
-                                                    child: Column(
-                                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                                      children: [
-                                                        const Text(
-                                                          'TOTAL',
-                                                          style: TextStyle(
-                                                            fontSize: 12,
-                                                            fontWeight: FontWeight.w600,
-                                                            color: kTextSecondaryColor,
-                                                          ),
-                                                        ),
-                                                        const SizedBox(height: 8),
-                                                        Row(
-                                                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                                                          textBaseline: TextBaseline.alphabetic,
-                                                          children: [
-                                                            Text(
-                                                              '${result.summary!['total'] ?? result.summary!['total_marks_obtained'] ?? 0}',
-                                                              style: const TextStyle(
-                                                                fontSize: 24,
-                                                                fontWeight: FontWeight.bold,
-                                                                color: kPrimaryBlue,
-                                                              ),
-                                                            ),
-                                                            if (result.summary!['total_max'] != null) ...[
-                                                              const SizedBox(width: 4),
-                                                              Text(
-                                                                '/ ${result.summary!['total_max']}',
-                                                                style: const TextStyle(
-                                                                  fontSize: 14,
-                                                                  fontWeight: FontWeight.w500,
-                                                                  color: kTextSecondaryColor,
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          ],
-                                                        ),
-                                                      ],
+                                            // TOTAL - Full width card
+                                            Container(
+                                              width: double.infinity,
+                                              padding: const EdgeInsets.all(16),
+                                              decoration: BoxDecoration(
+                                                color: kSoftBlue,
+                                                borderRadius: BorderRadius.circular(16),
+                                              ),
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  const Text(
+                                                    'TOTAL',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: kTextSecondaryColor,
                                                     ),
                                                   ),
-                                                ),
-                                                const SizedBox(width: 12),
-                                               
+                                                  const SizedBox(height: 8),
+                                                  Row(
+                                                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                                                    textBaseline: TextBaseline.alphabetic,
+                                                    children: [
+                                                      Flexible(
+                                                        child: Text(
+                                                          '${result.summary!['total'] ?? result.summary!['total_marks_obtained'] ?? 0}',
+                                                          style: const TextStyle(
+                                                            fontSize: 24,
+                                                            fontWeight: FontWeight.bold,
+                                                            color: kPrimaryBlue,
+                                                          ),
+                                                          overflow: TextOverflow.ellipsis,
+                                                        ),
+                                                      ),
+                                                      if (result.summary!['total_max'] != null) ...[
+                                                        const SizedBox(width: 4),
+                                                        Flexible(
+                                                          child: Text(
+                                                            '/ ${result.summary!['total_max']}',
+                                                            style: const TextStyle(
+                                                              fontSize: 14,
+                                                              fontWeight: FontWeight.w500,
+                                                              color: kTextSecondaryColor,
+                                                            ),
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            const SizedBox(height: 12),
+                                            
+                                            // Second row: AVERAGE and STATUS side by side
+                                            Row(
+                                              children: [
                                                 // AVERAGE
                                                 Expanded(
                                                   child: Container(
@@ -563,9 +627,9 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                                                         ),
                                                         const SizedBox(height: 8),
                                                         Text(
-                                                          '${result.summary!['average'] ?? result.summary!['percentage'] ?? 0}%',
+                                                          '${result.summary!['average'] ?? result.summary!['overall_percentage'] ?? 0}%',
                                                           style: const TextStyle(
-                                                            fontSize: 24,
+                                                            fontSize: 20,
                                                             fontWeight: FontWeight.bold,
                                                             color: kPrimaryGreen,
                                                           ),
@@ -574,42 +638,42 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                                                     ),
                                                   ),
                                                 ),
+                                                const SizedBox(width: 12),
+                                               
+                                                // STATUS
+                                                Expanded(
+                                                  child: Container(
+                                                    padding: const EdgeInsets.all(16),
+                                                    decoration: BoxDecoration(
+                                                      color: (_calculateCorrectStatus(result) == 'PASS' ? kPrimaryGreen.withOpacity(0.1) : kErrorColor.withOpacity(0.1)),
+                                                      borderRadius: BorderRadius.circular(16),
+                                                      border: Border.all(color: (_calculateCorrectStatus(result) == 'PASS' ? kPrimaryGreen : kErrorColor).withOpacity(0.3)),
+                                                    ),
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                                      children: [
+                                                        const Text(
+                                                          'STATUS',
+                                                          style: TextStyle(
+                                                            fontSize: 12,
+                                                            fontWeight: FontWeight.w600,
+                                                            color: kTextSecondaryColor,
+                                                          ),
+                                                        ),
+                                                        const SizedBox(height: 8),
+                                                        Text(
+                                                          _calculateCorrectStatus(result),
+                                                          style: TextStyle(
+                                                            fontSize: 20,
+                                                            fontWeight: FontWeight.bold,
+                                                            color: _calculateCorrectStatus(result) == 'PASS' ? kPrimaryGreen : kErrorColor,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
                                               ],
-                                            ),
-                                            const SizedBox(height: 12),
-                                            
-                                            // STATUS - Single centered card
-                                            Center(
-                                              child: Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                                                decoration: BoxDecoration(
-                                                  color: (result.summary!['status'] == 'PASS' ? kPrimaryGreen : kErrorColor).withOpacity(0.1),
-                                                  borderRadius: BorderRadius.circular(16),
-                                                  border: Border.all(color: (result.summary!['status'] == 'PASS' ? kPrimaryGreen : kErrorColor).withOpacity(0.3)),
-                                                ),
-                                                child: Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                                  children: [
-                                                    const Text(
-                                                      'STATUS',
-                                                      style: TextStyle(
-                                                        fontSize: 12,
-                                                        fontWeight: FontWeight.w600,
-                                                        color: kTextSecondaryColor,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 8),
-                                                    Text(
-                                                      result.summary!['status'] ?? 'N/A',
-                                                      style: TextStyle(
-                                                        fontSize: 20,
-                                                        fontWeight: FontWeight.bold,
-                                                        color: result.summary!['status'] == 'PASS' ? kPrimaryGreen : kErrorColor,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
                                             ),
                                           ],
                                         ),
