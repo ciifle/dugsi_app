@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:kobac/services/students_service.dart';
 import 'package:kobac/services/classes_service.dart';
 import 'package:kobac/widgets/form_3d/form_3d.dart';
+import 'package:kobac/widgets/form_3d/date_picker_3d.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
 const Color kPrimaryGreen = Color(0xFF5AB04B);
@@ -10,8 +11,13 @@ const Color kBgColor = Color(0xFFF0F3F7);
 
 class CreateStudentScreen extends StatefulWidget {
   final int? initialClassId;
+  final bool embedBodyOnly;
 
-  const CreateStudentScreen({super.key, this.initialClassId});
+  const CreateStudentScreen({
+    super.key, 
+    this.initialClassId,
+    this.embedBodyOnly = false,
+  });
 
   @override
   State<CreateStudentScreen> createState() => _CreateStudentScreenState();
@@ -230,6 +236,10 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.embedBodyOnly) {
+      return _buildDesktopForm();
+    }
+    
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -280,73 +290,68 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
                               onChanged: (v) => setState(() => _orphanStatus = v ?? 'Not Orphan'),
                             ),
                             const SizedBox(height: 18),
-                            DatePicker3D(
-                              label: 'Birth Date',
-                              value: _birthDate,
-                              errorText: _birthDateError,
-                              firstDate: DateTime(1990),
-                              lastDate: DateTime.now(),
-                              onDatePicked: (d) => setState(() => _birthDate = _formatDate(d)),
-                            ),
-                            const SizedBox(height: 18),
                             Select3D<String>(
                               value: _sex,
-                              label: 'Sex',
+                              label: 'Gender',
                               items: const [
                                 DropdownMenuItem(value: 'Male', child: Text('Male')),
                                 DropdownMenuItem(value: 'Female', child: Text('Female')),
                               ],
                               onChanged: (v) => setState(() => _sex = v ?? 'Male'),
                             ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      FormCard(
-                        child: FormSection(
-                                    title: 'Contact & Location',
-                          children: [
-                            Input3D(controller: _telephone, label: 'Telephone', keyboardType: TextInputType.phone),
                             const SizedBox(height: 18),
-                            Input3D(controller: _birthPlace, label: 'Birth Place', textCapitalization: TextCapitalization.words),
-                            const SizedBox(height: 18),
-                            Input3D(controller: _nationality, label: 'Nationality', textCapitalization: TextCapitalization.words),
-                            const SizedBox(height: 18),
-                            Input3D(controller: _studentState, label: 'Student State', textCapitalization: TextCapitalization.words),
-                            const SizedBox(height: 18),
-                            Input3D(controller: _studentDistrict, label: 'Student District', textCapitalization: TextCapitalization.words),
-                            const SizedBox(height: 18),
-                            Input3D(controller: _studentVillage, label: 'Student Village', textCapitalization: TextCapitalization.words),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      FormCard(
-                        child: FormSection(
-                          title: 'Family & School',
-                          children: [
                             Select3D<String>(
                               value: _disabilityStatus,
                               label: 'Disability Status',
                               items: const [
                                 DropdownMenuItem(value: 'No Disability', child: Text('No Disability')),
-                                DropdownMenuItem(value: 'With Disability', child: Text('With Disability')),
+                                DropdownMenuItem(value: 'Disabled', child: Text('Disabled')),
                               ],
                               onChanged: (v) => setState(() => _disabilityStatus = v ?? 'No Disability'),
                             ),
                             const SizedBox(height: 18),
-                            Input3D(controller: _guardianName, label: 'Guardian Name', textCapitalization: TextCapitalization.words),
+                            DatePicker3D(
+                              label: 'Date of Birth',
+                              value: _birthDate,
+                              initialDate: _birthDate.isNotEmpty ? _parseDate(_birthDate) : null,
+                              firstDate: DateTime(1990),
+                              lastDate: DateTime.now(),
+                              onDatePicked: (date) {
+                                setState(() {
+                                  _birthDate = _formatDate(date);
+                                  _birthDateError = null;
+                                });
+                              },
+                              errorText: _birthDateError,
+                            ),
                             const SizedBox(height: 18),
-                            Input3D(controller: _schoolName, label: 'School Name', textCapitalization: TextCapitalization.words),
+                            Input3D(controller: _birthPlace, label: 'Birth Place', validator: _required),
                             const SizedBox(height: 18),
-                            _classes.isEmpty
-                                ? Input3D(controller: _className, label: 'Class Name', textCapitalization: TextCapitalization.words)
-                                : Select3D<int>(
-                                    value: _selectedClassId,
-                                    label: 'Class',
-                                    items: _classes.map((c) => DropdownMenuItem<int>(value: c.id, child: Text(c.name))).toList(),
-                                    onChanged: (v) => setState(() => _selectedClassId = v),
-                                  ),
+                            Input3D(controller: _nationality, label: 'Nationality', validator: _required),
+                            const SizedBox(height: 18),
+                            Input3D(controller: _studentState, label: 'State', validator: _required),
+                            const SizedBox(height: 18),
+                            Input3D(controller: _studentDistrict, label: 'District', validator: _required),
+                            const SizedBox(height: 18),
+                            Input3D(controller: _studentVillage, label: 'Village', validator: _required),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      FormCard(
+                        child: FormSection(
+                          title: 'Academic Info',
+                          children: [
+                            Input3D(controller: _guardianName, label: 'Guardian Name', validator: _required),
+                            const SizedBox(height: 18),
+                            Input3D(controller: _schoolName, label: 'School Name', validator: _required),
+                            const SizedBox(height: 18),
+                            Select3D<int>(
+                              value: _selectedClassId,
+                              label: 'Class',
+                              items: _classes.map((c) => DropdownMenuItem<int>(value: c.id, child: Text(c.name))).toList(),
+                              onChanged: (v) => setState(() => _selectedClassId = v),
+                            ),
                             const SizedBox(height: 18),
                             Input3D(
                               controller: _ageController,
@@ -387,6 +392,306 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopForm() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Card
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Add Student',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF023471),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Create a new student record',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () {
+                    if (widget.embedBodyOnly) {
+                      // Navigate back to students list via shell
+                      // This will need to be implemented via callback
+                      Navigator.of(context).pop();
+                    }
+                  },
+                  icon: const Icon(Icons.arrow_back, size: 18),
+                  label: const Text('Back to Students'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF023471),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          // Form Card
+          Container(
+            constraints: const BoxConstraints(maxWidth: 1000),
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE8ECF2), width: 1),
+            ),
+            child: Form(
+              key: _formKey,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide = constraints.maxWidth > 800;
+                  return Wrap(
+                    spacing: 20,
+                    runSpacing: 20,
+                    children: [
+                      // Personal Info Section
+                      SizedBox(
+                        width: isWide ? constraints.maxWidth / 2 - 10 : constraints.maxWidth,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Personal Information',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF023471),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            Input3D(controller: _emisNumber, label: 'EMIS Number', validator: _required),
+                            const SizedBox(height: 16),
+                            Input3D(controller: _studentName, label: 'Student Name', validator: _required, textCapitalization: TextCapitalization.words),
+                            const SizedBox(height: 16),
+                            Input3D(controller: _motherName, label: "Mother's Name", validator: _required, textCapitalization: TextCapitalization.words),
+                            const SizedBox(height: 16),
+                            Select3D<String>(
+                              value: _refugeeStatus,
+                              label: 'Refugee Status',
+                              items: const [
+                                DropdownMenuItem(value: 'Refugee', child: Text('Refugee')),
+                                DropdownMenuItem(value: 'Not Refugee', child: Text('Not Refugee')),
+                              ],
+                              onChanged: (v) => setState(() => _refugeeStatus = v ?? 'Not Refugee'),
+                            ),
+                            const SizedBox(height: 16),
+                            Select3D<String>(
+                              value: _orphanStatus,
+                              label: 'Orphan Status',
+                              items: const [
+                                DropdownMenuItem(value: 'Orphan', child: Text('Orphan')),
+                                DropdownMenuItem(value: 'Not Orphan', child: Text('Not Orphan')),
+                              ],
+                              onChanged: (v) => setState(() => _orphanStatus = v ?? 'Not Orphan'),
+                            ),
+                            const SizedBox(height: 16),
+                            Select3D<String>(
+                              value: _sex,
+                              label: 'Gender',
+                              items: const [
+                                DropdownMenuItem(value: 'Male', child: Text('Male')),
+                                DropdownMenuItem(value: 'Female', child: Text('Female')),
+                              ],
+                              onChanged: (v) => setState(() => _sex = v ?? 'Male'),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Academic Info Section
+                      SizedBox(
+                        width: isWide ? constraints.maxWidth / 2 - 10 : constraints.maxWidth,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Academic Information',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF023471),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            Input3D(controller: _guardianName, label: 'Guardian Name', validator: _required),
+                            const SizedBox(height: 16),
+                            Input3D(controller: _schoolName, label: 'School Name', validator: _required),
+                            const SizedBox(height: 16),
+                            Select3D<int>(
+                              value: _selectedClassId,
+                              label: 'Class',
+                              items: _classes.map((c) => DropdownMenuItem<int>(value: c.id, child: Text(c.name))).toList(),
+                              onChanged: (v) => setState(() => _selectedClassId = v),
+                            ),
+                            const SizedBox(height: 16),
+                            Input3D(
+                              controller: _ageController,
+                              label: 'Age',
+                              validator: _ageValid,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                            ),
+                            const SizedBox(height: 16),
+                            Select3D<String>(
+                              value: _absenteeismStatus,
+                              label: 'Absenteeism Status',
+                              items: const [
+                                DropdownMenuItem(value: 'Active', child: Text('Active')),
+                                DropdownMenuItem(value: 'Inactive', child: Text('Inactive')),
+                              ],
+                              onChanged: (v) => setState(() => _absenteeismStatus = v ?? 'Active'),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Additional Fields (full width)
+                      SizedBox(
+                        width: constraints.maxWidth,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 20),
+                            const Text(
+                              'Additional Information',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF023471),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            Wrap(
+                              spacing: 20,
+                              runSpacing: 20,
+                              children: [
+                                SizedBox(
+                                  width: isWide ? constraints.maxWidth / 3 - 15 : constraints.maxWidth,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Select3D<String>(
+                                        value: _disabilityStatus,
+                                        label: 'Disability Status',
+                                        items: const [
+                                          DropdownMenuItem(value: 'No Disability', child: Text('No Disability')),
+                                          DropdownMenuItem(value: 'Disabled', child: Text('Disabled')),
+                                        ],
+                                        onChanged: (v) => setState(() => _disabilityStatus = v ?? 'No Disability'),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      DatePicker3D(
+                                        label: 'Date of Birth',
+                                        value: _birthDate,
+                                        initialDate: _birthDate.isNotEmpty ? _parseDate(_birthDate) : null,
+                                        firstDate: DateTime(1990),
+                                        lastDate: DateTime.now(),
+                                        onDatePicked: (date) {
+                                          setState(() {
+                                            _birthDate = _formatDate(date);
+                                            _birthDateError = null;
+                                          });
+                                        },
+                                        errorText: _birthDateError,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: isWide ? constraints.maxWidth / 3 - 15 : constraints.maxWidth,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Input3D(controller: _birthPlace, label: 'Birth Place', validator: _required),
+                                      const SizedBox(height: 16),
+                                      Input3D(controller: _nationality, label: 'Nationality', validator: _required),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: isWide ? constraints.maxWidth / 3 - 15 : constraints.maxWidth,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Input3D(controller: _studentState, label: 'State', validator: _required),
+                                      const SizedBox(height: 16),
+                                      Input3D(controller: _studentDistrict, label: 'District', validator: _required),
+                                      const SizedBox(height: 16),
+                                      Input3D(controller: _studentVillage, label: 'Village', validator: _required),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+                            const Text(
+                              'Account Information',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF023471),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            PasswordInput3D(controller: _password, label: 'Password', validator: _passwordLength),
+                            const SizedBox(height: 24),
+                            // Action Buttons
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                TextButton(
+                                  onPressed: () {
+                                    if (widget.embedBodyOnly) {
+                                      Navigator.of(context).pop();
+                                    }
+                                  },
+                                  child: const Text('Cancel'),
+                                ),
+                                const SizedBox(width: 12),
+                                PrimaryButton3D(label: 'Create Student', onPressed: _submit, loading: _submitting),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

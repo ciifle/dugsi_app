@@ -21,6 +21,8 @@ import 'package:kobac/school_admin/pages/notices_page.dart';
 import 'package:kobac/school_admin/pages/payments_screen.dart';
 import 'package:kobac/school_admin/pages/teachers_screen.dart';
 import 'package:kobac/school_admin/widgets/drawer_widget.dart';
+import 'package:kobac/school_admin/widgets/web_admin_shell.dart';
+import 'package:kobac/school_admin/widgets/web_dashboard.dart';
 import 'package:provider/provider.dart';
 import 'package:kobac/services/auth_provider.dart';
 import 'package:kobac/services/dummy_school_service.dart';
@@ -63,6 +65,7 @@ class _SchoolAdminScreenState extends State<SchoolAdminScreen> {
   final GlobalKey<NavigatorState> _nestedNavKey = GlobalKey<NavigatorState>();
 
   bool _dataLoaded = false;
+  String _searchQuery = '';
 
   @override
   void didChangeDependencies() {
@@ -76,48 +79,57 @@ class _SchoolAdminScreenState extends State<SchoolAdminScreen> {
   Future<void> _loadData() async {
     final user = context.read<AuthProvider>().user;
 
-    if (user != null && user.userRole == UserRole.schoolAdmin) {
-      int studentCount = 0;
+    setState(() {
+      _userName = user?.name ?? "School Admin";
+    });
+
+    try {
+      // Load data in parallel
       final studentsResult = await StudentsService().listStudents();
+      final teachersResult = await TeachersService().listTeachers();
+      final subjectsResult = await SubjectsService().listSubjects();
+      final classesResult = await ClassesService().listClasses();
+
+      if (!mounted) return;
+
+      int studentCount = 0;
       if (studentsResult is StudentSuccess<List<StudentModel>>) {
         studentCount = studentsResult.data.length;
       }
+
       int teacherCount = 0;
-      final teachersResult = await TeachersService().listTeachers();
       if (teachersResult is TeacherSuccess<List<TeacherModel>>) {
         teacherCount = teachersResult.data.length;
       }
+
       int subjectCount = 0;
-      final subjectsResult = await SubjectsService().listSubjects();
       if (subjectsResult is SubjectSuccess<List<SubjectModel>>) {
         subjectCount = subjectsResult.data.length;
       }
+
       int classCount = 0;
-      final classesResult = await ClassesService().listClasses();
       if (classesResult is ClassSuccess<List<ClassModel>>) {
         classCount = classesResult.data.length;
       }
 
-      if (!mounted) return;
       setState(() {
         _studentCount = studentCount;
         _teacherCount = teacherCount;
         _subjectCount = subjectCount;
         _classCount = classCount;
-        _userName = user.name;
         _loading = false;
       });
-    } else {
+    } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _studentCount = 0;
-        _teacherCount = 0;
-        _subjectCount = 0;
-        _classCount = 0;
-        _userName = user?.name ?? 'School Admin';
-        _loading = false;
-      });
+      debugPrint('Failed to load dashboard counts: $e');
+      setState(() => _loading = false);
     }
+  }
+
+  void _onSearch(String query) {
+    setState(() {
+      _searchQuery = query.toLowerCase();
+    });
   }
 
   Widget _buildTabView() {
@@ -185,6 +197,13 @@ class _SchoolAdminScreenState extends State<SchoolAdminScreen> {
   @override
   Widget build(BuildContext context) {
     final feesEnabled = context.watch<AuthProvider>().feesEnabled;
+    
+    // Check if we should use desktop layout
+    if (isDesktopLayout(context)) {
+      return _buildDesktopLayout(feesEnabled);
+    }
+    
+    // Mobile layout (existing)
     if (!feesEnabled && _bottomNavIndex == 3) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) setState(() => _bottomNavIndex = 2);
@@ -229,11 +248,33 @@ class _SchoolAdminScreenState extends State<SchoolAdminScreen> {
     );
   }
 
+  Widget _buildDesktopLayout(bool feesEnabled) {
+    return WebAdminShell(
+      navigatorKey: _nestedNavKey,
+      onSearch: _onSearch,
+    );
+  }
+
+  Widget _buildDesktopBody(bool feesEnabled) {
+    switch (_bottomNavIndex) {
+      case 1:
+        return const MessagesScreen(embedInParent: false);
+      case 2:
+        return feesEnabled
+            ? const FeesFeatureGuard(child: PaymentsScreen(embedInParent: false))
+            : const AdminProfilePage(embedBodyOnly: false);
+      case 3:
+        return const AdminProfilePage(embedBodyOnly: false);
+      default:
+        return const WebDashboard();
+    }
+  }
+
   String _headerTitle() {
     final feesEnabled = context.read<AuthProvider>().feesEnabled;
     switch (_bottomNavIndex) {
       case 0:
-        return _userName.isEmpty ? "School Admin" : _userName;
+        return "Dashboard";
       case 1:
         return "Messages";
       case 2:
