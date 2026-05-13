@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:kobac/services/teacher_service.dart';
+import 'package:kobac/teacher/widgets/teacher_web_ui.dart';
 
 // ---------- COLOR PALETTE (Matching Student Dashboard) ----------
 const Color kPrimaryBlue = Color(0xFF023471); // Dark blue
@@ -23,8 +24,15 @@ const Color kCardColor = Colors.white;
 class TeacherAssignmentsScreen extends StatefulWidget {
   /// When provided (e.g. from dashboard), assignments show immediately from this data.
   final TeacherDashboardModel? initialDashboard;
+  final bool embedBodyOnly;
+  final void Function(String, {Object? arguments})? onNavigateToPage;
 
-  const TeacherAssignmentsScreen({Key? key, this.initialDashboard}) : super(key: key);
+  const TeacherAssignmentsScreen({
+    Key? key,
+    this.initialDashboard,
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
+  }) : super(key: key);
 
   @override
   State<TeacherAssignmentsScreen> createState() =>
@@ -80,9 +88,7 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: kSoftBlue,
-      body: FutureBuilder<TeacherResult<TeacherDashboardModel>>(
+    final content = FutureBuilder<TeacherResult<TeacherDashboardModel>>(
         future: _dashboardFuture,
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
@@ -183,22 +189,92 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
           }
           return _buildScaffoldWithList(searchFiltered);
         },
+    );
+
+    if (widget.embedBodyOnly) {
+      return ColoredBox(color: teacherWebBg, child: content);
+    }
+
+    return Scaffold(
+      backgroundColor: kSoftBlue,
+      body: content,
+    );
+  }
+
+  Widget _buildDesktopAssignmentsList(List<TeacherAssignmentModel> searchFiltered) {
+    return TeacherWebSurface(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TeacherWebCard(
+            child: TextField(
+              controller: _searchController,
+              onChanged: _updateSearchQuery,
+              decoration: InputDecoration(
+                hintText: 'Search assignments...',
+                prefixIcon: const Icon(Icons.search_rounded, color: kPrimaryBlue),
+                filled: true,
+                fillColor: const Color(0xFFF8FAFC),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: teacherWebBorder),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: teacherWebBorder),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          TeacherWebCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                const TeacherWebTableHeader(columns: ['Subject', 'Class', '']),
+                ...List.generate(searchFiltered.length, (index) {
+                  final assignment = searchFiltered[index];
+                  final subjectLabel = assignment.subjectName.isNotEmpty ? assignment.subjectName : '—';
+                  return TeacherWebTableRow(
+                    cells: [
+                      Text(subjectLabel, style: const TextStyle(fontWeight: FontWeight.w600, color: kTextPrimary)),
+                      Text(assignment.classDisplayName, style: const TextStyle(color: kTextSecondary)),
+                      const Align(
+                        alignment: Alignment.centerRight,
+                        child: Icon(Icons.assignment_rounded, color: kPrimaryGreen, size: 20),
+                      ),
+                    ],
+                  );
+                }),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
   /// Builds scaffold with list as slivers (avoids SliverFillRemaining + ListView intrinsic error).
   Widget _buildScaffoldWithList(List<TeacherAssignmentModel> searchFiltered) {
-    return Scaffold(
-      backgroundColor: kSoftBlue,
-      body: RefreshIndicator(
+    if (widget.embedBodyOnly) {
+      return RefreshIndicator(
         onRefresh: () async => _refresh(),
         color: kPrimaryBlue,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-          slivers: [
-            _buildSliverAppBar(),
-            SliverPadding(
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: _buildDesktopAssignmentsList(searchFiltered),
+        ),
+      );
+    }
+
+    final scroll = RefreshIndicator(
+      onRefresh: () async => _refresh(),
+      color: kPrimaryBlue,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        slivers: [
+          if (!widget.embedBodyOnly) _buildSliverAppBar(),
+          SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
@@ -251,7 +327,15 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
             ),
           ],
         ),
-      ),
+      );
+
+    if (widget.embedBodyOnly) {
+      return ColoredBox(color: kSoftBlue, child: scroll);
+    }
+
+    return Scaffold(
+      backgroundColor: kSoftBlue,
+      body: scroll,
     );
   }
 
@@ -376,6 +460,25 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
   }
 
   Widget _buildScaffoldWithAppBar({required Widget body}) {
+    if (widget.embedBodyOnly) {
+      return TeacherWebSurface(child: body);
+    }
+
+    if (widget.embedBodyOnly) {
+      return ColoredBox(
+        color: kSoftBlue,
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: body,
+            ),
+          ],
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: kSoftBlue,
       body: CustomScrollView(

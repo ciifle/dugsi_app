@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kobac/school_admin/widgets/admin_responsive_layout.dart';
 import 'package:kobac/services/notices_service.dart';
 import 'package:kobac/services/api_error_helpers.dart';
 import 'package:kobac/school_admin/widgets/delete_confirm_dialog.dart';
@@ -11,8 +12,15 @@ const double kCardRadius = 28.0;
 
 class AdminNoticesScreen extends StatefulWidget {
   final bool openCreateOnLoad;
+  final bool embedBodyOnly;
+  final void Function(String, {Object? arguments})? onNavigateToPage;
 
-  const AdminNoticesScreen({Key? key, this.openCreateOnLoad = false}) : super(key: key);
+  const AdminNoticesScreen({
+    Key? key,
+    this.openCreateOnLoad = false,
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
+  }) : super(key: key);
 
   @override
   State<AdminNoticesScreen> createState() => _AdminNoticesScreenState();
@@ -20,6 +28,8 @@ class AdminNoticesScreen extends StatefulWidget {
 
 class _AdminNoticesScreenState extends State<AdminNoticesScreen> {
   late Future<NoticeResult<List<NoticeModel>>> _noticesFuture;
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -34,6 +44,53 @@ class _AdminNoticesScreenState extends State<AdminNoticesScreen> {
     setState(() {
       _noticesFuture = NoticesService().listNotices();
     });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<NoticeModel> _filterNotices(List<NoticeModel> notices) {
+    if (_searchQuery.trim().isEmpty) return notices;
+    final query = _searchQuery.trim().toLowerCase();
+    return notices.where((notice) {
+      return notice.title.toLowerCase().contains(query) ||
+          notice.content.toLowerCase().contains(query);
+    }).toList();
+  }
+
+  void _openNoticeDetail(NoticeModel notice) {
+    if (isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)) {
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => _NoticeDetailDialog(
+          notice: notice,
+          onEdit: () {
+            Navigator.pop(ctx);
+            _openEditNotice(notice);
+          },
+          onDelete: () async {
+            Navigator.pop(ctx);
+            await _deleteNotice(notice);
+          },
+        ),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _NoticeDetailScreen(
+          notice: notice,
+          onEdit: () => _openEditNotice(notice),
+          onDelete: () => _deleteNotice(notice, onSuccess: () => Navigator.pop(context)),
+          onPop: () => _loadNotices(),
+        ),
+      ),
+    ).then((_) => _loadNotices());
   }
 
   Future<void> _openCreateNotice() async {
@@ -116,38 +173,53 @@ class _AdminNoticesScreenState extends State<AdminNoticesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final body = isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)
+        ? _buildDesktopPageBody(context)
+        : _buildMobilePageBody(context);
+
+    if (isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)) {
+      return body;
+    }
+
     return Scaffold(
       backgroundColor: kBgColor,
-      body: SafeArea(
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [kBgColor, kPrimaryBlue.withOpacity(0.02)],
+      body: SafeArea(child: body),
+    );
+  }
+
+  Widget _buildMobilePageBody(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [kBgColor, kPrimaryBlue.withOpacity(0.02)],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+            child: Row(
+              children: [
+                if (!isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)) ...[
+                  _BackButton(onPressed: () => Navigator.pop(context)),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      'School Announcements',
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                    ),
+                  ),
+                ] else
+                  const Spacer(),
+                _AddButton(onPressed: _openCreateNotice),
+              ],
             ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                child: Row(
-                  children: [
-                    _BackButton(onPressed: () => Navigator.pop(context)),
-                    const SizedBox(width: 16),
-                    const Expanded(
-                      child: Text(
-                        'Notices',
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kPrimaryBlue),
-                      ),
-                    ),
-                    _AddButton(onPressed: _openCreateNotice),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: RefreshIndicator(
+          Expanded(
+            child: RefreshIndicator(
                   onRefresh: () async => _loadNotices(),
                   color: kPrimaryGreen,
                   child: FutureBuilder<NoticeResult<List<NoticeModel>>>(
@@ -197,17 +269,7 @@ class _AdminNoticesScreenState extends State<AdminNoticesScreen> {
                           final notice = notices[index];
                           return _NoticeCard(
                             notice: notice,
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => _NoticeDetailScreen(
-                                  notice: notice,
-                                  onEdit: () => _openEditNotice(notice),
-                                  onDelete: () => _deleteNotice(notice, onSuccess: () => Navigator.pop(context)),
-                                  onPop: () => _loadNotices(),
-                                ),
-                              ),
-                            ).then((_) => _loadNotices()),
+                            onTap: () => _openNoticeDetail(notice),
                             onEdit: () => _openEditNotice(notice),
                             onDelete: () => _deleteNotice(notice),
                           );
@@ -219,6 +281,389 @@ class _AdminNoticesScreenState extends State<AdminNoticesScreen> {
               ),
             ],
           ),
+    );
+  }
+
+  Widget _buildDesktopPageBody(BuildContext context) {
+    return Container(
+      color: const Color(0xFFF8F9FC),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFE8ECF2)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.03),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide = constraints.maxWidth >= 900;
+                  final searchField = Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: (value) => setState(() => _searchQuery = value),
+                      decoration: InputDecoration(
+                        hintText: 'Search notices...',
+                        hintStyle: TextStyle(color: Colors.grey.shade500),
+                        prefixIcon: Icon(Icons.search_rounded, color: Colors.grey.shade500),
+                        suffixIcon: _searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, color: Colors.grey),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() => _searchQuery = '');
+                                },
+                              )
+                            : null,
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                    ),
+                  );
+                  final addButton = SizedBox(
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      onPressed: _openCreateNotice,
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      label: const Text('Add Notice'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: kPrimaryBlue,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  );
+                  final refreshButton = OutlinedButton.icon(
+                    onPressed: _loadNotices,
+                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                    label: const Text('Refresh'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: kPrimaryBlue,
+                      side: const BorderSide(color: Color(0xFFE5E7EB)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  );
+
+                  if (isWide) {
+                    return Row(
+                      children: [
+                        Expanded(child: searchField),
+                        const SizedBox(width: 16),
+                        refreshButton,
+                        const SizedBox(width: 12),
+                        addButton,
+                      ],
+                    );
+                  }
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      searchField,
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        alignment: WrapAlignment.end,
+                        children: [refreshButton, addButton],
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () async => _loadNotices(),
+              color: kPrimaryGreen,
+              child: FutureBuilder<NoticeResult<List<NoticeModel>>>(
+                future: _noticesFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator(color: kPrimaryBlue));
+                  }
+                  if (snapshot.hasError) {
+                    final msg = userFriendlyMessage(snapshot.error!, null, 'AdminNoticesScreen');
+                    return _ErrorState(message: msg, onRetry: _loadNotices);
+                  }
+                  final result = snapshot.data;
+                  if (result == null) return const Center(child: Text('No data'));
+                  if (result is NoticeError) {
+                    return _ErrorState(message: result.message, onRetry: _loadNotices);
+                  }
+
+                  final notices = _filterNotices((result as NoticeSuccess<List<NoticeModel>>).data);
+                  if (notices.isEmpty) {
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(24),
+                      children: [
+                        SizedBox(height: MediaQuery.of(context).size.height * 0.15),
+                        Center(
+                          child: Text(
+                            _searchQuery.isEmpty ? 'No notices found' : 'No notices match your search',
+                            style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+
+                  return ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: const Color(0xFFE8ECF2)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.03),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                              decoration: const BoxDecoration(
+                                border: Border(bottom: BorderSide(color: Color(0xFFE8ECF2), width: 1)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    flex: 3,
+                                    child: Text('Title', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
+                                  ),
+                                  Expanded(
+                                    flex: 4,
+                                    child: Text('Content', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
+                                  ),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Text('Date', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
+                                  ),
+                                  const SizedBox(width: 88),
+                                ],
+                              ),
+                            ),
+                            ...notices.map((notice) {
+                              return _NoticeRow(
+                                notice: notice,
+                                onTap: () => _openNoticeDetail(notice),
+                                onEdit: () => _openEditNotice(notice),
+                                onDelete: () => _deleteNotice(notice),
+                              );
+                            }),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+bool _isDesktopAdminModal(BuildContext context) => isDesktopWebAdminLayout(context);
+
+class _NoticeRow extends StatelessWidget {
+  final NoticeModel notice;
+  final VoidCallback onTap;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _NoticeRow({
+    required this.notice,
+    required this.onTap,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final preview = notice.content.length > 90 ? '${notice.content.substring(0, 90)}...' : notice.content;
+    return Material(
+      color: Colors.white,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: Color(0xFFE8ECF2), width: 1)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: Text(
+                  notice.title,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kPrimaryBlue),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Expanded(
+                flex: 4,
+                child: Text(
+                  preview,
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  notice.createdAt ?? '—',
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.edit_outlined, size: 20, color: kPrimaryGreen),
+                onPressed: onEdit,
+                tooltip: 'Edit',
+              ),
+              IconButton(
+                icon: Icon(Icons.delete_outline, size: 20, color: Colors.red[400]),
+                onPressed: onDelete,
+                tooltip: 'Delete',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NoticeDetailDialog extends StatelessWidget {
+  final NoticeModel notice;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _NoticeDetailDialog({
+    required this.notice,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+      backgroundColor: Colors.white,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 720,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 16, 16),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Notice Details',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: kPrimaryBlue),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                    color: Colors.grey.shade600,
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      notice.title,
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                    ),
+                    if (notice.createdAt != null) ...[
+                      const SizedBox(height: 8),
+                      Text(notice.createdAt!, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+                    ],
+                    const SizedBox(height: 20),
+                    Text(
+                      notice.content,
+                      style: const TextStyle(fontSize: 16, height: 1.5, color: Colors.black87),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  OutlinedButton(
+                    onPressed: onDelete,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red.shade700,
+                      side: BorderSide(color: Colors.red.shade100),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: const Text('Delete'),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: onEdit,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: kPrimaryBlue,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shadowColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: const Text('Edit'),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -492,73 +937,162 @@ class _NoticeFormDialogState extends State<_NoticeFormDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20),
-      child: FormCard(
-        padding: const EdgeInsets.all(24),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                widget.title,
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue),
-              ),
-              const SizedBox(height: 20),
-              Input3D(
-                controller: _titleController,
-                label: 'Title',
-                hint: 'Notice title',
-                textCapitalization: TextCapitalization.sentences,
-                onSubmitted: (_) => _submit(),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF5F7FA),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.transparent),
-                  boxShadow: [
-                    BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 4)),
-                  ],
-                ),
-                child: TextField(
-                  controller: _contentController,
-                  maxLines: 5,
-                  decoration: InputDecoration(
-                    labelText: 'Content',
-                    hintText: 'Notice content...',
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-                    border: InputBorder.none,
-                    alignLabelWithHint: true,
+    final isDesktop = _isDesktopAdminModal(context);
+    final formContent = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Input3D(
+          controller: _titleController,
+          label: 'Title',
+          hint: 'Notice title',
+          textCapitalization: TextCapitalization.sentences,
+          onSubmitted: (_) => _submit(),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+          ),
+          child: TextField(
+            controller: _contentController,
+            maxLines: 5,
+            decoration: const InputDecoration(
+              labelText: 'Content',
+              hintText: 'Notice content...',
+              contentPadding: EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              border: InputBorder.none,
+              alignLabelWithHint: true,
+            ),
+          ),
+        ),
+      ],
+    );
+
+    final footer = isDesktop
+        ? Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                OutlinedButton(
+                  onPressed: _submitting ? null : () => Navigator.of(context).pop(false),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF374151),
+                    side: const BorderSide(color: Color(0xFFE5E7EB)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton(
+                  onPressed: _submitting ? null : _submit,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kPrimaryBlue,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shadowColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: _submitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : Text(widget.submitLabel),
+                ),
+              ],
+            ),
+          )
+        : Row(
+            children: [
+              Expanded(
+                child: TextButton(
+                  onPressed: _submitting ? null : () => Navigator.of(context).pop(false),
+                  child: const Text('Cancel'),
                 ),
               ),
-              const SizedBox(height: 24),
-              Row(
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: PrimaryButton3D(
+                  label: widget.submitLabel,
+                  onPressed: _submit,
+                  loading: _submitting,
+                  height: 48,
+                ),
+              ),
+            ],
+          );
+
+    if (!isDesktop) {
+      return Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+        child: FormCard(
+          padding: const EdgeInsets.all(24),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  widget.title,
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                ),
+                const SizedBox(height: 20),
+                formContent,
+                const SizedBox(height: 24),
+                footer,
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+      backgroundColor: Colors.white,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 700,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 16, 16),
+              child: Row(
                 children: [
                   Expanded(
-                    child: TextButton(
-                      onPressed: _submitting ? null : () => Navigator.of(context).pop(false),
-                      child: const Text('Cancel'),
+                    child: Text(
+                      widget.title,
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: kPrimaryBlue),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: PrimaryButton3D(
-                      label: widget.submitLabel,
-                      onPressed: _submit,
-                      loading: _submitting,
-                      height: 48,
-                    ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    icon: const Icon(Icons.close_rounded),
+                    color: Colors.grey.shade600,
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+            const Divider(height: 1),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: formContent,
+              ),
+            ),
+            const Divider(height: 1),
+            footer,
+          ],
         ),
       ),
     );

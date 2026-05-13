@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kobac/school_admin/widgets/admin_responsive_layout.dart';
 import 'package:kobac/services/timetables_service.dart';
 import 'package:kobac/services/classes_service.dart';
 import 'package:kobac/services/subjects_service.dart';
@@ -21,8 +22,15 @@ const List<String> kDays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
 class AdminTimetableScreen extends StatefulWidget {
   final bool openAddSlotOnLoad;
+  final bool embedBodyOnly;
+  final void Function(String, {Object? arguments})? onNavigateToPage;
 
-  const AdminTimetableScreen({Key? key, this.openAddSlotOnLoad = false}) : super(key: key);
+  const AdminTimetableScreen({
+    Key? key,
+    this.openAddSlotOnLoad = false,
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
+  }) : super(key: key);
 
   @override
   State<AdminTimetableScreen> createState() => _AdminTimetableScreenState();
@@ -36,6 +44,8 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
   List<SubjectModel> _subjects = [];
   List<TeacherModel> _teachers = [];
   bool _refDataLoaded = false;
+  int _desktopPageSize = 10;
+  int _desktopCurrentPage = 1;
 
   @override
   void initState() {
@@ -62,8 +72,29 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
 
   void _loadTimetables() {
     setState(() {
+      _desktopCurrentPage = 1;
       _timetablesFuture = TimetablesService().listTimetables(classId: _selectedClassId);
     });
+  }
+
+  void _selectDay(String day) {
+    setState(() {
+      _selectedDay = day;
+      _desktopCurrentPage = 1;
+    });
+  }
+
+  List<TimetableSlotModel> _paginateSlots(List<TimetableSlotModel> slots) {
+    if (slots.isEmpty) return slots;
+    final start = (_desktopCurrentPage - 1) * _desktopPageSize;
+    if (start >= slots.length) return [];
+    final end = start + _desktopPageSize;
+    return slots.sublist(start, end > slots.length ? slots.length : end);
+  }
+
+  int _totalDesktopPages(int totalItems) {
+    if (totalItems == 0) return 1;
+    return (totalItems / _desktopPageSize).ceil();
   }
 
   String _className(int id) {
@@ -180,38 +211,73 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
     }
   }
 
+  InputDecoration _desktopFilterDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+      floatingLabelStyle: const TextStyle(color: kPrimaryBlue, fontSize: 14),
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: kPrimaryBlue, width: 1.5),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final body = isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)
+        ? _buildDesktopPageBody(context)
+        : _buildMobilePageBody(context);
+
+    if (isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)) {
+      return body;
+    }
+
     return Scaffold(
       backgroundColor: kBgColor,
-      body: SafeArea(
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [kBgColor, kPrimaryBlue.withOpacity(0.02)],
+      body: SafeArea(child: body),
+    );
+  }
+
+  Widget _buildMobilePageBody(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [kBgColor, kPrimaryBlue.withOpacity(0.02)],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+            child: Row(
+              children: [
+                _BackButton(onPressed: () => Navigator.pop(context)),
+                const SizedBox(width: 16),
+                const Expanded(
+                  child: Text(
+                    'Timetable',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                  ),
+                ),
+                _AddButton(onPressed: _openAddSlot),
+              ],
             ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                child: Row(
-                  children: [
-                    _BackButton(onPressed: () => Navigator.pop(context)),
-                    const SizedBox(width: 16),
-                    const Expanded(
-                      child: Text(
-                        "Timetable",
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kPrimaryBlue),
-                      ),
-                    ),
-                    _AddButton(onPressed: _openAddSlot),
-                  ],
-                ),
-              ),
               if (_refDataLoaded) ...[
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -375,7 +441,601 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
               ),
             ],
           ),
-        ),
+        );
+  }
+
+  Widget _buildDesktopPageBody(BuildContext context) {
+    return Container(
+      color: const Color(0xFFF8F9FC),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_refDataLoaded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+              child: _buildDesktopFilterCard(),
+            ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () async => _loadTimetables(),
+              color: kPrimaryGreen,
+              child: FutureBuilder<TimetableResult<List<TimetableSlotModel>>>(
+                future: _timetablesFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator(color: kPrimaryBlue));
+                  }
+                  if (snapshot.hasError) {
+                    final msg = userFriendlyMessage(snapshot.error!, null, 'AdminTimetableScreen');
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                        Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              children: [
+                                Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+                                const SizedBox(height: 12),
+                                Text(msg, textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.grey[800])),
+                                const SizedBox(height: 16),
+                                TextButton.icon(onPressed: _loadTimetables, icon: const Icon(Icons.refresh), label: const Text('Retry')),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+                  final result = snapshot.data;
+                  if (result == null) {
+                    return const Center(child: Text('No data'));
+                  }
+                  if (result is TimetableError) {
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                        Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              children: [
+                                Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+                                const SizedBox(height: 12),
+                                Text(result.message, textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.grey[800])),
+                                const SizedBox(height: 16),
+                                TextButton.icon(onPressed: _loadTimetables, icon: const Icon(Icons.refresh), label: const Text('Retry')),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+                  final slots = _slotsForDay((result as TimetableSuccess<List<TimetableSlotModel>>).data);
+                  if (slots.isEmpty) {
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(24),
+                      children: [
+                        SizedBox(height: MediaQuery.of(context).size.height * 0.15),
+                        Center(
+                          child: Column(
+                            children: [
+                              Text(
+                                'No slots for $_selectedDay yet',
+                                style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                              ),
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                height: 44,
+                                child: ElevatedButton.icon(
+                                  onPressed: _openAddSlot,
+                                  icon: const Icon(Icons.add_rounded, size: 18),
+                                  label: const Text('Add Slot'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: kPrimaryBlue,
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    shadowColor: Colors.transparent,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+
+                  final totalPages = _totalDesktopPages(slots.length);
+                  if (_desktopCurrentPage > totalPages) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (!mounted) return;
+                      setState(() => _desktopCurrentPage = totalPages);
+                    });
+                  }
+                  final visibleSlots = _paginateSlots(slots);
+                  final startIndex = ((_desktopCurrentPage - 1) * _desktopPageSize) + 1;
+                  final endIndex = startIndex + visibleSlots.length - 1;
+
+                  return ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(24),
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: const Color(0xFFE8ECF2)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.03),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                              decoration: const BoxDecoration(
+                                border: Border(bottom: BorderSide(color: Color(0xFFE8ECF2), width: 1)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    flex: 2,
+                                    child: Text('Period', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
+                                  ),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Text('Subject', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
+                                  ),
+                                  Expanded(
+                                    flex: 3,
+                                    child: Text('Teacher', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
+                                  ),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Text('Class', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
+                                  ),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Text('Time', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
+                                  ),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Text('Session', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
+                                  ),
+                                  const SizedBox(width: 80),
+                                ],
+                              ),
+                            ),
+                            ...visibleSlots.map((slot) {
+                              return _TimetableRow(
+                                slot: slot,
+                                subjectName: _subjectName(slot.subjectId),
+                                teacherName: _teacherName(slot.teacherId),
+                                className: _className(slot.classId),
+                                onEdit: () => _openEditSlot(slot),
+                                onDelete: () => _deleteSlot(slot),
+                              );
+                            }),
+                            _TimetableTableFooter(
+                              startIndex: startIndex,
+                              endIndex: endIndex,
+                              totalItems: slots.length,
+                              currentPage: _desktopCurrentPage,
+                              totalPages: totalPages,
+                              pageSize: _desktopPageSize,
+                              onPageChanged: (page) => setState(() => _desktopCurrentPage = page),
+                              onPageSizeChanged: (size) => setState(() {
+                                _desktopPageSize = size;
+                                _desktopCurrentPage = 1;
+                              }),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDesktopFilterCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE8ECF2)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth >= 900;
+              final classField = SizedBox(
+                width: isWide ? 280 : double.infinity,
+                child: DropdownButtonFormField<int?>(
+                  value: _selectedClassId,
+                  decoration: _desktopFilterDecoration('Class'),
+                  items: [
+                    const DropdownMenuItem<int?>(value: null, child: Text('All classes')),
+                    ..._classes.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name))),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedClassId = value;
+                      _loadTimetables();
+                    });
+                  },
+                ),
+              );
+              final addButton = SizedBox(
+                height: 44,
+                child: ElevatedButton.icon(
+                  onPressed: _openAddSlot,
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('Add Slot'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kPrimaryBlue,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shadowColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              );
+
+              if (isWide) {
+                return Row(
+                  children: [
+                    classField,
+                    const Spacer(),
+                    addButton,
+                  ],
+                );
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  classField,
+                  const SizedBox(height: 12),
+                  Align(alignment: Alignment.centerRight, child: addButton),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: kDays.map((day) {
+              final isSelected = _selectedDay == day;
+              return InkWell(
+                onTap: () => _selectDay(day),
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isSelected ? kPrimaryBlue : Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: isSelected ? kPrimaryBlue : const Color(0xFFE5E7EB)),
+                  ),
+                  child: Text(
+                    day,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: isSelected ? Colors.white : kPrimaryBlue,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _formatTimetableTime(String time) {
+  final parts = time.split(':');
+  if (parts.length >= 2) return '${parts[0]}:${parts[1]}';
+  return time;
+}
+
+String _formatTimetableShift(String? shift) {
+  if (shift == null || shift.isEmpty) return '-';
+  final s = shift.toLowerCase();
+  if (s == 'morning') return 'Morning';
+  if (s == 'afternoon') return 'Afternoon';
+  return shift;
+}
+
+String _teacherInitials(String name) {
+  final parts = name.trim().split(RegExp(r'\s+')).where((part) => part.isNotEmpty).toList();
+  if (parts.isEmpty) return '?';
+  if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+  return '${parts.first.substring(0, 1)}${parts.last.substring(0, 1)}'.toUpperCase();
+}
+
+class _TimetableTableFooter extends StatelessWidget {
+  final int startIndex;
+  final int endIndex;
+  final int totalItems;
+  final int currentPage;
+  final int totalPages;
+  final int pageSize;
+  final ValueChanged<int> onPageChanged;
+  final ValueChanged<int> onPageSizeChanged;
+
+  const _TimetableTableFooter({
+    required this.startIndex,
+    required this.endIndex,
+    required this.totalItems,
+    required this.currentPage,
+    required this.totalPages,
+    required this.pageSize,
+    required this.onPageChanged,
+    required this.onPageSizeChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: Color(0xFFE8ECF2), width: 1)),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth >= 720;
+          final summary = Text(
+            'Showing $startIndex to $endIndex of $totalItems entries',
+            style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+          );
+          final controls = Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                onPressed: currentPage > 1 ? () => onPageChanged(currentPage - 1) : null,
+                icon: const Icon(Icons.chevron_left_rounded),
+                visualDensity: VisualDensity.compact,
+              ),
+              Container(
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: kPrimaryBlue,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '$currentPage',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                ),
+              ),
+              IconButton(
+                onPressed: currentPage < totalPages ? () => onPageChanged(currentPage + 1) : null,
+                icon: const Icon(Icons.chevron_right_rounded),
+                visualDensity: VisualDensity.compact,
+              ),
+              const SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<int>(
+                    value: pageSize,
+                    items: const [
+                      DropdownMenuItem(value: 10, child: Text('10 / page')),
+                      DropdownMenuItem(value: 20, child: Text('20 / page')),
+                      DropdownMenuItem(value: 50, child: Text('50 / page')),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) onPageSizeChanged(value);
+                    },
+                  ),
+                ),
+              ),
+            ],
+          );
+
+          if (isWide) {
+            return Row(
+              children: [
+                summary,
+                const Spacer(),
+                controls,
+              ],
+            );
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              summary,
+              const SizedBox(height: 12),
+              Align(alignment: Alignment.centerRight, child: controls),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _TimetableRow extends StatelessWidget {
+  final TimetableSlotModel slot;
+  final String subjectName;
+  final String teacherName;
+  final String className;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _TimetableRow({
+    required this.slot,
+    required this.subjectName,
+    required this.teacherName,
+    required this.className,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final periodName = slot.period != null
+        ? (slot.period!.name.isNotEmpty ? slot.period!.name : 'Period ${slot.period!.periodNumber}')
+        : '-';
+    final timeStr = '${_formatTimetableTime(slot.startTime)} - ${_formatTimetableTime(slot.endTime)}';
+    final shift = _formatTimetableShift(slot.period?.shift);
+    final displayClass = className.trim().isEmpty || className == '—' ? '-' : className;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFE8ECF2), width: 1)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text(
+              periodName,
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey.shade800),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              subjectName,
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade800),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    _teacherInitials(teacherName),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    teacherName,
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade800),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              displayClass,
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              timeStr,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kPrimaryGreen),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: kPrimaryBlue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  shift,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: kPrimaryBlue,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 80,
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, size: 20, color: kPrimaryGreen),
+                  onPressed: onEdit,
+                  tooltip: 'Edit',
+                  visualDensity: VisualDensity.compact,
+                ),
+                IconButton(
+                  icon: Icon(Icons.delete_outline, size: 20, color: Colors.red[400]),
+                  onPressed: onDelete,
+                  tooltip: 'Delete',
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -412,7 +1072,7 @@ class _SlotCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final timeStr = '${_timeDisplay(slot.startTime)} - ${_timeDisplay(slot.endTime)}';
     final shift = _formatShift(slot.period?.shift);
-    final isAfternoon = slot.period?.shift.toLowerCase() == 'afternoon';
+    final isAfternoon = slot.period?.shift?.toLowerCase() == 'afternoon';
     final periodName = slot.period != null ? (slot.period!.name.isNotEmpty ? slot.period!.name : 'Period ${slot.period!.periodNumber}') : null;
 
     return Material(

@@ -7,7 +7,9 @@ const Color kBgColor = Color(0xFFE8ECF2);
 const double kCardRadius = 20.0;
 
 class ChangePasswordPage extends StatefulWidget {
-  const ChangePasswordPage({Key? key}) : super(key: key);
+  final bool embedBodyOnly;
+
+  const ChangePasswordPage({Key? key, this.embedBodyOnly = false}) : super(key: key);
 
   @override
   State<ChangePasswordPage> createState() => _ChangePasswordPageState();
@@ -69,7 +71,9 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kBgColor,
-      appBar: AppBar(
+      appBar: widget.embedBodyOnly
+          ? null
+          : AppBar(
         title: const Text(
           'Change Password',
           style: TextStyle(

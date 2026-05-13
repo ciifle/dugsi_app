@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kobac/school_admin/widgets/admin_responsive_layout.dart';
 import 'package:flutter/services.dart';
 import 'package:kobac/services/fees_service.dart';
 import 'package:kobac/services/students_service.dart';
@@ -16,8 +17,15 @@ const List<String> kFeeStatusOptions = ['UNPAID', 'PARTIAL', 'PAID'];
 
 class AdminFeesScreen extends StatefulWidget {
   final bool openCreateOnLoad;
+  final bool embedBodyOnly;
+  final void Function(String, {Object? arguments})? onNavigateToPage;
 
-  const AdminFeesScreen({Key? key, this.openCreateOnLoad = false}) : super(key: key);
+  const AdminFeesScreen({
+    Key? key,
+    this.openCreateOnLoad = false,
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
+  }) : super(key: key);
 
   @override
   State<AdminFeesScreen> createState() => _AdminFeesScreenState();
@@ -158,11 +166,7 @@ class _AdminFeesScreenState extends State<AdminFeesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return FeesFeatureGuard(
-      child: Scaffold(
-        backgroundColor: kBgColor,
-        body: SafeArea(
-          child: Container(
+    final body = Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
@@ -177,11 +181,14 @@ class _AdminFeesScreenState extends State<AdminFeesScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
                 child: Row(
                   children: [
-                    _BackButton(onPressed: () => Navigator.pop(context)),
-                    const SizedBox(width: 16),
-                    const Expanded(
-                      child: Text('Fees', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
-                    ),
+                    if (!isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)) ...[
+                      _BackButton(onPressed: () => Navigator.pop(context)),
+                      const SizedBox(width: 16),
+                      const Expanded(
+                        child: Text('Fees', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
+                      ),
+                    ] else
+                      const Spacer(),
                     _AddButton(onPressed: _openCreateFee),
                   ],
                 ),
@@ -287,26 +294,30 @@ class _AdminFeesScreenState extends State<AdminFeesScreen> {
               ),
             ],
           ),
-        ),
-      ),
-    ),
-    );
+        );
+
+    final scaffoldPart = isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly) 
+        ? body 
+        : Scaffold(
+            backgroundColor: kBgColor,
+            body: SafeArea(child: body),
+          );
+
+    return FeesFeatureGuard(child: scaffoldPart);
   }
 
   void _openFeeDetail(FeeModel fee) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => _FeeDetailScreen(
-          fee: fee,
-          studentName: fee.studentName ?? _studentName(fee.studentId),
-          emis: fee.emisNumber ?? _studentEmis(fee.studentId),
-          onUpdateStatus: () => _openUpdateStatus(fee),
-          onDelete: () => _deleteFee(fee),
-          onPop: () => _loadFees(),
+    final isDesktop = isDesktopWebAdminLayout(context);
+    if (isDesktop && widget.onNavigateToPage != null) {
+      widget.onNavigateToPage!('feeDetail', arguments: fee);
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => FeeDetailScreen(fee: fee),
         ),
-      ),
-    ).then((_) => _loadFees());
+      ).then((_) => _loadFees());
+    }
   }
 }
 
@@ -403,51 +414,138 @@ class _FeeCard extends StatelessWidget {
   }
 }
 
-class _FeeDetailScreen extends StatelessWidget {
+class FeeDetailScreen extends StatefulWidget {
   final FeeModel fee;
-  final String studentName;
-  final String emis;
-  final VoidCallback onUpdateStatus;
-  final VoidCallback onDelete;
-  final VoidCallback onPop;
+  final bool embedBodyOnly;
+  final void Function(String, {Object? arguments})? onNavigateToPage;
 
-  const _FeeDetailScreen({
+  const FeeDetailScreen({
+    Key? key,
     required this.fee,
-    required this.studentName,
-    required this.emis,
-    required this.onUpdateStatus,
-    required this.onDelete,
-    required this.onPop,
-  });
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
+  }) : super(key: key);
+
+  @override
+  State<FeeDetailScreen> createState() => _FeeDetailScreenState();
+}
+
+class _FeeDetailScreenState extends State<FeeDetailScreen> {
+  late FeeModel _fee;
+
+  @override
+  void initState() {
+    super.initState();
+    _fee = widget.fee;
+  }
+
+  Future<void> _openUpdateStatus() async {
+    final updated = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => _UpdateFeeStatusDialog(
+        fee: _fee,
+        currentStatus: _fee.status,
+        onSave: (status) async {
+          final result = await FeesService().updateFeeStatus(_fee.id, {'status': status});
+          if (result is FeeSuccess) {
+            setState(() {
+              _fee = FeeModel(
+                id: _fee.id,
+                studentId: _fee.studentId,
+                amount: _fee.amount,
+                paidAmount: _fee.paidAmount,
+                remainingAmount: _fee.remainingAmount,
+                status: status,
+                createdAt: _fee.createdAt,
+                studentName: _fee.studentName,
+                emisNumber: _fee.emisNumber,
+                payments: _fee.payments,
+              );
+            });
+            return true;
+          }
+          if (ctx.mounted) {
+            ScaffoldMessenger.of(ctx).showSnackBar(
+              SnackBar(content: Text((result as FeeError).message), backgroundColor: Colors.red),
+            );
+          }
+          return false;
+        },
+      ),
+    );
+    if (updated == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Status updated'), backgroundColor: kPrimaryGreen),
+      );
+    }
+  }
+
+  Future<void> _deleteFee() async {
+    final confirmed = await showDeleteConfirmDialog(
+      context,
+      title: 'Delete fee record?',
+      message: 'Delete this fee record?',
+    );
+    if (confirmed != true) return;
+    
+    final result = await FeesService().deleteFee(_fee.id);
+    if (!mounted) return;
+    
+    if (result is FeeSuccess) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Fee deleted'), backgroundColor: kPrimaryGreen),
+      );
+      final isDesktop = isDesktopWebAdminLayout(context);
+      if (isDesktop && widget.onNavigateToPage != null) {
+        widget.onNavigateToPage!('fees');
+      } else {
+        Navigator.pop(context);
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text((result as FeeError).message), backgroundColor: Colors.red),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: kBgColor,
-      body: SafeArea(
-        child: Column(
+    final studentName = _fee.studentName ?? 'Unknown Student';
+    final emis = _fee.emisNumber ?? '—';
+    
+    final body = Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
               child: Row(
                 children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+                  if (!isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)) ...[
+                    GestureDetector(
+                      onTap: () {
+                        final isDesktop = isDesktopWebAdminLayout(context);
+                        if (isDesktop && widget.onNavigateToPage != null) {
+                          widget.onNavigateToPage!('fees');
+                        } else {
+                          Navigator.pop(context);
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+                        ),
+                        child: const Icon(Icons.arrow_back_rounded, color: kPrimaryBlue, size: 24),
                       ),
-                      child: const Icon(Icons.arrow_back_rounded, color: kPrimaryBlue, size: 24),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  const Expanded(child: Text('Fee Details', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kPrimaryBlue))),
-                  TextButton.icon(onPressed: onUpdateStatus, icon: const Icon(Icons.edit, size: 18), label: const Text('Update Status')),
-                  IconButton(icon: Icon(Icons.delete_outline, color: Colors.red[400]), onPressed: onDelete, tooltip: 'Delete'),
+                    const SizedBox(width: 16),
+                    const Expanded(child: Text('Fee Details', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kPrimaryBlue))),
+                  ] else
+                    const Spacer(),
+                  TextButton.icon(onPressed: _openUpdateStatus, icon: const Icon(Icons.edit, size: 18), label: const Text('Update Status')),
+                  IconButton(icon: Icon(Icons.delete_outline, color: Colors.red[400]), onPressed: _deleteFee, tooltip: 'Delete'),
                 ],
               ),
             ),
@@ -462,19 +560,23 @@ class _FeeDetailScreen extends StatelessWidget {
                       Text(studentName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
                       if (emis.isNotEmpty && emis != '—') Text('EMIS: $emis', style: TextStyle(fontSize: 14, color: Colors.grey[700])),
                       const SizedBox(height: 20),
-                      _DetailRow('Amount', '${fee.amount}'),
-                      _DetailRow('Paid Amount', '${fee.paidAmount ?? 0}'),
-                      _DetailRow('Remaining', '${fee.remainingAmount ?? fee.amount}'),
-                      if (fee.status != null) _DetailRow('Status', fee.status!),
-                      if (fee.createdAt != null) _DetailRow('Created', fee.createdAt!),
+                      _DetailRow('Amount', '${_fee.amount}'),
+                      _DetailRow('Paid Amount', '${_fee.paidAmount ?? 0}'),
+                      _DetailRow('Remaining', '${_fee.remainingAmount ?? _fee.amount}'),
+                      if (_fee.status != null) _DetailRow('Status', _fee.status!),
+                      if (_fee.createdAt != null) _DetailRow('Created', _fee.createdAt!),
                     ],
                   ),
                 ),
               ),
             ),
           ],
-        ),
-      ),
+        );
+
+    if (isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)) return body;
+    return Scaffold(
+      backgroundColor: kBgColor,
+      body: SafeArea(child: body),
     );
   }
 }

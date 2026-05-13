@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:kobac/messages/chat_screen.dart';
 import 'package:kobac/messages/new_message_screen.dart';
 import 'package:kobac/services/message_service.dart';
 import 'package:kobac/messages/message_time_utils.dart';
+import 'package:kobac/teacher/widgets/teacher_web_ui.dart';
 
 const Color _kPrimaryBlue = Color(0xFF023471);
 const Color _kPrimaryGreen = Color(0xFF5AB04B);
@@ -15,8 +17,13 @@ const Color _kTextSecondary = Color(0xFF636E72);
 class MessagesScreen extends StatefulWidget {
   /// When true, screen is embedded (e.g. in school admin bottom nav) and may omit scaffold chrome.
   final bool embedInParent;
+  final void Function(String pageKey, {Object? arguments})? onNavigateToPage;
 
-  const MessagesScreen({Key? key, this.embedInParent = false}) : super(key: key);
+  const MessagesScreen({
+    Key? key,
+    this.embedInParent = false,
+    this.onNavigateToPage,
+  }) : super(key: key);
 
   @override
   State<MessagesScreen> createState() => _MessagesScreenState();
@@ -83,7 +90,15 @@ class _MessagesScreenState extends State<MessagesScreen> {
     });
   }
 
+  bool _usesTeacherDesktopShell(BuildContext context) {
+    return widget.onNavigateToPage != null;
+  }
+
   void _openNewMessage() {
+    if (_usesTeacherDesktopShell(context)) {
+      widget.onNavigateToPage!.call('newMessage');
+      return;
+    }
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -94,8 +109,214 @@ class _MessagesScreenState extends State<MessagesScreen> {
     });
   }
 
+  void _openConversation(ConversationModel conversation) {
+    if (_usesTeacherDesktopShell(context)) {
+      widget.onNavigateToPage!.call(
+        'chat',
+        arguments: {
+          'userId': conversation.userId,
+          'name': conversation.name,
+        },
+      );
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatScreen(
+          userId: conversation.userId,
+          name: conversation.name,
+        ),
+      ),
+    ).then((_) => _load());
+  }
+
+  Widget _buildTeacherDesktopBody() {
+    return TeacherWebSurface(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TeacherWebCard(
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search conversations...',
+                      prefixIcon: const Icon(Icons.search_rounded, color: teacherWebBlue),
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: teacherWebBorder),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: teacherWebBorder),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  onPressed: _openNewMessage,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: teacherWebBlue,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  icon: const Icon(Icons.add_comment_rounded),
+                  label: const Text('New Message'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (_loading)
+            const TeacherWebCard(
+              child: Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: CircularProgressIndicator(color: teacherWebBlue),
+                ),
+              ),
+            )
+          else if (_error != null)
+            TeacherWebCard(
+              child: Column(
+                children: [
+                  Icon(Icons.error_outline_rounded, size: 48, color: Colors.red.shade400),
+                  const SizedBox(height: 12),
+                  Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: _kTextPrimary)),
+                  const SizedBox(height: 16),
+                  TextButton.icon(
+                    onPressed: _load,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Retry'),
+                  ),
+                ],
+              ),
+            )
+          else if (_filteredConversations.isEmpty)
+            TeacherWebCard(
+              child: Column(
+                children: [
+                  Icon(Icons.chat_bubble_outline_rounded, size: 48, color: teacherWebBlue.withValues(alpha: 0.35)),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'No conversations yet',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: teacherWebBlue),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Start a conversation with teachers, parents, or students.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: teacherWebTextSecondary),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _openNewMessage,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: teacherWebBlue,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('New Message'),
+                  ),
+                ],
+              ),
+            )
+          else
+            TeacherWebCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  const TeacherWebTableHeader(columns: ['Contact', 'Last message', 'Updated']),
+                  ...List.generate(_filteredConversations.length, (index) {
+                    final conversation = _filteredConversations[index];
+                    final hasUnread = conversation.unreadCount > 0;
+                    return TeacherWebTableRow(
+                      onTap: () => _openConversation(conversation),
+                      cells: [
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 18,
+                              backgroundColor: teacherWebBlue.withValues(alpha: 0.1),
+                              child: Text(
+                                conversation.name.isNotEmpty ? conversation.name[0].toUpperCase() : '?',
+                                style: const TextStyle(color: teacherWebBlue, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                conversation.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontWeight: hasUnread ? FontWeight.w700 : FontWeight.w600,
+                                  color: _kTextPrimary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          conversation.lastMessage.isEmpty ? 'Tap to open chat' : conversation.lastMessage,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: hasUnread ? _kTextPrimary : _kTextSecondary,
+                            fontWeight: hasUnread ? FontWeight.w600 : FontWeight.normal,
+                          ),
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Text(
+                              MessageTimeUtils.formatConversationTime(conversation.createdAt),
+                              style: TextStyle(
+                                color: hasUnread ? teacherWebBlue : _kTextSecondary,
+                                fontSize: 12,
+                                fontWeight: hasUnread ? FontWeight.w700 : FontWeight.w500,
+                              ),
+                            ),
+                            if (hasUnread) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: const BoxDecoration(
+                                  color: teacherWebBlue,
+                                  borderRadius: BorderRadius.all(Radius.circular(999)),
+                                ),
+                                child: Text(
+                                  '${conversation.unreadCount}',
+                                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                    );
+                  }),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_usesTeacherDesktopShell(context)) {
+      return _buildTeacherDesktopBody();
+    }
+
     final content = Container(
       color: Colors.white, // Modern light background
       child: SafeArea(
@@ -264,17 +485,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                             child: Material(
                               color: Colors.transparent,
                               child: InkWell(
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => ChatScreen(
-                                        userId: c.userId,
-                                        name: c.name,
-                                      ),
-                                    ),
-                                  ).then((_) => _load());
-                                },
+                                onTap: () => _openConversation(c),
                                 borderRadius: BorderRadius.circular(20),
                                 child: Container(
                                   padding: const EdgeInsets.all(12),

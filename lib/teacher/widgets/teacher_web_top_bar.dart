@@ -1,115 +1,76 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:kobac/services/auth_provider.dart';
 
 const Color _kPrimaryBlue = Color(0xFF023471);
+const Color _kPrimaryGreen = Color(0xFF5AB04B);
 const Color _kBorderGray = Color(0xFFE5E7EB);
 const Color _kTextSecondary = Color(0xFF6B7280);
 const double _kUserMenuWidth = 240;
 
-/// Desktop top header bar
-class WebTopBar extends StatefulWidget {
+class TeacherWebTopBar extends StatefulWidget {
   final String title;
   final String? subtitle;
-  final Widget? actions;
-  final bool showBackButton;
-  final VoidCallback? onBackButtonPressed;
-  final Function(String)? onSearch;
   final void Function(String, {Object? arguments})? onNavigateToPage;
   final VoidCallback? onLogout;
 
-  const WebTopBar({
-    Key? key,
+  const TeacherWebTopBar({
+    super.key,
     required this.title,
     this.subtitle,
-    this.actions,
-    this.showBackButton = false,
-    this.onBackButtonPressed,
-    this.onSearch,
     this.onNavigateToPage,
     this.onLogout,
-  }) : super(key: key);
+  });
 
   @override
-  State<WebTopBar> createState() => _WebTopBarState();
+  State<TeacherWebTopBar> createState() => _TeacherWebTopBarState();
 }
 
-class _WebTopBarState extends State<WebTopBar> {
-  final TextEditingController _searchController = TextEditingController();
-  Timer? _debounceTimer;
+class _TeacherWebTopBarState extends State<TeacherWebTopBar> {
   bool _userMenuHovered = false;
 
   @override
-  void initState() {
-    super.initState();
-    _searchController.addListener(_onSearchChanged);
-  }
-
-  @override
-  void dispose() {
-    _debounceTimer?.cancel();
-    _searchController.removeListener(_onSearchChanged);
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  void _onSearchChanged() {
-    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
-      if (widget.onSearch != null) {
-        widget.onSearch!(_searchController.text);
-      }
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final user = context.watch<AuthProvider>().user;
-    final userName = user?.name ?? 'School Admin';
-    final userRole = user?.role.replaceAll('_', ' ').toUpperCase() ?? 'SCHOOL ADMIN';
-    final userEmail = user?.email?.trim().isNotEmpty == true
-        ? user!.email!.trim()
-        : (user?.emisNumber?.trim().isNotEmpty == true ? user!.emisNumber!.trim() : null);
+    final auth = context.watch<AuthProvider>();
+    final user = auth.user;
+    final prof = auth.teacherProfile;
+    final userName = prof?.fullName?.trim().isNotEmpty == true
+        ? prof!.fullName!.trim()
+        : (user?.name?.trim().isNotEmpty == true ? user!.name.trim() : 'Teacher');
+    final userRole = user?.role.replaceAll('_', ' ').toUpperCase() ?? 'TEACHER';
+    final userEmail = prof?.email?.trim().isNotEmpty == true
+        ? prof!.email!.trim()
+        : (user?.email?.trim().isNotEmpty == true
+            ? user!.email!.trim()
+            : (user?.emisNumber?.trim().isNotEmpty == true ? user!.emisNumber!.trim() : null));
     final userInitials = userName.isNotEmpty
         ? userName.split(' ').map((e) => e[0]).take(2).join().toUpperCase()
-        : 'SA';
+        : 'T';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(
-          bottom: BorderSide(color: Color(0xFFE8ECF2), width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: Color(0xFFE8ECF2))),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final compact = constraints.maxWidth < 760;
-
           if (compact) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _buildTitleBlock(),
                 const SizedBox(height: 12),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: _buildSearchField()),
-                    const SizedBox(width: 12),
-                    _buildUserMenu(
-                      userInitials: userInitials,
-                      userName: userName,
-                      userRole: userRole,
-                      userEmail: userEmail,
-                    ),
-                  ],
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: _buildUserMenu(
+                    userInitials: userInitials,
+                    userName: userName,
+                    userRole: userRole,
+                    userEmail: userEmail,
+                  ),
                 ),
-                if (widget.actions != null) ...[
-                  const SizedBox(height: 12),
-                  widget.actions!,
-                ],
               ],
             );
           }
@@ -117,23 +78,14 @@ class _WebTopBarState extends State<WebTopBar> {
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(
-                width: 260,
-                child: _buildTitleBlock(),
-              ),
-              const SizedBox(width: 16),
-              Expanded(child: _buildSearchField()),
-              const SizedBox(width: 16),
+              SizedBox(width: 260, child: _buildTitleBlock()),
+              const Spacer(),
               _buildUserMenu(
                 userInitials: userInitials,
                 userName: userName,
                 userRole: userRole,
                 userEmail: userEmail,
               ),
-              if (widget.actions != null) ...[
-                const SizedBox(width: 16),
-                widget.actions!,
-              ],
             ],
           );
         },
@@ -142,85 +94,34 @@ class _WebTopBarState extends State<WebTopBar> {
   }
 
   Widget _buildTitleBlock() {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (widget.showBackButton) ...[
-          IconButton(
-            onPressed: widget.onBackButtonPressed,
-            icon: const Icon(
-              Icons.arrow_back_rounded,
-              color: Color(0xFF023471),
-            ),
-          ),
-          const SizedBox(width: 8),
-        ],
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                widget.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                softWrap: false,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF023471),
-                ),
-              ),
-              if (widget.subtitle != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  widget.subtitle!,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ],
+        Text(
+          widget.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          softWrap: false,
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: _kPrimaryBlue,
           ),
         ),
-      ],
-    );
-  }
-
-  Widget _buildSearchField() {
-    return SizedBox(
-      height: 40,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: const Color(0xFFF8F9FC),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFE8ECF2), width: 1),
-        ),
-        child: TextField(
-          controller: _searchController,
-          textAlign: TextAlign.start,
-          decoration: InputDecoration(
-            hintText: 'Search anything...',
-            hintStyle: TextStyle(
-              color: Colors.grey.shade500,
+        if (widget.subtitle != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            widget.subtitle!,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
               fontSize: 14,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.w500,
             ),
-            prefixIcon: Icon(
-              Icons.search_rounded,
-              color: Colors.grey.shade500,
-              size: 20,
-            ),
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12,
-            ),
-            isDense: true,
           ),
-        ),
-      ),
+        ],
+      ],
     );
   }
 
@@ -249,12 +150,10 @@ class _WebTopBarState extends State<WebTopBar> {
       child: PopupMenuButton<String>(
         color: Colors.white,
         surfaceTintColor: Colors.transparent,
-        shadowColor: const Color(0x1F000000),
         elevation: 10,
         offset: const Offset(0, 10),
         padding: EdgeInsets.zero,
         menuPadding: const EdgeInsets.symmetric(vertical: 8),
-        clipBehavior: Clip.antiAlias,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.all(Radius.circular(16)),
           side: BorderSide(color: _kBorderGray),
@@ -303,7 +202,6 @@ class _WebTopBarState extends State<WebTopBar> {
                             color: _kPrimaryBlue,
                           ),
                         ),
-                        const SizedBox(height: 2),
                         Text(
                           userEmail ?? userRole,
                           maxLines: 1,
@@ -311,7 +209,6 @@ class _WebTopBarState extends State<WebTopBar> {
                           style: const TextStyle(
                             fontSize: 12,
                             color: _kTextSecondary,
-                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
@@ -322,48 +219,26 @@ class _WebTopBarState extends State<WebTopBar> {
             ),
           ),
           const PopupMenuDivider(height: 1),
-          PopupMenuItem<String>(
+          const PopupMenuItem<String>(
             value: 'profile',
             height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: SizedBox(
-              width: _kUserMenuWidth,
-              child: const Row(
-                children: [
-                  Icon(Icons.person_outline_rounded, size: 20, color: _kPrimaryBlue),
-                  SizedBox(width: 12),
-                  Text(
-                    'Profile',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: _kPrimaryBlue,
-                    ),
-                  ),
-                ],
-              ),
+            child: Row(
+              children: [
+                Icon(Icons.person_outline_rounded, size: 20, color: _kPrimaryBlue),
+                SizedBox(width: 12),
+                Text('Profile', style: TextStyle(color: _kPrimaryBlue, fontWeight: FontWeight.w500)),
+              ],
             ),
           ),
           PopupMenuItem<String>(
             value: 'logout',
             height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: SizedBox(
-              width: _kUserMenuWidth,
-              child: Row(
-                children: [
-                  Icon(Icons.logout_rounded, size: 20, color: Colors.red.shade700),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Logout',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.red.shade700,
-                    ),
-                  ),
-                ],
-              ),
+            child: Row(
+              children: [
+                Icon(Icons.logout_rounded, size: 20, color: Colors.red.shade700),
+                const SizedBox(width: 12),
+                Text('Logout', style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.w500)),
+              ],
             ),
           ),
         ],
@@ -422,20 +297,12 @@ class _WebTopBarState extends State<WebTopBar> {
                         userRole,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: _kTextSecondary,
-                          fontWeight: FontWeight.w500,
-                        ),
+                        style: const TextStyle(fontSize: 12, color: _kTextSecondary),
                       ),
                     ],
                   ),
                 ),
-                Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  color: Colors.grey.shade600,
-                  size: 20,
-                ),
+                Icon(Icons.keyboard_arrow_down_rounded, color: Colors.grey.shade600, size: 20),
               ],
             ),
           ),

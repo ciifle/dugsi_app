@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kobac/school_admin/widgets/admin_responsive_layout.dart';
 import 'package:kobac/services/teachers_service.dart';
 import 'package:kobac/services/api_error_helpers.dart';
 import 'package:kobac/school_admin/pages/teacher_screen.dart';
@@ -13,7 +14,14 @@ const Color kBgColor = Color(0xFFF0F3F7);
 const double kTeacherCardRadius = 12.0;
 
 class TeacherListScreen extends StatefulWidget {
-  const TeacherListScreen({super.key});
+  final bool embedBodyOnly;
+  final void Function(String, {Object? arguments})? onNavigateToPage;
+
+  const TeacherListScreen({
+    super.key,
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
+  });
 
   @override
   State<TeacherListScreen> createState() => _TeacherListScreenState();
@@ -47,6 +55,12 @@ class _TeacherListScreenState extends State<TeacherListScreen> {
   }
 
   void _navigateToCreate() async {
+    final isDesktop = isDesktopWebAdminLayout(context);
+    if (isDesktop && widget.onNavigateToPage != null) {
+      widget.onNavigateToPage!('addTeacher');
+      return;
+    }
+
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => const CreateTeacherScreen()),
     );
@@ -54,6 +68,12 @@ class _TeacherListScreenState extends State<TeacherListScreen> {
   }
 
   void _navigateToDetail(TeacherModel teacher) {
+    final isDesktop = isDesktopWebAdminLayout(context);
+    if (isDesktop && widget.onNavigateToPage != null) {
+      widget.onNavigateToPage!('teacherDetail', arguments: teacher.id);
+      return;
+    }
+
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => TeacherDetailsPage(teacherId: teacher.id),
@@ -62,6 +82,12 @@ class _TeacherListScreenState extends State<TeacherListScreen> {
   }
 
   void _navigateToEdit(TeacherModel teacher) async {
+    final isDesktop = isDesktopWebAdminLayout(context);
+    if (isDesktop && widget.onNavigateToPage != null) {
+      widget.onNavigateToPage!('editTeacher', arguments: teacher.id);
+      return;
+    }
+
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => EditTeacherScreen(teacherId: teacher.id),
@@ -93,10 +119,20 @@ class _TeacherListScreenState extends State<TeacherListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final body = isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)
+        ? _buildDesktopPageBody(context)
+        : _buildMobilePageBody(context);
+
+    if (isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)) return body;
     return Scaffold(
       backgroundColor: kBgColor,
-      body: SafeArea(
-        child: Container(
+      body: body,
+    );
+  }
+
+  Widget _buildMobilePageBody(BuildContext context) {
+    return SafeArea(
+      child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
@@ -258,6 +294,311 @@ class _TeacherListScreenState extends State<TeacherListScreen> {
               ),
             ],
           ),
+        ),
+      );
+  }
+
+  Widget _buildDesktopPageBody(BuildContext context) {
+    return Container(
+      color: const Color(0xFFF8F9FC),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE8ECF2), width: 1),
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: (val) => setState(() => searchQuery = val),
+                      decoration: InputDecoration(
+                        hintText: 'Search teachers...',
+                        hintStyle: TextStyle(color: Colors.grey.shade500),
+                        prefixIcon: Icon(Icons.search_rounded, color: Colors.grey.shade500),
+                        suffixIcon: searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, color: Colors.grey),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() => searchQuery = '');
+                                },
+                              )
+                            : null,
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(bottom: BorderSide(color: Color(0xFFE8ECF2), width: 1)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'Teacher Name',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'Email',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 1,
+                  child: Text(
+                    'Phone',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 1,
+                  child: Text(
+                    'Gender',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 80),
+              ],
+            ),
+          ),
+          Expanded(
+            child: FutureBuilder<TeacherResult<List<TeacherModel>>>(
+              future: _teachersFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator(color: kPrimaryBlue));
+                }
+                if (snapshot.hasError) {
+                  final userMsg = userFriendlyMessage(snapshot.error!, null, 'TeacherListScreen');
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+                        const SizedBox(height: 12),
+                        Text(userMsg, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, color: Colors.grey)),
+                        const SizedBox(height: 16),
+                        TextButton.icon(
+                          onPressed: _loadTeachers,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Retry'),
+                          style: TextButton.styleFrom(
+                            backgroundColor: kPrimaryBlue,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                final result = snapshot.data;
+                if (result == null) return const Center(child: Text('No data'));
+                if (result is TeacherError) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+                        const SizedBox(height: 12),
+                        Text(result.message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, color: Colors.grey)),
+                        const SizedBox(height: 16),
+                        TextButton.icon(
+                          onPressed: _loadTeachers,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Retry'),
+                          style: TextButton.styleFrom(
+                            backgroundColor: kPrimaryBlue,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                final teachers = _filter((result as TeacherSuccess<List<TeacherModel>>).data);
+                if (teachers.isEmpty) {
+                  return ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    children: [
+                      SizedBox(height: MediaQuery.of(context).size.height * 0.25),
+                      Center(
+                        child: Column(
+                          children: [
+                            Icon(Icons.person_search_rounded, size: 60, color: Colors.grey[300]),
+                            const SizedBox(height: 12),
+                            Text(
+                              searchQuery.isEmpty ? 'No teachers yet' : 'No teachers match your search',
+                              style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                }
+                return ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  itemCount: teachers.length,
+                  itemBuilder: (context, index) {
+                    final teacher = teachers[index];
+                    return _TeacherRow(
+                      teacher: teacher,
+                      onTap: () => _navigateToDetail(teacher),
+                      onEdit: () => _navigateToEdit(teacher),
+                      onDelete: () => _deleteTeacher(teacher),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TeacherRow extends StatelessWidget {
+  final TeacherModel teacher;
+  final VoidCallback onTap;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _TeacherRow({
+    required this.teacher,
+    required this.onTap,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(bottom: BorderSide(color: Color(0xFFE8ECF2), width: 1)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: kPrimaryBlue.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      teacher.fullName.isNotEmpty ? teacher.fullName.substring(0, 1).toUpperCase() : '?',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: kPrimaryBlue,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      teacher.fullName,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: kPrimaryBlue,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                teacher.email,
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Expanded(
+              flex: 1,
+              child: Text(
+                teacher.phone ?? '—',
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+              ),
+            ),
+            Expanded(
+              flex: 1,
+              child: Text(
+                teacher.gender ?? '—',
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+              ),
+            ),
+            SizedBox(
+              width: 80,
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, size: 20, color: kPrimaryGreen),
+                    onPressed: onEdit,
+                    tooltip: 'Edit',
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.delete_outline, size: 20, color: Colors.red[400]),
+                    onPressed: onDelete,
+                    tooltip: 'Delete',
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

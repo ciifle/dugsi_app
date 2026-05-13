@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:kobac/services/teacher_service.dart';
+import 'package:kobac/teacher/widgets/teacher_web_ui.dart';
 
 // ---------- COLOR PALETTE (same as other teacher screens) ----------
 const Color kPrimaryBlue = Color(0xFF023471);
@@ -14,7 +15,14 @@ const Color kSoftOrange = Color(0xFFF59E0B);
 
 /// Teacher Classes screen: unique classes from assignments; tap class to see students.
 class TeacherClassesScreen extends StatefulWidget {
-  const TeacherClassesScreen({Key? key}) : super(key: key);
+  final bool embedBodyOnly;
+  final void Function(String, {Object? arguments})? onNavigateToPage;
+
+  const TeacherClassesScreen({
+    Key? key,
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
+  }) : super(key: key);
 
   @override
   State<TeacherClassesScreen> createState() => _TeacherClassesScreenState();
@@ -96,6 +104,27 @@ class _TeacherClassesScreenState extends State<TeacherClassesScreen> {
     }
     final result = await TeacherService().listStudentsByClass(classId);
     if (!mounted) return;
+    if (widget.embedBodyOnly) {
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 720,
+              maxHeight: MediaQuery.sizeOf(ctx).height * 0.85,
+            ),
+            child: _StudentsBottomSheet(
+              className: className,
+              result: result,
+              onClose: () => Navigator.pop(ctx),
+            ),
+          ),
+        ),
+      );
+      return;
+    }
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -108,13 +137,104 @@ class _TeacherClassesScreenState extends State<TeacherClassesScreen> {
     );
   }
 
+  Widget _buildDesktopBody() {
+    if (_loading) {
+      return const TeacherWebSurface(
+        child: TeacherWebCard(
+          child: Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator(color: kPrimaryBlue))),
+        ),
+      );
+    }
+    if (_error != null) {
+      return TeacherWebSurface(
+        child: TeacherWebCard(
+          child: Column(
+            children: [
+              const Icon(Icons.error_outline_rounded, size: 48, color: kTextSecondary),
+              const SizedBox(height: 12),
+              Text(_error!, textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              TextButton.icon(onPressed: _loadDashboard, icon: const Icon(Icons.refresh_rounded), label: const Text('Retry')),
+            ],
+          ),
+        ),
+      );
+    }
+    if (_uniqueClasses.isEmpty) {
+      return TeacherWebSurface(
+        child: TeacherWebCard(
+          child: Column(
+            children: [
+              const Icon(Icons.class_rounded, size: 48, color: kTextSecondary),
+              const SizedBox(height: 12),
+              const Text('No assignments yet. Contact school admin.', textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              TextButton.icon(onPressed: _loadDashboard, icon: const Icon(Icons.refresh_rounded), label: const Text('Retry')),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return TeacherWebSurface(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TeacherWebCard(
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Assigned classes from your teaching dashboard.',
+                    style: TextStyle(color: teacherWebTextSecondary),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: _loadDashboard,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Refresh'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          TeacherWebCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                const TeacherWebTableHeader(columns: ['Class', 'Students', '']),
+                ...List.generate(_uniqueClasses.length, (index) {
+                  final classItem = _uniqueClasses[index];
+                  return TeacherWebTableRow(
+                    onTap: () => _showStudentsForClass(classItem.id, classItem.name),
+                    cells: [
+                      Text(classItem.name, style: const TextStyle(fontWeight: FontWeight.w600, color: kTextPrimary)),
+                      const Text('View students', style: TextStyle(color: kTextSecondary)),
+                      const Align(
+                        alignment: Alignment.centerRight,
+                        child: Icon(Icons.chevron_right_rounded, color: kTextSecondary),
+                      ),
+                    ],
+                  );
+                }),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: kSoftBlue,
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
+    if (widget.embedBodyOnly) {
+      return _buildDesktopBody();
+    }
+
+    final body = CustomScrollView(
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        if (!widget.embedBodyOnly)
           SliverAppBar(
             expandedHeight: 120,
             pinned: true,
@@ -239,7 +359,15 @@ class _TeacherClassesScreenState extends State<TeacherClassesScreen> {
               ),
             ),
         ],
-      ),
+    );
+
+    if (widget.embedBodyOnly) {
+      return ColoredBox(color: kSoftBlue, child: body);
+    }
+
+    return Scaffold(
+      backgroundColor: kSoftBlue,
+      body: body,
     );
   }
 }

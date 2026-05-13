@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:kobac/school_admin/widgets/admin_responsive_layout.dart';
+import 'package:kobac/teacher/widgets/teacher_web_shell.dart';
 import 'package:kobac/teacher/pages/assignments_screen.dart';
 import 'package:kobac/teacher/pages/attendance_mark.dart';
 import 'package:kobac/teacher/pages/teacher_classes_screen.dart';
@@ -77,6 +79,10 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (isDesktopWebAdminLayout(context)) {
+      return const TeacherWebShell();
+    }
+
     final auth = context.watch<AuthProvider>();
     final user = auth.user;
     final name = auth.teacherProfile?.fullName?.trim().isNotEmpty == true

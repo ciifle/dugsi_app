@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kobac/school_admin/widgets/admin_responsive_layout.dart';
 import 'package:kobac/services/students_service.dart';
 import 'package:kobac/services/api_error_helpers.dart';
 import 'package:kobac/school_admin/pages/student_detail_screen.dart';
@@ -12,7 +13,14 @@ const Color kBgColor = Color(0xFFF0F3F7);
 const double kStudentCardRadius = 12.0;
 
 class AdminStudentsScreen extends StatefulWidget {
-  const AdminStudentsScreen({Key? key}) : super(key: key);
+  final bool embedBodyOnly;
+  final void Function(String, {Object? arguments})? onNavigateToPage;
+
+  const AdminStudentsScreen({
+    Key? key, 
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
+  }) : super(key: key);
 
   @override
   State<AdminStudentsScreen> createState() => _AdminStudentsScreenState();
@@ -46,6 +54,12 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
   }
 
   void _navigateToCreate() async {
+    final isDesktop = isDesktopWebAdminLayout(context);
+    if (isDesktop && widget.onNavigateToPage != null) {
+      widget.onNavigateToPage!('addStudent');
+      return;
+    }
+
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => const CreateStudentScreen()),
     );
@@ -53,6 +67,12 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
   }
 
   void _navigateToDetail(StudentModel student) {
+    final isDesktop = isDesktopWebAdminLayout(context);
+    if (isDesktop && widget.onNavigateToPage != null) {
+      widget.onNavigateToPage!('studentDetail', arguments: student.id);
+      return;
+    }
+
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => StudentDetailPage(studentId: student.id),
@@ -61,6 +81,12 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
   }
 
   void _navigateToEdit(StudentModel student) async {
+    final isDesktop = isDesktopWebAdminLayout(context);
+    if (isDesktop && widget.onNavigateToPage != null) {
+      widget.onNavigateToPage!('editStudent', arguments: student.id);
+      return;
+    }
+
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => EditStudentScreen(studentId: student.id),
@@ -92,60 +118,71 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final body = _buildPageBody(context);
+    
+    if (isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)) {
+      return body;
+    }
+    
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FC),
+      body: body,
+    );
+  }
+
+  Widget _buildPageBody(BuildContext context) {
     return Container(
       color: const Color(0xFFF8F9FC),
       child: Column(
         children: [
-          // Header section
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(bottom: BorderSide(color: Color(0xFFE8ECF2), width: 1)),
-            ),
-            child: Row(
-              children: [
-                // Title
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Students',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF023471),
+          if (!isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly))
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(bottom: BorderSide(color: Color(0xFFE8ECF2), width: 1)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Students',
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF023471),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Manage all student records and information',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade600,
+                        const SizedBox(height: 4),
+                        Text(
+                          'Manage all student records and information',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade600,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Add Student Button
-                ElevatedButton.icon(
-                  onPressed: _navigateToCreate,
-                  icon: const Icon(Icons.add_rounded, size: 20),
-                  label: const Text('Add Student'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF5AB04B),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      ],
                     ),
                   ),
-                ),
-              ],
+                  ElevatedButton.icon(
+                    onPressed: _navigateToCreate,
+                    icon: const Icon(Icons.add_rounded, size: 20),
+                    label: const Text('Add Student'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF5AB04B),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
           // Search and filters section
           Container(
             padding: const EdgeInsets.all(24),
@@ -330,11 +367,11 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
                         const SizedBox(height: 12),
                         Text(userMsg, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, color: Colors.grey)),
                         const SizedBox(height: 16),
-                        ElevatedButton.icon(
+                        TextButton.icon(
                           onPressed: _loadStudents,
                           icon: const Icon(Icons.refresh),
                           label: const Text('Retry'),
-                          style: ElevatedButton.styleFrom(
+                          style: TextButton.styleFrom(
                             backgroundColor: const Color(0xFF023471),
                             foregroundColor: Colors.white,
                           ),
@@ -354,11 +391,11 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
                         const SizedBox(height: 12),
                         Text(result.message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, color: Colors.grey)),
                         const SizedBox(height: 16),
-                        ElevatedButton.icon(
+                        TextButton.icon(
                           onPressed: _loadStudents,
                           icon: const Icon(Icons.refresh),
                           label: const Text('Retry'),
-                          style: ElevatedButton.styleFrom(
+                          style: TextButton.styleFrom(
                             backgroundColor: const Color(0xFF023471),
                             foregroundColor: Colors.white,
                           ),
@@ -369,33 +406,40 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
                 }
                 final students = _filter((result as StudentSuccess<List<StudentModel>>).data);
                 if (students.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.person_search_rounded, size: 60, color: Colors.grey[300]),
-                        const SizedBox(height: 12),
-                        Text(
-                          searchQuery.isEmpty ? 'No students yet' : 'No students match your search',
-                          style: TextStyle(color: Colors.grey[600], fontSize: 16),
-                        ),
-                        if (searchQuery.isEmpty) ...[
-                          const SizedBox(height: 8),
-                          ElevatedButton.icon(
-                            onPressed: _navigateToCreate,
-                            icon: const Icon(Icons.add_rounded),
-                            label: const Text('Add First Student'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF5AB04B),
-                              foregroundColor: Colors.white,
+                  return ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    children: [
+                      SizedBox(height: MediaQuery.of(context).size.height * 0.25),
+                      Center(
+                        child: Column(
+                          children: [
+                            Icon(Icons.person_search_rounded, size: 60, color: Colors.grey[300]),
+                            const SizedBox(height: 12),
+                            Text(
+                              searchQuery.isEmpty ? 'No students yet' : 'No students match your search',
+                              style: TextStyle(color: Colors.grey[600], fontSize: 16),
                             ),
-                          ),
-                        ],
-                      ],
-                    ),
+                            if (searchQuery.isEmpty) ...[
+                              const SizedBox(height: 8),
+                              ElevatedButton.icon(
+                                onPressed: _navigateToCreate,
+                                icon: const Icon(Icons.add_rounded),
+                                label: const Text('Add First Student'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF5AB04B),
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
                   );
                 }
                 return ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   itemCount: students.length,
                   itemBuilder: (context, index) {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:kobac/services/teacher_service.dart';
+import 'package:kobac/teacher/widgets/teacher_web_ui.dart';
 import 'package:kobac/teacher/pages/teacher_drawer.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
@@ -17,7 +18,14 @@ const Color kBgColor = kSoftBlue;
 const double kTopPadding = 40.0;
 
 class TeacherMarksScreen extends StatefulWidget {
-  const TeacherMarksScreen({Key? key}) : super(key: key);
+  final bool embedBodyOnly;
+  final void Function(String pageKey, {Object? arguments})? onNavigateToPage;
+
+  const TeacherMarksScreen({
+    Key? key,
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
+  }) : super(key: key);
 
   @override
   State<TeacherMarksScreen> createState() => _TeacherMarksScreenState();
@@ -203,6 +211,215 @@ class _TeacherMarksScreenState extends State<TeacherMarksScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final body = SafeArea(
+      child: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (!widget.embedBodyOnly)
+                  const Text(
+                    'Filters',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: kTextPrimary,
+                    ),
+                  ),
+                if (!widget.embedBodyOnly) const SizedBox(height: 12),
+                DropdownButtonFormField<int?>(
+                  value: _filterClassId,
+                  decoration: InputDecoration(
+                    labelText: 'Class',
+                    filled: true,
+                    fillColor: kSoftBlue.withOpacity(0.3),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                  items: _classNamesById.entries
+                      .map((entry) => DropdownMenuItem<int?>(
+                            value: entry.key,
+                            child: Text(entry.value),
+                          ))
+                      .toList(),
+                  onChanged: (value) {
+                    debugPrint('[Teacher Marks] Class filter changed: $_filterClassId -> $value');
+                    setState(() {
+                      _filterClassId = value;
+                      _filterSubjectId = null;
+                      _filterExamId = null;
+                    });
+                    _loadMarks();
+                  },
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<int?>(
+                  value: _filterSubjectId,
+                  decoration: InputDecoration(
+                    labelText: 'Subject',
+                    filled: true,
+                    fillColor: kSoftBlue.withOpacity(0.3),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                  items: _filterClassId != null
+                      ? _assignments
+                          .where((a) => a.classId == _filterClassId)
+                          .map((a) => DropdownMenuItem<int?>(
+                                value: a.subjectId,
+                                child: Text(a.subjectName),
+                              ))
+                          .toSet()
+                          .toList()
+                      : [],
+                  onChanged: (value) {
+                    debugPrint('[Teacher Marks] Subject filter changed: $_filterSubjectId -> $value');
+                    setState(() {
+                      _filterSubjectId = value;
+                      _filterExamId = null;
+                    });
+                    _loadMarks();
+                  },
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<int?>(
+                  value: _filterExamId,
+                  decoration: InputDecoration(
+                    labelText: 'Exam',
+                    filled: true,
+                    fillColor: kSoftBlue.withOpacity(0.3),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                  items: _exams
+                      .map((e) => DropdownMenuItem<int?>(
+                            value: e.id,
+                            child: Text(e.name),
+                          ))
+                      .toList(),
+                  onChanged: (value) {
+                    debugPrint('[Teacher Marks] Exam filter changed: $_filterExamId -> $value');
+                    setState(() {
+                      _filterExamId = value;
+                    });
+                    _loadMarks();
+                  },
+                ),
+                if (widget.embedBodyOnly) ...[
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: ElevatedButton.icon(
+                      onPressed: _filterClassId == null ? null : _showAddMark,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: kPrimaryGreen,
+                        foregroundColor: Colors.white,
+                      ),
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('Add marks'),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator(color: kPrimaryBlue))
+                : _error != null
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.error_outline_rounded, color: kErrorColor, size: 48),
+                              const SizedBox(height: 16),
+                              Text(
+                                _error!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: kErrorColor, fontSize: 16),
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: _loadInitialData,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: kPrimaryBlue,
+                                  foregroundColor: Colors.white,
+                                ),
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : _marks.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.assessment_outlined, color: kTextSecondary, size: 64),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'No marks found',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    color: kTextSecondary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Try adjusting filters or add new marks',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: kTextSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : RefreshIndicator(
+                            onRefresh: _loadMarks,
+                            color: kPrimaryBlue,
+                            child: ListView.builder(
+                              padding: const EdgeInsets.all(16),
+                              itemCount: _marks.length,
+                              itemBuilder: (context, index) {
+                                final mark = _marks[index];
+                                return _MarkCard(
+                                  mark: mark,
+                                  onUpdated: () => _loadMarks(),
+                                );
+                              },
+                            ),
+                          ),
+          ),
+        ],
+      ),
+    );
+
+    if (widget.embedBodyOnly) {
+      return Container(
+        color: teacherWebBg,
+        padding: const EdgeInsets.all(24),
+        child: body,
+      );
+    }
+
     return Scaffold(
       backgroundColor: kBgColor,
       appBar: AppBar(
@@ -215,195 +432,7 @@ class _TeacherMarksScreenState extends State<TeacherMarksScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Filters Section
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    'Filters',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: kTextPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  // Class filter
-                  DropdownButtonFormField<int?>(
-                    value: _filterClassId,
-                    decoration: InputDecoration(
-                      labelText: 'Class',
-                      filled: true,
-                      fillColor: kSoftBlue.withOpacity(0.3),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    ),
-                    items: _classNamesById.entries
-                      .map((entry) => DropdownMenuItem<int?>(
-                            value: entry.key,
-                            child: Text(entry.value),
-                          ))
-                      .toList(),
-                    onChanged: (value) {
-                      debugPrint('[Teacher Marks] Class filter changed: $_filterClassId -> $value');
-                      setState(() {
-                        _filterClassId = value;
-                        _filterSubjectId = null;
-                        _filterExamId = null;
-                      });
-                      _loadMarks();
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  // Subject filter
-                  DropdownButtonFormField<int?>(
-                    value: _filterSubjectId,
-                    decoration: InputDecoration(
-                      labelText: 'Subject',
-                      filled: true,
-                      fillColor: kSoftBlue.withOpacity(0.3),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    ),
-                    items: _filterClassId != null
-                        ? _assignments
-                            .where((a) => a.classId == _filterClassId)
-                            .map((a) => DropdownMenuItem<int?>(
-                                  value: a.subjectId,
-                                  child: Text(a.subjectName),
-                                ))
-                            .toSet()
-                            .toList()
-                        : [],
-                    onChanged: (value) {
-                      debugPrint('[Teacher Marks] Subject filter changed: $_filterSubjectId -> $value');
-                      setState(() {
-                        _filterSubjectId = value;
-                        _filterExamId = null;
-                      });
-                      _loadMarks();
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  // Exam filter
-                  DropdownButtonFormField<int?>(
-                    value: _filterExamId,
-                    decoration: InputDecoration(
-                      labelText: 'Exam',
-                      filled: true,
-                      fillColor: kSoftBlue.withOpacity(0.3),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    ),
-                    items: _exams
-                        .map((e) => DropdownMenuItem<int?>(
-                              value: e.id,
-                              child: Text(e.name),
-                            ))
-                        .toList(),
-                    onChanged: (value) {
-                      debugPrint('[Teacher Marks] Exam filter changed: $_filterExamId -> $value');
-                      setState(() {
-                        _filterExamId = value;
-                      });
-                      _loadMarks();
-                    },
-                  ),
-                ],
-              ),
-            ),
-            // Marks List
-            Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator(color: kPrimaryBlue))
-                  : _error != null
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.error_outline_rounded, color: kErrorColor, size: 48),
-                                const SizedBox(height: 16),
-                                Text(
-                                  _error!,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(color: kErrorColor, fontSize: 16),
-                                ),
-                                const SizedBox(height: 16),
-                                ElevatedButton(
-                                  onPressed: _loadInitialData,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: kPrimaryBlue,
-                                    foregroundColor: Colors.white,
-                                  ),
-                                  child: const Text('Retry'),
-                                ),
-                              ],
-                            ),
-                          ),
-                        )
-                      : _marks.isEmpty
-                          ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.assessment_outlined, color: kTextSecondary, size: 64),
-                                  const SizedBox(height: 16),
-                                  const Text(
-                                    'No marks found',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      color: kTextSecondary,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Try adjusting filters or add new marks',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: kTextSecondary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : RefreshIndicator(
-                              onRefresh: _loadMarks,
-                              color: kPrimaryBlue,
-                              child: ListView.builder(
-                                padding: const EdgeInsets.all(16),
-                                itemCount: _marks.length,
-                                itemBuilder: (context, index) {
-                                  final mark = _marks[index];
-                                  return _MarkCard(
-                                    mark: mark,
-                                    onUpdated: () => _loadMarks(),
-                                  );
-                                },
-                              ),
-                            ),
-            ),
-          ],
-        ),
-      ),
+      body: body,
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _filterClassId == null ? null : _showAddMark,
         backgroundColor: kPrimaryGreen,

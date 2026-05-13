@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kobac/school_admin/widgets/admin_responsive_layout.dart';
 
 // Notification Data Model
 class NotificationItemData {
@@ -19,16 +20,28 @@ class NotificationItemData {
   });
 }
 
+enum _NotificationFilter {
+  all,
+  unread,
+  read,
+}
+
 // Main Notifications Page
 class NotificationsPage extends StatefulWidget {
-  const NotificationsPage({Key? key}) : super(key: key);
+  final bool embedBodyOnly;
+  final void Function(String, {Object? arguments})? onNavigateToPage;
+
+  const NotificationsPage({
+    Key? key,
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
+  }) : super(key: key);
 
   @override
   State<NotificationsPage> createState() => _NotificationsPageState();
 }
 
 class _NotificationsPageState extends State<NotificationsPage> {
-  // Dummy data
   final List<NotificationItemData> _notifications = [
     NotificationItemData(
       id: '1',
@@ -58,8 +71,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       id: '4',
       type: 'notice',
       title: 'Notice Published',
-      description:
-          'Tomorrow is a holiday due to severe weather conditions. Stay safe!',
+      description: 'Tomorrow is a holiday due to severe weather conditions. Stay safe!',
       timestamp: DateTime.now().subtract(const Duration(days: 1, hours: 6)),
       isRead: true,
     ),
@@ -67,8 +79,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       id: '5',
       type: 'registration',
       title: 'New Student Registered',
-      description:
-          'Aarav Sharma has joined Class 7-C. Please update attendance.',
+      description: 'Aarav Sharma has joined Class 7-C. Please update attendance.',
       timestamp: DateTime.now().subtract(const Duration(days: 2)),
       isRead: false,
     ),
@@ -76,163 +87,344 @@ class _NotificationsPageState extends State<NotificationsPage> {
       id: '6',
       type: 'exam',
       title: 'Exam Created',
-      description:
-          'Mock Test for Mathematics scheduled for Class 12-A this Friday.',
+      description: 'Mock Test for Mathematics scheduled for Class 12-A this Friday.',
       timestamp: DateTime.now().subtract(const Duration(days: 3)),
       isRead: true,
     ),
-    // Add more dummy data as needed
   ];
 
-  // Mark specific notification as read
-  void _markAsRead(int index) {
-    setState(() {
-      _notifications[index].isRead = true;
-    });
-  }
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+  _NotificationFilter _filter = _NotificationFilter.all;
 
-  // Delete notification
-  void _deleteNotification(int index) {
-    setState(() {
-      _notifications.removeAt(index);
-    });
-  }
-
-  // Clear all notifications
-  void _clearAll() {
-    setState(() {
-      _notifications.clear();
-    });
-  }
-
-  // Design constants to match admin dashboard (no colored top bar, 3D style)
   static const Color _kPrimaryBlue = Color(0xFF023471);
   static const Color _kPrimaryGreen = Color(0xFF5AB04B);
   static const Color _kBgColor = Color(0xFFF4F6F8);
   static const double _kPadding = 20.0;
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _markAsRead(int index) {
+    setState(() {
+      _notifications[index].isRead = true;
+    });
+  }
+
+  void _deleteNotification(int index) {
+    setState(() {
+      _notifications.removeAt(index);
+    });
+  }
+
+  void _clearAll() {
+    setState(() {
+      _notifications.clear();
+    });
+  }
+
+  List<NotificationItemData> get _filteredNotifications {
+    return _notifications.where((notification) {
+      final matchesFilter = switch (_filter) {
+        _NotificationFilter.all => true,
+        _NotificationFilter.unread => !notification.isRead,
+        _NotificationFilter.read => notification.isRead,
+      };
+      if (!matchesFilter) return false;
+      if (_searchQuery.trim().isEmpty) return true;
+      final query = _searchQuery.trim().toLowerCase();
+      return notification.title.toLowerCase().contains(query) ||
+          notification.description.toLowerCase().contains(query);
+    }).toList();
+  }
+
+  Future<void> _confirmClearAll() async {
+    if (_notifications.isEmpty) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clear All Notifications'),
+        content: const Text('Are you sure you want to remove all notifications?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Clear All',
+              style: TextStyle(color: _kPrimaryGreen),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) _clearAll();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final body = isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)
+        ? _buildDesktopPageBody(context)
+        : _buildMobilePageBody(context);
+
+    if (isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)) {
+      return body;
+    }
+
     return Scaffold(
       backgroundColor: _kBgColor,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Top bar: no color, same style as dashboard (3D icon containers)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(_kPadding, _kPadding, _kPadding, 12),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.of(context).pop(),
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _kPrimaryBlue.withOpacity(0.08),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
+      body: SafeArea(child: body),
+    );
+  }
+
+  Widget _buildMobilePageBody(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(_kPadding, _kPadding, _kPadding, 12),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _kPrimaryBlue.withOpacity(0.08),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
                       ),
-                      child: Icon(Icons.arrow_back_rounded, color: _kPrimaryBlue, size: 24),
-                    ),
+                    ],
                   ),
-                  const Spacer(),
-                  Text(
-                    'Notifications',
-                    style: const TextStyle(
-                      color: _kPrimaryBlue,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                  child: const Icon(Icons.arrow_back_rounded, color: _kPrimaryBlue, size: 24),
+                ),
+              ),
+              const Spacer(),
+              const Text(
+                'Notifications',
+                style: TextStyle(
+                  color: _kPrimaryBlue,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: _notifications.isEmpty ? null : _confirmClearAll,
+                child: Opacity(
+                  opacity: _notifications.isEmpty ? 0.4 : 1,
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _kPrimaryBlue.withOpacity(0.08),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
+                    child: const Icon(Icons.clear_all_rounded, color: _kPrimaryBlue, size: 24),
                   ),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: _notifications.isEmpty
-                        ? null
-                        : () async {
-                            final confirm = await showDialog<bool>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('Clear All Notifications'),
-                                content: const Text(
-                                    'Are you sure you want to remove all notifications?'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context, false),
-                                    child: const Text('Cancel'),
-                                  ),
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context, true),
-                                    child: const Text(
-                                      'Clear All',
-                                      style: TextStyle(color: _kPrimaryGreen),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                            if (confirm == true) _clearAll();
-                          },
-                    child: Opacity(
-                      opacity: _notifications.isEmpty ? 0.4 : 1,
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: _notifications.isEmpty
+              ? _buildEmptyState()
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: _kPadding),
+                  itemCount: _notifications.length,
+                  itemBuilder: (context, index) {
+                    final notification = _notifications[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12.0),
+                      child: NotificationItem(
+                        notification: notification,
+                        onTap: () {
+                          if (!notification.isRead) {
+                            _markAsRead(index);
+                          }
+                        },
+                        onDelete: () => _deleteNotification(index),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDesktopPageBody(BuildContext context) {
+    final filtered = _filteredNotifications;
+
+    return Container(
+      color: const Color(0xFFF8F9FC),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFE8ECF2)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.03),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isWide = constraints.maxWidth >= 900;
+                      final searchField = Container(
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: _kPrimaryBlue.withOpacity(0.08),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE5E7EB)),
                         ),
-                        child: Icon(Icons.clear_all_rounded, color: _kPrimaryBlue, size: 24),
+                        child: TextField(
+                          controller: _searchController,
+                          onChanged: (value) => setState(() => _searchQuery = value),
+                          decoration: InputDecoration(
+                            hintText: 'Search notifications...',
+                            hintStyle: TextStyle(color: Colors.grey.shade500),
+                            prefixIcon: Icon(Icons.search_rounded, color: Colors.grey.shade500),
+                            suffixIcon: _searchQuery.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear, color: Colors.grey),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      setState(() => _searchQuery = '');
+                                    },
+                                  )
+                                : null,
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          ),
+                        ),
+                      );
+                      final clearButton = OutlinedButton.icon(
+                        onPressed: _notifications.isEmpty ? null : _confirmClearAll,
+                        icon: const Icon(Icons.clear_all_rounded, size: 18),
+                        label: const Text('Clear All'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: _kPrimaryBlue,
+                          side: const BorderSide(color: Color(0xFFE5E7EB)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      );
+
+                      if (isWide) {
+                        return Row(
+                          children: [
+                            Expanded(child: searchField),
+                            const SizedBox(width: 16),
+                            clearButton,
+                          ],
+                        );
+                      }
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          searchField,
+                          const SizedBox(height: 12),
+                          Align(alignment: Alignment.centerRight, child: clearButton),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _FilterChip(
+                        label: 'All',
+                        selected: _filter == _NotificationFilter.all,
+                        onTap: () => setState(() => _filter = _NotificationFilter.all),
                       ),
-                    ),
+                      _FilterChip(
+                        label: 'Unread',
+                        selected: _filter == _NotificationFilter.unread,
+                        onTap: () => setState(() => _filter = _NotificationFilter.unread),
+                      ),
+                      _FilterChip(
+                        label: 'Read',
+                        selected: _filter == _NotificationFilter.read,
+                        onTap: () => setState(() => _filter = _NotificationFilter.read),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
-            Expanded(
-              child: _notifications.isEmpty
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                padding: const EdgeInsets.symmetric(
-                    vertical: 12, horizontal: _kPadding),
-                itemCount: _notifications.length,
-                itemBuilder: (context, index) {
-                  final notification = _notifications[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12.0),
-                    child: NotificationItem(
-                      notification: notification,
-                      onTap: () {
-                        if (!notification.isRead) {
-                          _markAsRead(index);
-                        }
-                      },
-                      onDelete: () => _deleteNotification(index),
-                    ),
-                  );
-                },
-                reverse: false,
-              ),
-            ),
-          ],
-        ),
+          ),
+          Expanded(
+            child: filtered.isEmpty
+                ? _buildEmptyState()
+                : ListView(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: const Color(0xFFE8ECF2)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.03),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: List.generate(filtered.length, (index) {
+                            final notification = filtered[index];
+                            final sourceIndex = _notifications.indexOf(notification);
+                            return _DesktopNotificationRow(
+                              notification: notification,
+                              onTap: () {
+                                if (!notification.isRead && sourceIndex >= 0) {
+                                  _markAsRead(sourceIndex);
+                                }
+                              },
+                              onDelete: sourceIndex >= 0 ? () => _deleteNotification(sourceIndex) : null,
+                            );
+                          }),
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ],
       ),
     );
   }
 
-  // Widget for empty notifications state
   Widget _buildEmptyState() {
     return Center(
       child: Column(
@@ -241,13 +433,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
           Icon(
             Icons.notifications_none_rounded,
             size: 64,
-            color: const Color(0xFF023471).withOpacity(0.13),
+            color: _kPrimaryBlue.withOpacity(0.13),
           ),
           const SizedBox(height: 18),
           const Text(
             "You're all caught up!",
             style: TextStyle(
-              color: Color(0xFF023471),
+              color: _kPrimaryBlue,
               fontSize: 18,
               fontWeight: FontWeight.w600,
               letterSpacing: 0.1,
@@ -255,13 +447,167 @@ class _NotificationsPageState extends State<NotificationsPage> {
           ),
           const SizedBox(height: 6),
           Text(
-            'No new notifications.',
+            _searchQuery.isEmpty ? 'No notifications found.' : 'No notifications match your search.',
             style: TextStyle(
-              color: const Color(0xFF023471).withOpacity(0.70),
+              color: _kPrimaryBlue.withOpacity(0.70),
               fontSize: 14,
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF023471) : Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: selected ? const Color(0xFF023471) : const Color(0xFFE5E7EB)),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: selected ? Colors.white : const Color(0xFF023471),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DesktopNotificationRow extends StatelessWidget {
+  final NotificationItemData notification;
+  final VoidCallback onTap;
+  final VoidCallback? onDelete;
+
+  const _DesktopNotificationRow({
+    required this.notification,
+    required this.onTap,
+    this.onDelete,
+  });
+
+  IconData _typeIcon(String type) {
+    switch (type) {
+      case 'registration':
+        return Icons.person_add_alt_1_rounded;
+      case 'exam':
+        return Icons.event_note_rounded;
+      case 'marks':
+        return Icons.assignment_turned_in_rounded;
+      case 'notice':
+        return Icons.campaign_rounded;
+      default:
+        return Icons.notifications_rounded;
+    }
+  }
+
+  String _timeAgo(DateTime timestamp) {
+    final now = DateTime.now();
+    final diff = now.difference(timestamp);
+
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays == 1) return 'Yesterday';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${timestamp.day}/${timestamp.month}/${timestamp.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: notification.isRead ? Colors.white : const Color(0xFFF5F8FF),
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: Color(0xFFE8ECF2), width: 1)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF023471).withOpacity(0.08),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(_typeIcon(notification.type), color: const Color(0xFF023471), size: 20),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      notification.title,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF023471),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      notification.description,
+                      style: TextStyle(fontSize: 13, color: Colors.grey.shade700, height: 1.35),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    _timeAgo(notification.timestamp),
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                  const SizedBox(height: 8),
+                  if (!notification.isRead)
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF023471),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                ],
+              ),
+              if (onDelete != null)
+                IconButton(
+                  icon: Icon(Icons.delete_outline, size: 20, color: Colors.red[400]),
+                  onPressed: onDelete,
+                  tooltip: 'Delete',
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -280,7 +626,6 @@ class NotificationItem extends StatelessWidget {
     required this.onDelete,
   }) : super(key: key);
 
-  // Map notification type to specific orange icon
   IconData getTypeIcon(String type) {
     switch (type) {
       case 'registration':
@@ -296,7 +641,6 @@ class NotificationItem extends StatelessWidget {
     }
   }
 
-  // Format date/time display (e.g. "2h ago", "Yesterday", etc.)
   String getTimeAgo(DateTime timestamp) {
     final now = DateTime.now();
     final diff = now.difference(timestamp);
@@ -306,13 +650,11 @@ class NotificationItem extends StatelessWidget {
     if (diff.inHours < 24) return '${diff.inHours}h ago';
     if (diff.inDays == 1) return 'Yesterday';
     if (diff.inDays < 7) return '${diff.inDays}d ago';
-    // Fallback for older
     return '${timestamp.day}/${timestamp.month}/${timestamp.year}';
   }
 
   @override
   Widget build(BuildContext context) {
-    // Color palette
     const darkBlue = Color(0xFF023471);
     const orange = Color(0xFF5AB04B);
 
@@ -322,14 +664,10 @@ class NotificationItem extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 240),
         decoration: BoxDecoration(
-          color: notification.isRead
-              ? Colors.white
-              : const Color(0xFFF1F4FB),
+          color: notification.isRead ? Colors.white : const Color(0xFFF1F4FB),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: notification.isRead
-                ? Colors.transparent
-                : orange.withOpacity(0.07),
+            color: notification.isRead ? Colors.transparent : orange.withOpacity(0.07),
             width: 1,
           ),
           boxShadow: [
@@ -346,12 +684,10 @@ class NotificationItem extends StatelessWidget {
           ],
         ),
         child: Padding(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 12), // spacing
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Left: Orange Icon
               Container(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
@@ -365,12 +701,10 @@ class NotificationItem extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 14),
-              // Center: Notification details (title, description)
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Title
                     Text(
                       notification.title,
                       style: const TextStyle(
@@ -382,7 +716,6 @@ class NotificationItem extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    // Description
                     Text(
                       notification.description,
                       style: TextStyle(
@@ -399,11 +732,9 @@ class NotificationItem extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              // Right: Time/date + unread dot
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  // Time/Date
                   Text(
                     getTimeAgo(notification.timestamp),
                     style: TextStyle(
@@ -413,7 +744,6 @@ class NotificationItem extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  // Orange dot indicator for unread
                   if (!notification.isRead)
                     Container(
                       width: 10,

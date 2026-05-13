@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kobac/school_admin/widgets/admin_responsive_layout.dart';
 import 'package:kobac/services/classes_service.dart';
 import 'package:kobac/services/exams_service.dart';
 import 'package:kobac/services/school_admin_assignments_service.dart';
@@ -14,8 +15,15 @@ const double kCardRadius = 28.0;
 
 class AdminExamsScreen extends StatefulWidget {
   final bool openCreateOnLoad;
+  final bool embedBodyOnly;
+  final void Function(String, {Object? arguments})? onNavigateToPage;
 
-  const AdminExamsScreen({Key? key, this.openCreateOnLoad = false}) : super(key: key);
+  const AdminExamsScreen({
+    Key? key,
+    this.openCreateOnLoad = false,
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
+  }) : super(key: key);
 
   @override
   State<AdminExamsScreen> createState() => _AdminExamsScreenState();
@@ -134,37 +142,49 @@ class _AdminExamsScreenState extends State<AdminExamsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final body = isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)
+        ? _buildDesktopPageBody(context)
+        : _buildMobilePageBody(context);
+
+    if (isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)) {
+      return body;
+    }
+
     return Scaffold(
       backgroundColor: kBgColor,
-      body: SafeArea(
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [kBgColor, kPrimaryBlue.withOpacity(0.02)],
+      body: SafeArea(child: body),
+    );
+  }
+
+  Widget _buildMobilePageBody(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [kBgColor, kPrimaryBlue.withOpacity(0.02)],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+            child: Row(
+              children: [
+                _BackButton(onPressed: () => Navigator.pop(context)),
+                const SizedBox(width: 16),
+                const Expanded(
+                  child: Text(
+                    'Exams',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                  ),
+                ),
+                _AddButton(onPressed: _openCreateExam),
+              ],
             ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                child: Row(
-                  children: [
-                    _BackButton(onPressed: () => Navigator.pop(context)),
-                    const SizedBox(width: 16),
-                    const Expanded(
-                      child: Text(
-                        "Exams",
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kPrimaryBlue),
-                      ),
-                    ),
-                    _AddButton(onPressed: _openCreateExam),
-                  ],
-                ),
-              ),
-              Padding(
+          Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Container(
                   decoration: BoxDecoration(
@@ -305,7 +325,321 @@ class _AdminExamsScreenState extends State<AdminExamsScreen> {
               ),
             ],
           ),
-        ),
+        );
+  }
+
+  Widget _buildDesktopPageBody(BuildContext context) {
+    return Container(
+      color: const Color(0xFFF8F9FC),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE8ECF2), width: 1),
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: (val) => setState(() => searchQuery = val),
+                      decoration: InputDecoration(
+                        hintText: 'Search exams...',
+                        hintStyle: TextStyle(color: Colors.grey.shade500),
+                        prefixIcon: Icon(Icons.search_rounded, color: Colors.grey.shade500),
+                        suffixIcon: searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, color: Colors.grey),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() => searchQuery = '');
+                                },
+                              )
+                            : null,
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                SizedBox(
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    onPressed: _openCreateExam,
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: const Text('Add Exam'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: kPrimaryBlue,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shadowColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(bottom: BorderSide(color: Color(0xFFE8ECF2), width: 1)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    'Exam Name',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'Type',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'Class',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'Date',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600),
+                  ),
+                ),
+                Expanded(
+                  flex: 1,
+                  child: Text(
+                    'Weight',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600),
+                  ),
+                ),
+                const SizedBox(width: 80),
+              ],
+            ),
+          ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () async => _loadExams(),
+              color: kPrimaryGreen,
+              child: FutureBuilder<ExamResult<List<ExamModel>>>(
+                future: _examsFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator(color: kPrimaryBlue));
+                  }
+                  if (snapshot.hasError) {
+                    final userMsg = userFriendlyMessage(snapshot.error!, null, 'AdminExamsScreen');
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+                          const SizedBox(height: 12),
+                          Text(userMsg, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, color: Colors.grey)),
+                          const SizedBox(height: 16),
+                          TextButton.icon(
+                            onPressed: _loadExams,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Retry'),
+                            style: TextButton.styleFrom(
+                              backgroundColor: kPrimaryBlue,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  final result = snapshot.data;
+                  if (result == null) return const Center(child: Text('No data'));
+                  if (result is ExamError) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+                          const SizedBox(height: 12),
+                          Text(result.message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, color: Colors.grey)),
+                          const SizedBox(height: 16),
+                          TextButton.icon(
+                            onPressed: _loadExams,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Retry'),
+                            style: TextButton.styleFrom(
+                              backgroundColor: kPrimaryBlue,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  final exams = _filter((result as ExamSuccess<List<ExamModel>>).data);
+                  if (exams.isEmpty) {
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      children: [
+                        SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                        Center(
+                          child: Text(
+                            searchQuery.isEmpty ? 'No exams yet' : 'No exams match your search',
+                            style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+                  return ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    itemCount: exams.length,
+                    itemBuilder: (context, index) {
+                      final exam = exams[index];
+                      return _ExamRow(
+                        exam: exam,
+                        onEdit: () => _openEditExam(exam),
+                        onDelete: () => _deleteExam(exam),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExamRow extends StatelessWidget {
+  final ExamModel exam;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _ExamRow({
+    required this.exam,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  String _displayValue(String? value) {
+    if (value == null || value.trim().isEmpty) return '-';
+    return value;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFE8ECF2), width: 1)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: kPrimaryBlue.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.quiz_rounded, color: kPrimaryBlue, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    exam.name,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: kPrimaryBlue,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              _displayValue(exam.examType),
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              _displayValue(exam.className),
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              _displayValue(exam.date),
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Expanded(
+            flex: 1,
+            child: Text(
+              exam.weight != null ? exam.weight!.toString() : '-',
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          SizedBox(
+            width: 80,
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, size: 20, color: kPrimaryGreen),
+                  onPressed: onEdit,
+                  tooltip: 'Edit',
+                  visualDensity: VisualDensity.compact,
+                ),
+                IconButton(
+                  icon: Icon(Icons.delete_outline, size: 20, color: Colors.red[400]),
+                  onPressed: onDelete,
+                  tooltip: 'Delete',
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

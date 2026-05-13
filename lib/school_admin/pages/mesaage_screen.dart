@@ -93,11 +93,11 @@ class _MessageScreenState extends State<MessageScreen> {
         bottom: false,
         child: Column(
           children: [
-            // 3D header card (no drawer, no notification icon)
-            _MessagesHeaderCard(
-              title: widget.name ?? "Messages",
-              subtitle: null,
-            ),
+            if (!widget.embedInParent)
+              _MessagesHeaderCard(
+                title: widget.name ?? "Messages",
+                subtitle: null,
+              ),
 
             // Chat list
             Expanded(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:kobac/services/teacher_service.dart';
+import 'package:kobac/services/exams_service.dart';
 import 'package:kobac/teacher/pages/teacher_drawer.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
@@ -14,6 +15,7 @@ const Color kErrorColor = Color(0xFFEF4444);
 const Color kSoftOrange = Color(0xFFF59E0B);
 const Color kCardColor = Colors.white;
 const double kTopPadding = 40.0;
+const Color kBgColor = Color(0xFFF0F3F7);
 
 class TeacherMarksScreen extends StatefulWidget {
   const TeacherMarksScreen({Key? key}) : super(key: key);
@@ -94,7 +96,9 @@ class _TeacherMarksScreenState extends State<TeacherMarksScreen> {
       }
       
       _error = (dashboardResult is TeacherError) ? dashboardResult.message : null;
-      _error = (_error ?? (examsResult is TeacherError)) ? examsResult.message : _error;
+      if (_error == null && examsResult is TeacherError) {
+        _error = examsResult.message;
+      }
     });
     
     // Load marks after setting initial filters
@@ -456,7 +460,7 @@ class _MarkCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        mark.studentName,
+                        mark.studentName ?? '',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -839,7 +843,7 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            student.name,
+                                            student.name ?? '',
                                             style: const TextStyle(
                                               fontSize: 14,
                                               fontWeight: FontWeight.w500,

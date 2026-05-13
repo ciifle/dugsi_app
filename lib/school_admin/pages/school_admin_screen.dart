@@ -22,6 +22,7 @@ import 'package:kobac/school_admin/pages/payments_screen.dart';
 import 'package:kobac/school_admin/pages/teachers_screen.dart';
 import 'package:kobac/school_admin/widgets/drawer_widget.dart';
 import 'package:kobac/school_admin/widgets/web_admin_shell.dart';
+import 'package:kobac/school_admin/widgets/admin_responsive_layout.dart';
 import 'package:kobac/school_admin/widgets/web_dashboard.dart';
 import 'package:provider/provider.dart';
 import 'package:kobac/services/auth_provider.dart';

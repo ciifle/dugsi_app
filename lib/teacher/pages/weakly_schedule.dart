@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:kobac/services/teacher_service.dart';
+import 'package:kobac/teacher/widgets/teacher_web_ui.dart';
 
 // ---------- COLOR PALETTE (Matching Student Dashboard) ----------
 const Color kPrimaryBlue = Color(0xFF023471); // Dark blue
@@ -31,7 +32,14 @@ String _normalizeDay(String day) {
 }
 
 class TeacherWeeklyScheduleScreen extends StatefulWidget {
-  const TeacherWeeklyScheduleScreen({Key? key}) : super(key: key);
+  final bool embedBodyOnly;
+  final void Function(String pageKey, {Object? arguments})? onNavigateToPage;
+
+  const TeacherWeeklyScheduleScreen({
+    Key? key,
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
+  }) : super(key: key);
 
   @override
   State<TeacherWeeklyScheduleScreen> createState() =>
@@ -137,175 +145,271 @@ class _TeacherWeeklyScheduleScreenState
     }).toList();
   }
 
+  Widget _buildDesktopScheduleBody(String selectedDay, List<Map<String, dynamic>> daySchedule) {
+    return Container(
+      color: teacherWebBg,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TeacherWebCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const TeacherWebSectionTitle(
+                    title: 'Day filter',
+                    subtitle: 'Choose a day to review your teaching schedule.',
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: List.generate(daysOfWeek.length, (index) {
+                      final isSelected = selectedDayIndex == index;
+                      return ChoiceChip(
+                        label: Text(daysOfWeek[index]),
+                        selected: isSelected,
+                        onSelected: (_) => setState(() => selectedDayIndex = index),
+                        selectedColor: kPrimaryGreen,
+                        labelStyle: TextStyle(
+                          color: isSelected ? Colors.white : kTextPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      );
+                    }),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (daySchedule.isEmpty)
+              const TeacherWebCard(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Center(child: Text('No classes scheduled for this day.')),
+                ),
+              )
+            else
+              TeacherWebCard(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  children: [
+                    const TeacherWebTableHeader(columns: ['Time', 'Class', 'Subject', '']),
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: daySchedule.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1, color: teacherWebBorder),
+                      itemBuilder: (context, index) {
+                        final item = daySchedule[index];
+                        return TeacherWebTableRow(
+                          cells: [
+                            Text(
+                              '${item['time']}',
+                              style: const TextStyle(fontWeight: FontWeight.w600, color: kTextPrimary),
+                            ),
+                            Text('${item['class']}', style: const TextStyle(color: kTextPrimary)),
+                            Text('${item['subject']}', style: const TextStyle(color: kTextSecondary)),
+                            Icon(Icons.schedule_rounded, color: kPrimaryGreen.withValues(alpha: 0.85)),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final selectedDay = daysOfWeek[selectedDayIndex];
     final daySchedule = _loading || _error != null ? <Map<String, dynamic>>[] : _dayScheduleFor(selectedDay);
 
     if (_loading) {
+      final loadingBody = const Center(child: CircularProgressIndicator(color: kPrimaryBlue));
+      if (widget.embedBodyOnly) {
+        return Container(
+          color: teacherWebBg,
+          padding: const EdgeInsets.all(24),
+          child: const TeacherWebCard(
+            child: Center(child: CircularProgressIndicator(color: kPrimaryBlue)),
+          ),
+        );
+      }
       return Scaffold(
         backgroundColor: kSoftBlue,
-        body: const Center(child: CircularProgressIndicator(color: kPrimaryBlue)),
+        body: loadingBody,
       );
     }
     if (_error != null) {
-      return Scaffold(
-        backgroundColor: kSoftBlue,
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.error_outline_rounded, size: 56, color: kTextSecondary),
-                const SizedBox(height: 16),
-                Text(_error!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, color: kTextPrimary)),
-                const SizedBox(height: 24),
-                TextButton.icon(onPressed: _loadTimetable, icon: const Icon(Icons.refresh_rounded), label: const Text('Retry'), style: TextButton.styleFrom(foregroundColor: kPrimaryBlue)),
-              ],
-            ),
+      final errorBody = Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline_rounded, size: 56, color: kTextSecondary),
+              const SizedBox(height: 16),
+              Text(_error!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, color: kTextPrimary)),
+              const SizedBox(height: 24),
+              TextButton.icon(onPressed: _loadTimetable, icon: const Icon(Icons.refresh_rounded), label: const Text('Retry'), style: TextButton.styleFrom(foregroundColor: kPrimaryBlue)),
+            ],
           ),
         ),
       );
+      if (widget.embedBodyOnly) {
+        return Container(
+          color: teacherWebBg,
+          padding: const EdgeInsets.all(24),
+          child: TeacherWebCard(child: errorBody),
+        );
+      }
+      return Scaffold(
+        backgroundColor: kSoftBlue,
+        body: errorBody,
+      );
     }
 
-    return Scaffold(
-      backgroundColor: kSoftBlue,
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          // ---------------- APP BAR WITH GRADIENT ----------------
-          SliverAppBar(
-            expandedHeight: 120,
-            pinned: true,
-            backgroundColor: kPrimaryBlue,
-            flexibleSpace: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
-                  stops: const [0.3, 0.7, 1.0],
-                ),
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(30),
-                  bottomRight: Radius.circular(30),
-                ),
+    if (widget.embedBodyOnly) {
+      return _buildDesktopScheduleBody(selectedDay, daySchedule);
+    }
+
+    final contentSlivers = <Widget>[
+      if (!widget.embedBodyOnly)
+        SliverAppBar(
+          expandedHeight: 120,
+          pinned: true,
+          backgroundColor: kPrimaryBlue,
+          flexibleSpace: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
+                stops: const [0.3, 0.7, 1.0],
               ),
-              child: FlexibleSpaceBar(
-                titlePadding: const EdgeInsets.only(bottom: 20),
-                centerTitle: true,
-                title: const Text(
-                  "Weekly Schedule",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 24,
-                  ),
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(30),
+                bottomRight: Radius.circular(30),
+              ),
+            ),
+            child: FlexibleSpaceBar(
+              titlePadding: const EdgeInsets.only(bottom: 20),
+              centerTitle: true,
+              title: const Text(
+                "Weekly Schedule",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 24,
                 ),
               ),
             ),
-            leading: Container(
-              margin: const EdgeInsets.only(left: 12, top: 8),
+          ),
+          leading: Container(
+            margin: const EdgeInsets.only(left: 12, top: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: IconButton(
+              icon: const Icon(
+                Icons.arrow_back_rounded,
+                color: Colors.white,
+                size: 28,
+              ),
+              onPressed: () => Navigator.pop(context),
+              padding: const EdgeInsets.all(10),
+            ),
+          ),
+          actions: [
+            Container(
+              margin: const EdgeInsets.only(right: 12, top: 8),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: IconButton(
-                icon: const Icon(
-                  Icons.arrow_back_rounded,
-                  color: Colors.white,
-                  size: 28,
-                ),
-                onPressed: () => Navigator.pop(context),
-                padding: const EdgeInsets.all(10),
-              ),
-            ),
-            actions: [
-              // ---------------- WORKING NOTIFICATION ICON ----------------
-              Container(
-                margin: const EdgeInsets.only(right: 12, top: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    IconButton(
-                      icon: const Icon(
-                        Icons.notifications_rounded,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                      onPressed: _showNotifications,
-                      padding: const EdgeInsets.all(10),
-                      constraints: const BoxConstraints(),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  IconButton(
+                    icon: const Icon(
+                      Icons.notifications_rounded,
+                      color: Colors.white,
+                      size: 24,
                     ),
-                    if (notificationCount > 0)
-                      Positioned(
-                        top: 6,
-                        right: 6,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: kErrorColor,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
-                          ),
-                          constraints: const BoxConstraints(
-                            minWidth: 18,
-                            minHeight: 18,
-                          ),
-                          child: Center(
-                            child: Text(
-                              '$notificationCount',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
+                    onPressed: _showNotifications,
+                    padding: const EdgeInsets.all(10),
+                    constraints: const BoxConstraints(),
+                  ),
+                  if (notificationCount > 0)
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: kErrorColor,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 18,
+                          minHeight: 18,
+                        ),
+                        child: Center(
+                          child: Text(
+                            '$notificationCount',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
                       ),
-                  ],
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      SliverPadding(
+        padding: const EdgeInsets.all(16),
+        sliver: SliverList(
+          delegate: SliverChildListDelegate([
+            _buildDaySelector(),
+            const SizedBox(height: 20),
+            _buildScheduleHeader(selectedDay, daySchedule.length),
+            const SizedBox(height: 16),
+            if (daySchedule.isEmpty)
+              _buildEmptyState()
+            else
+              ...List.generate(
+                daySchedule.length,
+                (index) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _ClassCard(classData: daySchedule[index]),
                 ),
               ),
-            ],
-          ),
-
-          // ---------------- MAIN CONTENT ----------------
-          SliverPadding(
-            padding: const EdgeInsets.all(16),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                // ---------------- DAY SELECTOR SECTION ----------------
-                _buildDaySelector(),
-
-                const SizedBox(height: 20),
-
-                // ---------------- SCHEDULE HEADER ----------------
-                _buildScheduleHeader(selectedDay, daySchedule.length),
-
-                const SizedBox(height: 16),
-
-                // ---------------- CLASS CARDS ----------------
-                if (daySchedule.isEmpty)
-                  _buildEmptyState()
-                else
-                  ...List.generate(
-                    daySchedule.length,
-                    (index) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _ClassCard(classData: daySchedule[index]),
-                    ),
-                  ),
-              ]),
-            ),
-          ),
-        ],
+          ]),
+        ),
       ),
+    ];
+
+    final body = CustomScrollView(
+      physics: const BouncingScrollPhysics(),
+      slivers: contentSlivers,
+    );
+
+    return Scaffold(
+      backgroundColor: kSoftBlue,
+      body: body,
     );
   }
 

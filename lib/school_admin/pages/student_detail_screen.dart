@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kobac/school_admin/widgets/admin_responsive_layout.dart';
 import 'package:provider/provider.dart';
 import 'package:printing/printing.dart';
 import 'package:kobac/services/students_service.dart';
@@ -16,13 +17,19 @@ const Color kBackground = Color(0xFFF6F8FA);
 
 class StudentDetailPage extends StatelessWidget {
   final int studentId;
+  final bool embedBodyOnly;
+  final void Function(String, {Object? arguments})? onNavigateToPage;
 
-  const StudentDetailPage({super.key, required this.studentId});
+  const StudentDetailPage({
+    super.key, 
+    required this.studentId,
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
+    final body = Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -34,23 +41,33 @@ class StudentDetailPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                child: Row(
-                  children: [
-                    _BackButton(onPressed: () => Navigator.of(context).maybePop()),
-                    const SizedBox(width: 16),
-                    const Expanded(
-                      child: Text(
-                        'Student Details',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kDarkBlue),
+              if (!isEmbeddedDesktopAdminBody(context, embedBodyOnly))
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                  child: Row(
+                    children: [
+                      _BackButton(
+                        onPressed: () {
+                          final isDesktop = isDesktopWebAdminLayout(context);
+                          if (isDesktop && onNavigateToPage != null) {
+                            onNavigateToPage!('students');
+                          } else {
+                            Navigator.of(context).maybePop();
+                          }
+                        }
                       ),
-                    ),
-                    const SizedBox(width: 44),
-                  ],
+                      const SizedBox(width: 16),
+                      const Expanded(
+                        child: Text(
+                          'Student Details',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kDarkBlue),
+                        ),
+                      ),
+                      const SizedBox(width: 44),
+                    ],
+                  ),
                 ),
-              ),
               Expanded(
               child: FutureBuilder<_StudentDetailData>(
                 future: _loadStudentDetailData(studentId),
@@ -109,6 +126,7 @@ class StudentDetailPage extends StatelessWidget {
                     fallbackSchoolNameFuture: (data.student!.schoolName == null || data.student!.schoolName!.isEmpty)
                         ? _getAdminSchoolName(context)
                         : null,
+                    onNavigateToPage: onNavigateToPage,
                   );
                 },
               ),
@@ -116,8 +134,9 @@ class StudentDetailPage extends StatelessWidget {
           ],
         ),
       ),
-      ),
     );
+    if (isEmbeddedDesktopAdminBody(context, embedBodyOnly)) return body;
+    return Scaffold(body: body);
   }
 
   /// Load student + classes list for class name fallback.
@@ -185,11 +204,13 @@ class _StudentDetailBody extends StatelessWidget {
   final StudentModel student;
   final Map<int, String> classesById;
   final Future<String?>? fallbackSchoolNameFuture;
+  final void Function(String, {Object? arguments})? onNavigateToPage;
 
   const _StudentDetailBody({
     required this.student,
     required this.classesById,
     this.fallbackSchoolNameFuture,
+    this.onNavigateToPage,
   });
 
   @override
@@ -260,12 +281,17 @@ class _StudentDetailBody extends StatelessWidget {
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: () async {
-                    final result = await Navigator.of(context).push<bool>(
-                      MaterialPageRoute(
-                        builder: (_) => EditStudentScreen(studentId: student.id),
-                      ),
-                    );
-                    if (result == true && context.mounted) Navigator.of(context).maybePop();
+                    final isDesktop = isDesktopWebAdminLayout(context);
+                    if (isDesktop && onNavigateToPage != null) {
+                      onNavigateToPage!('editStudent', arguments: student.id);
+                    } else {
+                      final result = await Navigator.of(context).push<bool>(
+                        MaterialPageRoute(
+                          builder: (_) => EditStudentScreen(studentId: student.id),
+                        ),
+                      );
+                      if (result == true && context.mounted) Navigator.of(context).maybePop();
+                    }
                   },
                   icon: const Icon(Icons.edit, size: 20),
                   label: const Text('Edit'),
@@ -327,7 +353,12 @@ class _StudentDetailBody extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${student.studentName} deleted'), backgroundColor: kOrange),
       );
-      Navigator.of(context).pop();
+      final isDesktop = isDesktopWebAdminLayout(context);
+      if (isDesktop && onNavigateToPage != null) {
+        onNavigateToPage!('students');
+      } else {
+        Navigator.of(context).pop();
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text((result as StudentError).message), backgroundColor: Colors.red),

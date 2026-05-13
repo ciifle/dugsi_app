@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kobac/school_admin/widgets/admin_responsive_layout.dart';
 import 'package:kobac/services/teachers_service.dart';
 import 'package:kobac/services/api_error_helpers.dart';
 import 'package:kobac/school_admin/pages/edit_teacher_screen.dart';
@@ -11,38 +12,51 @@ const Color kBackground = Color(0xFFF6F8FA);
 
 class TeacherDetailsPage extends StatelessWidget {
   final int teacherId;
+  final bool embedBodyOnly;
+  final void Function(String, {Object? arguments})? onNavigateToPage;
 
-  const TeacherDetailsPage({super.key, required this.teacherId});
+  const TeacherDetailsPage({
+    super.key, 
+    required this.teacherId,
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: kBackground,
-      body: SafeArea(
+    final body = SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-              child: Row(
-                children: [
-                  _BackButton(onPressed: () => Navigator.of(context).maybePop()),
-                  const SizedBox(width: 16),
-                  const Expanded(
-                    child: Text(
-                      'Teacher Details',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: kDarkBlue,
+            if (!isEmbeddedDesktopAdminBody(context, embedBodyOnly))
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                child: Row(
+                  children: [
+                    _BackButton(onPressed: () {
+                      final isDesktop = isDesktopWebAdminLayout(context);
+                      if (isDesktop && onNavigateToPage != null) {
+                        onNavigateToPage!('teachers');
+                      } else {
+                        Navigator.of(context).maybePop();
+                      }
+                    }),
+                    const SizedBox(width: 16),
+                    const Expanded(
+                      child: Text(
+                        'Teacher Details',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: kDarkBlue,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 44),
-                ],
+                    const SizedBox(width: 44),
+                  ],
+                ),
               ),
-            ),
             Expanded(
               child: FutureBuilder<TeacherResult<TeacherModel>>(
         future: TeachersService().getTeacher(teacherId),
@@ -98,13 +112,26 @@ class TeacherDetailsPage extends StatelessWidget {
             );
           }
           final teacher = (result as TeacherSuccess<TeacherModel>).data;
-          return _TeacherDetailBody(teacher: teacher);
+          return _TeacherDetailBody(
+            teacher: teacher,
+            onNavigateToPage: onNavigateToPage,
+          );
         },
               ),
             ),
           ],
         ),
-      ),
+      );
+
+    if (isEmbeddedDesktopAdminBody(context, embedBodyOnly)) {
+      return Container(
+        color: const Color(0xFFF8F9FC),
+        child: body,
+      );
+    }
+    return Scaffold(
+      backgroundColor: kBackground,
+      body: body,
     );
   }
 }
@@ -134,8 +161,12 @@ class _BackButton extends StatelessWidget {
 
 class _TeacherDetailBody extends StatelessWidget {
   final TeacherModel teacher;
+  final void Function(String, {Object? arguments})? onNavigateToPage;
 
-  const _TeacherDetailBody({required this.teacher});
+  const _TeacherDetailBody({
+    required this.teacher,
+    this.onNavigateToPage,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -177,12 +208,17 @@ class _TeacherDetailBody extends StatelessWidget {
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: () async {
-                    final result = await Navigator.of(context).push<bool>(
-                      MaterialPageRoute(
-                        builder: (_) => EditTeacherScreen(teacherId: teacher.id),
-                      ),
-                    );
-                    if (result == true && context.mounted) Navigator.of(context).maybePop();
+                    final isDesktop = isDesktopWebAdminLayout(context);
+                    if (isDesktop && onNavigateToPage != null) {
+                      onNavigateToPage!('editTeacher', arguments: teacher.id);
+                    } else {
+                      final result = await Navigator.of(context).push<bool>(
+                        MaterialPageRoute(
+                          builder: (_) => EditTeacherScreen(teacherId: teacher.id),
+                        ),
+                      );
+                      if (result == true && context.mounted) Navigator.of(context).maybePop();
+                    }
                   },
                   icon: const Icon(Icons.edit, size: 20),
                   label: const Text('Edit'),
@@ -227,7 +263,12 @@ class _TeacherDetailBody extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${teacher.fullName} deleted'), backgroundColor: kOrange),
       );
-      Navigator.of(context).pop();
+      final isDesktop = isDesktopWebAdminLayout(context);
+      if (isDesktop && onNavigateToPage != null) {
+        onNavigateToPage!('teachers');
+      } else {
+        Navigator.of(context).pop();
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text((result as TeacherError).message), backgroundColor: Colors.red),

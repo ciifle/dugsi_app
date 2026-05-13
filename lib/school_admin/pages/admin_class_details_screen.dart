@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:kobac/school_admin/widgets/admin_responsive_layout.dart';
 import 'package:provider/provider.dart';
 import 'package:printing/printing.dart';
 import 'package:kobac/services/students_service.dart';
@@ -21,11 +22,15 @@ const double kCardRadius = 28.0;
 class AdminClassDetailsScreen extends StatefulWidget {
   final int classId;
   final String className;
+  final bool embedBodyOnly;
+  final void Function(String, {Object? arguments})? onNavigateToPage;
 
   const AdminClassDetailsScreen({
     Key? key,
     required this.classId,
     required this.className,
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
   }) : super(key: key);
 
   @override
@@ -45,6 +50,15 @@ class _AdminClassDetailsScreenState extends State<AdminClassDetailsScreen> {
   }
 
   Future<void> _manageClassSubjects() async {
+    final isDesktop = isDesktopWebAdminLayout(context);
+    if (isDesktop && widget.onNavigateToPage != null) {
+      widget.onNavigateToPage!('classSubjects', arguments: {
+        'classId': widget.classId,
+        'className': widget.className,
+      });
+      return;
+    }
+
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => ClassSubjectManagementScreen(
@@ -54,7 +68,6 @@ class _AdminClassDetailsScreenState extends State<AdminClassDetailsScreen> {
       ),
     );
     if (result == true && mounted) {
-      // No need to reload students, just show success message if needed
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Class subjects updated'), backgroundColor: kPrimaryGreen),
       );
@@ -91,10 +104,7 @@ class _AdminClassDetailsScreenState extends State<AdminClassDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: kBgColor,
-      body: SafeArea(
-        child: Container(
+    final body = Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
@@ -105,34 +115,42 @@ class _AdminClassDetailsScreenState extends State<AdminClassDetailsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                child: Row(
-                  children: [
-                    _BackButton(onPressed: () => Navigator.of(context).pop()),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Class',
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
-                          ),
-                          Text(
-                            widget.className,
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: kPrimaryBlue,
+              if (!isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly))
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                  child: Row(
+                    children: [
+                      _BackButton(onPressed: () {
+                        final isDesktop = isDesktopWebAdminLayout(context);
+                        if (isDesktop && widget.onNavigateToPage != null) {
+                          widget.onNavigateToPage!('classes');
+                        } else {
+                          Navigator.of(context).pop();
+                        }
+                      }),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Class',
+                              style: TextStyle(fontSize: 12, color: Colors.grey),
                             ),
-                          ),
-                        ],
+                            Text(
+                              widget.className,
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: kPrimaryBlue,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
@@ -140,12 +158,17 @@ class _AdminClassDetailsScreenState extends State<AdminClassDetailsScreen> {
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: _loading ? null : () async {
-                          final created = await Navigator.of(context).push<bool>(
-                            MaterialPageRoute(
-                              builder: (_) => CreateStudentScreen(initialClassId: widget.classId),
-                            ),
-                          );
-                          if (created == true && mounted) _loadStudents();
+                          final isDesktop = isDesktopWebAdminLayout(context);
+                          if (isDesktop && widget.onNavigateToPage != null) {
+                            widget.onNavigateToPage!('addStudent', arguments: {'initialClassId': widget.classId});
+                          } else {
+                            final created = await Navigator.of(context).push<bool>(
+                              MaterialPageRoute(
+                                builder: (_) => CreateStudentScreen(initialClassId: widget.classId),
+                              ),
+                            );
+                            if (created == true && mounted) _loadStudents();
+                          }
                         },
                         icon: const Icon(Icons.person_add_rounded, size: 20),
                         label: const Text('Add student'),
@@ -195,8 +218,12 @@ class _AdminClassDetailsScreenState extends State<AdminClassDetailsScreen> {
               ),
             ],
           ),
-        ),
-      ),
+        );
+        
+    if (isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)) return body;
+    return Scaffold(
+      backgroundColor: kBgColor,
+      body: SafeArea(child: body),
     );
   }
 
@@ -224,12 +251,17 @@ class _AdminClassDetailsScreenState extends State<AdminClassDetailsScreen> {
                 const SizedBox(height: 16),
                 TextButton.icon(
                   onPressed: () async {
-                    final created = await Navigator.of(context).push<bool>(
-                      MaterialPageRoute(
-                        builder: (_) => CreateStudentScreen(initialClassId: widget.classId),
-                      ),
-                    );
-                    if (created == true && mounted) _loadStudents();
+                    final isDesktop = isDesktopWebAdminLayout(context);
+                    if (isDesktop && widget.onNavigateToPage != null) {
+                      widget.onNavigateToPage!('addStudent', arguments: {'initialClassId': widget.classId});
+                    } else {
+                      final created = await Navigator.of(context).push<bool>(
+                        MaterialPageRoute(
+                          builder: (_) => CreateStudentScreen(initialClassId: widget.classId),
+                        ),
+                      );
+                      if (created == true && mounted) _loadStudents();
+                    }
                   },
                   icon: const Icon(Icons.add),
                   label: const Text('Add student'),
@@ -261,11 +293,18 @@ class _AdminClassDetailsScreenState extends State<AdminClassDetailsScreen> {
         final student = _students[index - 1];
         return _StudentRow(
           student: student,
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => StudentDetailPage(studentId: student.id),
-            ),
-          ).then((_) => _loadStudents()),
+          onTap: () {
+            final isDesktop = isDesktopWebAdminLayout(context);
+            if (isDesktop && widget.onNavigateToPage != null) {
+              widget.onNavigateToPage!('studentDetail', arguments: student.id);
+            } else {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => StudentDetailPage(studentId: student.id),
+                ),
+              ).then((_) => _loadStudents());
+            }
+          },
         );
       },
     );

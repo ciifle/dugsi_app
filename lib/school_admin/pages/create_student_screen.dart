@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kobac/school_admin/widgets/admin_responsive_layout.dart';
 import 'package:flutter/services.dart';
 import 'package:kobac/services/students_service.dart';
 import 'package:kobac/services/classes_service.dart';
@@ -12,11 +13,13 @@ const Color kBgColor = Color(0xFFF0F3F7);
 class CreateStudentScreen extends StatefulWidget {
   final int? initialClassId;
   final bool embedBodyOnly;
+  final void Function(String, {Object? arguments})? onNavigateToPage;
 
   const CreateStudentScreen({
     super.key, 
     this.initialClassId,
     this.embedBodyOnly = false,
+    this.onNavigateToPage,
   });
 
   @override
@@ -48,6 +51,7 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
   String _birthDate = '';
   String? _birthDateError;
   bool _submitting = false;
+  bool _obscureDesktopPassword = true;
   List<ClassModel> _classes = [];
   int? _selectedClassId;
 
@@ -191,7 +195,12 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Student created'), backgroundColor: kPrimaryGreen),
       );
-      Navigator.of(context).pop(true);
+      final isDesktop = isDesktopWebAdminLayout(context);
+      if (isDesktop && widget.onNavigateToPage != null) {
+        widget.onNavigateToPage!('students');
+      } else {
+        Navigator.of(context).pop(true);
+      }
       return;
     }
     final err = result as StudentError;
@@ -236,10 +245,10 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.embedBodyOnly) {
-      return _buildDesktopForm();
+    if (isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)) {
+      return _buildCreateStudentBody(context);
     }
-    
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -396,302 +405,331 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
     );
   }
 
-  Widget _buildDesktopForm() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header Card
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Add Student',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF023471),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Create a new student record',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed: () {
-                    if (widget.embedBodyOnly) {
-                      // Navigate back to students list via shell
-                      // This will need to be implemented via callback
-                      Navigator.of(context).pop();
-                    }
-                  },
-                  icon: const Icon(Icons.arrow_back, size: 18),
-                  label: const Text('Back to Students'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFF023471),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          // Form Card
-          Container(
-            constraints: const BoxConstraints(maxWidth: 1000),
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE8ECF2), width: 1),
-            ),
-            child: Form(
-              key: _formKey,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final isWide = constraints.maxWidth > 800;
-                  return Wrap(
-                    spacing: 20,
-                    runSpacing: 20,
-                    children: [
-                      // Personal Info Section
-                      SizedBox(
-                        width: isWide ? constraints.maxWidth / 2 - 10 : constraints.maxWidth,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Personal Information',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF023471),
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            Input3D(controller: _emisNumber, label: 'EMIS Number', validator: _required),
-                            const SizedBox(height: 16),
-                            Input3D(controller: _studentName, label: 'Student Name', validator: _required, textCapitalization: TextCapitalization.words),
-                            const SizedBox(height: 16),
-                            Input3D(controller: _motherName, label: "Mother's Name", validator: _required, textCapitalization: TextCapitalization.words),
-                            const SizedBox(height: 16),
-                            Select3D<String>(
-                              value: _refugeeStatus,
-                              label: 'Refugee Status',
-                              items: const [
-                                DropdownMenuItem(value: 'Refugee', child: Text('Refugee')),
-                                DropdownMenuItem(value: 'Not Refugee', child: Text('Not Refugee')),
-                              ],
-                              onChanged: (v) => setState(() => _refugeeStatus = v ?? 'Not Refugee'),
-                            ),
-                            const SizedBox(height: 16),
-                            Select3D<String>(
-                              value: _orphanStatus,
-                              label: 'Orphan Status',
-                              items: const [
-                                DropdownMenuItem(value: 'Orphan', child: Text('Orphan')),
-                                DropdownMenuItem(value: 'Not Orphan', child: Text('Not Orphan')),
-                              ],
-                              onChanged: (v) => setState(() => _orphanStatus = v ?? 'Not Orphan'),
-                            ),
-                            const SizedBox(height: 16),
-                            Select3D<String>(
-                              value: _sex,
-                              label: 'Gender',
-                              items: const [
-                                DropdownMenuItem(value: 'Male', child: Text('Male')),
-                                DropdownMenuItem(value: 'Female', child: Text('Female')),
-                              ],
-                              onChanged: (v) => setState(() => _sex = v ?? 'Male'),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Academic Info Section
-                      SizedBox(
-                        width: isWide ? constraints.maxWidth / 2 - 10 : constraints.maxWidth,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Academic Information',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF023471),
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            Input3D(controller: _guardianName, label: 'Guardian Name', validator: _required),
-                            const SizedBox(height: 16),
-                            Input3D(controller: _schoolName, label: 'School Name', validator: _required),
-                            const SizedBox(height: 16),
-                            Select3D<int>(
-                              value: _selectedClassId,
-                              label: 'Class',
-                              items: _classes.map((c) => DropdownMenuItem<int>(value: c.id, child: Text(c.name))).toList(),
-                              onChanged: (v) => setState(() => _selectedClassId = v),
-                            ),
-                            const SizedBox(height: 16),
-                            Input3D(
-                              controller: _ageController,
-                              label: 'Age',
-                              validator: _ageValid,
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                            ),
-                            const SizedBox(height: 16),
-                            Select3D<String>(
-                              value: _absenteeismStatus,
-                              label: 'Absenteeism Status',
-                              items: const [
-                                DropdownMenuItem(value: 'Active', child: Text('Active')),
-                                DropdownMenuItem(value: 'Inactive', child: Text('Inactive')),
-                              ],
-                              onChanged: (v) => setState(() => _absenteeismStatus = v ?? 'Active'),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Additional Fields (full width)
-                      SizedBox(
-                        width: constraints.maxWidth,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: 20),
-                            const Text(
-                              'Additional Information',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF023471),
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            Wrap(
-                              spacing: 20,
-                              runSpacing: 20,
-                              children: [
-                                SizedBox(
-                                  width: isWide ? constraints.maxWidth / 3 - 15 : constraints.maxWidth,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Select3D<String>(
-                                        value: _disabilityStatus,
-                                        label: 'Disability Status',
-                                        items: const [
-                                          DropdownMenuItem(value: 'No Disability', child: Text('No Disability')),
-                                          DropdownMenuItem(value: 'Disabled', child: Text('Disabled')),
-                                        ],
-                                        onChanged: (v) => setState(() => _disabilityStatus = v ?? 'No Disability'),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      DatePicker3D(
-                                        label: 'Date of Birth',
-                                        value: _birthDate,
-                                        initialDate: _birthDate.isNotEmpty ? _parseDate(_birthDate) : null,
-                                        firstDate: DateTime(1990),
-                                        lastDate: DateTime.now(),
-                                        onDatePicked: (date) {
-                                          setState(() {
-                                            _birthDate = _formatDate(date);
-                                            _birthDateError = null;
-                                          });
-                                        },
-                                        errorText: _birthDateError,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: isWide ? constraints.maxWidth / 3 - 15 : constraints.maxWidth,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Input3D(controller: _birthPlace, label: 'Birth Place', validator: _required),
-                                      const SizedBox(height: 16),
-                                      Input3D(controller: _nationality, label: 'Nationality', validator: _required),
-                                    ],
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: isWide ? constraints.maxWidth / 3 - 15 : constraints.maxWidth,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Input3D(controller: _studentState, label: 'State', validator: _required),
-                                      const SizedBox(height: 16),
-                                      Input3D(controller: _studentDistrict, label: 'District', validator: _required),
-                                      const SizedBox(height: 16),
-                                      Input3D(controller: _studentVillage, label: 'Village', validator: _required),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 20),
-                            const Text(
-                              'Account Information',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF023471),
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            PasswordInput3D(controller: _password, label: 'Password', validator: _passwordLength),
-                            const SizedBox(height: 24),
-                            // Action Buttons
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                TextButton(
-                                  onPressed: () {
-                                    if (widget.embedBodyOnly) {
-                                      Navigator.of(context).pop();
-                                    }
-                                  },
-                                  child: const Text('Cancel'),
-                                ),
-                                const SizedBox(width: 12),
-                                PrimaryButton3D(label: 'Create Student', onPressed: _submit, loading: _submitting),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  );
-                },
+  Widget _buildCreateStudentBody(BuildContext context) {
+    return Container(
+      color: kBgColor,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(28),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFE8ECF2)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
               ),
+            ],
+          ),
+          child: Form(
+            key: _formKey,
+            autovalidateMode: AutovalidateMode.disabled,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth >= 700;
+                final fieldWidth = isWide ? (constraints.maxWidth - 24) / 2 : constraints.maxWidth;
+
+                Widget field(Widget child) {
+                  return SizedBox(width: fieldWidth, child: child);
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 24,
+                      runSpacing: 20,
+                      children: [
+                        field(_desktopTextField(controller: _emisNumber, label: 'EMIS Number', validator: _required)),
+                        field(_desktopTextField(controller: _guardianName, label: 'Guardian Name', validator: _required, textCapitalization: TextCapitalization.words)),
+                        field(_desktopTextField(controller: _studentName, label: 'Student Name', validator: _required, textCapitalization: TextCapitalization.words)),
+                        field(_desktopTextField(controller: _schoolName, label: 'School Name', validator: _required)),
+                        field(_desktopTextField(controller: _motherName, label: "Mother's Name", validator: _required, textCapitalization: TextCapitalization.words)),
+                        field(_desktopSelectField<int>(
+                          value: _selectedClassId,
+                          label: 'Class',
+                          items: _classes.map((c) => DropdownMenuItem<int>(value: c.id, child: Text(c.name))).toList(),
+                          onChanged: (v) => setState(() => _selectedClassId = v),
+                        )),
+                        field(_desktopTextField(
+                          controller: _ageController,
+                          label: 'Age',
+                          validator: _ageValid,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        )),
+                        field(DatePicker3D(
+                          label: 'Date of Birth',
+                          value: _birthDate,
+                          initialDate: _birthDate.isNotEmpty ? _parseDate(_birthDate) : null,
+                          firstDate: DateTime(1990),
+                          lastDate: DateTime.now(),
+                          onDatePicked: (date) {
+                            setState(() {
+                              _birthDate = _formatDate(date);
+                              _birthDateError = null;
+                            });
+                          },
+                          errorText: _birthDateError,
+                        )),
+                        field(_desktopSelectField<String>(
+                          value: _sex,
+                          label: 'Gender',
+                          items: const [
+                            DropdownMenuItem(value: 'Male', child: Text('Male')),
+                            DropdownMenuItem(value: 'Female', child: Text('Female')),
+                          ],
+                          onChanged: (v) => setState(() => _sex = v ?? 'Male'),
+                        )),
+                        field(_desktopSelectField<String>(
+                          value: _disabilityStatus,
+                          label: 'Disability Status',
+                          items: const [
+                            DropdownMenuItem(value: 'No Disability', child: Text('No Disability')),
+                            DropdownMenuItem(value: 'Disabled', child: Text('Disabled')),
+                          ],
+                          onChanged: (v) => setState(() => _disabilityStatus = v ?? 'No Disability'),
+                        )),
+                        field(_desktopSelectField<String>(
+                          value: _refugeeStatus,
+                          label: 'Refugee Status',
+                          items: const [
+                            DropdownMenuItem(value: 'Refugee', child: Text('Refugee')),
+                            DropdownMenuItem(value: 'Not Refugee', child: Text('Not Refugee')),
+                          ],
+                          onChanged: (v) => setState(() => _refugeeStatus = v ?? 'Not Refugee'),
+                        )),
+                        field(_desktopSelectField<String>(
+                          value: _orphanStatus,
+                          label: 'Orphan Status',
+                          items: const [
+                            DropdownMenuItem(value: 'Orphan', child: Text('Orphan')),
+                            DropdownMenuItem(value: 'Not Orphan', child: Text('Not Orphan')),
+                          ],
+                          onChanged: (v) => setState(() => _orphanStatus = v ?? 'Not Orphan'),
+                        )),
+                        field(_desktopSelectField<String>(
+                          value: _absenteeismStatus,
+                          label: 'Absenteeism Status',
+                          items: const [
+                            DropdownMenuItem(value: 'Active', child: Text('Active')),
+                            DropdownMenuItem(value: 'Inactive', child: Text('Inactive')),
+                          ],
+                          onChanged: (v) => setState(() => _absenteeismStatus = v ?? 'Active'),
+                        )),
+                        field(_desktopTextField(controller: _birthPlace, label: 'Birth Place', validator: _required)),
+                        field(_desktopTextField(controller: _nationality, label: 'Nationality', validator: _required)),
+                        field(_desktopTextField(controller: _studentState, label: 'State', validator: _required)),
+                        field(_desktopTextField(controller: _studentDistrict, label: 'District', validator: _required)),
+                        field(_desktopTextField(controller: _studentVillage, label: 'Village', validator: _required)),
+                        field(_desktopPasswordField()),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    if (isWide)
+                      Row(
+                        children: [
+                          SizedBox(
+                            width: fieldWidth,
+                            height: 52,
+                            child: OutlinedButton(
+                              onPressed: _submitting
+                                  ? null
+                                  : () {
+                                      if (widget.onNavigateToPage != null) {
+                                        widget.onNavigateToPage!('students');
+                                      } else {
+                                        Navigator.of(context).pop();
+                                      }
+                                    },
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF374151),
+                                backgroundColor: Colors.white,
+                                side: const BorderSide(color: Color(0xFFE5E7EB)),
+                                elevation: 0,
+                                shadowColor: Colors.transparent,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: const Text('Cancel'),
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                          SizedBox(
+                            width: fieldWidth,
+                            height: 52,
+                            child: ElevatedButton(
+                              onPressed: _submitting ? null : _submit,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: kPrimaryBlue,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shadowColor: Colors.transparent,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: _submitting
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Text('Save Student'),
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      Column(
+                        children: [
+                          SizedBox(
+                            width: fieldWidth,
+                            height: 52,
+                            child: OutlinedButton(
+                              onPressed: _submitting
+                                  ? null
+                                  : () {
+                                      if (widget.onNavigateToPage != null) {
+                                        widget.onNavigateToPage!('students');
+                                      } else {
+                                        Navigator.of(context).pop();
+                                      }
+                                    },
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF374151),
+                                backgroundColor: Colors.white,
+                                side: const BorderSide(color: Color(0xFFE5E7EB)),
+                                elevation: 0,
+                                shadowColor: Colors.transparent,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: const Text('Cancel'),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          SizedBox(
+                            width: fieldWidth,
+                            height: 52,
+                            child: ElevatedButton(
+                              onPressed: _submitting ? null : _submit,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: kPrimaryBlue,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shadowColor: Colors.transparent,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: _submitting
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Text('Save Student'),
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                );
+              },
             ),
           ),
-        ],
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _desktopInputDecoration(String label) {
+    const borderGray = Color(0xFFE5E7EB);
+
+    OutlineInputBorder outline(Color color, {double width = 1}) {
+      return OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: color, width: width),
+      );
+    }
+
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(
+        color: Color(0xFF374151),
+        fontWeight: FontWeight.w500,
+      ),
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      border: outline(borderGray),
+      enabledBorder: outline(borderGray),
+      focusedBorder: outline(kPrimaryBlue, width: 2),
+      errorBorder: outline(Colors.red),
+      focusedErrorBorder: outline(Colors.red, width: 2),
+    );
+  }
+
+  Widget _desktopTextField({
+    required TextEditingController controller,
+    required String label,
+    String? Function(String?)? validator,
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+  }) {
+    return TextFormField(
+      controller: controller,
+      validator: validator,
+      keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
+      textCapitalization: textCapitalization,
+      decoration: _desktopInputDecoration(label),
+    );
+  }
+
+  Widget _desktopSelectField<T>({
+    required T? value,
+    required String label,
+    required List<DropdownMenuItem<T>> items,
+    required void Function(T?)? onChanged,
+  }) {
+    return DropdownButtonFormField<T>(
+      value: value,
+      items: items,
+      onChanged: onChanged,
+      isExpanded: true,
+      decoration: _desktopInputDecoration(label),
+    );
+  }
+
+  Widget _desktopPasswordField() {
+    return TextFormField(
+      controller: _password,
+      validator: _passwordLength,
+      obscureText: _obscureDesktopPassword,
+      decoration: _desktopInputDecoration('Password').copyWith(
+        suffixIcon: IconButton(
+          icon: Icon(
+            _obscureDesktopPassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+            color: kPrimaryBlue,
+            size: 22,
+          ),
+          onPressed: () => setState(() => _obscureDesktopPassword = !_obscureDesktopPassword),
+        ),
       ),
     );
   }

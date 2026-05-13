@@ -3,11 +3,12 @@ import 'package:provider/provider.dart';
 import 'package:kobac/models/auth_me_models.dart';
 import 'package:kobac/models/auth_user.dart';
 import 'package:kobac/services/auth_provider.dart';
+import 'package:kobac/services/classes_service.dart';
 import 'package:kobac/services/dummy_school_service.dart';
 import 'package:kobac/services/teachers_service.dart';
 import 'package:kobac/services/students_service.dart';
 import 'package:kobac/school_admin/pages/change_password_page.dart';
-import 'package:kobac/school_admin/pages/manage_users_screen.dart';
+import 'package:kobac/school_admin/widgets/admin_responsive_layout.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
 const Color kPrimaryGreen = Color(0xFF5AB04B);
@@ -17,7 +18,14 @@ const double kCardRadius = 20.0;
 class AdminProfilePage extends StatefulWidget {
   final bool openedFromDrawer;
   final bool embedBodyOnly;
-  const AdminProfilePage({super.key, this.openedFromDrawer = false, this.embedBodyOnly = false});
+  final void Function(String, {Object? arguments})? onNavigateToPage;
+
+  const AdminProfilePage({
+    super.key,
+    this.openedFromDrawer = false,
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
+  });
 
   @override
   State<AdminProfilePage> createState() => _AdminProfilePageState();
@@ -47,6 +55,7 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
       setState(() {
         _adminDataLoaded = false;
         _adminDataFuture = _loadAdminData(auth.user, auth.schoolAdminProfile);
+        _statsFuture = _loadStats();
       });
     }
   }
@@ -97,10 +106,28 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
       if (teachersResult is TeacherSuccess<List<TeacherModel>>) {
         teachers = teachersResult.data.length;
       }
-      return {'students': students, 'teachers': teachers, 'classes': 12};
+      int classes = 0;
+      final classesResult = await ClassesService().listClasses();
+      if (classesResult is ClassSuccess<List<ClassModel>>) {
+        classes = classesResult.data.length;
+      }
+      return {'students': students, 'teachers': teachers, 'classes': classes};
     } catch (_) {
-      return {'students': 0, 'teachers': 0, 'classes': 12};
+      return {'students': 0, 'teachers': 0, 'classes': 0};
     }
+  }
+
+  String _initialsFrom(String name) {
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty || parts.first.isEmpty) return '?';
+    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+    return '${parts.first.substring(0, 1)}${parts.last.substring(0, 1)}'.toUpperCase();
+  }
+
+  void _openEditProfile() {}
+
+  Future<void> _logout() async {
+    await context.read<AuthProvider>().logout();
   }
 
   Widget _buildProfileBody(BuildContext context, AsyncSnapshot<Map<String, String>?> snapshot) {
@@ -108,8 +135,15 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
       return const Center(child: CircularProgressIndicator(color: kPrimaryGreen));
     }
     final data = snapshot.data;
-    if (data == null) return const Center(child: Text("User not found"));
+    if (data == null) return const Center(child: Text('User not found'));
 
+    if (isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)) {
+      return _buildDesktopProfileBody(context, data);
+    }
+    return _buildMobileProfileBody(context, data);
+  }
+
+  Widget _buildMobileProfileBody(BuildContext context, Map<String, String> data) {
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Column(
@@ -118,8 +152,6 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
           _buildProfileCard(context, data),
           const SizedBox(height: 20),
           _buildSummaryCards(context),
-          const SizedBox(height: 24),
-          _buildManageUsersTile(context),
           const SizedBox(height: 12),
           _buildResetPasswordTile(context),
           const SizedBox(height: 20),
@@ -130,7 +162,206 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
     );
   }
 
+  Widget _buildDesktopProfileBody(BuildContext context, Map<String, String> data) {
+    final phone = data['phone']?.trim() ?? '';
+    final school = data['school']?.trim() ?? '';
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildDesktopHeroCard(context, data),
+          const SizedBox(height: 20),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final accountCard = _ProfileSectionCard(
+                title: 'Account Details',
+                children: [
+                  _InfoRow(label: 'Full Name', value: data['name'] ?? '—'),
+                  _InfoRow(label: 'Role', value: data['role'] ?? '—'),
+                  _InfoRow(label: 'Email', value: data['email'] ?? '—'),
+                  if (phone.isNotEmpty) _InfoRow(label: 'Phone', value: phone),
+                  if (school.isNotEmpty) _InfoRow(label: 'School', value: school),
+                ],
+              );
+
+              final actionsCard = _ProfileSectionCard(
+                title: 'Actions',
+                children: [
+                  _ActionRow(
+                    icon: Icons.edit_outlined,
+                    label: 'Edit Profile',
+                    onTap: _openEditProfile,
+                  ),
+                  _ActionRow(
+                    icon: Icons.logout_rounded,
+                    label: 'Logout',
+                    onTap: _logout,
+                    danger: true,
+                  ),
+                ],
+              );
+
+              if (constraints.maxWidth >= 980) {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: accountCard),
+                    const SizedBox(width: 20),
+                    Expanded(child: actionsCard),
+                  ],
+                );
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  accountCard,
+                  const SizedBox(height: 16),
+                  actionsCard,
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDesktopHeroCard(BuildContext context, Map<String, String> data) {
+    final initials = _initialsFrom(data['name'] ?? '');
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE8ECF2)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth >= 760;
+          final profileInfo = Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  CircleAvatar(
+                    radius: 40,
+                    backgroundColor: kPrimaryBlue.withOpacity(0.08),
+                    child: Text(
+                      initials,
+                      style: const TextStyle(
+                        color: kPrimaryBlue,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: kPrimaryGreen,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      data['name'] ?? '—',
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: kPrimaryBlue),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      data['role'] ?? '—',
+                      style: TextStyle(fontSize: 13, color: Colors.grey.shade600, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Icon(Icons.email_outlined, size: 18, color: Colors.grey.shade600),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            data['email'] ?? '—',
+                            style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+
+          final actions = Align(
+            alignment: isWide ? Alignment.centerRight : Alignment.centerLeft,
+            child: ElevatedButton.icon(
+              onPressed: _openEditProfile,
+              icon: const Icon(Icons.edit_outlined, size: 18),
+              label: const Text('Edit Profile'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kPrimaryBlue,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              ),
+            ),
+          );
+
+          if (isWide) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: profileInfo),
+                actions,
+              ],
+            );
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              profileInfo,
+              const SizedBox(height: 16),
+              actions,
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildProfileCard(BuildContext context, Map<String, String> data) {
+    final initials = _initialsFrom(data['name'] ?? '');
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -165,7 +396,7 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                       radius: 40,
                       backgroundColor: const Color(0xFF5B9BD5).withOpacity(0.2),
                       child: Text(
-                        'A',
+                        initials,
                         style: const TextStyle(
                           color: Color(0xFF023471),
                           fontSize: 28,
@@ -242,7 +473,7 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
               color: Colors.transparent,
               borderRadius: BorderRadius.circular(16),
               child: InkWell(
-                onTap: () {},
+                onTap: _openEditProfile,
                 borderRadius: BorderRadius.circular(16),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
@@ -251,7 +482,7 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                     children: [
                       Icon(Icons.edit_rounded, size: 20, color: kPrimaryBlue),
                       const SizedBox(width: 8),
-                      Text("Edit Profile", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: kPrimaryBlue)),
+                      Text('Edit Profile', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: kPrimaryBlue)),
                     ],
                   ),
                 ),
@@ -265,36 +496,26 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
 
   Widget _buildSummaryCards(BuildContext context) {
     return FutureBuilder<Map<String, int>>(
-      future: _statsFuture ?? Future.value({'students': 0, 'teachers': 0, 'classes': 12}),
+      future: _statsFuture ?? Future.value({'students': 0, 'teachers': 0, 'classes': 0}),
       builder: (context, snap) {
-        final stats = snap.data ?? {'students': 0, 'teachers': 0, 'classes': 12};
+        final stats = snap.data ?? {'students': 0, 'teachers': 0, 'classes': 0};
         return Row(
           children: [
-            Expanded(child: _SummaryCard(label: "STUDENTS", value: "${stats['students'] ?? 0}", growth: "+12%", icon: Icons.people_alt_rounded, color: kPrimaryBlue)),
+            Expanded(child: _SummaryCard(label: 'STUDENTS', value: '${stats['students'] ?? 0}', icon: Icons.people_alt_rounded, color: kPrimaryBlue)),
             const SizedBox(width: 12),
-            Expanded(child: _SummaryCard(label: "TEACHERS", value: "${stats['teachers'] ?? 0}", growth: "+2%", icon: Icons.school_rounded, color: kPrimaryGreen)),
+            Expanded(child: _SummaryCard(label: 'TEACHERS', value: '${stats['teachers'] ?? 0}', icon: Icons.school_rounded, color: kPrimaryGreen)),
             const SizedBox(width: 12),
-            Expanded(child: _SummaryCard(label: "CLASSES", value: "${stats['classes'] ?? 0}", growth: "+8%", icon: Icons.class_rounded, color: kPrimaryBlue)),
+            Expanded(child: _SummaryCard(label: 'CLASSES', value: '${stats['classes'] ?? 0}', icon: Icons.class_rounded, color: kPrimaryBlue)),
           ],
         );
       },
     );
   }
 
-  Widget _buildManageUsersTile(BuildContext context) {
-    return _ProfileActionTile(
-      icon: Icons.people_rounded,
-      label: "Manage Users",
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const ManageUsersScreen()),
-      ),
-    );
-  }
-
   Widget _buildResetPasswordTile(BuildContext context) {
     return _ProfileActionTile(
       icon: Icons.lock_reset_rounded,
-      label: "Reset Password",
+      label: 'Reset Password',
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => const ChangePasswordPage()),
       ),
@@ -305,9 +526,7 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () async {
-          await context.read<AuthProvider>().logout();
-        },
+        onTap: _logout,
         borderRadius: BorderRadius.circular(kCardRadius),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 14),
@@ -326,7 +545,7 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
             children: [
               Icon(Icons.logout_rounded, color: Colors.redAccent, size: 22),
               const SizedBox(width: 10),
-              Text("Logout", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.redAccent)),
+              Text('Logout', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.redAccent)),
             ],
           ),
         ),
@@ -341,13 +560,13 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
       builder: (context, snapshot) => _buildProfileBody(context, snapshot),
     );
     if (widget.embedBodyOnly) {
-      return Container(color: kBgColor, child: futureBody);
+      return Container(color: const Color(0xFFF8F9FC), child: futureBody);
     }
     return Scaffold(
       backgroundColor: kBgColor,
       appBar: AppBar(
         title: const Text(
-          "My Profile",
+          'My Profile',
           style: TextStyle(color: kPrimaryBlue, fontWeight: FontWeight.bold, fontSize: 20),
         ),
         backgroundColor: kBgColor,
@@ -378,6 +597,121 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
         onRefresh: _refreshProfile,
         color: kPrimaryGreen,
         child: futureBody,
+      ),
+    );
+  }
+}
+
+class _ProfileSectionCard extends StatelessWidget {
+  final String title;
+  final List<Widget> children;
+
+  const _ProfileSectionCard({
+    required this.title,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE8ECF2)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kPrimaryBlue),
+          ),
+          const SizedBox(height: 16),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _InfoRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kPrimaryBlue),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool danger;
+
+  const _ActionRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.danger = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = danger ? Colors.red.shade700 : kPrimaryBlue;
+    return Material(
+      color: danger ? Colors.red.shade50 : Colors.transparent,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          child: Row(
+            children: [
+              Icon(icon, size: 20, color: color),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: color),
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, size: 20, color: Colors.grey.shade400),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -445,11 +779,15 @@ class _ProfileActionTile extends StatelessWidget {
 class _SummaryCard extends StatelessWidget {
   final String label;
   final String value;
-  final String growth;
   final IconData icon;
   final Color color;
 
-  const _SummaryCard({required this.label, required this.value, required this.growth, required this.icon, required this.color});
+  const _SummaryCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -484,11 +822,8 @@ class _SummaryCard extends StatelessWidget {
           Text(label, style: TextStyle(fontSize: 9, color: Colors.grey.shade600, fontWeight: FontWeight.w600, letterSpacing: 0.5)),
           const SizedBox(height: 4),
           Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
-          const SizedBox(height: 2),
-          Text(growth, style: const TextStyle(fontSize: 11, color: kPrimaryGreen, fontWeight: FontWeight.w600)),
         ],
       ),
     );
   }
 }
-

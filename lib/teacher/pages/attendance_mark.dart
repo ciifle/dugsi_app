@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:kobac/services/teacher_service.dart';
+import 'package:kobac/teacher/widgets/teacher_web_ui.dart';
 
 // ---------- COLOR PALETTE (Matching Student Dashboard) ----------
 const Color kPrimaryBlue = Color(0xFF023471); // Dark blue
@@ -19,7 +20,14 @@ const Color kCardColor = Colors.white;
 
 // ================== MAIN SCREEN =====================
 class TeacherAttendanceScreen extends StatefulWidget {
-  const TeacherAttendanceScreen({Key? key}) : super(key: key);
+  final bool embedBodyOnly;
+  final void Function(String pageKey, {Object? arguments})? onNavigateToPage;
+
+  const TeacherAttendanceScreen({
+    Key? key,
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
+  }) : super(key: key);
 
   @override
   State<TeacherAttendanceScreen> createState() =>
@@ -230,18 +238,185 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     return "${date.day} ${months[date.month - 1]} ${date.year}";
   }
 
+  Widget _buildDesktopAttendanceBody(
+    List<TeacherStudentModel> filtered,
+    List<String> filteredStatus,
+    List<({int id, String name})> uniqueClasses,
+  ) {
+    Widget statusButton({
+      required String label,
+      required String status,
+      required int studentIndex,
+      required bool selected,
+    }) {
+      return OutlinedButton(
+        onPressed: () => _setStatus(studentIndex, status),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: selected ? Colors.white : kTextSecondary,
+          backgroundColor: selected ? kPrimaryBlue : Colors.transparent,
+          side: BorderSide(color: selected ? kPrimaryBlue : teacherWebBorder),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+        child: Text(label),
+      );
+    }
+
+    return Container(
+      color: teacherWebBg,
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TeacherWebCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                DropdownButtonFormField<int?>(
+                  value: _selectedClassId,
+                  decoration: InputDecoration(
+                    labelText: 'Class',
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  items: uniqueClasses
+                      .map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name)))
+                      .toList(),
+                  onChanged: _onClassChanged,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: _updateSearchQuery,
+                        decoration: InputDecoration(
+                          hintText: 'Search students...',
+                          prefixIcon: const Icon(Icons.search_rounded, color: kPrimaryBlue),
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    OutlinedButton.icon(
+                      onPressed: _onDateTapped,
+                      icon: const Icon(Icons.calendar_today_rounded, size: 18),
+                      label: Text(_formatDate(_attendanceDate)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: TeacherWebCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const TeacherWebTableHeader(columns: ['Student', 'Roll', 'Status']),
+                  if (_studentsLoading)
+                    const Expanded(
+                      child: Center(child: CircularProgressIndicator(color: kPrimaryBlue)),
+                    )
+                  else if (_studentsError != null)
+                    Expanded(
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(_studentsError!, textAlign: TextAlign.center),
+                        ),
+                      ),
+                    )
+                  else if (filtered.isEmpty)
+                    const Expanded(
+                      child: Center(child: Text('No students found for this class.')),
+                    )
+                  else
+                    Expanded(
+                      child: ListView.separated(
+                        itemCount: filtered.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1, color: teacherWebBorder),
+                        itemBuilder: (context, index) {
+                          final student = filtered[index];
+                          final status = filteredStatus[index];
+                          final studentIndex = _students.indexOf(student);
+                          return TeacherWebTableRow(
+                            cells: [
+                              Text(
+                                student.name ?? 'Student ${student.id}',
+                                style: const TextStyle(fontWeight: FontWeight.w600, color: kTextPrimary),
+                              ),
+                              Text(student.emisNumber ?? '${student.id}', style: const TextStyle(color: kTextSecondary)),
+                              Wrap(
+                                spacing: 8,
+                                children: [
+                                  statusButton(
+                                    label: 'Present',
+                                    status: 'PRESENT',
+                                    studentIndex: studentIndex,
+                                    selected: status == 'PRESENT',
+                                  ),
+                                  statusButton(
+                                    label: 'Absent',
+                                    status: 'ABSENT',
+                                    studentIndex: studentIndex,
+                                    selected: status == 'ABSENT',
+                                  ),
+                                  statusButton(
+                                    label: 'Late',
+                                    status: 'LATE',
+                                    studentIndex: studentIndex,
+                                    selected: status == 'LATE',
+                                  ),
+                                ],
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerRight,
+            child: ElevatedButton.icon(
+              onPressed: _students.isEmpty || _selectedClassId == null ? null : _saveAttendance,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kPrimaryGreen,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              ),
+              icon: const Icon(Icons.save_rounded),
+              label: const Text('Save attendance'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final filtered = filteredStudents;
     final filteredStatus = filteredStatusList;
     final uniqueClasses = _uniqueClasses;
 
-    return Scaffold(
-      backgroundColor: kSoftBlue,
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          // ---------------- APP BAR WITH BIG TEXT ----------------
+    if (widget.embedBodyOnly) {
+      return _buildDesktopAttendanceBody(filtered, filteredStatus, uniqueClasses);
+    }
+
+    final body = CustomScrollView(
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        if (!widget.embedBodyOnly)
           SliverAppBar(
             expandedHeight: _isSearching ? 100 : 120, // Kor u qaaday height
             pinned: true,
@@ -469,7 +644,19 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
             ),
           ),
         ],
-      ),
+    );
+
+    if (widget.embedBodyOnly) {
+      return Container(
+        color: teacherWebBg,
+        padding: const EdgeInsets.all(24),
+        child: body,
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: kSoftBlue,
+      body: body,
     );
   }
 

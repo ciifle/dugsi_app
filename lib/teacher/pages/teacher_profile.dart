@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:kobac/services/auth_provider.dart';
 import 'package:kobac/services/teacher_service.dart';
+import 'package:kobac/teacher/widgets/teacher_web_ui.dart';
 
 // ---------- COLOR PALETTE (same as other teacher screens) ----------
 const Color kPrimaryBlue = Color(0xFF023471);
@@ -19,7 +20,14 @@ const Color kSoftOrange = Color(0xFFF59E0B);
 // =======================
 
 class TeacherProfileScreen extends StatefulWidget {
-  const TeacherProfileScreen({Key? key}) : super(key: key);
+  final bool embedBodyOnly;
+  final void Function(String pageKey, {Object? arguments})? onNavigateToPage;
+
+  const TeacherProfileScreen({
+    Key? key,
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
+  }) : super(key: key);
 
   @override
   State<TeacherProfileScreen> createState() => _TeacherProfileScreenState();
@@ -127,6 +135,224 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
     if (mounted) await _loadAssignments();
   }
 
+  Widget _desktopDetailRow(String label, String value) {
+    final displayValue = value.trim().isEmpty ? '-' : value;
+    return SizedBox(
+      width: 420,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              color: kTextSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            displayValue,
+            style: const TextStyle(
+              fontSize: 14,
+              color: kTextPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _displayValue(String? value) {
+    if (value == null || value.trim().isEmpty) return '-';
+    return value.trim();
+  }
+
+  Widget _buildDesktopProfileBody({
+    required AuthProvider auth,
+    required String name,
+    required String email,
+    required String role,
+    required String employeeId,
+    required dynamic prof,
+  }) {
+    final initials = name.isNotEmpty
+        ? name.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase()
+        : 'T';
+    final roleBadge = role.trim().isEmpty ? 'TEACHER' : role.toUpperCase();
+    final uniqueClassCount = _assignedClassNames.length;
+    final assignmentCount = _assignments.length;
+    final subjectsValue = _assignmentsLoading
+        ? '-'
+        : (_assignedSubjectNames.isEmpty ? '-' : _assignedSubjectNames.join(', '));
+    final classesValue = _assignmentsLoading
+        ? '-'
+        : (_assignedClassNames.isEmpty ? '-' : _assignedClassNames.join(', '));
+    final totalClassesValue = _assignmentsLoading
+        ? '-'
+        : (uniqueClassCount > 0 ? '$uniqueClassCount' : '-');
+    final assignmentsValue = _assignmentsLoading
+        ? '-'
+        : (assignmentCount > 0 ? '$assignmentCount' : '-');
+
+    final detailRows = <Widget>[
+      _desktopDetailRow('Email', _displayValue(email == '—' ? null : email)),
+      _desktopDetailRow('Phone', _displayValue(prof?.phone)),
+      _desktopDetailRow('Gender', _displayValue(prof?.gender)),
+      _desktopDetailRow("Mother's name", _displayValue(prof?.motherName)),
+      _desktopDetailRow('University', _displayValue(prof?.graduatedUniversity)),
+      _desktopDetailRow(
+        'School ID',
+        prof?.schoolId != null && prof!.schoolId! > 0 ? '${prof.schoolId}' : '-',
+      ),
+      _desktopDetailRow('Total Classes', totalClassesValue),
+      _desktopDetailRow('Assignments', assignmentsValue),
+      _desktopDetailRow('Subjects', subjectsValue),
+      _desktopDetailRow('Classes', classesValue),
+    ];
+
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(24),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 980),
+          child: Container(
+            padding: const EdgeInsets.all(36),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x0A000000),
+                  blurRadius: 18,
+                  offset: Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (auth.profileError != null) ...[
+                  Row(
+                    children: [
+                      const Icon(Icons.info_outline_rounded, color: kErrorColor, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          auth.profileError!,
+                          style: const TextStyle(fontSize: 13, color: kTextPrimary),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                  const SizedBox(height: 24),
+                ],
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CircleAvatar(
+                      radius: 48,
+                      backgroundColor: kSoftBlue,
+                      child: Text(
+                        initials,
+                        style: const TextStyle(
+                          color: kPrimaryBlue,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 30,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 24),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            style: const TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w800,
+                              color: kPrimaryBlue,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(colors: [kPrimaryBlue, kPrimaryGreen]),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              roleBadge,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                                letterSpacing: 0.4,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            employeeId,
+                            style: const TextStyle(
+                              color: kTextSecondary,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 28),
+                const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                const SizedBox(height: 24),
+                if (_assignmentsError != null) ...[
+                  Text(
+                    _assignmentsError!,
+                    style: const TextStyle(fontSize: 13, color: kTextSecondary),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                Wrap(
+                  spacing: 24,
+                  runSpacing: 18,
+                  children: detailRows,
+                ),
+                const SizedBox(height: 28),
+                const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                const SizedBox(height: 24),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _logout(context),
+                    icon: const Icon(Icons.logout_rounded, color: kErrorColor),
+                    label: const Text(
+                      'Logout',
+                      style: TextStyle(color: kErrorColor, fontWeight: FontWeight.w600),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: kErrorColor),
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
@@ -141,123 +367,150 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
     final role = user != null ? user.role.replaceAll('_', ' ') : 'Teacher';
     final employeeId = user != null ? 'ID ${user.id}' : '—';
 
+    if (widget.embedBodyOnly && isTeacherDesktopWeb(context)) {
+      return Container(
+        color: teacherWebBg,
+        child: RefreshIndicator(
+          onRefresh: _onRefresh,
+          color: kPrimaryBlue,
+          child: _buildDesktopProfileBody(
+            auth: auth,
+            name: name,
+            email: email,
+            role: role,
+            employeeId: employeeId,
+            prof: prof,
+          ),
+        ),
+      );
+    }
+
+    final contentSlivers = <Widget>[
+      if (!widget.embedBodyOnly)
+        SliverAppBar(
+          expandedHeight: 120,
+          pinned: true,
+          backgroundColor: kPrimaryBlue,
+          leading: Container(
+            margin: const EdgeInsets.only(left: 12, top: 8),
+            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(14)),
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 28),
+              onPressed: () => Navigator.pop(context),
+              padding: const EdgeInsets.all(10),
+            ),
+          ),
+          flexibleSpace: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
+                stops: const [0.3, 0.7, 1.0],
+              ),
+              borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
+            ),
+            child: FlexibleSpaceBar(
+              titlePadding: const EdgeInsets.only(bottom: 20),
+              centerTitle: true,
+              title: const Text("My Profile", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 24)),
+            ),
+          ),
+        ),
+      SliverPadding(
+        padding: const EdgeInsets.all(16),
+        sliver: SliverList(
+          delegate: SliverChildListDelegate([
+            if (auth.profileError != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: kErrorColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: kErrorColor.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline_rounded, color: kErrorColor, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(auth.profileError!, style: const TextStyle(fontSize: 13, color: kTextPrimary))),
+                    ],
+                  ),
+                ),
+              ),
+            _ProfileHeader(name: name, role: role, employeeId: employeeId),
+            const SizedBox(height: 20),
+            _InfoSectionCard(
+              title: "Basic Information",
+              icon: Icons.person_outline_rounded,
+              gradientColors: [kPrimaryBlue, kPrimaryGreen],
+              children: [
+                _ProfileInfoRow(icon: Icons.email_outlined, label: "Email", value: email, color: kPrimaryBlue),
+                if (prof?.phone != null && prof!.phone!.isNotEmpty)
+                  _ProfileInfoRow(icon: Icons.phone_outlined, label: "Phone", value: prof.phone!, color: kPrimaryGreen),
+                if (prof?.gender != null && prof!.gender!.isNotEmpty)
+                  _ProfileInfoRow(icon: Icons.person_outline, label: "Gender", value: prof.gender!, color: kSoftOrange),
+                if (prof?.address != null && prof!.address!.isNotEmpty)
+                  _ProfileInfoRow(icon: Icons.location_on_outlined, label: "Address", value: prof.address!, color: kDarkBlue),
+                if (prof?.motherName != null && prof!.motherName!.isNotEmpty)
+                  _ProfileInfoRow(icon: Icons.family_restroom_outlined, label: "Mother's name", value: prof.motherName!, color: kPrimaryBlue),
+                if (prof?.graduatedUniversity != null && prof!.graduatedUniversity!.isNotEmpty)
+                  _ProfileInfoRow(icon: Icons.school_outlined, label: "University", value: prof.graduatedUniversity!, color: kPrimaryGreen),
+                if (prof?.schoolId != null && prof!.schoolId! > 0)
+                  _ProfileInfoRow(icon: Icons.business_outlined, label: "School ID", value: '${prof.schoolId}', color: kSoftOrange),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _InfoSectionCard(
+              title: "Professional Details",
+              icon: Icons.work_outline_rounded,
+              gradientColors: [kPrimaryGreen, kPrimaryBlue],
+              children: [
+                if (_assignmentsLoading)
+                  const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Center(child: SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: kPrimaryBlue))))
+                else if (_assignmentsError != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Row(
+                      children: [
+                        Icon(Icons.error_outline_rounded, size: 20, color: kErrorColor),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(_assignmentsError!, style: const TextStyle(fontSize: 13, color: kTextSecondary))),
+                      ],
+                    ),
+                  )
+                else ...[
+                  _ProfileInfoWrapRow(icon: Icons.book_outlined, label: "Subjects", items: _assignedSubjectNames, color: kPrimaryBlue),
+                  _ProfileInfoWrapRow(icon: Icons.class_outlined, label: "Classes", items: _assignedClassNames, color: kPrimaryGreen),
+                ],
+              ],
+            ),
+            const SizedBox(height: 16),
+            _LogoutCard(onLogout: () => _logout(context)),
+            const SizedBox(height: 24),
+          ]),
+        ),
+      ),
+    ];
+
+    final body = RefreshIndicator(
+      onRefresh: _onRefresh,
+      color: kPrimaryBlue,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: contentSlivers,
+      ),
+    );
+
+    if (widget.embedBodyOnly) {
+      return ColoredBox(color: kSoftBlue, child: body);
+    }
+
     return Scaffold(
       backgroundColor: kSoftBlue,
-      body: RefreshIndicator(
-        onRefresh: _onRefresh,
-        color: kPrimaryBlue,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-          SliverAppBar(
-            expandedHeight: 120,
-            pinned: true,
-            backgroundColor: kPrimaryBlue,
-            leading: Container(
-              margin: const EdgeInsets.only(left: 12, top: 8),
-              decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(14)),
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 28),
-                onPressed: () => Navigator.pop(context),
-                padding: const EdgeInsets.all(10),
-              ),
-            ),
-            flexibleSpace: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
-                  stops: const [0.3, 0.7, 1.0],
-                ),
-                borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
-              ),
-              child: FlexibleSpaceBar(
-                titlePadding: const EdgeInsets.only(bottom: 20),
-                centerTitle: true,
-                title: const Text("My Profile", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 24)),
-              ),
-            ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.all(16),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                if (auth.profileError != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: kErrorColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: kErrorColor.withOpacity(0.3)),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.info_outline_rounded, color: kErrorColor, size: 20),
-                          const SizedBox(width: 8),
-                          Expanded(child: Text(auth.profileError!, style: const TextStyle(fontSize: 13, color: kTextPrimary))),
-                        ],
-                      ),
-                    ),
-                  ),
-                _ProfileHeader(name: name, role: role, employeeId: employeeId),
-                const SizedBox(height: 20),
-                _InfoSectionCard(
-                  title: "Basic Information",
-                  icon: Icons.person_outline_rounded,
-                  gradientColors: [kPrimaryBlue, kPrimaryGreen],
-                  children: [
-                    _ProfileInfoRow(icon: Icons.email_outlined, label: "Email", value: email, color: kPrimaryBlue),
-                    if (prof?.phone != null && prof!.phone!.isNotEmpty)
-                      _ProfileInfoRow(icon: Icons.phone_outlined, label: "Phone", value: prof.phone!, color: kPrimaryGreen),
-                    if (prof?.gender != null && prof!.gender!.isNotEmpty)
-                      _ProfileInfoRow(icon: Icons.person_outline, label: "Gender", value: prof.gender!, color: kSoftOrange),
-                    if (prof?.address != null && prof!.address!.isNotEmpty)
-                      _ProfileInfoRow(icon: Icons.location_on_outlined, label: "Address", value: prof.address!, color: kDarkBlue),
-                    if (prof?.motherName != null && prof!.motherName!.isNotEmpty)
-                      _ProfileInfoRow(icon: Icons.family_restroom_outlined, label: "Mother's name", value: prof.motherName!, color: kPrimaryBlue),
-                    if (prof?.graduatedUniversity != null && prof!.graduatedUniversity!.isNotEmpty)
-                      _ProfileInfoRow(icon: Icons.school_outlined, label: "University", value: prof.graduatedUniversity!, color: kPrimaryGreen),
-                    if (prof?.schoolId != null && prof!.schoolId! > 0)
-                      _ProfileInfoRow(icon: Icons.business_outlined, label: "School ID", value: '${prof.schoolId}', color: kSoftOrange),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _InfoSectionCard(
-                  title: "Professional Details",
-                  icon: Icons.work_outline_rounded,
-                  gradientColors: [kPrimaryGreen, kPrimaryBlue],
-                  children: [
-                    if (_assignmentsLoading)
-                      const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Center(child: SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: kPrimaryBlue))))
-                    else if (_assignmentsError != null)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Row(
-                          children: [
-                            Icon(Icons.error_outline_rounded, size: 20, color: kErrorColor),
-                            const SizedBox(width: 8),
-                            Expanded(child: Text(_assignmentsError!, style: const TextStyle(fontSize: 13, color: kTextSecondary))),
-                          ],
-                        ),
-                      )
-                    else ...[
-                      _ProfileInfoWrapRow(icon: Icons.book_outlined, label: "Subjects", items: _assignedSubjectNames, color: kPrimaryBlue),
-                      _ProfileInfoWrapRow(icon: Icons.class_outlined, label: "Classes", items: _assignedClassNames, color: kPrimaryGreen),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _LogoutCard(onLogout: () => _logout(context)),
-                const SizedBox(height: 24),
-              ]),
-            ),
-          ),
-        ],
-      ),
-    ),
+      body: body,
     );
   }
 }

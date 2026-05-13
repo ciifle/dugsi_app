@@ -161,33 +161,23 @@ class MarkModel {
 
   // Backward compatibility getters
   String? get studentName {
-    final name = student?['studentName'] ?? student?['name'];
-    debugPrint('[MarkModel] studentName: $name (student object: $student)');
-    return name;
+    return student?['studentName'] ?? student?['name'];
   }
   
   String? get examName {
-    final name = exam?['name'] ?? exam?['examName'];
-    debugPrint('[MarkModel] examName: $name (exam object: $exam)');
-    return name;
+    return exam?['name'] ?? exam?['examName'];
   }
   
   String? get subjectName {
-    final name = subject?['subjectName'] ?? subject?['name'];
-    debugPrint('[MarkModel] subjectName: $name (subject object: $subject)');
-    return name;
+    return subject?['subjectName'] ?? subject?['name'];
   }
   
   String? get teacherName {
-    final name = teacher?['teacherName'] ?? teacher?['fullName'] ?? teacher?['name'];
-    debugPrint('[MarkModel] teacherName: $name (teacher object: $teacher)');
-    return name;
+    return teacher?['teacherName'] ?? teacher?['fullName'] ?? teacher?['name'];
   }
   
   String? get className {
-    final name = classData?['className'] ?? classData?['name'];
-    debugPrint('[MarkModel] className: $name (class object: $classData)');
-    return name;
+    return classData?['className'] ?? classData?['name'];
   }
 }
 
@@ -225,6 +215,7 @@ class MarksService {
         final data = raw['data'];
         if (data is List) list = data;
         else if (raw['marks'] is List) list = raw['marks'] as List<dynamic>;
+        else if (raw['results'] is List) list = raw['results'] as List<dynamic>;
         else if (raw['items'] is List) list = raw['items'] as List<dynamic>;
         else {
           List<dynamic>? found;

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kobac/school_admin/widgets/admin_responsive_layout.dart';
 import 'package:flutter/services.dart';
 import 'package:kobac/services/students_service.dart';
 import 'package:kobac/services/classes_service.dart';
@@ -10,8 +11,15 @@ const Color kBgColor = Color(0xFFF0F3F7);
 
 class EditStudentScreen extends StatefulWidget {
   final int studentId;
+  final bool embedBodyOnly;
+  final void Function(String, {Object? arguments})? onNavigateToPage;
 
-  const EditStudentScreen({super.key, required this.studentId});
+  const EditStudentScreen({
+    super.key, 
+    required this.studentId,
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
+  });
 
   @override
   State<EditStudentScreen> createState() => _EditStudentScreenState();
@@ -214,7 +222,12 @@ class _EditStudentScreenState extends State<EditStudentScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Student updated'), backgroundColor: kPrimaryGreen),
       );
-      Navigator.of(context).pop(true);
+      final isDesktop = isDesktopWebAdminLayout(context);
+      if (isDesktop && widget.onNavigateToPage != null) {
+        widget.onNavigateToPage!('students');
+      } else {
+        Navigator.of(context).pop(true);
+      }
       return;
     }
     final err = result as StudentError;
@@ -227,23 +240,35 @@ class _EditStudentScreenState extends State<EditStudentScreen> {
   }
 
   Widget _buildTopBar(String title) {
+    if (isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)) {
+      return const SizedBox.shrink();
+    }
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () => Navigator.of(context).pop(),
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+          if (!isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)) ...[
+            GestureDetector(
+              onTap: () {
+                final isDesktop = isDesktopWebAdminLayout(context);
+                if (isDesktop && widget.onNavigateToPage != null) {
+                  widget.onNavigateToPage!('students');
+                } else {
+                  Navigator.of(context).pop();
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+                ),
+                child: const Icon(Icons.arrow_back_rounded, color: kPrimaryBlue, size: 24),
               ),
-              child: const Icon(Icons.arrow_back_rounded, color: kPrimaryBlue, size: 24),
             ),
-          ),
-          const SizedBox(width: 16),
+            const SizedBox(width: 16),
+          ],
           Expanded(
             child: Text(
               title,
@@ -437,6 +462,7 @@ class _EditStudentScreenState extends State<EditStudentScreen> {
         ),
       ),
     );
+    if (isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)) return body;
     return Scaffold(body: body);
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kobac/school_admin/widgets/admin_responsive_layout.dart';
 import 'package:kobac/services/class_subjects_service.dart';
 import 'package:kobac/services/subjects_service.dart';
 import 'package:kobac/services/api_error_helpers.dart';
@@ -13,11 +14,15 @@ const double kCardRadius = 28.0;
 class ClassSubjectManagementScreen extends StatefulWidget {
   final int classId;
   final String className;
+  final bool embedBodyOnly;
+  final void Function(String, {Object? arguments})? onNavigateToPage;
 
   const ClassSubjectManagementScreen({
     Key? key,
     required this.classId,
     required this.className,
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
   }) : super(key: key);
 
   @override
@@ -118,7 +123,15 @@ class _ClassSubjectManagementScreenState extends State<ClassSubjectManagementScr
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Class subjects updated successfully'), backgroundColor: kPrimaryGreen),
         );
-        Navigator.of(context).pop(true);
+        final isDesktop = isDesktopWebAdminLayout(context);
+        if (isDesktop && widget.onNavigateToPage != null) {
+          widget.onNavigateToPage!('classDetail', arguments: {
+            'classId': widget.classId,
+            'className': widget.className,
+          });
+        } else {
+          Navigator.of(context).pop(true);
+        }
       }
     } catch (e, st) {
       if (!mounted) return;
@@ -131,10 +144,7 @@ class _ClassSubjectManagementScreenState extends State<ClassSubjectManagementScr
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: kBgColor,
-      body: SafeArea(
-        child: Container(
+    final body = Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
@@ -145,39 +155,49 @@ class _ClassSubjectManagementScreenState extends State<ClassSubjectManagementScr
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Header
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                child: Row(
-                  children: [
-                    IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.arrow_back_rounded, color: kPrimaryBlue),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Manage Subjects',
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            widget.className,
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: kPrimaryBlue,
-                            ),
-                          ),
-                        ],
+              if (!isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly))
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        onPressed: () {
+                          final isDesktop = isDesktopWebAdminLayout(context);
+                          if (isDesktop && widget.onNavigateToPage != null) {
+                            widget.onNavigateToPage!('classDetail', arguments: {
+                              'classId': widget.classId,
+                              'className': widget.className,
+                            });
+                          } else {
+                            Navigator.of(context).pop();
+                          }
+                        },
+                        icon: const Icon(Icons.arrow_back_rounded, color: kPrimaryBlue),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Manage Subjects',
+                              style: TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              widget.className,
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: kPrimaryBlue,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
               
               // Content
               Expanded(
@@ -288,8 +308,12 @@ class _ClassSubjectManagementScreenState extends State<ClassSubjectManagementScr
               ),
             ],
           ),
-        ),
-      ),
+        );
+        
+    if (isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)) return body;
+    return Scaffold(
+      backgroundColor: kBgColor,
+      body: SafeArea(child: body),
     );
   }
 }

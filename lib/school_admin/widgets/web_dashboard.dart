@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kobac/school_admin/widgets/admin_responsive_layout.dart';
 import 'package:provider/provider.dart';
 import 'package:kobac/models/dummy_user.dart';
 import 'package:kobac/services/auth_provider.dart';
@@ -27,7 +28,14 @@ import 'package:kobac/school_admin/pages/settings_page.dart';
 
 /// Desktop dashboard with stat cards and quick actions
 class WebDashboard extends StatefulWidget {
-  const WebDashboard({Key? key}) : super(key: key);
+  final bool embedBodyOnly;
+  final void Function(String, {Object? arguments})? onNavigateToPage;
+
+  const WebDashboard({
+    Key? key,
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
+  }) : super(key: key);
 
   @override
   State<WebDashboard> createState() => _WebDashboardState();
@@ -84,8 +92,13 @@ class _WebDashboardState extends State<WebDashboard> {
     }
   }
 
-  void _navigateToPage(Widget page) {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+  void _navigateToPage(String pageKey, Widget fallbackPage) {
+    final isDesktop = isDesktopWebAdminLayout(context);
+    if (isDesktop && widget.onNavigateToPage != null) {
+      widget.onNavigateToPage!(pageKey);
+    } else {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => fallbackPage));
+    }
   }
 
   @override
@@ -107,47 +120,59 @@ class _WebDashboardState extends State<WebDashboard> {
   }
 
   Widget _buildStatCardsGrid() {
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 4,
-      mainAxisSpacing: 16,
-      crossAxisSpacing: 16,
-      childAspectRatio: 1.4,
-      children: [
-        DashboardStatCard(
-          icon: Icons.people_alt_rounded,
-          iconColor: const Color(0xFF023471),
-          label: 'Students',
-          value: _loading ? "..." : _formatCount(_studentCount ?? 0),
-          growth: '+12%',
-          onTap: () => _navigateToPage(const AdminStudentsScreen()),
-        ),
-        DashboardStatCard(
-          icon: Icons.school_rounded,
-          iconColor: const Color(0xFF5AB04B),
-          label: 'Teachers',
-          value: _loading ? "..." : "${_teacherCount ?? 0}",
-          growth: '+2%',
-          onTap: () => _navigateToPage(const TeacherListScreen()),
-        ),
-        DashboardStatCard(
-          icon: Icons.event_note_rounded,
-          iconColor: const Color(0xFF8B5CF6),
-          label: 'Attendance',
-          value: _loading ? "..." : "92%",
-          growth: '+5%',
-          onTap: () => _navigateToPage(const AdminAttendanceScreen()),
-        ),
-        DashboardStatCard(
-          icon: Icons.class_rounded,
-          iconColor: const Color(0xFFF59E0B),
-          label: 'Classes',
-          value: _loading ? "..." : "${_classCount ?? 0}",
-          growth: '+3%',
-          onTap: () => _navigateToPage(const AdminClassesPage()),
-        ),
-      ],
+    final statCards = [
+      DashboardStatCard(
+        icon: Icons.people_alt_rounded,
+        iconColor: const Color(0xFF023471),
+        label: 'Students',
+        value: _loading ? '...' : _formatCount(_studentCount ?? 0),
+        growth: '+12%',
+        onTap: () => _navigateToPage('students', const AdminStudentsScreen()),
+      ),
+      DashboardStatCard(
+        icon: Icons.school_rounded,
+        iconColor: const Color(0xFF5AB04B),
+        label: 'Teachers',
+        value: _loading ? '...' : '${_teacherCount ?? 0}',
+        growth: '+2%',
+        onTap: () => _navigateToPage('teachers', const TeacherListScreen()),
+      ),
+      DashboardStatCard(
+        icon: Icons.event_note_rounded,
+        iconColor: const Color(0xFF8B5CF6),
+        label: 'Attendance',
+        value: _loading ? '...' : '92%',
+        growth: '+5%',
+        onTap: () => _navigateToPage('attendance', const AdminAttendanceScreen()),
+      ),
+      DashboardStatCard(
+        icon: Icons.class_rounded,
+        iconColor: const Color(0xFFF59E0B),
+        label: 'Classes',
+        value: _loading ? '...' : '${_classCount ?? 0}',
+        growth: '+3%',
+        onTap: () => _navigateToPage('classes', const AdminClassesPage()),
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final crossAxisCount = width >= 980 ? 4 : width >= 650 ? 2 : 1;
+
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: statCards.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            mainAxisExtent: 172,
+          ),
+          itemBuilder: (context, index) => statCards[index],
+        );
+      },
     );
   }
 
@@ -182,109 +207,109 @@ class _WebDashboardState extends State<WebDashboard> {
           ],
         ),
         const SizedBox(height: 20),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 250,
-            mainAxisExtent: 80,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-          ),
-          itemCount: 12,
-          itemBuilder: (context, index) {
-            final quickActions = [
-              QuickActionCard(
-                icon: Icons.person_add_rounded,
-                iconColor: const Color(0xFF023471),
-                title: 'Add Student',
-                description: 'Register a new student',
-                onTap: () => _navigateToPage(CreateStudentScreen()),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            final crossAxisCount =
+                width >= 1100 ? 5 : width >= 850 ? 4 : width >= 600 ? 2 : 1;
+
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _quickActions.length,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                mainAxisExtent: 84,
               ),
-              QuickActionCard(
-                icon: Icons.school_rounded,
-                iconColor: const Color(0xFF5AB04B),
-                title: 'Add Teacher',
-                description: 'Register a new teacher',
-                onTap: () => _navigateToPage(CreateTeacherScreen()),
-              ),
-              QuickActionCard(
-                icon: Icons.class_rounded,
-                iconColor: const Color(0xFFF59E0B),
-                title: 'Add Class',
-                description: 'Create a new class',
-                onTap: () => _navigateToPage(AdminClassesPage()),
-              ),
-              QuickActionCard(
-                icon: Icons.book_rounded,
-                iconColor: const Color(0xFF8B5CF6),
-                title: 'Add Subject',
-                description: 'Add a new subject',
-                onTap: () => _navigateToPage(AdminSubjectsScreen()),
-              ),
-              QuickActionCard(
-                icon: Icons.calendar_today_rounded,
-                iconColor: const Color(0xFF10B981),
-                title: 'Attendance',
-                description: 'Track attendance',
-                onTap: () => _navigateToPage(AdminAttendanceScreen()),
-              ),
-              QuickActionCard(
-                icon: Icons.attach_money_rounded,
-                iconColor: const Color(0xFFEF4444),
-                title: 'Fees',
-                description: 'Manage fees',
-                onTap: () => _navigateToPage(AdminFeesScreen()),
-              ),
-              QuickActionCard(
-                icon: Icons.message_rounded,
-                iconColor: const Color(0xFF06B6D4),
-                title: 'Messages',
-                description: 'Send messages',
-                onTap: () => _navigateToPage(MessageScreen(embedInParent: false)),
-              ),
-              QuickActionCard(
-                icon: Icons.assignment_rounded,
-                iconColor: const Color(0xFF6366F1),
-                title: 'Assignments',
-                description: 'Manage assignments',
-                onTap: () => _navigateToPage(AdminAssignmentsScreen()),
-              ),
-              QuickActionCard(
-                icon: Icons.schedule_rounded,
-                iconColor: const Color(0xFF023471),
-                title: 'Timetable',
-                description: 'View timetable',
-                onTap: () => _navigateToPage(AdminTimetableScreen()),
-              ),
-              QuickActionCard(
-                icon: Icons.quiz_rounded,
-                iconColor: const Color(0xFF5AB04B),
-                title: 'Exams',
-                description: 'Manage exams',
-                onTap: () => _navigateToPage(AdminExamsScreen()),
-              ),
-              QuickActionCard(
-                icon: Icons.grade_rounded,
-                iconColor: const Color(0xFFF59E0B),
-                title: 'Marks',
-                description: 'Manage marks',
-                onTap: () => _navigateToPage(AdminMarksScreen()),
-              ),
-              QuickActionCard(
-                icon: Icons.campaign_rounded,
-                iconColor: const Color(0xFF8B5CF6),
-                title: 'Notices',
-                description: 'Post notices',
-                onTap: () => _navigateToPage(AdminNoticesScreen()),
-              ),
-            ];
-            return quickActions[index];
+              itemBuilder: (context, index) => _quickActions[index],
+            );
           },
         ),
       ],
     );
   }
+
+  List<QuickActionCard> get _quickActions => [
+        QuickActionCard(
+          icon: Icons.person_add_rounded,
+          iconColor: const Color(0xFF023471),
+          title: 'Add Student',
+          description: 'Register a new student',
+          onTap: () => _navigateToPage('addStudent', const CreateStudentScreen()),
+        ),
+        QuickActionCard(
+          icon: Icons.school_rounded,
+          iconColor: const Color(0xFF5AB04B),
+          title: 'Add Teacher',
+          description: 'Register a new teacher',
+          onTap: () => _navigateToPage('addTeacher', const CreateTeacherScreen()),
+        ),
+        QuickActionCard(
+          icon: Icons.class_rounded,
+          iconColor: const Color(0xFFF59E0B),
+          title: 'Add Class',
+          description: 'Create a new class',
+          onTap: () => _navigateToPage('addClass', const AddClassScreen()),
+        ),
+        QuickActionCard(
+          icon: Icons.book_rounded,
+          iconColor: const Color(0xFF8B5CF6),
+          title: 'Add Subject',
+          description: 'Add a new subject',
+          onTap: () => _navigateToPage('addSubject', const AddSubjectScreen()),
+        ),
+        QuickActionCard(
+          icon: Icons.calendar_today_rounded,
+          iconColor: const Color(0xFF10B981),
+          title: 'Attendance',
+          description: 'Track attendance',
+          onTap: () => _navigateToPage('attendance', const AdminAttendanceScreen()),
+        ),
+        QuickActionCard(
+          icon: Icons.attach_money_rounded,
+          iconColor: const Color(0xFFEF4444),
+          title: 'Fees',
+          description: 'Manage fees',
+          onTap: () => _navigateToPage('fees', const AdminFeesScreen()),
+        ),
+        QuickActionCard(
+          icon: Icons.message_rounded,
+          iconColor: const Color(0xFF06B6D4),
+          title: 'Messages',
+          description: 'Send messages',
+          onTap: () => _navigateToPage('messages', const MessageScreen(embedInParent: false)),
+        ),
+        QuickActionCard(
+          icon: Icons.schedule_rounded,
+          iconColor: const Color(0xFF023471),
+          title: 'Timetable',
+          description: 'View timetable',
+          onTap: () => _navigateToPage('timetable', const AdminTimetableScreen()),
+        ),
+        QuickActionCard(
+          icon: Icons.quiz_rounded,
+          iconColor: const Color(0xFF5AB04B),
+          title: 'Exams',
+          description: 'Manage exams',
+          onTap: () => _navigateToPage('exams', const AdminExamsScreen()),
+        ),
+        QuickActionCard(
+          icon: Icons.grade_rounded,
+          iconColor: const Color(0xFFF59E0B),
+          title: 'Marks',
+          description: 'Manage marks',
+          onTap: () => _navigateToPage('marks', const AdminMarksScreen()),
+        ),
+        QuickActionCard(
+          icon: Icons.campaign_rounded,
+          iconColor: const Color(0xFF8B5CF6),
+          title: 'Notices',
+          description: 'Post notices',
+          onTap: () => _navigateToPage('notices', const AdminNoticesScreen()),
+        ),
+      ];
 
   String _formatCount(int n) {
     if (n >= 1000) return "${(n / 1000).toStringAsFixed(1)}k";

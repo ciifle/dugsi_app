@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:kobac/services/auth_provider.dart';
 import 'package:kobac/services/message_service.dart';
 import 'package:kobac/messages/message_time_utils.dart';
+import 'package:kobac/teacher/widgets/teacher_web_ui.dart';
 
 const Color _kPrimaryBlue = Color(0xFF023471);
 const Color _kPrimaryGreen = Color(0xFF5AB04B);
@@ -16,8 +17,16 @@ const Color _kTextSecondary = Color(0xFF636E72);
 class ChatScreen extends StatefulWidget {
   final int userId;
   final String name;
+  final bool embedBodyOnly;
+  final void Function(String pageKey, {Object? arguments})? onNavigateToPage;
 
-  const ChatScreen({Key? key, required this.userId, required this.name}) : super(key: key);
+  const ChatScreen({
+    Key? key,
+    required this.userId,
+    required this.name,
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
+  }) : super(key: key);
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -126,12 +135,199 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  bool _usesTeacherDesktopShell(BuildContext context) {
+    return widget.embedBodyOnly && widget.onNavigateToPage != null;
+  }
+
+  void _goBack() {
+    if (_usesTeacherDesktopShell(context)) {
+      widget.onNavigateToPage!.call('messages');
+      return;
+    }
+    Navigator.pop(context);
+  }
+
+  Widget _buildConversationBody(int currentId) {
+    return Column(
+      children: [
+        Expanded(
+          child: _loading && _messages.isEmpty
+              ? const Center(child: CircularProgressIndicator(color: _kPrimaryBlue, strokeWidth: 3))
+              : _messages.isEmpty
+                  ? Center(child: _buildEmptyState())
+                  : RefreshIndicator(
+                      onRefresh: () => _loadMessages(showLoading: false),
+                      color: _kPrimaryGreen,
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: _messages.length,
+                        itemBuilder: (context, i) {
+                          final m = _messages[i];
+                          final isMe = m.senderId == currentId;
+                          final showTime = i == 0 || _shouldShowTime(m, _messages[i - 1]);
+
+                          return Column(
+                            children: [
+                              if (showTime)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  child: Center(
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(10),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(0.03),
+                                            blurRadius: 4,
+                                          ),
+                                        ],
+                                      ),
+                                      child: Text(
+                                        MessageTimeUtils.formatMessageDate(m.createdAt),
+                                        style: TextStyle(fontSize: 11, color: _kTextSecondary, fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              Align(
+                                alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                                child: Container(
+                                  margin: EdgeInsets.only(
+                                    bottom: 6,
+                                    left: isMe ? 60 : 0,
+                                    right: isMe ? 0 : 60,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: isMe ? _kPrimaryBlue : Colors.white,
+                                    borderRadius: BorderRadius.only(
+                                      topLeft: const Radius.circular(18),
+                                      topRight: const Radius.circular(18),
+                                      bottomLeft: Radius.circular(isMe ? 18 : 4),
+                                      bottomRight: Radius.circular(isMe ? 4 : 18),
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.04),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        m.message,
+                                        style: TextStyle(
+                                          color: isMe ? Colors.white : _kTextPrimary,
+                                          fontSize: 15,
+                                          height: 1.3,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        MessageTimeUtils.formatBubbleTime(m.createdAt),
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: isMe ? Colors.white.withOpacity(0.7) : _kTextSecondary,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+        ),
+        if (_error != null)
+          Container(
+            color: Colors.red.shade50,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Icon(Icons.error_outline, size: 16, color: Colors.red.shade700),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _error!,
+                    style: TextStyle(color: Colors.red.shade700, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        _buildInput(),
+      ],
+    );
+  }
+
+  Widget _buildTeacherDesktopBody(int currentId) {
+    return Container(
+      color: teacherWebBg,
+      padding: const EdgeInsets.all(24),
+      child: TeacherWebCard(
+        padding: EdgeInsets.zero,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+              child: Row(
+                children: [
+                  TextButton.icon(
+                    onPressed: _goBack,
+                    icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                    label: const Text('Messages'),
+                  ),
+                  const Spacer(),
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: teacherWebBlue.withValues(alpha: 0.1),
+                    child: Text(
+                      widget.name.isNotEmpty ? widget.name[0].toUpperCase() : '?',
+                      style: const TextStyle(color: teacherWebBlue, fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      widget.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: _kTextPrimary),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: teacherWebBorder),
+            Expanded(child: _buildConversationBody(currentId)),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentId = _currentUserId ?? 0;
 
+    if (_usesTeacherDesktopShell(context)) {
+      return _buildTeacherDesktopBody(currentId);
+    }
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FC), // Modern light chat background
+      backgroundColor: const Color(0xFFF7F9FC),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0.5,
@@ -139,7 +335,7 @@ class _ChatScreenState extends State<ChatScreen> {
         leadingWidth: 40,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: _kTextPrimary, size: 20),
-          onPressed: () => Navigator.pop(context),
+          onPressed: _goBack,
         ),
         title: Row(
           children: [
@@ -149,8 +345,8 @@ class _ChatScreenState extends State<ChatScreen> {
               child: Text(
                 widget.name.isNotEmpty ? widget.name[0].toUpperCase() : '?',
                 style: const TextStyle(
-                  color: _kPrimaryBlue, 
-                  fontWeight: FontWeight.bold, 
+                  color: _kPrimaryBlue,
+                  fontWeight: FontWeight.bold,
                   fontSize: 14,
                 ),
               ),
@@ -163,16 +359,16 @@ class _ChatScreenState extends State<ChatScreen> {
                   Text(
                     widget.name,
                     style: const TextStyle(
-                      fontSize: 16, 
-                      fontWeight: FontWeight.bold, 
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
                       color: _kTextPrimary,
                     ),
                   ),
                   const Text(
                     'Online',
                     style: TextStyle(
-                      fontSize: 11, 
-                      color: _kPrimaryGreen, 
+                      fontSize: 11,
+                      color: _kPrimaryGreen,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -188,127 +384,7 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: _loading && _messages.isEmpty
-                ? const Center(child: CircularProgressIndicator(color: _kPrimaryBlue, strokeWidth: 3))
-                : _messages.isEmpty
-                    ? Center(child: _buildEmptyState())
-                    : RefreshIndicator(        
-                        onRefresh: () => _loadMessages(showLoading: false),
-                        color: _kPrimaryGreen,
-                        child: ListView.builder(
-                          controller: _scrollController,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
-                          physics: const BouncingScrollPhysics(),
-                          itemCount: _messages.length,
-                          itemBuilder: (context, i) {
-                            final m = _messages[i];
-                            final isMe = m.senderId == currentId;
-                            final showTime = i == 0 || _shouldShowTime(m, _messages[i-1]);
-
-                            return Column(
-                              children: [
-                                if (showTime)
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
-                                    child: Center(
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius: BorderRadius.circular(10),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withOpacity(0.03),
-                                              blurRadius: 4,
-                                            ),
-                                          ],
-                                        ),
-                                        child: Text(
-                                          MessageTimeUtils.formatMessageDate(m.createdAt),
-                                          style: TextStyle(fontSize: 11, color: _kTextSecondary, fontWeight: FontWeight.w600),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                Align(
-                                  alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                                  child: Container(
-                                    margin: EdgeInsets.only(
-                                      bottom: 6,
-                                      left: isMe ? 60 : 0,
-                                      right: isMe ? 0 : 60,
-                                    ),
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                    decoration: BoxDecoration(
-                                      color: isMe ? _kPrimaryBlue : Colors.white,
-                                      borderRadius: BorderRadius.only(
-                                        topLeft: const Radius.circular(18),
-                                        topRight: const Radius.circular(18),
-                                        bottomLeft: Radius.circular(isMe ? 18 : 4),
-                                        bottomRight: Radius.circular(isMe ? 4 : 18),
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.04),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          m.message,
-                                          style: TextStyle(
-                                            color: isMe ? Colors.white : _kTextPrimary,
-                                            fontSize: 15,
-                                            height: 1.3,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          MessageTimeUtils.formatBubbleTime(m.createdAt),
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            color: isMe ? Colors.white.withOpacity(0.7) : _kTextSecondary,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                      ),
-          ),
-          if (_error != null)
-            Container(
-              color: Colors.red.shade50,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  Icon(Icons.error_outline, size: 16, color: Colors.red.shade700),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _error!,
-                      style: TextStyle(color: Colors.red.shade700, fontSize: 12),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          _buildInput(),
-        ],
-      ),
+      body: _buildConversationBody(currentId),
     );
   }
 

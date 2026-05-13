@@ -1,37 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:kobac/services/auth_provider.dart';
-import 'package:kobac/school_admin/pages/admin_students.dart';
-import 'package:kobac/school_admin/pages/admin_profile.dart';
-import 'package:kobac/school_admin/pages/admin_subjects_screen.dart';
-import 'package:kobac/school_admin/pages/admin_assignments_screen.dart';
-import 'package:kobac/school_admin/pages/admin_timetable_screen.dart';
-import 'package:kobac/school_admin/pages/admin_exams_screen.dart';
-import 'package:kobac/school_admin/pages/admin_marks_screen.dart';
-import 'package:kobac/school_admin/pages/admin_notices_screen.dart';
-import 'package:kobac/school_admin/pages/admin_attendance_screen.dart';
-import 'package:kobac/school_admin/pages/admin_fees_screen.dart';
-import 'package:kobac/school_admin/pages/admin_classes.dart';
-import 'package:kobac/school_admin/pages/teachers_screen.dart';
-import 'package:kobac/school_admin/pages/create_student_screen.dart';
-import 'package:kobac/school_admin/pages/create_teacher_screen.dart';
-import 'package:kobac/school_admin/pages/mesaage_screen.dart';
-import 'package:kobac/school_admin/pages/notifications_page.dart';
-import 'package:kobac/school_admin/pages/settings_page.dart';
-import 'package:kobac/school_admin/pages/change_password_page.dart';
-import 'package:kobac/school_admin/pages/admin_class_subjects_screen.dart';
-import 'package:kobac/school_admin/pages/admin_parents_screen.dart';
-import 'package:kobac/school_admin/pages/payments_screen.dart';
 
 /// Desktop sidebar navigation
 class WebSidebar extends StatefulWidget {
   final String selectedPage;
   final Function(String) onNavigate;
+  final double width;
 
   const WebSidebar({
     Key? key,
     required this.selectedPage,
     required this.onNavigate,
+    this.width = 280,
   }) : super(key: key);
 
   @override
@@ -44,7 +25,7 @@ class _WebSidebarState extends State<WebSidebar> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 280,
+      width: widget.width,
       decoration: const BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -67,16 +48,12 @@ class _WebSidebarState extends State<WebSidebar> {
             ),
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF023471).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.school_rounded,
-                    color: Color(0xFF023471),
-                    size: 24,
+                SizedBox(
+                  width: 72,
+                  height: 72,
+                  child: Image.asset(
+                    'assets/splash_image.png',
+                    fit: BoxFit.contain,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -118,7 +95,7 @@ class _WebSidebarState extends State<WebSidebar> {
                     title: 'Dashboard',
                     icon: Icons.dashboard_rounded,
                     isExpanded: _expandedSection == 'dashboard',
-                    onTap: () => _toggleSection('dashboard'),
+                    onTap: () => _navigateToPage('dashboard'),
                     children: [],
                   ),
                   const _SidebarDivider(),
@@ -146,17 +123,23 @@ class _WebSidebarState extends State<WebSidebar> {
                   _SidebarSection(
                     title: 'Teachers',
                     icon: Icons.school_rounded,
-                    isExpanded: _expandedSection == 'teachers',
+                    isExpanded: _expandedSection == 'teachers' ||
+                        widget.selectedPage == 'teachers' ||
+                        widget.selectedPage == 'addTeacher' ||
+                        widget.selectedPage == 'editTeacher' ||
+                        widget.selectedPage == 'teacherDetail',
                     onTap: () => _toggleSection('teachers'),
                     children: [
                       _SidebarItem(
                         title: 'All Teachers',
                         icon: Icons.school_outlined,
+                        isActive: widget.selectedPage == 'teachers',
                         onTap: () => _navigateToPage('teachers'),
                       ),
                       _SidebarItem(
                         title: 'Add Teacher',
                         icon: Icons.person_add_rounded,
+                        isActive: widget.selectedPage == 'addTeacher',
                         onTap: () => _navigateToPage('addTeacher'),
                       ),
                     ],
@@ -165,17 +148,55 @@ class _WebSidebarState extends State<WebSidebar> {
                   _SidebarSection(
                     title: 'Classes',
                     icon: Icons.class_rounded,
-                    isExpanded: _expandedSection == 'classes',
+                    isExpanded: _expandedSection == 'classes' ||
+                        widget.selectedPage == 'classes' ||
+                        widget.selectedPage == 'addClass' ||
+                        widget.selectedPage == 'editClass' ||
+                        widget.selectedPage == 'classDetail' ||
+                        widget.selectedPage == 'classDetails',
                     onTap: () => _toggleSection('classes'),
                     children: [
                       _SidebarItem(
                         title: 'All Classes',
                         icon: Icons.class_outlined,
+                        isActive: widget.selectedPage == 'classes',
                         onTap: () => _navigateToPage('classes'),
                       ),
                       _SidebarItem(
+                        title: 'Add Class',
+                        icon: Icons.add_circle_outline_rounded,
+                        isActive: widget.selectedPage == 'addClass',
+                        onTap: () => _navigateToPage('addClass'),
+                      ),
+                    ],
+                  ),
+                  const _SidebarDivider(),
+                  _SidebarSection(
+                    title: 'Subjects',
+                    icon: Icons.menu_book_rounded,
+                    isExpanded: _expandedSection == 'subjects' ||
+                        widget.selectedPage == 'subjects' ||
+                        widget.selectedPage == 'classSubjects' ||
+                        widget.selectedPage == 'addSubject' ||
+                        widget.selectedPage == 'editSubject',
+                    onTap: () => _toggleSection('subjects'),
+                    children: [
+                      _SidebarItem(
+                        title: 'All Subjects',
+                        icon: Icons.menu_book_outlined,
+                        isActive: widget.selectedPage == 'subjects',
+                        onTap: () => _navigateToPage('subjects'),
+                      ),
+                      _SidebarItem(
+                        title: 'Add Subject',
+                        icon: Icons.add_circle_outline_rounded,
+                        isActive: widget.selectedPage == 'addSubject',
+                        onTap: () => _navigateToPage('addSubject'),
+                      ),
+                      _SidebarItem(
                         title: 'Class Subjects',
-                        icon: Icons.menu_book_rounded,
+                        icon: Icons.library_books_outlined,
+                        isActive: widget.selectedPage == 'classSubjects',
                         onTap: () => _navigateToPage('classSubjects'),
                       ),
                     ],
@@ -192,11 +213,7 @@ class _WebSidebarState extends State<WebSidebar> {
                         icon: Icons.person_outline_rounded,
                         onTap: () => _navigateToPage('attendance'),
                       ),
-                      _SidebarItem(
-                        title: 'Teacher Attendance',
-                        icon: Icons.school_outlined,
-                        onTap: () => _navigateToPage('attendance'),
-                      ),
+
                     ],
                   ),
                   if (context.watch<AuthProvider>().feesEnabled) ...[
@@ -222,56 +239,45 @@ class _WebSidebarState extends State<WebSidebar> {
                   ],
                   const _SidebarDivider(),
                   _SidebarSection(
-                    title: 'Messages',
-                    icon: Icons.chat_bubble_outline_rounded,
-                    isExpanded: _expandedSection == 'messages',
-                    onTap: () => _toggleSection('messages'),
-                    children: [
-                      _SidebarItem(
-                        title: 'All Messages',
-                        icon: Icons.message_outlined,
-                        onTap: () => _navigateToPage('messages'),
-                      ),
-                      _SidebarItem(
-                        title: 'Compose Message',
-                        icon: Icons.send_outlined,
-                        onTap: () => _navigateToPage('composeMessage'),
-                      ),
-                    ],
+                    title: 'Timetable',
+                    icon: Icons.schedule_rounded,
+                    isExpanded: _expandedSection == 'timetable',
+                    onTap: () => _navigateToPage('timetable'),
+                    children: [],
                   ),
                   const _SidebarDivider(),
                   _SidebarSection(
-                    title: 'Reports',
-                    icon: Icons.insert_chart_outlined_rounded,
-                    isExpanded: _expandedSection == 'reports',
-                    onTap: () => _toggleSection('reports'),
-                    children: [
-                      _SidebarItem(
-                        title: 'Attendance Reports',
-                        icon: Icons.assessment_outlined,
-                        onTap: () => _navigateToPage('reports'),
-                      ),
-                    ],
+                    title: 'Exams',
+                    icon: Icons.quiz_outlined,
+                    isExpanded: _expandedSection == 'exams',
+                    onTap: () => _navigateToPage('exams'),
+                    children: [],
                   ),
                   const _SidebarDivider(),
                   _SidebarSection(
-                    title: 'Settings',
-                    icon: Icons.settings_outlined,
-                    isExpanded: _expandedSection == 'settings',
-                    onTap: () => _toggleSection('settings'),
-                    children: [
-                      _SidebarItem(
-                        title: 'General Settings',
-                        icon: Icons.settings_outlined,
-                        onTap: () => _navigateToPage('settings'),
-                      ),
-                      _SidebarItem(
-                        title: 'Change Password',
-                        icon: Icons.lock_reset_rounded,
-                        onTap: () => _navigateToPage('changePassword'),
-                      ),
-                    ],
+                    title: 'Marks',
+                    icon: Icons.grade_outlined,
+                    isExpanded: _expandedSection == 'marks',
+                    onTap: () => _navigateToPage('marks'),
+                    children: [],
                   ),
+                  const _SidebarDivider(),
+                  _SidebarSection(
+                    title: 'Notices',
+                    icon: Icons.notifications_outlined,
+                    isExpanded: _expandedSection == 'notices',
+                    onTap: () => _navigateToPage('notices'),
+                    children: [],
+                  ),
+                  const _SidebarDivider(),
+                  _SidebarSection(
+                    title: 'Notifications',
+                    icon: Icons.notifications_outlined,
+                    isExpanded: _expandedSection == 'notifications',
+                    onTap: () => _navigateToPage('notifications'),
+                    children: [],
+                  ),
+
                   const _SidebarDivider(),
                   _SidebarItem(
                     title: 'Profile',
