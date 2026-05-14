@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'package:kobac/models/auth_me_models.dart';
 import 'package:kobac/services/auth_provider.dart';
+import 'package:kobac/student/widgets/student_web_ui.dart';
 
 // ---------- COLOR PALETTE (Matching Dashboard) ----------
 const Color kPrimaryBlue = Color(0xFF023471); // Dark blue
@@ -30,7 +31,14 @@ const List<Color> kSuccessGradient = [kPrimaryGreen, kDarkGreen];
 const List<Color> kWarningGradient = [Color(0xFFF59E0B), Color(0xFFFBBF24)];
 
 class StudentProfileScreen extends StatefulWidget {
-  const StudentProfileScreen({Key? key}) : super(key: key);
+  final bool embedBodyOnly;
+  final void Function(String pageKey, {Object? arguments})? onNavigateToPage;
+
+  const StudentProfileScreen({
+    Key? key,
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
+  }) : super(key: key);
 
   @override
   State<StudentProfileScreen> createState() => _StudentProfileScreenState();
@@ -89,7 +97,33 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
       return _buildError(context, auth.profileError!, _refresh, is404: true);
     }
     final student = _studentMapFromProfile(prof, user);
+    if (widget.embedBodyOnly && isStudentDesktopWeb(context)) {
+      return Container(
+        color: studentWebBg,
+        child: RefreshIndicator(
+          onRefresh: _refresh,
+          color: kPrimaryBlue,
+          child: _buildDesktopProfileBody(context, student),
+        ),
+      );
+    }
     return _buildContent(context, student, onRefresh: _refresh);
+  }
+
+  Widget _buildDesktopProfileBody(BuildContext context, Map<String, String> student) {
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(24),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 980),
+          child: _DesktopStudentProfileCard(
+            student: student,
+            onLogout: () => context.read<AuthProvider>().logout(),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildError(BuildContext context, String message, VoidCallback onRetry, {bool is404 = false}) {
@@ -396,6 +430,408 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _DesktopStudentProfileCard extends StatelessWidget {
+  final Map<String, String> student;
+  final VoidCallback onLogout;
+
+  const _DesktopStudentProfileCard({
+    required this.student,
+    required this.onLogout,
+  });
+
+  static const String _dash = '—';
+
+  String _displayValue(String key) {
+    final value = student[key]?.trim();
+    if (value == null || value.isEmpty || value == _dash) {
+      return _dash;
+    }
+    return value;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final detailEntries = <({String label, String key, IconData icon, Color accent})>[
+      (label: 'Email', key: 'email', icon: Icons.email_outlined, accent: studentWebBlue),
+      (label: 'Phone', key: 'phone', icon: Icons.phone_outlined, accent: studentWebGreen),
+      (label: 'Gender', key: 'gender', icon: Icons.wc_outlined, accent: studentWebBlue),
+      (label: 'Class', key: 'class', icon: Icons.school_outlined, accent: studentWebGreen),
+      (label: 'Student ID', key: 'studentID', icon: Icons.badge_outlined, accent: studentWebBlue),
+      (label: "Mother's name", key: 'motherName', icon: Icons.family_restroom_outlined, accent: studentWebGreen),
+      (label: 'Date of birth', key: 'dob', icon: Icons.cake_outlined, accent: studentWebBlue),
+      (label: 'Attendance status', key: 'absenteeismStatus', icon: Icons.event_available_outlined, accent: studentWebGreen),
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F000000),
+            blurRadius: 24,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _DesktopProfileGradientHeader(student: student),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    const spacing = 14.0;
+                    final twoColumns = constraints.maxWidth >= 640;
+                    final tileWidth = twoColumns
+                        ? (constraints.maxWidth - spacing) / 2
+                        : constraints.maxWidth;
+
+                    return Wrap(
+                      spacing: spacing,
+                      runSpacing: spacing,
+                      children: [
+                        for (final entry in detailEntries)
+                          SizedBox(
+                            width: tileWidth,
+                            child: _DesktopProfileDetailTile(
+                              label: entry.label,
+                              value: _displayValue(entry.key),
+                              icon: entry.icon,
+                              accent: entry.accent,
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 22),
+                _DesktopProfileFooter(
+                  attendanceStatus: _displayValue('absenteeismStatus'),
+                  onLogout: onLogout,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DesktopProfileGradientHeader extends StatelessWidget {
+  final Map<String, String> student;
+
+  const _DesktopProfileGradientHeader({required this.student});
+
+  String _initials(String name) {
+    final parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return 'S';
+    if (parts.length == 1) return parts.first[0].toUpperCase();
+    return (parts.first[0] + parts.last[0]).toUpperCase();
+  }
+
+  String _displayOrDash(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty || trimmed == '—') {
+      return '—';
+    }
+    return trimmed;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final name = _displayOrDash(student['fullName']);
+    final className = _displayOrDash(student['class']);
+    final studentId = _displayOrDash(student['studentID']);
+
+    return Container(
+      constraints: const BoxConstraints(minHeight: 178, maxHeight: 210),
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 22),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [studentWebBlue, Color(0xFF0B5A8A), studentWebGreen],
+          stops: [0.0, 0.55, 1.0],
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 86,
+            height: 86,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white,
+              border: Border.all(color: Colors.white.withValues(alpha: 0.85), width: 3),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.12),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Center(
+              child: Text(
+                _initials(name == '—' ? 'Student' : name),
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: studentWebBlue,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    height: 1.15,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _DesktopProfileHeaderBadge(
+                      label: 'STUDENT',
+                      background: Colors.white.withValues(alpha: 0.18),
+                      foreground: Colors.white,
+                    ),
+                    if (className != '—')
+                      _DesktopProfileHeaderBadge(
+                        label: className,
+                        background: Colors.white.withValues(alpha: 0.14),
+                        foreground: Colors.white,
+                        icon: Icons.school_outlined,
+                      ),
+                    if (studentId != '—')
+                      _DesktopProfileHeaderBadge(
+                        label: studentId,
+                        background: Colors.white.withValues(alpha: 0.14),
+                        foreground: Colors.white,
+                        icon: Icons.badge_outlined,
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DesktopProfileHeaderBadge extends StatelessWidget {
+  final String label;
+  final Color background;
+  final Color foreground;
+  final IconData? icon;
+
+  const _DesktopProfileHeaderBadge({
+    required this.label,
+    required this.background,
+    required this.foreground,
+    this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 13, color: foreground),
+            const SizedBox(width: 5),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: foreground,
+              letterSpacing: 0.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DesktopProfileDetailTile extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color accent;
+
+  const _DesktopProfileDetailTile({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 18, color: accent),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: studentWebTextSecondary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: studentWebTextPrimary,
+                    height: 1.25,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DesktopProfileFooter extends StatelessWidget {
+  final String attendanceStatus;
+  final VoidCallback onLogout;
+
+  const _DesktopProfileFooter({
+    required this.attendanceStatus,
+    required this.onLogout,
+  });
+
+  bool get _hasAttendanceStatus => attendanceStatus.trim().isNotEmpty && attendanceStatus != '—';
+
+  bool get _isActiveStatus {
+    final normalized = attendanceStatus.trim().toLowerCase();
+    return normalized.contains('active') ||
+        normalized.contains('present') ||
+        normalized.contains('regular');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        if (_hasAttendanceStatus)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              color: (_isActiveStatus ? studentWebGreen : kErrorColor).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: (_isActiveStatus ? studentWebGreen : kErrorColor).withValues(alpha: 0.24),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _isActiveStatus ? Icons.verified_rounded : Icons.info_outline_rounded,
+                  size: 15,
+                  color: _isActiveStatus ? studentWebGreen : kErrorColor,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  attendanceStatus,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: _isActiveStatus ? studentWebGreen : kErrorColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        const Spacer(),
+        OutlinedButton.icon(
+          onPressed: onLogout,
+          icon: const Icon(Icons.logout_rounded, size: 18),
+          label: const Text('Logout'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: kErrorColor,
+            side: BorderSide(color: kErrorColor.withValues(alpha: 0.45)),
+            backgroundColor: kErrorColor.withValues(alpha: 0.04),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
     );
   }
 }

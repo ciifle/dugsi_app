@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:kobac/services/student_service.dart';
 import 'package:kobac/shared/widgets/fees_feature_guard.dart';
+import 'package:kobac/student/widgets/student_web_ui.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
 const Color kPrimaryGreen = Color(0xFF5AB04B);
@@ -11,7 +12,14 @@ const Color kTextPrimary = Color(0xFF1A1E1F);
 const Color kTextSecondary = Color(0xFF4F5A5E);
 
 class StudentPaymentsScreen extends StatefulWidget {
-  const StudentPaymentsScreen({Key? key}) : super(key: key);
+  final bool embedBodyOnly;
+  final void Function(String pageKey, {Object? arguments})? onNavigateToPage;
+
+  const StudentPaymentsScreen({
+    Key? key,
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
+  }) : super(key: key);
 
   @override
   State<StudentPaymentsScreen> createState() => _StudentPaymentsScreenState();
@@ -34,22 +42,23 @@ class _StudentPaymentsScreenState extends State<StudentPaymentsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return FeesFeatureGuard(
-      child: Scaffold(
-        backgroundColor: kSoftBlue,
-        body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [kSoftBlue, kSoftGreen],
-            stops: [0.0, 1.0],
-          ),
-        ),
-        child: SafeArea(
-          child: CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
+    final embedded = widget.embedBodyOnly && isStudentDesktopWeb(context);
+    final body = Container(
+      decoration: embedded
+          ? const BoxDecoration(color: studentWebBg)
+          : const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [kSoftBlue, kSoftGreen],
+                stops: [0.0, 1.0],
+              ),
+            ),
+      child: SafeArea(
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            if (!embedded)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
@@ -195,8 +204,15 @@ class _StudentPaymentsScreenState extends State<StudentPaymentsScreen> {
             ],
           ),
         ),
-      ),
-    ),
+      );
+
+    return FeesFeatureGuard(
+      child: embedded
+          ? body
+          : Scaffold(
+              backgroundColor: kSoftBlue,
+              body: body,
+            ),
     );
   }
 }

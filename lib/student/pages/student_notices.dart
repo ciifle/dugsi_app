@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:kobac/services/auth_provider.dart';
 import 'package:kobac/services/student_service.dart';
 import 'package:kobac/shared/pages/login_screen.dart';
+import 'package:kobac/student/widgets/student_web_ui.dart';
 
 // ---------- COLOR PALETTE ----------
 const Color kPrimaryBlue = Color(0xFF023471);
@@ -34,7 +35,14 @@ class _NoticeData {
 
 // ---------------- ALL NOTICES SCREEN (API-driven) ----------------
 class AllNoticesScreen extends StatefulWidget {
-  const AllNoticesScreen({Key? key}) : super(key: key);
+  final bool embedBodyOnly;
+  final void Function(String pageKey, {Object? arguments})? onNavigateToPage;
+
+  const AllNoticesScreen({
+    Key? key,
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
+  }) : super(key: key);
 
   @override
   State<AllNoticesScreen> createState() => _AllNoticesScreenState();
@@ -51,21 +59,22 @@ class _AllNoticesScreenState extends State<AllNoticesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: kSoftBlue,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [kSoftBlue, kSoftGreen],
-            stops: [0.0, 1.0],
-          ),
-        ),
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            // ---------------- HEADER ----------------
+    final embedded = widget.embedBodyOnly && isStudentDesktopWeb(context);
+    final body = Container(
+      decoration: embedded
+          ? const BoxDecoration(color: studentWebBg)
+          : const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [kSoftBlue, kSoftGreen],
+                stops: [0.0, 1.0],
+              ),
+            ),
+      child: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          if (!embedded)
             SliverToBoxAdapter(
               child: Container(
                 padding: const EdgeInsets.fromLTRB(24, 50, 24, 30),
@@ -226,7 +235,15 @@ class _AllNoticesScreenState extends State<AllNoticesScreen> {
             ),
           ],
         ),
-      ),
+      );
+
+    if (embedded) {
+      return body;
+    }
+
+    return Scaffold(
+      backgroundColor: kSoftBlue,
+      body: body,
     );
   }
 

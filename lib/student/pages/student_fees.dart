@@ -3,6 +3,7 @@ import 'package:kobac/services/student_service.dart';
 import 'package:kobac/shared/widgets/fees_feature_guard.dart';
 import 'package:kobac/student/pages/student_pay_fee_screen.dart' show StudentPayFeeScreen;
 import 'package:kobac/student/pages/student_payments_screen.dart' show StudentPaymentsScreen;
+import 'package:kobac/student/widgets/student_web_ui.dart';
 
 // ---------- WONDERFUL COLOR PALETTE (Matching Student Dashboard) ----------
 const Color kPrimaryColor = Color(0xFF023471); // Deep blue (from your palette)
@@ -112,7 +113,14 @@ final List<Map<String, dynamic>> dummyPayments = [
 ];
 
 class StudentFeesScreen extends StatefulWidget {
-  const StudentFeesScreen({Key? key}) : super(key: key);
+  final bool embedBodyOnly;
+  final void Function(String pageKey, {Object? arguments})? onNavigateToPage;
+
+  const StudentFeesScreen({
+    Key? key,
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
+  }) : super(key: key);
 
   @override
   State<StudentFeesScreen> createState() => _StudentFeesScreenState();
@@ -168,23 +176,54 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
     return FeesFeatureGuard(child: _buildFeesContent(context));
   }
 
+  void _openPayments() {
+    if (widget.embedBodyOnly &&
+        isStudentDesktopWeb(context) &&
+        widget.onNavigateToPage != null) {
+      widget.onNavigateToPage!('payments');
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const StudentPaymentsScreen()),
+    ).then((_) => setState(() => _feesFuture = StudentService().listFees()));
+  }
+
+  void _openPayFee({int? feeId}) {
+    if (widget.embedBodyOnly &&
+        isStudentDesktopWeb(context) &&
+        widget.onNavigateToPage != null) {
+      widget.onNavigateToPage!('payFee', arguments: feeId);
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StudentPayFeeScreen(preselectedFeeId: feeId),
+      ),
+    ).then((_) => setState(() => _feesFuture = StudentService().listFees()));
+  }
+
   Widget _buildFeesContent(BuildContext context) {
+    final embedded = widget.embedBodyOnly && isStudentDesktopWeb(context);
     return Container(
-      decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [kSoftBlue, kSoftGreen],
-            stops: [0.0, 1.0],
-          ),
-        ),
+      decoration: embedded
+          ? const BoxDecoration(color: studentWebBg)
+          : const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [kSoftBlue, kSoftGreen],
+                stops: [0.0, 1.0],
+              ),
+            ),
         child: Scaffold(
           backgroundColor: Colors.transparent,
           body: CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-            // ---------------- REDESIGNED APP BAR (Matching Dashboard) ----------------
-            SliverToBoxAdapter(
+            if (!embedded)
+              SliverToBoxAdapter(
               child: Container(
                 padding: const EdgeInsets.fromLTRB(24, 50, 24, 40),
                 decoration: BoxDecoration(
@@ -366,7 +405,7 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
                             Material(
                               color: Colors.transparent,
                               child: InkWell(
-                                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StudentPaymentsScreen())).then((_) => setState(() => _feesFuture = StudentService().listFees())),
+                                onTap: _openPayments,
                                 borderRadius: BorderRadius.circular(16),
                                 child: Container(
                                   padding: const EdgeInsets.all(18),
@@ -439,12 +478,10 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
               ),
               if (canPay)
                 TextButton.icon(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => StudentPayFeeScreen(preselectedFeeId: f.id)),
-                  ).then((_) {
+                  onPressed: () {
+                    _openPayFee(feeId: f.id);
                     if (mounted) setState(() => _feesFuture = StudentService().listFees());
-                  }),
+                  },
                   icon: const Icon(Icons.payment_rounded, size: 18),
                   label: const Text('Pay'),
                   style: TextButton.styleFrom(foregroundColor: kPrimaryGreen),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:kobac/student/widgets/student_web_shell.dart';
+import 'package:kobac/student/widgets/student_web_ui.dart';
 import 'package:kobac/services/auth_provider.dart';
 import 'package:kobac/services/student_service.dart';
 import 'package:kobac/student/pages/student_attendance.dart';
@@ -47,6 +49,10 @@ class StudentDashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (isStudentDesktopWeb(context)) {
+      return const StudentWebShell();
+    }
+
     return ChangeNotifierProvider(
       create: (_) => _StudentDashboardScreenState(),
       child: const _StudentDashboardScreenView(),

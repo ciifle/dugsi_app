@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:kobac/services/student_service.dart';
+import 'package:kobac/student/widgets/student_web_ui.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
 const Color kPrimaryGreen = Color(0xFF5AB04B);
@@ -12,8 +13,15 @@ const Color kTextSecondary = Color(0xFF4F5A5E);
 
 class StudentTotalPage extends StatefulWidget {
   final List<StudentMarkModel> marks;
+  final bool embedBodyOnly;
+  final void Function(String pageKey, {Object? arguments})? onNavigateToPage;
 
-  StudentTotalPage({Key? key, required this.marks}) : super(key: key);
+  StudentTotalPage({
+    Key? key,
+    required this.marks,
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
+  }) : super(key: key);
 
   @override
   State<StudentTotalPage> createState() => _StudentTotalPageState();
@@ -148,30 +156,30 @@ class _StudentTotalPageState extends State<StudentTotalPage> {
     final totalMax = totals['totalMax'] as num;
     final percentage = totalMax > 0 ? (totalObtained / totalMax) * 100 : 0.0;
     
-    // Get screen width for responsive layout
     final screenWidth = MediaQuery.of(context).size.width;
     final isWeb = kIsWeb || screenWidth > 600;
+    final embedded = widget.embedBodyOnly && isStudentDesktopWeb(context);
     final maxContentWidth = isWeb ? 1000.0 : double.infinity;
 
-    return Scaffold(
-      backgroundColor: kSoftBlue,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [kSoftBlue, kSoftGreen],
-            stops: [0.0, 1.0],
-          ),
-        ),
-        child: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: maxContentWidth),
-              child: CustomScrollView(
-                physics: const BouncingScrollPhysics(),
-                slivers: [
-                  // Header
+    final body = Container(
+      decoration: embedded
+          ? const BoxDecoration(color: studentWebBg)
+          : const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [kSoftBlue, kSoftGreen],
+                stops: [0.0, 1.0],
+              ),
+            ),
+      child: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxContentWidth),
+            child: CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                if (!embedded)
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: EdgeInsets.fromLTRB(
@@ -183,7 +191,13 @@ class _StudentTotalPageState extends State<StudentTotalPage> {
                       child: Row(
                         children: [
                           GestureDetector(
-                            onTap: () => Navigator.pop(context),
+                            onTap: () {
+                              if (embedded && widget.onNavigateToPage != null) {
+                                widget.onNavigateToPage!('marks');
+                                return;
+                              }
+                              Navigator.pop(context);
+                            },
                             child: Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
@@ -497,7 +511,15 @@ class _StudentTotalPageState extends State<StudentTotalPage> {
             ),
           ),
         ),
-      ),
+      );
+
+    if (embedded) {
+      return body;
+    }
+
+    return Scaffold(
+      backgroundColor: kSoftBlue,
+      body: body,
     );
   }
 }

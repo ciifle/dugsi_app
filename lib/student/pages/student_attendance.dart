@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:kobac/services/student_service.dart';
+import 'package:kobac/student/widgets/student_web_ui.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
 const Color kPrimaryGreen = Color(0xFF5AB04B);
@@ -13,7 +14,14 @@ const Color kSuccessColor = Color(0xFF3D8C30);
 const Color kWarningColor = Color(0xFFF59E0B);
 
 class StudentAttendanceScreen extends StatefulWidget {
-  const StudentAttendanceScreen({Key? key}) : super(key: key);
+  final bool embedBodyOnly;
+  final void Function(String pageKey, {Object? arguments})? onNavigateToPage;
+
+  const StudentAttendanceScreen({
+    Key? key,
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
+  }) : super(key: key);
 
   @override
   State<StudentAttendanceScreen> createState() => _StudentAttendanceScreenState();
@@ -74,24 +82,301 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (widget.embedBodyOnly && isStudentDesktopWeb(context)) {
+      return ColoredBox(
+        color: studentWebBg,
+        child: _buildDesktopAttendanceBody(context),
+      );
+    }
+
     return Scaffold(
       backgroundColor: kSoftBlue,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [kSoftBlue, kSoftGreen],
-            stops: [0.0, 1.0],
+      body: _buildMobileAttendanceBody(context),
+    );
+  }
+
+  Widget _buildDesktopAttendanceBody(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildDesktopMonthToolbar(),
+          const SizedBox(height: 18),
+          FutureBuilder<StudentResult<List<StudentAttendanceRecordModel>>>(
+            future: _attendanceFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const StudentWebCard(
+                  child: SizedBox(
+                    height: 220,
+                    child: Center(child: CircularProgressIndicator(color: kPrimaryBlue)),
+                  ),
+                );
+              }
+
+              if (snapshot.hasError || snapshot.data is StudentError) {
+                final msg = snapshot.data is StudentError
+                    ? (snapshot.data as StudentError).message
+                    : 'Could not load attendance.';
+                return StudentWebCard(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.error_outline_rounded, size: 40, color: kErrorColor.withValues(alpha: 0.85)),
+                      const SizedBox(height: 12),
+                      Text(msg, textAlign: TextAlign.center, style: const TextStyle(fontSize: 14)),
+                      const SizedBox(height: 14),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton.icon(
+                          onPressed: _loadAttendanceData,
+                          icon: const Icon(Icons.refresh_rounded, size: 18),
+                          label: const Text('Retry'),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              final records = (snapshot.data as StudentSuccess<List<StudentAttendanceRecordModel>>).data;
+              final sortedRecords = List<StudentAttendanceRecordModel>.from(records)
+                ..sort((a, b) => (b.date ?? '').compareTo(a.date ?? ''));
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildDesktopSummaryRow(records),
+                  const SizedBox(height: 18),
+                  _buildDesktopRecordsCard(sortedRecords),
+                  const SizedBox(height: 18),
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 760),
+                      child: _AttendanceCalendarGrid(
+                        records: records,
+                        selectedMonth: _selectedMonth,
+                        showSummary: false,
+                        compact: true,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDesktopMonthToolbar() {
+    return StudentWebCard(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: () => _changeMonth(-1),
+            icon: const Icon(Icons.chevron_left_rounded, color: kPrimaryBlue),
+            tooltip: 'Previous month',
+          ),
+          Expanded(
+            child: Text(
+              DateFormat('MMMM yyyy').format(_selectedMonth),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: kPrimaryBlue,
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: () => _changeMonth(1),
+            icon: const Icon(Icons.chevron_right_rounded, color: kPrimaryBlue),
+            tooltip: 'Next month',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDesktopSummaryRow(List<StudentAttendanceRecordModel> records) {
+    int present = 0;
+    int absent = 0;
+    int late = 0;
+    for (final record in records) {
+      switch (record.status?.toUpperCase()) {
+        case 'PRESENT':
+          present++;
+          break;
+        case 'ABSENT':
+          absent++;
+          break;
+        case 'LATE':
+          late++;
+          break;
+      }
+    }
+
+    final total = records.length;
+    final attendanceRate = total > 0 ? ((present / total) * 100).round() : 0;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 1200;
+        final cards = <Widget>[
+          _DesktopAttendanceSummaryCard(
+            icon: Icons.percent_rounded,
+            label: 'Attendance',
+            value: '$attendanceRate%',
+            color: kPrimaryGreen,
+            compact: compact,
+          ),
+          _DesktopAttendanceSummaryCard(
+            icon: Icons.check_circle_outline_rounded,
+            label: 'Present Days',
+            value: '$present',
+            color: kSuccessColor,
+            compact: compact,
+          ),
+          _DesktopAttendanceSummaryCard(
+            icon: Icons.cancel_outlined,
+            label: 'Absent Days',
+            value: '$absent',
+            color: kErrorColor,
+            compact: compact,
+          ),
+          if (late > 0)
+            _DesktopAttendanceSummaryCard(
+              icon: Icons.schedule_rounded,
+              label: 'Late Days',
+              value: '$late',
+              color: kWarningColor,
+              compact: compact,
+            ),
+          _DesktopAttendanceSummaryCard(
+            icon: Icons.event_note_rounded,
+            label: 'Total Records',
+            value: '$total',
+            color: kPrimaryBlue,
+            compact: compact,
+          ),
+        ];
+
+        if (constraints.maxWidth >= 1024) {
+          return Row(
+            children: [
+              for (int i = 0; i < cards.length; i++) ...[
+                if (i > 0) const SizedBox(width: 12),
+                Expanded(child: cards[i]),
+              ],
+            ],
+          );
+        }
+
+        return Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: cards
+              .map(
+                (card) => SizedBox(
+                  width: constraints.maxWidth >= 720
+                      ? (constraints.maxWidth - 12) / 2
+                      : constraints.maxWidth,
+                  child: card,
+                ),
+              )
+              .toList(),
+        );
+      },
+    );
+  }
+
+  Widget _buildDesktopRecordsCard(List<StudentAttendanceRecordModel> records) {
+    if (records.isEmpty) {
+      return const StudentWebCard(
+        child: SizedBox(
+          height: 180,
+          child: Center(
+            child: Text(
+              'No attendance records found for this month',
+              style: TextStyle(fontSize: 14, color: kTextSecondary),
+            ),
           ),
         ),
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // ---------- HEADER ----------
-              Container(
+      );
+    }
+
+    return StudentWebCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const StudentWebTableHeader(
+            columns: ['Date', 'Status', 'Period', 'Class', 'Time'],
+            flex: [2, 2, 2, 2, 2],
+          ),
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: records.length,
+            itemBuilder: (context, index) {
+              final record = records[index];
+              return StudentWebTableRow(
+                flex: const [2, 2, 2, 2, 2],
+                cells: [
+                  Text(
+                    record.date ?? '—',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kTextPrimary),
+                  ),
+                  _AttendanceStatusChip(status: record.status),
+                  Text(
+                    record.period ?? '—',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13, color: kTextSecondary),
+                  ),
+                  Text(
+                    record.className ?? '—',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13, color: kTextSecondary),
+                  ),
+                  Text(
+                    record.time ?? '—',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13, color: kTextSecondary),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileAttendanceBody(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [kSoftBlue, kSoftGreen],
+          stops: [0.0, 1.0],
+        ),
+      ),
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
                 padding: const EdgeInsets.fromLTRB(20, 40, 20, 20),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -303,7 +588,6 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen>
             ],
           ),
         ),
-      ),
     );
   }
 }
@@ -311,10 +595,14 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen>
 class _AttendanceCalendarGrid extends StatelessWidget {
   final List<StudentAttendanceRecordModel> records;
   final DateTime selectedMonth;
+  final bool showSummary;
+  final bool compact;
 
   const _AttendanceCalendarGrid({
     required this.records,
     required this.selectedMonth,
+    this.showSummary = true,
+    this.compact = false,
     Key? key,
   }) : super(key: key);
 
@@ -333,27 +621,38 @@ class _AttendanceCalendarGrid extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(compact ? 16 : 20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: kPrimaryBlue.withOpacity(0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(compact ? 18 : 20),
+        border: compact ? const Border.fromBorderSide(BorderSide(color: studentWebBorder)) : null,
+        boxShadow: compact
+            ? const [
+                BoxShadow(
+                  color: Color(0x06000000),
+                  blurRadius: 10,
+                  offset: Offset(0, 2),
+                ),
+              ]
+            : [
+                BoxShadow(
+                  color: kPrimaryBlue.withOpacity(0.08),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _AttendanceSummary(records: records),
-          const SizedBox(height: 20),
+          if (showSummary) ...[
+            _AttendanceSummary(records: records),
+            const SizedBox(height: 20),
+          ],
           Text(
             'Calendar View',
-            style: const TextStyle(
-              fontSize: 18,
+            style: TextStyle(
+              fontSize: compact ? 15 : 18,
               fontWeight: FontWeight.bold,
               color: kPrimaryBlue,
             ),
@@ -553,6 +852,150 @@ class _StatCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _DesktopAttendanceSummaryCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+  final bool compact;
+
+  const _DesktopAttendanceSummaryCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+    this.compact = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final iconBox = compact ? 38.0 : 40.0;
+    final iconSize = compact ? 18.0 : 20.0;
+    final valueSize = compact ? 20.0 : 22.0;
+    final labelSize = compact ? 11.5 : 12.0;
+
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 104),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 12 : 14,
+        vertical: compact ? 10 : 12,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: studentWebBorder),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x06000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: iconBox,
+            height: iconBox,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: iconSize),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: valueSize,
+                    fontWeight: FontWeight.bold,
+                    color: kPrimaryBlue,
+                    height: 1.05,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: labelSize,
+                    color: kTextSecondary,
+                    height: 1.1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AttendanceStatusChip extends StatelessWidget {
+  final String? status;
+
+  const _AttendanceStatusChip({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final normalized = status?.trim();
+    final label = normalized == null || normalized.isEmpty ? '—' : normalized;
+    final upper = normalized?.toUpperCase() ?? '';
+
+    Color background;
+    Color foreground;
+    switch (upper) {
+      case 'PRESENT':
+        background = kSuccessColor.withValues(alpha: 0.12);
+        foreground = kSuccessColor;
+        break;
+      case 'ABSENT':
+        background = kErrorColor.withValues(alpha: 0.12);
+        foreground = kErrorColor;
+        break;
+      case 'LATE':
+        background = kWarningColor.withValues(alpha: 0.14);
+        foreground = kWarningColor;
+        break;
+      default:
+        background = kSoftBlue;
+        foreground = kTextSecondary;
+        break;
+    }
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: foreground,
+          ),
+        ),
       ),
     );
   }

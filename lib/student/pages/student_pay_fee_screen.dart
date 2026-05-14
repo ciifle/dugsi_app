@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:kobac/services/student_service.dart';
 import 'package:kobac/shared/widgets/fees_feature_guard.dart';
+import 'package:kobac/student/widgets/student_web_ui.dart';
 import 'package:kobac/widgets/form_3d/form_3d.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
@@ -15,8 +16,15 @@ const List<String> kPaymentMethods = ['CASH', 'MOBILE_MONEY', 'BANK', 'CARD'];
 
 class StudentPayFeeScreen extends StatefulWidget {
   final int? preselectedFeeId;
+  final bool embedBodyOnly;
+  final void Function(String pageKey, {Object? arguments})? onNavigateToPage;
 
-  const StudentPayFeeScreen({Key? key, this.preselectedFeeId}) : super(key: key);
+  const StudentPayFeeScreen({
+    Key? key,
+    this.preselectedFeeId,
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
+  }) : super(key: key);
 
   @override
   State<StudentPayFeeScreen> createState() => _StudentPayFeeScreenState();
@@ -75,22 +83,23 @@ class _StudentPayFeeScreenState extends State<StudentPayFeeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return FeesFeatureGuard(
-      child: Scaffold(
-        backgroundColor: kSoftBlue,
-        body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [kSoftBlue, kSoftGreen],
-            stops: [0.0, 1.0],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+    final embedded = widget.embedBodyOnly && isStudentDesktopWeb(context);
+    final body = Container(
+      decoration: embedded
+          ? const BoxDecoration(color: studentWebBg)
+          : const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [kSoftBlue, kSoftGreen],
+                stops: [0.0, 1.0],
+              ),
+            ),
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (!embedded)
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
                 child: Row(
@@ -216,8 +225,15 @@ class _StudentPayFeeScreenState extends State<StudentPayFeeScreen> {
             ],
           ),
         ),
-      ),
-    ),
+      );
+
+    return FeesFeatureGuard(
+      child: embedded
+          ? body
+          : Scaffold(
+              backgroundColor: kSoftBlue,
+              body: body,
+            ),
     );
   }
 }

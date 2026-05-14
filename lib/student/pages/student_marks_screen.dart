@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:kobac/services/student_service.dart';
 import 'package:kobac/student/pages/student_total_page.dart';
+import 'package:kobac/student/widgets/student_web_ui.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
 const Color kPrimaryGreen = Color(0xFF5AB04B);
@@ -11,7 +12,14 @@ const Color kTextPrimary = Color(0xFF1A1E1F);
 const Color kTextSecondary = Color(0xFF4F5A5E);
 
 class StudentMarksScreen extends StatefulWidget {
-  const StudentMarksScreen({Key? key}) : super(key: key);
+  final bool embedBodyOnly;
+  final void Function(String pageKey, {Object? arguments})? onNavigateToPage;
+
+  const StudentMarksScreen({
+    Key? key,
+    this.embedBodyOnly = false,
+    this.onNavigateToPage,
+  }) : super(key: key);
 
   @override
   State<StudentMarksScreen> createState() => _StudentMarksScreenState();
@@ -35,8 +43,50 @@ class _StudentMarksScreenState extends State<StudentMarksScreen> {
     });
   }
 
+  void _openTotalPage(List<StudentMarkModel> list) {
+    if (widget.embedBodyOnly &&
+        isStudentDesktopWeb(context) &&
+        widget.onNavigateToPage != null) {
+      widget.onNavigateToPage!('marksTotal', arguments: list);
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => StudentTotalPage(marks: list),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (widget.embedBodyOnly && isStudentDesktopWeb(context)) {
+      return Container(
+        color: studentWebBg,
+        child: RefreshIndicator(
+          onRefresh: () async {
+            setState(() {
+              _examsFuture = StudentService().listExams(forceRefresh: true);
+              _loadMarks();
+            });
+          },
+          color: kPrimaryGreen,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildExamFilter(),
+                const SizedBox(height: 16),
+                _buildMarksBody(compact: true),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: kSoftBlue,
       body: Container(
@@ -86,262 +136,255 @@ class _StudentMarksScreenState extends State<StudentMarksScreen> {
                   ),
                 ),
               ),
-              SliverToBoxAdapter(
-                child: FutureBuilder<StudentResult<List<StudentExamModel>>>(
-                  future: _examsFuture,
-                  builder: (context, examSnap) {
-                    if (examSnap.data is StudentError && (examSnap.data as StudentError).statusCode == 403) {
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: _ModuleDisabledBanner(message: (examSnap.data as StudentError).message),
-                      );
-                    }
-                    final exams = examSnap.data is StudentSuccess<List<StudentExamModel>>
-                        ? (examSnap.data as StudentSuccess<List<StudentExamModel>>).data
-                        : <StudentExamModel>[];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(14),
-                                boxShadow: [
-                                  BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4)),
-                                ],
-                              ),
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<int?>(
-                                  value: _examId,
-                                  isExpanded: true,
-                                  hint: const Text('All exams'),
-                                  items: [
-                                    const DropdownMenuItem<int?>(value: null, child: Text('All exams')),
-                                    ...exams.map((e) => DropdownMenuItem<int?>(value: e.id, child: Text(e.name))),
-                                  ],
-                                  onChanged: (v) {
-                                    setState(() {
-                                      _examId = v;
-                                      _loadMarks();
-                                    });
-                                  },
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
+              SliverToBoxAdapter(child: _buildExamFilter()),
               const SliverToBoxAdapter(child: SizedBox(height: 16)),
-              SliverToBoxAdapter(
-                child: RefreshIndicator(
-                  onRefresh: () async {
-                    setState(() {
-                      _examsFuture = StudentService().listExams(forceRefresh: true);
-                      _loadMarks();
-                    });
-                  },
-                  color: kPrimaryGreen,
-                  child: FutureBuilder<StudentResult<List<StudentMarkModel>>>(
-                    future: _marksFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Padding(
-                          padding: EdgeInsets.all(40),
-                          child: Center(child: CircularProgressIndicator(color: kPrimaryBlue)),
-                        );
-                      }
-                      if (snapshot.hasError || snapshot.data is StudentError) {
-                        final msg = snapshot.data is StudentError
-                            ? (snapshot.data as StudentError).message
-                            : 'Could not load marks.';
-                        return Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.error_outline, size: 48, color: kErrorColor.withOpacity(0.8)),
-                                const SizedBox(height: 12),
-                                Text(msg, textAlign: TextAlign.center, style: const TextStyle(color: kTextPrimary, fontSize: 15)),
-                              ],
-                            ),
-                          ),
-                        );
-                      }
-                      final list = (snapshot.data as StudentSuccess<List<StudentMarkModel>>).data;
-                      if (list.isEmpty) {
-                        return Padding(
-                          padding: const EdgeInsets.all(40),
-                          child: Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.assignment_rounded, size: 56, color: Colors.grey[400]),
-                                const SizedBox(height: 12),
-                                Text('No marks yet', style: TextStyle(fontSize: 16, color: kTextSecondary)),
-                              ],
-                            ),
-                          ),
-                        );
-                      }
-
-                      // Calculate totals for released marks
-                      num totalObtained = 0;
-                      num totalMax = 0;
-                      for (final m in list) {
-                        totalObtained += m.marksObtained;
-                        totalMax += m.maxMarks;
-                      }
-                      final average = totalMax > 0 ? (totalObtained / totalMax) * 100 : 0.0;
-                      
-                      // Determine status based on average - using 50% as pass threshold (common standard)
-                      final status = average >= 50 ? 'PASS' : 'FAIL';
-                      final statusColor = average >= 50 ? kPrimaryGreen : kErrorColor;
-
-                      return Column(
-                        children: [
-                          // See Total Button
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                            child: GestureDetector(
-                              onTap: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => StudentTotalPage(marks: list),
-                                ),
-                              ),
-                              child: Container(
-                                padding: const EdgeInsets.all(20),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(20),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: kPrimaryBlue.withOpacity(0.1),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 6),
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: kPrimaryBlue.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: const Icon(Icons.assessment_rounded, color: kPrimaryBlue, size: 24),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    const Expanded(
-                                      child: Text(
-                                        'See Total',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                          color: kPrimaryBlue,
-                                        ),
-                                      ),
-                                    ),
-                                    Icon(
-                                      Icons.arrow_forward_rounded,
-                                      color: kPrimaryBlue.withOpacity(0.7),
-                                      size: 20,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                            itemCount: list.length,
-                            itemBuilder: (context, index) {
-                              final m = list[index];
-                              final examName = m.exam['name']?.toString() ?? '—';
-                              final subjectName = m.subject['name']?.toString() ?? '—';
-                              final teacherName = m.teacher?['fullName']?.toString() ?? m.teacher?['name']?.toString() ?? '—';
-                              final className = m.class_?['name']?.toString() ?? '—';
-                              
-                              return Container(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                padding: const EdgeInsets.all(18),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(24),
-                                  boxShadow: [
-                                    BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 14, offset: const Offset(0, 6)),
-                                  ],
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.all(10),
-                                          decoration: BoxDecoration(
-                                            color: kPrimaryBlue.withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(14),
-                                          ),
-                                          child: const Icon(Icons.grade_rounded, color: kPrimaryBlue, size: 24),
-                                        ),
-                                        const SizedBox(width: 14),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(subjectName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
-                                              Text('$examName ${className != '—' ? '· $className' : ''}', style: TextStyle(fontSize: 13, color: kTextSecondary)),
-                                            ],
-                                          ),
-                                        ),
-                                        Text(
-                                          '${m.marksObtained}/${m.maxMarks}',
-                                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimaryGreen),
-                                        ),
-                                        if (m.percentage != null) ...[
-                                          const SizedBox(width: 8),
-                                          Text('${m.percentage!.toStringAsFixed(0)}%', style: TextStyle(fontSize: 14, color: kTextSecondary)),
-                                        ],
-                                      ],
-                                    ),
-                                    if (m.grade != null && m.grade!.isNotEmpty)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 8),
-                                        child: Text('Grade: ${m.grade}', style: TextStyle(fontSize: 13, color: kTextSecondary)),
-                                      ),
-                                    if (teacherName != '—')
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 4),
-                                        child: Text('Teacher: $teacherName', style: TextStyle(fontSize: 12, color: kTextSecondary)),
-                                      ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-              ),
+              SliverToBoxAdapter(child: _buildExamFilter()),
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+              SliverToBoxAdapter(child: _buildMarksBody()),
               const SliverToBoxAdapter(child: SizedBox(height: 80)),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildExamFilter() {
+    return FutureBuilder<StudentResult<List<StudentExamModel>>>(
+      future: _examsFuture,
+      builder: (context, examSnap) {
+        if (examSnap.data is StudentError && (examSnap.data as StudentError).statusCode == 403) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: _ModuleDisabledBanner(message: (examSnap.data as StudentError).message),
+          );
+        }
+        final exams = examSnap.data is StudentSuccess<List<StudentExamModel>>
+            ? (examSnap.data as StudentSuccess<List<StudentExamModel>>).data
+            : <StudentExamModel>[];
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: StudentWebCard(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: StudentWebDropdown<int?>(
+              value: _examId,
+              hint: const Text('All exams'),
+              items: [
+                const DropdownMenuItem<int?>(value: null, child: Text('All exams')),
+                ...exams.map((e) => DropdownMenuItem<int?>(value: e.id, child: Text(e.name))),
+              ],
+              onChanged: (v) {
+                setState(() {
+                  _examId = v;
+                  _loadMarks();
+                });
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMarksBody({bool compact = false}) {
+    return FutureBuilder<StudentResult<List<StudentMarkModel>>>(
+      future: _marksFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.all(40),
+            child: Center(child: CircularProgressIndicator(color: kPrimaryBlue)),
+          );
+        }
+        if (snapshot.hasError || snapshot.data is StudentError) {
+          final msg = snapshot.data is StudentError
+              ? (snapshot.data as StudentError).message
+              : 'Could not load marks.';
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.error_outline, size: 48, color: kErrorColor.withOpacity(0.8)),
+                  const SizedBox(height: 12),
+                  Text(msg, textAlign: TextAlign.center, style: const TextStyle(color: kTextPrimary, fontSize: 15)),
+                ],
+              ),
+            ),
+          );
+        }
+        final list = (snapshot.data as StudentSuccess<List<StudentMarkModel>>).data;
+        if (list.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.all(40),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.assignment_rounded, size: 56, color: Colors.grey[400]),
+                  const SizedBox(height: 12),
+                  Text('No marks yet', style: TextStyle(fontSize: 16, color: kTextSecondary)),
+                ],
+              ),
+            ),
+          );
+        }
+
+        if (compact) {
+          return StudentWebCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                StudentWebTableHeader(columns: const ['Subject', 'Exam', 'Score', 'Grade']),
+                ...list.map((m) {
+                  final examName = m.exam['name']?.toString() ?? '—';
+                  final subjectName = m.subject['name']?.toString() ?? '—';
+                  return StudentWebTableRow(
+                    cells: [
+                      Text(subjectName, style: const TextStyle(fontWeight: FontWeight.w600, color: kTextPrimary)),
+                      Text(examName, style: const TextStyle(color: kTextSecondary)),
+                      Text('${m.marksObtained}/${m.maxMarks}', style: const TextStyle(fontWeight: FontWeight.w700, color: kPrimaryGreen)),
+                      Text(m.grade ?? '—', style: const TextStyle(color: kTextSecondary)),
+                    ],
+                  );
+                }),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => _openTotalPage(list),
+                    child: const Text('See total'),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+              child: GestureDetector(
+                onTap: () => _openTotalPage(list),
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: kPrimaryBlue.withOpacity(0.1),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: kPrimaryBlue.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.assessment_rounded, color: kPrimaryBlue, size: 24),
+                      ),
+                      const SizedBox(width: 16),
+                      const Expanded(
+                        child: Text(
+                          'See Total',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: kPrimaryBlue,
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        Icons.arrow_forward_rounded,
+                        color: kPrimaryBlue.withOpacity(0.7),
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              itemCount: list.length,
+              itemBuilder: (context, index) {
+                final m = list[index];
+                final examName = m.exam['name']?.toString() ?? '—';
+                final subjectName = m.subject['name']?.toString() ?? '—';
+                final teacherName = m.teacher?['fullName']?.toString() ?? m.teacher?['name']?.toString() ?? '—';
+                final className = m.class_?['name']?.toString() ?? '—';
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 14, offset: const Offset(0, 6)),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: kPrimaryBlue.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Icon(Icons.grade_rounded, color: kPrimaryBlue, size: 24),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(subjectName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
+                                Text('$examName ${className != '—' ? '· $className' : ''}', style: TextStyle(fontSize: 13, color: kTextSecondary)),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            '${m.marksObtained}/${m.maxMarks}',
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimaryGreen),
+                          ),
+                          if (m.percentage != null) ...[
+                            const SizedBox(width: 8),
+                            Text('${m.percentage!.toStringAsFixed(0)}%', style: TextStyle(fontSize: 14, color: kTextSecondary)),
+                          ],
+                        ],
+                      ),
+                      if (m.grade != null && m.grade!.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text('Grade: ${m.grade}', style: TextStyle(fontSize: 13, color: kTextSecondary)),
+                        ),
+                      if (teacherName != '—')
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text('Teacher: $teacherName', style: TextStyle(fontSize: 12, color: kTextSecondary)),
+                        ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 }
