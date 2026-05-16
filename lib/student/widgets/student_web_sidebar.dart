@@ -43,49 +43,22 @@ class StudentWebSidebar extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(24),
+          DecoratedBox(
             decoration: const BoxDecoration(
               border: Border(
                 bottom: BorderSide(color: Color(0xFFE8ECF2)),
               ),
             ),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 72,
-                  height: 72,
-                  child: Image.asset(
-                    'assets/splash_image.png',
-                    fit: BoxFit.contain,
-                  ),
+            child: SizedBox(
+              width: double.infinity,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Image.asset(
+                  'assets/dugsi logo-04.png',
+                  width: 200,
+                  fit: BoxFit.contain,
                 ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Dugsi',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: _kPrimaryBlue,
-                        ),
-                      ),
-                      Text(
-                        'STUDENT',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: _kTextSecondary,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
           Expanded(

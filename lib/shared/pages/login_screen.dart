@@ -348,36 +348,35 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Image.asset(
-                          'assets/dugsi_app_icon.png',
-                          width: 48,
-                          height: 48,
+                        SizedBox(
+                          width: 230,
+                          height: 72,
+                          child: ClipRect(
+                            child: Transform.scale(
+                              scale: 1.35,
+                              alignment: Alignment.center,
+                              child: Image.asset(
+                                'assets/dugsi logo-04.png',
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                          ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(height: 4),
                         const Text(
-                          'Dugsi',
+                          'Welcome Back!',
+                          textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: darkBlue,
-                            fontSize: 28,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.5,
+                            color: Colors.black87,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 0.2,
                           ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Welcome Back!',
-                      style: TextStyle(
-                        color: Colors.black87,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 0.2,
-                      ),
                     ),
                     const SizedBox(height: 24),
                     Row(
