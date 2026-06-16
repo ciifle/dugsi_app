@@ -5,8 +5,10 @@ import 'package:kobac/student/widgets/student_web_ui.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
 const Color kPrimaryGreen = Color(0xFF5AB04B);
+const Color kPrimaryGreenOpacity = Color(0x1A5AB04B);
 const Color kSoftBlue = Color(0xFFE0E9F5);
 const Color kSoftGreen = Color(0xFFE4F1E2);
+const Color kSoftRed = Color(0xFFFFEBEE);
 const Color kErrorColor = Color(0xFFEF4444);
 const Color kTextPrimary = Color(0xFF1A1E1F);
 const Color kTextSecondary = Color(0xFF4F5A5E);
@@ -65,6 +67,31 @@ class _StudentTotalPageState extends State<StudentTotalPage> {
     }
     
     return 10; // Default
+  }
+
+  bool? _isPassedStatus(String? status) {
+    final normalized = status?.trim().toLowerCase();
+    if (normalized == null || normalized.isEmpty) return null;
+    if (normalized == 'pass' || normalized == 'passed') return true;
+    if (normalized == 'fail' || normalized == 'failed') return false;
+    return null;
+  }
+
+  bool? _isPassedFromExistingStatus() {
+    final matchingMarks = widget.marks.where((mark) {
+      if (_selectedExam == 'Total') return true;
+      return _getExamType(mark.exam['name']?.toString() ?? '') == _selectedExam;
+    });
+
+    bool? isPassed;
+    for (final mark in matchingMarks) {
+      final markPassed = _isPassedStatus(mark.status);
+      if (markPassed == null) continue;
+      isPassed ??= markPassed;
+      if (isPassed != markPassed) return null;
+    }
+
+    return isPassed;
   }
 
   // Get exam type for display
@@ -154,7 +181,17 @@ class _StudentTotalPageState extends State<StudentTotalPage> {
     final subjectTotals = totals['subjectTotals'] as Map<String, Map<String, num>>;
     final totalObtained = totals['totalObtained'] as num;
     final totalMax = totals['totalMax'] as num;
-    final percentage = totalMax > 0 ? (totalObtained / totalMax) * 100 : 0.0;
+    final percentage = totalMax > 0 ? (totalObtained / totalMax) * 100 : null;
+    final isPassed = percentage == null
+        ? null
+        : _isPassedFromExistingStatus() ?? percentage >= 50;
+    final percentageBg = isPassed == false
+        ? kSoftRed
+        : kPrimaryGreenOpacity;
+    final percentageColor = isPassed == false
+        ? const Color(0xFFD32F2F)
+        : kPrimaryGreen;
+    final statusText = isPassed == null ? 'N/A' : (isPassed ? 'PASS' : 'FAIL');
     
     final screenWidth = MediaQuery.of(context).size.width;
     final isWeb = kIsWeb || screenWidth > 600;
@@ -266,49 +303,88 @@ class _StudentTotalPageState extends State<StudentTotalPage> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 20),
+                            const SizedBox(height: 28),
                             Container(
-                              padding: const EdgeInsets.all(20),
+                              clipBehavior: Clip.antiAlias,
                               decoration: BoxDecoration(
-                                color: kSoftBlue,
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(18),
                               ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.baseline,
-                                textBaseline: TextBaseline.alphabetic,
+                              child: Column(
                                 children: [
-                                  Text(
-                                    totalObtained.toStringAsFixed(1),
-                                    style: const TextStyle(
-                                      fontSize: 32,
-                                      fontWeight: FontWeight.bold,
-                                      color: kPrimaryBlue,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    '/ ${totalMax.toStringAsFixed(0)}',
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w500,
-                                      color: kTextSecondary,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: kPrimaryGreen.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      '${percentage.toStringAsFixed(1)}%',
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: kPrimaryGreen,
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+                                    color: kSoftBlue,
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                                        textBaseline: TextBaseline.alphabetic,
+                                        children: [
+                                          Text(
+                                            totalObtained.toStringAsFixed(1),
+                                            style: const TextStyle(
+                                              fontSize: 42,
+                                              fontWeight: FontWeight.w800,
+                                              color: kPrimaryBlue,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 16),
+                                          Text(
+                                            '/ ${totalMax.toStringAsFixed(0)}',
+                                            style: const TextStyle(
+                                              fontSize: 24,
+                                              fontWeight: FontWeight.w700,
+                                              color: kTextSecondary,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
+                                  ),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Container(
+                                          alignment: Alignment.center,
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 22),
+                                          color: percentageBg,
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: Text(
+                                              percentage == null ? '-' : '${percentage.toStringAsFixed(1)}%',
+                                              style: TextStyle(
+                                                fontSize: 26,
+                                                fontWeight: FontWeight.w800,
+                                                color: percentageColor,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      Container(width: 2, height: 80, color: Colors.white),
+                                      Expanded(
+                                        child: Container(
+                                          alignment: Alignment.center,
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 22),
+                                          color: isPassed == false ? kSoftRed : kPrimaryGreenOpacity,
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: Text(
+                                              statusText,
+                                              style: TextStyle(
+                                                fontSize: 26,
+                                                fontWeight: FontWeight.w800,
+                                                color: isPassed == false
+                                                    ? const Color(0xFFD32F2F)
+                                                    : kPrimaryGreen,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
