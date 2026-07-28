@@ -16,6 +16,8 @@ class ExamModel {
   final double? weight;
   final String? className;
   final String? subjectName;
+  final int? academicYearId;
+  final String? academicYearName;
 
   const ExamModel({
     required this.id,
@@ -25,6 +27,8 @@ class ExamModel {
     this.weight,
     this.className,
     this.subjectName,
+    this.academicYearId,
+    this.academicYearName,
   });
 
   factory ExamModel.fromJson(Map<String, dynamic> json) {
@@ -34,17 +38,42 @@ class ExamModel {
       if (v is String) return int.tryParse(v) ?? 0;
       return 0;
     }
+
     String str(dynamic v) => v == null ? '' : v.toString().trim();
     String? strOpt(dynamic v) => v == null ? null : v.toString().trim();
-    
+
     return ExamModel(
       id: parseId(json['id'] ?? json['exam_id']),
       name: str(json['name'] ?? json['exam_name'] ?? json['examName']),
       date: strOpt(json['date']),
       examType: strOpt(json['exam_type']),
-      weight: json['weight'] != null ? (json['weight'] is num ? json['weight'].toDouble() : double.tryParse(json['weight'].toString())) : null,
-      className: strOpt(json['class_name'] ?? json['className'] ?? json['class'] is Map ? (json['class'] as Map)['name'] : null),
-      subjectName: strOpt(json['subject_name'] ?? json['subjectName'] ?? json['subject'] is Map ? (json['subject'] as Map)['name'] : null),
+      weight: json['weight'] != null
+          ? (json['weight'] is num
+                ? json['weight'].toDouble()
+                : double.tryParse(json['weight'].toString()))
+          : null,
+      className: strOpt(
+        json['class_name'] ?? json['className'] ?? json['class'] is Map
+            ? (json['class'] as Map)['name']
+            : null,
+      ),
+      subjectName: strOpt(
+        json['subject_name'] ?? json['subjectName'] ?? json['subject'] is Map
+            ? (json['subject'] as Map)['name']
+            : null,
+      ),
+      academicYearId: parseId(
+        json['academic_year_id'] ??
+            (json['academic_year'] is Map
+                ? (json['academic_year'] as Map)['id']
+                : null),
+      ),
+      academicYearName: strOpt(
+        json['academic_year_name'] ??
+            (json['academic_year'] is Map
+                ? (json['academic_year'] as Map)['name']
+                : null),
+      ),
     );
   }
 }
@@ -91,38 +120,65 @@ class ExamsService {
   /// POST /api/school-admin/exams  Body: { name, date, exam_type, weight }
   Future<ExamResult<ExamModel>> createExam(Map<String, dynamic> data) async {
     try {
-      int toInt(dynamic v) => v == null ? 0 : (v is int ? v : int.tryParse(v.toString()) ?? 0);
-      double? toDouble(dynamic v) => v == null ? null : (v is double ? v : double.tryParse(v.toString()));
-      
+      int toInt(dynamic v) =>
+          v == null ? 0 : (v is int ? v : int.tryParse(v.toString()) ?? 0);
+      double? toDouble(dynamic v) =>
+          v == null ? null : (v is double ? v : double.tryParse(v.toString()));
+
       final body = <String, dynamic>{
         'name': data['name']?.toString().trim() ?? '',
         'date': data['date']?.toString().trim() ?? '',
         'exam_type': data['exam_type']?.toString().trim(),
         'weight': toDouble(data['weight']),
+        'academic_year_id': toInt(data['academic_year_id']),
       };
-      
+
       final response = await _client.post(apiUrl(_base), body: body);
-      devLogResponse('ExamsService.createExam', response.statusCode, response.body);
-      
+      devLogResponse(
+        'ExamsService.createExam',
+        response.statusCode,
+        response.body,
+      );
+
       if (response.statusCode == 201) {
         final raw = _parseJson(response.body);
-        if (raw == null || raw is! Map<String, dynamic>) return ExamError('Invalid response from server. Please try again.');
+        if (raw == null || raw is! Map<String, dynamic>)
+          return ExamError('Invalid response from server. Please try again.');
         return ExamSuccess(ExamModel.fromJson(raw));
       }
-      if (response.statusCode == 400) return ExamError(_errorMessage(response) ?? 'Invalid data. Please try again.', 400);
-      return ExamError(_errorMessage(response) ?? 'Request failed. Please try again.', response.statusCode);
+      if (response.statusCode == 400)
+        return ExamError(
+          _errorMessage(response) ?? 'Invalid data. Please try again.',
+          400,
+        );
+      return ExamError(
+        _errorMessage(response) ?? 'Request failed. Please try again.',
+        response.statusCode,
+      );
     } catch (e, st) {
       return ExamError(userFriendlyMessage(e, st, 'ExamsService.createExam'));
     }
   }
 
   /// GET /api/school-admin/exams
-  Future<ExamResult<List<ExamModel>>> listExams() async {
+  Future<ExamResult<List<ExamModel>>> listExams({int? academicYearId}) async {
     try {
-      final response = await _client.get(apiUrl(_base));
-      devLogResponse('ExamsService.listExams', response.statusCode, response.body);
+      final uri = academicYearId == null
+          ? apiUrl(_base)
+          : apiUrl(
+              _base,
+            ).replace(queryParameters: {'academic_year_id': '$academicYearId'});
+      final response = await _client.get(uri);
+      devLogResponse(
+        'ExamsService.listExams',
+        response.statusCode,
+        response.body,
+      );
       if (response.statusCode != 200) {
-        return ExamError(_errorMessage(response) ?? 'Could not load exams. Please try again.', response.statusCode);
+        return ExamError(
+          _errorMessage(response) ?? 'Could not load exams. Please try again.',
+          response.statusCode,
+        );
       }
       final raw = _parseJson(response.body);
       List<dynamic> list;
@@ -133,7 +189,10 @@ class ExamsService {
         if (data is List) {
           list = data;
         } else if (data is Map<String, dynamic>) {
-          list = data['exams'] as List<dynamic>? ?? data['items'] as List<dynamic>? ?? [];
+          list =
+              data['exams'] as List<dynamic>? ??
+              data['items'] as List<dynamic>? ??
+              [];
         } else if (raw['exams'] is List) {
           list = raw['exams'] as List<dynamic>;
         } else if (raw['items'] is List) {
@@ -146,7 +205,11 @@ class ExamsService {
               break;
             }
           }
-          if (found == null) return ExamError(_errorMessage(response) ?? 'Invalid response from server. Please try again.');
+          if (found == null)
+            return ExamError(
+              _errorMessage(response) ??
+                  'Invalid response from server. Please try again.',
+            );
           list = found;
         }
       } else {
@@ -170,15 +233,25 @@ class ExamsService {
   Future<ExamResult<ExamModel>> getExam(int id) async {
     try {
       final response = await _client.get(apiUrl('$_base/$id'));
-      devLogResponse('ExamsService.getExam', response.statusCode, response.body);
+      devLogResponse(
+        'ExamsService.getExam',
+        response.statusCode,
+        response.body,
+      );
       if (response.statusCode == 404) return ExamError('Exam not found.', 404);
       if (response.statusCode != 200) {
-        return ExamError(_errorMessage(response) ?? 'Could not load exam. Please try again.', response.statusCode);
+        return ExamError(
+          _errorMessage(response) ?? 'Could not load exam. Please try again.',
+          response.statusCode,
+        );
       }
       final raw = _parseJson(response.body);
       Map<String, dynamic> map;
       if (raw is Map<String, dynamic>) {
-        map = raw['exam'] as Map<String, dynamic>? ?? raw['data'] as Map<String, dynamic>? ?? raw;
+        map =
+            raw['exam'] as Map<String, dynamic>? ??
+            raw['data'] as Map<String, dynamic>? ??
+            raw;
       } else {
         return ExamError('Invalid response from server. Please try again.');
       }
@@ -189,26 +262,46 @@ class ExamsService {
   }
 
   /// PATCH /api/school-admin/exams/{id}  Body: same as create — name, date, exam_type, weight
-  Future<ExamResult<ExamModel>> updateExam(int id, Map<String, dynamic> data) async {
+  Future<ExamResult<ExamModel>> updateExam(
+    int id,
+    Map<String, dynamic> data,
+  ) async {
     try {
-      double? toDouble(dynamic v) => v == null ? null : (v is double ? v : double.tryParse(v.toString()));
-      
+      double? toDouble(dynamic v) =>
+          v == null ? null : (v is double ? v : double.tryParse(v.toString()));
+
       final body = <String, dynamic>{
-        'name': data['name'] is String ? data['name'] as String : data['name'].toString(),
-        'date': data['date'] is String ? data['date'] as String : data['date']?.toString() ?? '',
+        'name': data['name'] is String
+            ? data['name'] as String
+            : data['name'].toString(),
+        'date': data['date'] is String
+            ? data['date'] as String
+            : data['date']?.toString() ?? '',
         'exam_type': data['exam_type']?.toString(),
         'weight': toDouble(data['weight']),
+        if (data['academic_year_id'] != null)
+          'academic_year_id': int.tryParse(data['academic_year_id'].toString()),
       };
       final response = await _client.patch(apiUrl('$_base/$id'), body: body);
-      devLogResponse('ExamsService.updateExam', response.statusCode, response.body);
+      devLogResponse(
+        'ExamsService.updateExam',
+        response.statusCode,
+        response.body,
+      );
       if (response.statusCode == 404) return ExamError('Exam not found.', 404);
       if (response.statusCode != 200) {
-        return ExamError(_errorMessage(response) ?? 'Could not update. Please try again.', response.statusCode);
+        return ExamError(
+          _errorMessage(response) ?? 'Could not update. Please try again.',
+          response.statusCode,
+        );
       }
       final raw = _parseJson(response.body);
       Map<String, dynamic> map;
       if (raw is Map<String, dynamic>) {
-        map = raw['exam'] as Map<String, dynamic>? ?? raw['data'] as Map<String, dynamic>? ?? raw;
+        map =
+            raw['exam'] as Map<String, dynamic>? ??
+            raw['data'] as Map<String, dynamic>? ??
+            raw;
       } else {
         return ExamError('Invalid response from server. Please try again.');
       }
@@ -222,10 +315,24 @@ class ExamsService {
   Future<ExamResult<bool>> deleteExam(int id) async {
     try {
       final response = await _client.delete(apiUrl('$_base/$id'));
-      devLogResponse('ExamsService.deleteExam', response.statusCode, response.body);
+      devLogResponse(
+        'ExamsService.deleteExam',
+        response.statusCode,
+        response.body,
+      );
       if (response.statusCode == 404) return ExamError('Exam not found.', 404);
-      if (response.statusCode != 200) {
-        return ExamError(_errorMessage(response) ?? 'Could not delete. Please try again.', response.statusCode);
+      if (response.statusCode == 409) {
+        return ExamError(
+          _errorMessage(response) ??
+              'Cannot delete exam because marks already exist.',
+          409,
+        );
+      }
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        return ExamError(
+          _errorMessage(response) ?? 'Could not delete. Please try again.',
+          response.statusCode,
+        );
       }
       return ExamSuccess(true);
     } catch (e, st) {

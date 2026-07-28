@@ -25,6 +25,8 @@ import 'package:kobac/school_admin/pages/admin_class_subjects_screen.dart';
 
 import 'package:kobac/school_admin/pages/admin_timetable_screen.dart';
 import 'package:kobac/school_admin/pages/admin_exams_screen.dart';
+import 'package:kobac/school_admin/pages/academic_years_page.dart';
+import 'package:kobac/school_admin/pages/student_promotions_page.dart';
 import 'package:kobac/school_admin/pages/admin_marks_screen.dart';
 import 'package:kobac/school_admin/pages/admin_notices_screen.dart';
 
@@ -101,6 +103,10 @@ class _WebAdminShellState extends State<WebAdminShell> {
         return 'Timetable';
       case 'exams':
         return 'Exams';
+      case 'academicYears':
+        return 'Academic Years';
+      case 'promotions':
+        return 'Student Promotions';
       case 'marks':
         return 'Marks';
       case 'notices':
@@ -199,6 +205,7 @@ class _WebAdminShellState extends State<WebAdminShell> {
         return AdminClassDetailsScreen(
           classId: args['classId'] as int,
           className: args['className'] as String,
+          initialAcademicYearId: args['academicYearId'] as int?,
           embedBodyOnly: true,
           onNavigateToPage: _navigateToPage,
         );
@@ -257,6 +264,10 @@ class _WebAdminShellState extends State<WebAdminShell> {
           embedBodyOnly: true,
           onNavigateToPage: _navigateToPage,
         );
+      case 'academicYears':
+        return const AcademicYearsPage(embedBodyOnly: true);
+      case 'promotions':
+        return const StudentPromotionsPage(embedBodyOnly: true);
       case 'marks':
         return AdminMarksScreen(
           embedBodyOnly: true,
@@ -310,9 +321,7 @@ class _WebAdminShellState extends State<WebAdminShell> {
                   onNavigateToPage: _navigateToPage,
                   onLogout: _handleLogout,
                 ),
-                Expanded(
-                  child: _buildBody(),
-                ),
+                Expanded(child: _buildBody()),
               ],
             ),
           ),

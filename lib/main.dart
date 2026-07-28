@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:kobac/services/auth_provider.dart';
+import 'package:kobac/services/academic_years_service.dart';
 import 'package:kobac/shared/pages/login_screen.dart';
 import 'package:kobac/shared/pages/splash_screen.dart';
 
@@ -19,8 +20,11 @@ class AppRoot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => AuthProvider(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => AcademicYearsProvider()),
+      ],
       child: MaterialApp(
         title: 'Dugsi',
         debugShowCheckedModeBanner: false,
@@ -85,7 +89,9 @@ class _AppStartRouterState extends State<AppStartRouter> {
     return Consumer<AuthProvider>(
       builder: (context, auth, _) {
         // Show splash only on cold start (first time this session), for 5s
-        final showSplash = !_splashShownThisSession && (!_splashMinTimeReached || auth.isLoading);
+        final showSplash =
+            !_splashShownThisSession &&
+            (!_splashMinTimeReached || auth.isLoading);
         if (showSplash) {
           return const SplashScreen();
         }

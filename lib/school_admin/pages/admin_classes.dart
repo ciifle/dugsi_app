@@ -165,13 +165,44 @@ class _AdminClassesPageState extends State<AdminClassesPage> {
                   children: [
                     _BackButton(onPressed: () => Navigator.pop(context)),
                     const SizedBox(width: 16),
-                    const Expanded(
-                      child: Text(
-                        "Classes",
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Classes",
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: kPrimaryBlue,
+                            ),
+                          ),
+                          Text(
+                            'Manage school classes',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    _AddButton(onPressed: _openCreateClass),
+                    ElevatedButton.icon(
+                      onPressed: _openCreateClass,
+                      icon: const Icon(Icons.add_rounded, size: 19),
+                      label: const Text('Add Class'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: kPrimaryGreen,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -216,7 +247,7 @@ class _AdminClassesPageState extends State<AdminClassesPage> {
                     future: _classesFuture,
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator(color: kPrimaryGreen));
+                        return const _MinimalClassSkeletonList();
                       }
                       if (snapshot.hasError) {
                         final userMsg = userFriendlyMessage(snapshot.error!, null, 'AdminClassesPage');
@@ -270,15 +301,51 @@ class _AdminClassesPageState extends State<AdminClassesPage> {
                           children: [
                             SizedBox(height: MediaQuery.of(context).size.height * 0.25),
                             Center(
-                              child: Column(
+                              child: Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 20),
+                                padding: const EdgeInsets.all(28),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(kCardRadius),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: kPrimaryBlue.withOpacity(0.06),
+                                      blurRadius: 18,
+                                      offset: const Offset(0, 6),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
                                 children: [
-                                  Icon(Icons.class_rounded, size: 60, color: Colors.grey[300]),
+                                    Icon(
+                                      Icons.school_rounded,
+                                      size: 60,
+                                      color: kPrimaryBlue.withOpacity(0.25),
+                                    ),
                                   const SizedBox(height: 12),
                                   Text(
-                                    searchQuery.isEmpty ? 'No classes yet' : 'No classes match your search',
-                                    style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                                    searchQuery.isEmpty ? 'No classes created' : 'No classes match your search',
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: kPrimaryBlue,
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                   ),
+                                    if (searchQuery.isEmpty) ...[
+                                      const SizedBox(height: 14),
+                                      ElevatedButton.icon(
+                                        onPressed: _openCreateClass,
+                                        icon: const Icon(Icons.add_rounded),
+                                        label: const Text('Create Class'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: kPrimaryGreen,
+                                          foregroundColor: Colors.white,
+                                        ),
+                                      ),
+                                    ],
                                 ],
+                                ),
                               ),
                             ),
                           ],
@@ -290,7 +357,8 @@ class _AdminClassesPageState extends State<AdminClassesPage> {
                         itemCount: classes.length,
                         itemBuilder: (context, index) {
                           final classModel = classes[index];
-                          return _ClassCard(
+                          return _MinimalClassCard(
+                            index: index,
                             classModel: classModel,
                             onTap: () {
                               final isDesktop = isDesktopWebAdminLayout(context);
@@ -298,6 +366,8 @@ class _AdminClassesPageState extends State<AdminClassesPage> {
                                 widget.onNavigateToPage!('classDetail', arguments: {
                                   'classId': classModel.id,
                                   'className': classModel.name,
+                                  'academicYearId':
+                                      classModel.academicYear?.id,
                                 });
                               } else {
                                 Navigator.of(context).push(
@@ -305,6 +375,8 @@ class _AdminClassesPageState extends State<AdminClassesPage> {
                                     builder: (_) => AdminClassDetailsScreen(
                                       classId: classModel.id,
                                       className: classModel.name,
+                                      initialAcademicYearId:
+                                          classModel.academicYear?.id,
                                     ),
                                   ),
                                 );
@@ -365,35 +437,12 @@ class _AdminClassesPageState extends State<AdminClassesPage> {
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(bottom: BorderSide(color: Color(0xFFE8ECF2), width: 1)),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: Text(
-                    'Class Name',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 80),
-              ],
-            ),
-          ),
           Expanded(
             child: FutureBuilder<ClassResult<List<ClassModel>>>(
               future: _classesFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator(color: kPrimaryBlue));
+                  return const _MinimalClassSkeletonList();
                 }
                 if (snapshot.hasError) {
                   final userMsg = userFriendlyMessage(snapshot.error!, null, 'AdminClassesPage');
@@ -450,9 +499,36 @@ class _AdminClassesPageState extends State<AdminClassesPage> {
                     children: [
                       SizedBox(height: MediaQuery.of(context).size.height * 0.25),
                       Center(
-                        child: Text(
-                          searchQuery.isEmpty ? 'No classes yet' : 'No classes match your search',
-                          style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.school_rounded,
+                              size: 60,
+                              color: kPrimaryBlue.withOpacity(0.25),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              searchQuery.isEmpty
+                                  ? 'No classes created'
+                                  : 'No classes match your search',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 16,
+                              ),
+                            ),
+                            if (searchQuery.isEmpty) ...[
+                              const SizedBox(height: 14),
+                              ElevatedButton.icon(
+                                onPressed: _openCreateClass,
+                                icon: const Icon(Icons.add_rounded),
+                                label: const Text('Create Class'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: kPrimaryGreen,
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     ],
@@ -460,17 +536,19 @@ class _AdminClassesPageState extends State<AdminClassesPage> {
                 }
                 return ListView.builder(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
                   itemCount: classes.length,
                   itemBuilder: (context, index) {
                     final classModel = classes[index];
-                    return _ClassRow(
+                    return _MinimalClassCard(
+                      index: index,
                       classModel: classModel,
                       onTap: () {
                         if (widget.onNavigateToPage != null) {
                           widget.onNavigateToPage!('classDetail', arguments: {
                             'classId': classModel.id,
                             'className': classModel.name,
+                            'academicYearId': classModel.academicYear?.id,
                           });
                         }
                       },
@@ -979,13 +1057,15 @@ class _AddButton extends StatelessWidget {
   }
 }
 
-class _ClassCard extends StatelessWidget {
+class _MinimalClassCard extends StatelessWidget {
+  final int index;
   final ClassModel classModel;
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
-  const _ClassCard({
+  const _MinimalClassCard({
+    required this.index,
     required this.classModel,
     required this.onTap,
     required this.onEdit,
@@ -994,56 +1074,609 @@ class _ClassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(kCardRadius),
-          boxShadow: [
-            BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 6)),
-            BoxShadow(color: kPrimaryBlue.withOpacity(0.03), blurRadius: 32, offset: const Offset(0, 12)),
-          ],
+    final countText = classModel.studentCount == 0
+        ? 'No students'
+        : '${classModel.studentCount} '
+              'Student${classModel.studentCount == 1 ? '' : 's'}';
+    return TweenAnimationBuilder<double>(
+      duration: Duration(
+        milliseconds: 240 + (index.clamp(0, 5).toInt() * 40),
+      ),
+      tween: Tween(begin: 0, end: 1),
+      builder: (context, value, child) => Opacity(
+        opacity: value,
+        child: Transform.translate(
+          offset: Offset(0, 10 * (1 - value)),
+          child: child,
         ),
+      ),
+      child: Material(
+        color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(kCardRadius),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Row(
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(kCardRadius),
+              boxShadow: [
+                BoxShadow(
+                  color: kPrimaryBlue.withOpacity(0.07),
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
+                ),
+                BoxShadow(
+                  color: kPrimaryBlue.withOpacity(0.03),
+                  blurRadius: 32,
+                  offset: const Offset(0, 12),
+                ),
+              ],
+            ),
+            child: Column(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: kPrimaryBlue.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: const Icon(Icons.class_rounded, color: kPrimaryBlue, size: 28),
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundColor: kPrimaryBlue.withOpacity(0.1),
+                      child: const Icon(
+                        Icons.school_rounded,
+                        color: kPrimaryBlue,
+                        size: 30,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            classModel.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 19,
+                              height: 1.2,
+                              fontWeight: FontWeight.w700,
+                              color: kPrimaryBlue,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.groups_rounded,
+                                size: 18,
+                                color: kPrimaryGreen,
+                              ),
+                              const SizedBox(width: 7),
+                              Expanded(
+                                child: Text(
+                                  countText,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: kPrimaryBlue,
+                      size: 26,
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    classModel.name,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kPrimaryBlue),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 22, color: kPrimaryGreen),
-                  onPressed: onEdit,
-                  tooltip: 'Edit',
-                ),
-                IconButton(
-                  icon: Icon(Icons.delete_outline, size: 22, color: Colors.red[400]),
-                  onPressed: onDelete,
-                  tooltip: 'Delete',
+                const SizedBox(height: 18),
+                Container(height: 1, color: const Color(0xFFE8ECF2)),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton.icon(
+                        onPressed: onEdit,
+                        icon: const Icon(Icons.edit_outlined, size: 20),
+                        label: const Text('Edit'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: kPrimaryGreen,
+                          minimumSize: const Size(0, 46),
+                        ),
+                      ),
+                    ),
+                    Container(
+                      width: 1,
+                      height: 28,
+                      color: const Color(0xFFE8ECF2),
+                    ),
+                    Expanded(
+                      child: TextButton.icon(
+                        onPressed: onDelete,
+                        icon: const Icon(
+                          Icons.delete_outline_rounded,
+                          size: 20,
+                        ),
+                        label: const Text('Delete'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          minimumSize: const Size(0, 46),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ClassCard extends StatelessWidget {
+  final int index;
+  final ClassModel classModel;
+  final VoidCallback onTap;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _ClassCard({
+    this.index = 0,
+    required this.classModel,
+    required this.onTap,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      duration: Duration(
+        milliseconds: 260 + (index.clamp(0, 5).toInt() * 45),
+      ),
+      tween: Tween(begin: 0, end: 1),
+      builder: (context, value, child) => Opacity(
+        opacity: value,
+        child: Transform.translate(
+          offset: Offset(0, 12 * (1 - value)),
+          child: child,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(kCardRadius),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(kCardRadius),
+              boxShadow: [
+                BoxShadow(
+                  color: kPrimaryBlue.withOpacity(0.07),
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
+                ),
+                BoxShadow(
+                  color: kPrimaryBlue.withOpacity(0.03),
+                  blurRadius: 32,
+                  offset: const Offset(0, 12),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                Container(
+                      width: 54,
+                      height: 54,
+                      alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                        color: kPrimaryBlue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                      child: const Icon(
+                        Icons.school_rounded,
+                        color: kPrimaryBlue,
+                        size: 30,
+                      ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    classModel.name,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: kPrimaryBlue,
+                        ),
+                        maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: kPrimaryBlue,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ClassInfo(
+                        icon: Icons.groups_rounded,
+                        label: 'Students',
+                        value: classModel.studentCount.toString(),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: _ClassInfo(
+                        icon: Icons.menu_book_rounded,
+                        label: 'Subjects',
+                        value: '—',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: _ClassInfo(
+                        icon: Icons.person_rounded,
+                        label: 'Class Teacher',
+                        value: 'Not assigned',
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: _ClassInfo(
+                        icon: Icons.calendar_month_rounded,
+                        label: 'Academic Year',
+                        value: classModel.academicYear?.name ?? '—',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Container(height: 1, color: const Color(0xFFE8ECF2)),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton.icon(
+                        onPressed: onTap,
+                        icon: const Icon(Icons.arrow_forward_rounded, size: 19),
+                        label: const Text('Manage'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: kPrimaryBlue,
+                          minimumSize: const Size(0, 44),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: TextButton.icon(
+                        onPressed: onEdit,
+                        icon: const Icon(Icons.edit_outlined, size: 19),
+                        label: const Text('Edit'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: kPrimaryGreen,
+                          minimumSize: const Size(0, 44),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: TextButton.icon(
+                        onPressed: onDelete,
+                        icon: const Icon(
+                          Icons.delete_outline_rounded,
+                          size: 19,
+                        ),
+                        label: const Text('Delete'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          minimumSize: const Size(0, 44),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ClassInfo extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _ClassInfo({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: kPrimaryGreen),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                value,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: kPrimaryBlue,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ClassSummary extends StatelessWidget {
+  final List<ClassModel> classes;
+
+  const _ClassSummary({required this.classes});
+
+  @override
+  Widget build(BuildContext context) {
+    final students = classes.fold<int>(
+      0,
+      (total, item) => total + item.studentCount,
+    );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: _SummaryCard(
+              icon: Icons.school_rounded,
+              value: '${classes.length}',
+              label: classes.length == 1 ? 'Class' : 'Classes',
+              color: kPrimaryBlue,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _SummaryCard(
+              icon: Icons.groups_rounded,
+              value: '$students',
+              label: students == 1 ? 'Student' : 'Students',
+              color: kPrimaryGreen,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryCard extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  final String label;
+  final Color color;
+
+  const _SummaryCard({
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(9),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 21),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                  ),
+                ),
+                Text(
+                  label,
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MinimalClassSkeletonList extends StatelessWidget {
+  const _MinimalClassSkeletonList();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      itemCount: 4,
+      itemBuilder: (context, index) => Container(
+        height: 174,
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(kCardRadius),
+          boxShadow: [
+            BoxShadow(
+              color: kPrimaryBlue.withOpacity(0.05),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: const Column(
+          children: [
+            Row(
+              children: [
+                _ClassSkeletonBlock(width: 56, height: 56),
+                SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _ClassSkeletonBlock(width: 150, height: 16),
+                      SizedBox(height: 10),
+                      _ClassSkeletonBlock(width: 105, height: 13),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 22),
+            _ClassSkeletonBlock(height: 46),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ClassSkeletonList extends StatelessWidget {
+  const _ClassSkeletonList();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      itemCount: 4,
+      itemBuilder: (context, index) => Container(
+        height: 286,
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(kCardRadius),
+          boxShadow: [
+            BoxShadow(
+              color: kPrimaryBlue.withOpacity(0.05),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                _ClassSkeletonBlock(width: 54, height: 54),
+                SizedBox(width: 16),
+                _ClassSkeletonBlock(width: 150, height: 16),
+              ],
+            ),
+            SizedBox(height: 28),
+            Row(
+              children: [
+                Expanded(child: _ClassSkeletonBlock(height: 42)),
+                SizedBox(width: 14),
+                Expanded(child: _ClassSkeletonBlock(height: 42)),
+              ],
+            ),
+            SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(child: _ClassSkeletonBlock(height: 42)),
+                SizedBox(width: 14),
+                Expanded(child: _ClassSkeletonBlock(height: 42)),
+              ],
+            ),
+            SizedBox(height: 24),
+            _ClassSkeletonBlock(height: 42),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ClassSkeletonBlock extends StatelessWidget {
+  final double? width;
+  final double height;
+
+  const _ClassSkeletonBlock({this.width, required this.height});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8ECF2),
+        borderRadius: BorderRadius.circular(12),
       ),
     );
   }

@@ -57,7 +57,7 @@ class _WebSidebarState extends State<WebSidebar> {
               ),
             ),
           ),
-          
+
           // Navigation Items
           Expanded(
             child: SingleChildScrollView(
@@ -75,7 +75,10 @@ class _WebSidebarState extends State<WebSidebar> {
                   _SidebarSection(
                     title: 'Students',
                     icon: Icons.people_alt_rounded,
-                    isExpanded: _expandedSection == 'students' || widget.selectedPage == 'students' || widget.selectedPage == 'addStudent',
+                    isExpanded:
+                        _expandedSection == 'students' ||
+                        widget.selectedPage == 'students' ||
+                        widget.selectedPage == 'addStudent',
                     onTap: () => _toggleSection('students'),
                     children: [
                       _SidebarItem(
@@ -96,7 +99,8 @@ class _WebSidebarState extends State<WebSidebar> {
                   _SidebarSection(
                     title: 'Teachers',
                     icon: Icons.school_rounded,
-                    isExpanded: _expandedSection == 'teachers' ||
+                    isExpanded:
+                        _expandedSection == 'teachers' ||
                         widget.selectedPage == 'teachers' ||
                         widget.selectedPage == 'addTeacher' ||
                         widget.selectedPage == 'editTeacher' ||
@@ -121,7 +125,8 @@ class _WebSidebarState extends State<WebSidebar> {
                   _SidebarSection(
                     title: 'Classes',
                     icon: Icons.class_rounded,
-                    isExpanded: _expandedSection == 'classes' ||
+                    isExpanded:
+                        _expandedSection == 'classes' ||
                         widget.selectedPage == 'classes' ||
                         widget.selectedPage == 'addClass' ||
                         widget.selectedPage == 'editClass' ||
@@ -147,7 +152,8 @@ class _WebSidebarState extends State<WebSidebar> {
                   _SidebarSection(
                     title: 'Subjects',
                     icon: Icons.menu_book_rounded,
-                    isExpanded: _expandedSection == 'subjects' ||
+                    isExpanded:
+                        _expandedSection == 'subjects' ||
                         widget.selectedPage == 'subjects' ||
                         widget.selectedPage == 'classSubjects' ||
                         widget.selectedPage == 'addSubject' ||
@@ -186,7 +192,6 @@ class _WebSidebarState extends State<WebSidebar> {
                         icon: Icons.person_outline_rounded,
                         onTap: () => _navigateToPage('attendance'),
                       ),
-
                     ],
                   ),
                   if (context.watch<AuthProvider>().feesEnabled) ...[
@@ -220,10 +225,26 @@ class _WebSidebarState extends State<WebSidebar> {
                   ),
                   const _SidebarDivider(),
                   _SidebarSection(
+                    title: 'Academic Years',
+                    icon: Icons.calendar_month_rounded,
+                    isExpanded: _expandedSection == 'academicYears',
+                    onTap: () => _navigateToPage('academicYears'),
+                    children: [],
+                  ),
+                  const _SidebarDivider(),
+                  _SidebarSection(
                     title: 'Exams',
                     icon: Icons.quiz_outlined,
                     isExpanded: _expandedSection == 'exams',
                     onTap: () => _navigateToPage('exams'),
+                    children: [],
+                  ),
+                  const _SidebarDivider(),
+                  _SidebarSection(
+                    title: 'Student Promotions',
+                    icon: Icons.trending_up_rounded,
+                    isExpanded: _expandedSection == 'promotions',
+                    onTap: () => _navigateToPage('promotions'),
                     children: [],
                   ),
                   const _SidebarDivider(),
@@ -319,7 +340,9 @@ class _SidebarSection extends StatelessWidget {
                 Icon(
                   icon,
                   size: 20,
-                  color: isExpanded ? const Color(0xFF023471) : const Color(0xFF6B6B6B),
+                  color: isExpanded
+                      ? const Color(0xFF023471)
+                      : const Color(0xFF6B6B6B),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -328,7 +351,9 @@ class _SidebarSection extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: isExpanded ? const Color(0xFF023471) : const Color(0xFF2D2D2D),
+                      color: isExpanded
+                          ? const Color(0xFF023471)
+                          : const Color(0xFF2D2D2D),
                     ),
                   ),
                 ),
@@ -382,7 +407,9 @@ class _SidebarItem extends StatelessWidget {
             Icon(
               icon,
               size: 16,
-              color: isActive ? const Color(0xFF023471) : const Color(0xFF6B6B6B),
+              color: isActive
+                  ? const Color(0xFF023471)
+                  : const Color(0xFF6B6B6B),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -391,7 +418,9 @@ class _SidebarItem extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: isActive ? const Color(0xFF023471) : const Color(0xFF2D2D2D),
+                  color: isActive
+                      ? const Color(0xFF023471)
+                      : const Color(0xFF2D2D2D),
                 ),
               ),
             ),

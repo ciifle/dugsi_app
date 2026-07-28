@@ -25,6 +25,9 @@ import 'package:kobac/school_admin/pages/admin_exams_screen.dart';
 import 'package:kobac/school_admin/pages/admin_marks_screen.dart';
 import 'package:kobac/school_admin/pages/admin_notices_screen.dart';
 import 'package:kobac/school_admin/pages/settings_page.dart';
+import 'package:kobac/services/academic_years_service.dart';
+import 'package:kobac/school_admin/pages/academic_years_page.dart';
+import 'package:intl/intl.dart';
 
 /// Desktop dashboard with stat cards and quick actions
 class WebDashboard extends StatefulWidget {
@@ -52,6 +55,7 @@ class _WebDashboardState extends State<WebDashboard> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    context.read<AcademicYearsProvider>().ensureLoaded();
     _loadData();
   }
 
@@ -76,16 +80,20 @@ class _WebDashboardState extends State<WebDashboard> {
 
       setState(() {
         if (futures[0] is StudentSuccess<List<StudentModel>>) {
-          _studentCount = (futures[0] as StudentSuccess<List<StudentModel>>).data.length;
+          _studentCount =
+              (futures[0] as StudentSuccess<List<StudentModel>>).data.length;
         }
         if (futures[1] is TeacherSuccess<List<TeacherModel>>) {
-          _teacherCount = (futures[1] as TeacherSuccess<List<TeacherModel>>).data.length;
+          _teacherCount =
+              (futures[1] as TeacherSuccess<List<TeacherModel>>).data.length;
         }
         if (futures[2] is SubjectSuccess<List<SubjectModel>>) {
-          _subjectCount = (futures[2] as SubjectSuccess<List<SubjectModel>>).data.length;
+          _subjectCount =
+              (futures[2] as SubjectSuccess<List<SubjectModel>>).data.length;
         }
         if (futures[3] is ClassSuccess<List<ClassModel>>) {
-          _classCount = (futures[3] as ClassSuccess<List<ClassModel>>).data.length;
+          _classCount =
+              (futures[3] as ClassSuccess<List<ClassModel>>).data.length;
         }
         _loading = false;
       });
@@ -108,12 +116,75 @@ class _WebDashboardState extends State<WebDashboard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _activeYearCard(),
+          const SizedBox(height: 24),
           // Stat Cards Grid
           _buildStatCardsGrid(),
           const SizedBox(height: 24),
 
           // Quick Actions Section
           _buildQuickActionsSection(),
+        ],
+      ),
+    );
+  }
+
+  Widget _activeYearCard() {
+    final provider = context.watch<AcademicYearsProvider>();
+    final year = provider.activeYear;
+    final dates = year?.startDate != null && year?.endDate != null
+        ? '${DateFormat('dd MMM yyyy').format(year!.startDate!)} — ${DateFormat('dd MMM yyyy').format(year.endDate!)}'
+        : 'Dates unavailable';
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF023471).withOpacity(.08),
+            blurRadius: 24,
+            offset: const Offset(6, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const CircleAvatar(
+            backgroundColor: Color(0xFFE8EEF5),
+            child: Icon(Icons.calendar_month_rounded, color: Color(0xFF023471)),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: provider.loading
+                ? const LinearProgressIndicator()
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Active Academic Year',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      Text(
+                        year?.name ?? 'No active academic year',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF023471),
+                        ),
+                      ),
+                      if (year != null) Text(dates),
+                    ],
+                  ),
+          ),
+          TextButton(
+            onPressed: () =>
+                _navigateToPage('academicYears', const AcademicYearsPage()),
+            child: const Text('Manage'),
+          ),
         ],
       ),
     );
@@ -143,7 +214,8 @@ class _WebDashboardState extends State<WebDashboard> {
         label: 'Attendance',
         value: _loading ? '...' : '92%',
         growth: '+5%',
-        onTap: () => _navigateToPage('attendance', const AdminAttendanceScreen()),
+        onTap: () =>
+            _navigateToPage('attendance', const AdminAttendanceScreen()),
       ),
       DashboardStatCard(
         icon: Icons.class_rounded,
@@ -158,7 +230,11 @@ class _WebDashboardState extends State<WebDashboard> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final crossAxisCount = width >= 980 ? 4 : width >= 650 ? 2 : 1;
+        final crossAxisCount = width >= 980
+            ? 4
+            : width >= 650
+            ? 2
+            : 1;
 
         return GridView.builder(
           shrinkWrap: true,
@@ -210,8 +286,13 @@ class _WebDashboardState extends State<WebDashboard> {
         LayoutBuilder(
           builder: (context, constraints) {
             final width = constraints.maxWidth;
-            final crossAxisCount =
-                width >= 1100 ? 5 : width >= 850 ? 4 : width >= 600 ? 2 : 1;
+            final crossAxisCount = width >= 1100
+                ? 5
+                : width >= 850
+                ? 4
+                : width >= 600
+                ? 2
+                : 1;
 
             return GridView.builder(
               shrinkWrap: true,
@@ -232,84 +313,87 @@ class _WebDashboardState extends State<WebDashboard> {
   }
 
   List<QuickActionCard> get _quickActions => [
-        QuickActionCard(
-          icon: Icons.person_add_rounded,
-          iconColor: const Color(0xFF023471),
-          title: 'Add Student',
-          description: 'Register a new student',
-          onTap: () => _navigateToPage('addStudent', const CreateStudentScreen()),
-        ),
-        QuickActionCard(
-          icon: Icons.school_rounded,
-          iconColor: const Color(0xFF5AB04B),
-          title: 'Add Teacher',
-          description: 'Register a new teacher',
-          onTap: () => _navigateToPage('addTeacher', const CreateTeacherScreen()),
-        ),
-        QuickActionCard(
-          icon: Icons.class_rounded,
-          iconColor: const Color(0xFFF59E0B),
-          title: 'Add Class',
-          description: 'Create a new class',
-          onTap: () => _navigateToPage('addClass', const AddClassScreen()),
-        ),
-        QuickActionCard(
-          icon: Icons.book_rounded,
-          iconColor: const Color(0xFF8B5CF6),
-          title: 'Add Subject',
-          description: 'Add a new subject',
-          onTap: () => _navigateToPage('addSubject', const AddSubjectScreen()),
-        ),
-        QuickActionCard(
-          icon: Icons.calendar_today_rounded,
-          iconColor: const Color(0xFF10B981),
-          title: 'Attendance',
-          description: 'Track attendance',
-          onTap: () => _navigateToPage('attendance', const AdminAttendanceScreen()),
-        ),
-        QuickActionCard(
-          icon: Icons.attach_money_rounded,
-          iconColor: const Color(0xFFEF4444),
-          title: 'Fees',
-          description: 'Manage fees',
-          onTap: () => _navigateToPage('fees', const AdminFeesScreen()),
-        ),
-        QuickActionCard(
-          icon: Icons.message_rounded,
-          iconColor: const Color(0xFF06B6D4),
-          title: 'Messages',
-          description: 'Send messages',
-          onTap: () => _navigateToPage('messages', const MessageScreen(embedInParent: false)),
-        ),
-        QuickActionCard(
-          icon: Icons.schedule_rounded,
-          iconColor: const Color(0xFF023471),
-          title: 'Timetable',
-          description: 'View timetable',
-          onTap: () => _navigateToPage('timetable', const AdminTimetableScreen()),
-        ),
-        QuickActionCard(
-          icon: Icons.quiz_rounded,
-          iconColor: const Color(0xFF5AB04B),
-          title: 'Exams',
-          description: 'Manage exams',
-          onTap: () => _navigateToPage('exams', const AdminExamsScreen()),
-        ),
-        QuickActionCard(
-          icon: Icons.grade_rounded,
-          iconColor: const Color(0xFFF59E0B),
-          title: 'Marks',
-          description: 'Manage marks',
-          onTap: () => _navigateToPage('marks', const AdminMarksScreen()),
-        ),
-        QuickActionCard(
-          icon: Icons.campaign_rounded,
-          iconColor: const Color(0xFF8B5CF6),
-          title: 'Notices',
-          description: 'Post notices',
-          onTap: () => _navigateToPage('notices', const AdminNoticesScreen()),
-        ),
-      ];
+    QuickActionCard(
+      icon: Icons.person_add_rounded,
+      iconColor: const Color(0xFF023471),
+      title: 'Add Student',
+      description: 'Register a new student',
+      onTap: () => _navigateToPage('addStudent', const CreateStudentScreen()),
+    ),
+    QuickActionCard(
+      icon: Icons.school_rounded,
+      iconColor: const Color(0xFF5AB04B),
+      title: 'Add Teacher',
+      description: 'Register a new teacher',
+      onTap: () => _navigateToPage('addTeacher', const CreateTeacherScreen()),
+    ),
+    QuickActionCard(
+      icon: Icons.class_rounded,
+      iconColor: const Color(0xFFF59E0B),
+      title: 'Add Class',
+      description: 'Create a new class',
+      onTap: () => _navigateToPage('addClass', const AddClassScreen()),
+    ),
+    QuickActionCard(
+      icon: Icons.book_rounded,
+      iconColor: const Color(0xFF8B5CF6),
+      title: 'Add Subject',
+      description: 'Add a new subject',
+      onTap: () => _navigateToPage('addSubject', const AddSubjectScreen()),
+    ),
+    QuickActionCard(
+      icon: Icons.calendar_today_rounded,
+      iconColor: const Color(0xFF10B981),
+      title: 'Attendance',
+      description: 'Track attendance',
+      onTap: () => _navigateToPage('attendance', const AdminAttendanceScreen()),
+    ),
+    QuickActionCard(
+      icon: Icons.attach_money_rounded,
+      iconColor: const Color(0xFFEF4444),
+      title: 'Fees',
+      description: 'Manage fees',
+      onTap: () => _navigateToPage('fees', const AdminFeesScreen()),
+    ),
+    QuickActionCard(
+      icon: Icons.message_rounded,
+      iconColor: const Color(0xFF06B6D4),
+      title: 'Messages',
+      description: 'Send messages',
+      onTap: () => _navigateToPage(
+        'messages',
+        const MessageScreen(embedInParent: false),
+      ),
+    ),
+    QuickActionCard(
+      icon: Icons.schedule_rounded,
+      iconColor: const Color(0xFF023471),
+      title: 'Timetable',
+      description: 'View timetable',
+      onTap: () => _navigateToPage('timetable', const AdminTimetableScreen()),
+    ),
+    QuickActionCard(
+      icon: Icons.quiz_rounded,
+      iconColor: const Color(0xFF5AB04B),
+      title: 'Exams',
+      description: 'Manage exams',
+      onTap: () => _navigateToPage('exams', const AdminExamsScreen()),
+    ),
+    QuickActionCard(
+      icon: Icons.grade_rounded,
+      iconColor: const Color(0xFFF59E0B),
+      title: 'Marks',
+      description: 'Manage marks',
+      onTap: () => _navigateToPage('marks', const AdminMarksScreen()),
+    ),
+    QuickActionCard(
+      icon: Icons.campaign_rounded,
+      iconColor: const Color(0xFF8B5CF6),
+      title: 'Notices',
+      description: 'Post notices',
+      onTap: () => _navigateToPage('notices', const AdminNoticesScreen()),
+    ),
+  ];
 
   String _formatCount(int n) {
     if (n >= 1000) return "${(n / 1000).toStringAsFixed(1)}k";

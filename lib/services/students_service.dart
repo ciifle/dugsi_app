@@ -13,6 +13,7 @@ class StudentModel {
   final int? userId;
   final int? schoolId;
   final int? classId;
+
   /// EMIS number. Empty string when API returns null (legacy rows).
   final String emisNumber;
   final String studentName;
@@ -37,6 +38,8 @@ class StudentModel {
   final String? updatedAt;
   final Map<String, dynamic>? user;
   final Map<String, dynamic>? class_;
+  final int? enrollmentId;
+  final String? enrollmentStatus;
 
   const StudentModel({
     required this.id,
@@ -66,11 +69,14 @@ class StudentModel {
     this.updatedAt,
     this.user,
     this.class_,
+    this.enrollmentId,
+    this.enrollmentStatus,
   });
 
   /// Class display name: Class.name or className
   String get classDisplayName {
-    if (class_ != null && class_!['name'] != null) return class_!['name'].toString();
+    if (class_ != null && class_!['name'] != null)
+      return class_!['name'].toString();
     return className ?? '—';
   }
 
@@ -81,6 +87,7 @@ class StudentModel {
       if (v is String) return int.tryParse(v) ?? 0;
       return 0;
     }
+
     String str(dynamic v) => v == null ? '' : v.toString().trim();
     String? strOpt(dynamic v) => v == null ? null : v.toString().trim();
     int? intOpt(dynamic v) {
@@ -89,6 +96,7 @@ class StudentModel {
       if (v is String) return int.tryParse(v);
       return null;
     }
+
     return StudentModel(
       id: parseId(json['id']),
       userId: json['user_id'] != null ? parseId(json['user_id']) : null,
@@ -106,19 +114,31 @@ class StudentModel {
       birthPlace: strOpt(json['birthPlace'] ?? json['birth_place']),
       nationality: strOpt(json['nationality']),
       studentState: strOpt(json['studentState'] ?? json['student_state']),
-      studentDistrict: strOpt(json['studentDistrict'] ?? json['student_district']),
+      studentDistrict: strOpt(
+        json['studentDistrict'] ?? json['student_district'],
+      ),
       studentVillage: strOpt(json['studentVillage'] ?? json['student_village']),
-      disabilityStatus: strOpt(json['disabilityStatus'] ?? json['disability_status']),
+      disabilityStatus: strOpt(
+        json['disabilityStatus'] ?? json['disability_status'],
+      ),
       guardianName: strOpt(json['guardianName'] ?? json['guardian_name']),
       schoolName: strOpt(json['schoolName'] ?? json['school_name']),
       className: strOpt(json['className'] ?? json['class_name']),
       age: intOpt(json['age']),
-      absenteeismStatus: strOpt(json['absenteeismStatus'] ?? json['absenteeism_status']),
+      absenteeismStatus: strOpt(
+        json['absenteeismStatus'] ?? json['absenteeism_status'],
+      ),
       createdAt: strOpt(json['created_at']),
       updatedAt: strOpt(json['updated_at']),
-      user: json['user'] is Map ? Map<String, dynamic>.from(json['user'] as Map) : null,
+      user: json['user'] is Map
+          ? Map<String, dynamic>.from(json['user'] as Map)
+          : null,
       // API may send "Class" (capital C) or "class"
       class_: _parseClassMap(json),
+      enrollmentId: intOpt(json['enrollmentId'] ?? json['enrollment_id']),
+      enrollmentStatus: strOpt(
+        json['enrollmentStatus'] ?? json['enrollment_status'],
+      ),
     );
   }
 
@@ -256,8 +276,14 @@ String? _errorMessage(http.Response response) {
   try {
     final m = jsonDecode(response.body);
     if (m is! Map) return null;
-    if (m['message'] != null) return m['message'] is String ? m['message'] as String : m['message'].toString();
-    if (m['error'] != null) return m['error'] is String ? m['error'] as String : m['error'].toString();
+    if (m['message'] != null)
+      return m['message'] is String
+          ? m['message'] as String
+          : m['message'].toString();
+    if (m['error'] != null)
+      return m['error'] is String
+          ? m['error'] as String
+          : m['error'].toString();
     final errors = m['errors'];
     if (errors is List && errors.isNotEmpty) {
       final first = errors.first;
@@ -266,7 +292,8 @@ String? _errorMessage(http.Response response) {
     if (errors is Map && errors.isNotEmpty) {
       final firstKey = errors.keys.first;
       final val = errors[firstKey];
-      if (val is List && val.isNotEmpty) return val.first is String ? val.first as String : val.first.toString();
+      if (val is List && val.isNotEmpty)
+        return val.first is String ? val.first as String : val.first.toString();
       if (val is String) return val;
     }
   } catch (_) {}
@@ -278,23 +305,49 @@ class StudentsService {
   static final StudentsService _instance = StudentsService._();
   factory StudentsService() => _instance;
 
-  Future<StudentResult<StudentModel>> createStudent(Map<String, dynamic> body) async {
+  Future<StudentResult<StudentModel>> createStudent(
+    Map<String, dynamic> body,
+  ) async {
     try {
       final response = await _client.post(apiUrl(_base), body: body);
-      devLogResponse('StudentsService.createStudent', response.statusCode, response.body);
+      devLogResponse(
+        'StudentsService.createStudent',
+        response.statusCode,
+        response.body,
+      );
       if (response.statusCode == 201) {
         final raw = _parseJson(response.body);
-        if (raw == null || raw is! Map) return StudentError('Invalid response from server. Please try again.');
+        if (raw == null || raw is! Map)
+          return StudentError(
+            'Invalid response from server. Please try again.',
+          );
         final m = raw as Map<String, dynamic>;
         final studentMap = m['student'] ?? m;
-        if (studentMap is! Map<String, dynamic>) return StudentError('Invalid response from server. Please try again.');
+        if (studentMap is! Map<String, dynamic>)
+          return StudentError(
+            'Invalid response from server. Please try again.',
+          );
         return StudentSuccess(StudentModel.fromJson(studentMap));
       }
-      if (response.statusCode == 409) return StudentError(_errorMessage(response) ?? 'EMIS number already exists.', 409);
-      if (response.statusCode == 400) return StudentError(_errorMessage(response) ?? 'Invalid data. Please check and try again.', 400);
-      return StudentError(_errorMessage(response) ?? 'Request failed. Please try again.', response.statusCode);
+      if (response.statusCode == 409)
+        return StudentError(
+          _errorMessage(response) ?? 'EMIS number already exists.',
+          409,
+        );
+      if (response.statusCode == 400)
+        return StudentError(
+          _errorMessage(response) ??
+              'Invalid data. Please check and try again.',
+          400,
+        );
+      return StudentError(
+        _errorMessage(response) ?? 'Request failed. Please try again.',
+        response.statusCode,
+      );
     } catch (e, st) {
-      return StudentError(userFriendlyMessage(e, st, 'StudentsService.createStudent'));
+      return StudentError(
+        userFriendlyMessage(e, st, 'StudentsService.createStudent'),
+      );
     }
   }
 
@@ -306,9 +359,17 @@ class StudentsService {
         url = url.replace(queryParameters: {'class_id': classId.toString()});
       }
       final response = await _client.get(url);
-      devLogResponse('StudentsService.listStudents', response.statusCode, response.body);
+      devLogResponse(
+        'StudentsService.listStudents',
+        response.statusCode,
+        response.body,
+      );
       if (response.statusCode != 200) {
-        return StudentError(_errorMessage(response) ?? 'Could not load students. Please try again.', response.statusCode);
+        return StudentError(
+          _errorMessage(response) ??
+              'Could not load students. Please try again.',
+          response.statusCode,
+        );
       }
       final raw = _parseJson(response.body);
       List<dynamic> list;
@@ -320,7 +381,10 @@ class StudentsService {
         } else if (raw['students'] is List) {
           list = raw['students'] as List<dynamic>;
         } else {
-          return StudentError(_errorMessage(response) ?? 'Invalid response from server. Please try again.');
+          return StudentError(
+            _errorMessage(response) ??
+                'Invalid response from server. Please try again.',
+          );
         }
       } else {
         return StudentError('Invalid response from server. Please try again.');
@@ -330,24 +394,37 @@ class StudentsService {
         if (e is! Map) continue;
         final map = e as Map;
         // API may return flat object or wrapped as { "student": { ... } }
-        final flat = map['student'] is Map ? Map<String, dynamic>.from(map['student'] as Map) : Map<String, dynamic>.from(map);
+        final flat = map['student'] is Map
+            ? Map<String, dynamic>.from(map['student'] as Map)
+            : Map<String, dynamic>.from(map);
         try {
           students.add(StudentModel.fromJson(flat));
         } catch (_) {}
       }
       return StudentSuccess(students);
     } catch (e, st) {
-      return StudentError(userFriendlyMessage(e, st, 'StudentsService.listStudents'));
+      return StudentError(
+        userFriendlyMessage(e, st, 'StudentsService.listStudents'),
+      );
     }
   }
 
   Future<StudentResult<StudentModel>> getStudent(int id) async {
     try {
       final response = await _client.get(apiUrl('$_base/$id'));
-      devLogResponse('StudentsService.getStudent', response.statusCode, response.body);
-      if (response.statusCode == 404) return StudentError('Student not found.', 404);
+      devLogResponse(
+        'StudentsService.getStudent',
+        response.statusCode,
+        response.body,
+      );
+      if (response.statusCode == 404)
+        return StudentError('Student not found.', 404);
       if (response.statusCode != 200) {
-        return StudentError(_errorMessage(response) ?? 'Could not load student. Please try again.', response.statusCode);
+        return StudentError(
+          _errorMessage(response) ??
+              'Could not load student. Please try again.',
+          response.statusCode,
+        );
       }
       final raw = _parseJson(response.body);
       Map<String, dynamic> map;
@@ -369,19 +446,41 @@ class StudentsService {
       }
       return StudentSuccess(StudentModel.fromJson(map));
     } catch (e, st) {
-      return StudentError(userFriendlyMessage(e, st, 'StudentsService.getStudent'));
+      return StudentError(
+        userFriendlyMessage(e, st, 'StudentsService.getStudent'),
+      );
     }
   }
 
-  Future<StudentResult<StudentModel>> updateStudent(int id, Map<String, dynamic> body) async {
+  Future<StudentResult<StudentModel>> updateStudent(
+    int id,
+    Map<String, dynamic> body,
+  ) async {
     try {
       final response = await _client.patch(apiUrl('$_base/$id'), body: body);
-      devLogResponse('StudentsService.updateStudent', response.statusCode, response.body);
-      if (response.statusCode == 404) return StudentError('Student not found.', 404);
-      if (response.statusCode == 409) return StudentError(_errorMessage(response) ?? 'EMIS number already exists.', 409);
-      if (response.statusCode == 400) return StudentError(_errorMessage(response) ?? 'Invalid data. Please check and try again.', 400);
+      devLogResponse(
+        'StudentsService.updateStudent',
+        response.statusCode,
+        response.body,
+      );
+      if (response.statusCode == 404)
+        return StudentError('Student not found.', 404);
+      if (response.statusCode == 409)
+        return StudentError(
+          _errorMessage(response) ?? 'EMIS number already exists.',
+          409,
+        );
+      if (response.statusCode == 400)
+        return StudentError(
+          _errorMessage(response) ??
+              'Invalid data. Please check and try again.',
+          400,
+        );
       if (response.statusCode != 200) {
-        return StudentError(_errorMessage(response) ?? 'Could not update. Please try again.', response.statusCode);
+        return StudentError(
+          _errorMessage(response) ?? 'Could not update. Please try again.',
+          response.statusCode,
+        );
       }
       final raw = _parseJson(response.body);
       Map<String, dynamic> map;
@@ -392,21 +491,33 @@ class StudentsService {
       }
       return StudentSuccess(StudentModel.fromJson(map));
     } catch (e, st) {
-      return StudentError(userFriendlyMessage(e, st, 'StudentsService.updateStudent'));
+      return StudentError(
+        userFriendlyMessage(e, st, 'StudentsService.updateStudent'),
+      );
     }
   }
 
   Future<StudentResult<bool>> deleteStudent(int id) async {
     try {
       final response = await _client.delete(apiUrl('$_base/$id'));
-      devLogResponse('StudentsService.deleteStudent', response.statusCode, response.body);
-      if (response.statusCode == 404) return StudentError('Student not found.', 404);
+      devLogResponse(
+        'StudentsService.deleteStudent',
+        response.statusCode,
+        response.body,
+      );
+      if (response.statusCode == 404)
+        return StudentError('Student not found.', 404);
       if (response.statusCode != 200) {
-        return StudentError(_errorMessage(response) ?? 'Could not delete. Please try again.', response.statusCode);
+        return StudentError(
+          _errorMessage(response) ?? 'Could not delete. Please try again.',
+          response.statusCode,
+        );
       }
       return StudentSuccess(true);
     } catch (e, st) {
-      return StudentError(userFriendlyMessage(e, st, 'StudentsService.deleteStudent'));
+      return StudentError(
+        userFriendlyMessage(e, st, 'StudentsService.deleteStudent'),
+      );
     }
   }
 }

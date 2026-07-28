@@ -10,7 +10,7 @@ import 'package:kobac/school_admin/pages/edit_student_screen.dart';
 const Color kPrimaryBlue = Color(0xFF023471);
 const Color kPrimaryGreen = Color(0xFF5AB04B);
 const Color kBgColor = Color(0xFFF0F3F7);
-const double kStudentCardRadius = 12.0;
+const double kStudentCardRadius = 20.0;
 
 class AdminStudentsScreen extends StatefulWidget {
   final bool embedBodyOnly;
@@ -143,41 +143,67 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
                 border: Border(bottom: BorderSide(color: Color(0xFFE8ECF2), width: 1)),
               ),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Students',
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF023471),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Manage all student records and information',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      ],
-                    ),
+                  _StudentsBackButton(
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
-                  ElevatedButton.icon(
-                    onPressed: _navigateToCreate,
-                    icon: const Icon(Icons.add_rounded, size: 20),
-                    label: const Text('Add Student'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF5AB04B),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final compact = constraints.maxWidth < 520;
+                        return Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 16,
+                          runSpacing: 16,
+                          children: [
+                            SizedBox(
+                              width: compact
+                                  ? constraints.maxWidth
+                                  : constraints.maxWidth - 170,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Students',
+                                    style: TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      color: kPrimaryBlue,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Manage all student records and information',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            ElevatedButton.icon(
+                              onPressed: _navigateToCreate,
+                              icon: const Icon(Icons.add_rounded, size: 20),
+                              label: const Text('Add Student'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: kPrimaryGreen,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 14,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -186,167 +212,25 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
           // Search and filters section
           Container(
             padding: const EdgeInsets.all(24),
-            child: Row(
-              children: [
-                // Search bar
-                Expanded(
-                  flex: 2,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFE8ECF2), width: 1),
-                    ),
-                    child: TextField(
-                      controller: _searchController,
-                      onChanged: (val) => setState(() => searchQuery = val),
-                      decoration: InputDecoration(
-                        hintText: 'Search students...',
-                        hintStyle: TextStyle(color: Colors.grey.shade500),
-                        prefixIcon: Icon(Icons.search_rounded, color: Colors.grey.shade500),
-                        suffixIcon: searchQuery.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear, color: Colors.grey),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  setState(() => searchQuery = '');
-                                },
-                              )
-                            : null,
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                // Filter buttons
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFE8ECF2), width: 1),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF023471),
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(8),
-                            bottomLeft: Radius.circular(8),
-                          ),
-                        ),
-                        child: const Text(
-                          'All',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        child: Text(
-                          'Active',
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: const BoxDecoration(
-                          borderRadius: BorderRadius.only(
-                            topRight: Radius.circular(8),
-                            bottomRight: Radius.circular(8),
-                          ),
-                        ),
-                        child: Text(
-                          'Inactive',
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Table header
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(bottom: BorderSide(color: Color(0xFFE8ECF2), width: 1)),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    'Student Name',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  flex: 1,
-                  child: Text(
-                    'EMIS Number',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  flex: 1,
-                  child: Text(
-                    'Class',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  flex: 1,
-                  child: Text(
-                    'Phone',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  flex: 1,
-                  child: Text(
-                    'Status',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 80),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 650;
+                final search = _buildSearchField();
+                final filters = _buildStatusFilters();
+                if (compact) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [search, const SizedBox(height: 12), filters],
+                  );
+                }
+                return Row(
+                  children: [
+                    Expanded(child: search),
+                    const SizedBox(width: 16),
+                    filters,
+                  ],
+                );
+              },
             ),
           ),
           // Students list
@@ -355,7 +239,7 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
               future: _studentsFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator(color: Color(0xFF023471)));
+                  return const _StudentCardSkeletonList();
                 }
                 if (snapshot.hasError) {
                   final userMsg = userFriendlyMessage(snapshot.error!, null, 'AdminStudentsScreen');
@@ -408,31 +292,56 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
                 if (students.isEmpty) {
                   return ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
                     children: [
                       SizedBox(height: MediaQuery.of(context).size.height * 0.25),
                       Center(
-                        child: Column(
-                          children: [
-                            Icon(Icons.person_search_rounded, size: 60, color: Colors.grey[300]),
-                            const SizedBox(height: 12),
-                            Text(
-                              searchQuery.isEmpty ? 'No students yet' : 'No students match your search',
-                              style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                        child: Container(
+                          padding: const EdgeInsets.all(28),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(
+                              kStudentCardRadius,
                             ),
-                            if (searchQuery.isEmpty) ...[
-                              const SizedBox(height: 8),
-                              ElevatedButton.icon(
-                                onPressed: _navigateToCreate,
-                                icon: const Icon(Icons.add_rounded),
-                                label: const Text('Add First Student'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF5AB04B),
-                                  foregroundColor: Colors.white,
-                                ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: kPrimaryBlue.withOpacity(0.06),
+                                blurRadius: 18,
+                                offset: const Offset(0, 6),
                               ),
                             ],
-                          ],
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.person_search_rounded,
+                                size: 60,
+                                color: kPrimaryBlue.withOpacity(0.25),
+                              ),
+                              const SizedBox(height: 12),
+                              const Text(
+                                'No students found',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: kPrimaryBlue,
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              if (searchQuery.isEmpty) ...[
+                                const SizedBox(height: 8),
+                                ElevatedButton.icon(
+                                  onPressed: _navigateToCreate,
+                                  icon: const Icon(Icons.add_rounded),
+                                  label: const Text('Add First Student'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF5AB04B),
+                                    foregroundColor: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
                       ),
                     ],
@@ -440,11 +349,11 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
                 }
                 return ListView.builder(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
                   itemCount: students.length,
                   itemBuilder: (context, index) {
                     final student = students[index];
-                    return _StudentRow(
+                    return _StudentCard(
                       student: student,
                       onTap: () => _navigateToDetail(student),
                       onEdit: () => _navigateToEdit(student),
@@ -456,6 +365,135 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSearchField() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE8ECF2)),
+        boxShadow: [
+          BoxShadow(
+            color: kPrimaryBlue.withOpacity(0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: TextField(
+        controller: _searchController,
+        onChanged: (value) => setState(() => searchQuery = value),
+        decoration: InputDecoration(
+          hintText: 'Search students...',
+          hintStyle: TextStyle(color: Colors.grey.shade500),
+          prefixIcon: Icon(
+            Icons.search_rounded,
+            color: Colors.grey.shade500,
+          ),
+          suffixIcon: searchQuery.isEmpty
+              ? null
+              : IconButton(
+                  icon: const Icon(Icons.clear, color: Colors.grey),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => searchQuery = '');
+                  },
+                ),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusFilters() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE8ECF2)),
+      ),
+      padding: const EdgeInsets.all(4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+            decoration: BoxDecoration(
+              color: kPrimaryBlue,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Text(
+              'All',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          _StatusFilterLabel(label: 'Active'),
+          _StatusFilterLabel(label: 'Inactive'),
+        ],
+      ),
+    );
+  }
+}
+
+class _StudentsBackButton extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _StudentsBackButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: kPrimaryBlue.withOpacity(0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Icon(
+          Icons.arrow_back_rounded,
+          color: kPrimaryBlue,
+          size: 24,
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusFilterLabel extends StatelessWidget {
+  final String label;
+
+  const _StatusFilterLabel({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: Colors.grey.shade600,
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+        ),
       ),
     );
   }
@@ -613,6 +651,300 @@ class _StudentRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _StudentCard extends StatelessWidget {
+  final StudentModel student;
+  final VoidCallback onTap;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _StudentCard({
+    required this.student,
+    required this.onTap,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final active =
+        (student.absenteeismStatus ?? 'Active').toLowerCase() == 'active';
+    final statusColor = active ? kPrimaryGreen : Colors.red;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(kStudentCardRadius),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(kStudentCardRadius),
+            boxShadow: [
+              BoxShadow(
+                color: kPrimaryBlue.withOpacity(0.07),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundColor: kPrimaryBlue.withOpacity(0.1),
+                    child: Text(
+                      student.studentName.isEmpty
+                          ? '?'
+                          : student.studentName[0].toUpperCase(),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: kPrimaryBlue,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          student.studentName,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            height: 1.25,
+                            fontWeight: FontWeight.w700,
+                            color: kPrimaryBlue,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'EMIS: ${student.emisNumber.trim().isEmpty ? '—' : student.emisNumber}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 7,
+                          height: 7,
+                          decoration: BoxDecoration(
+                            color: statusColor,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          active ? 'Active' : 'Inactive',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: statusColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(height: 1, color: const Color(0xFFE8ECF2)),
+              const SizedBox(height: 14),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _StudentInfo(
+                      label: 'Class',
+                      value: student.classDisplayName,
+                    ),
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: _StudentInfo(
+                      label: 'Phone',
+                      value: (student.telephone?.trim().isNotEmpty ?? false)
+                          ? student.telephone!
+                          : '—',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Container(height: 1, color: const Color(0xFFE8ECF2)),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton.icon(
+                      onPressed: onEdit,
+                      icon: const Icon(Icons.edit_outlined, size: 20),
+                      label: const Text('Edit'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: kPrimaryGreen,
+                        minimumSize: const Size(0, 44),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextButton.icon(
+                      onPressed: onDelete,
+                      icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                      label: const Text('Delete'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        minimumSize: const Size(0, 44),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StudentInfo extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _StudentInfo({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey.shade500,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: kPrimaryBlue,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StudentCardSkeletonList extends StatelessWidget {
+  const _StudentCardSkeletonList();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+      itemCount: 4,
+      itemBuilder: (context, index) => Container(
+        height: 210,
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(kStudentCardRadius),
+          boxShadow: [
+            BoxShadow(
+              color: kPrimaryBlue.withOpacity(0.05),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                _SkeletonBlock(width: 48, height: 48, circular: true),
+                SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _SkeletonBlock(width: 150, height: 14),
+                      SizedBox(height: 8),
+                      _SkeletonBlock(width: 90, height: 10),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 28),
+            _SkeletonBlock(width: 42, height: 9),
+            SizedBox(height: 8),
+            _SkeletonBlock(width: 120, height: 13),
+            SizedBox(height: 24),
+            _SkeletonBlock(width: double.infinity, height: 42),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SkeletonBlock extends StatelessWidget {
+  final double width;
+  final double height;
+  final bool circular;
+
+  const _SkeletonBlock({
+    required this.width,
+    required this.height,
+    this.circular = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8ECF2),
+        shape: circular ? BoxShape.circle : BoxShape.rectangle,
+        borderRadius: circular ? null : BorderRadius.circular(8),
       ),
     );
   }

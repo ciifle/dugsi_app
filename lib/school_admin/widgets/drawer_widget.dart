@@ -4,6 +4,8 @@ import 'package:kobac/school_admin/pages/admin_profile.dart';
 import 'package:kobac/school_admin/pages/admin_timetable_screen.dart';
 import 'package:kobac/school_admin/pages/admin_periods_screen.dart';
 import 'package:kobac/school_admin/pages/admin_exams_screen.dart';
+import 'package:kobac/school_admin/pages/academic_years_page.dart';
+import 'package:kobac/school_admin/pages/student_promotions_page.dart';
 import 'package:kobac/school_admin/pages/admin_marks_screen.dart';
 import 'package:kobac/school_admin/pages/admin_notices_screen.dart';
 import 'package:kobac/school_admin/pages/change_password_page.dart';
@@ -29,10 +31,12 @@ class AppDrawer extends StatelessWidget {
   /// When set, tapping profile header will pop the drawer and call this
   /// (e.g. switch to Profile tab) instead of pushing a new route.
   final VoidCallback? onProfileTap;
+
   /// When set, list items push onto this (e.g. nested Navigator) so bottom nav stays.
   final void Function(Widget page)? onNavigateToPage;
 
-  const AppDrawer({Key? key, this.onProfileTap, this.onNavigateToPage}) : super(key: key);
+  const AppDrawer({Key? key, this.onProfileTap, this.onNavigateToPage})
+    : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -86,81 +90,109 @@ class AppDrawer extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         children: [
                           _DrawerMenuCard(
-                          icon: Icons.schedule_rounded,
-                          label: 'Timetable',
-                          onTap: () => _navTo(context, const AdminTimetableScreen()),
-                        ),
-                        const SizedBox(height: 12),
-                        _DrawerMenuCard(
-                          icon: Icons.access_time_filled_rounded,
-                          label: 'Periods',
-                          onTap: () => _navTo(context, const AdminPeriodsScreen()),
-                        ),
-                        const SizedBox(height: 12),
-                        _DrawerMenuCard(
-                          icon: Icons.assignment_rounded,
-                          label: 'Assignments',
-                          onTap: () => _navTo(context, const AdminAssignmentsScreen()),
-                        ),
-                        const SizedBox(height: 12),
-                        _DrawerMenuCard(
-                          icon: Icons.menu_book_rounded,
-                          label: 'Class Subjects',
-                          onTap: () => _navTo(context, const AdminClassSubjectsScreen()),
-                        ),
-                        const SizedBox(height: 12),
-                        _DrawerMenuCard(
-                          icon: Icons.quiz_outlined,
-                          label: 'Exams',
-                          onTap: () => _navTo(context, const AdminExamsScreen()),
-                        ),
-                        const SizedBox(height: 12),
-                        _DrawerMenuCard(
-                          icon: Icons.grade_outlined,
-                          label: 'Marks',
-                          onTap: () => _navTo(context, const AdminMarksScreen()),
-                        ),
-                        const SizedBox(height: 12),
-                        _DrawerMenuCard(
-                          icon: Icons.campaign_outlined,
-                          label: 'Notices',
-                          onTap: () => _navTo(context, const AdminNoticesScreen()),
-                        ),
-                        const SizedBox(height: 12),
-                        _DrawerMenuCard(
-                          icon: Icons.family_restroom_outlined,
-                          label: 'Parents',
-                          onTap: () => _navTo(context, const AdminParentsScreen()),
-                        ),
-                        const SizedBox(height: 12),
-                        if (context.watch<AuthProvider>().feesEnabled) ...[
-                          _DrawerMenuCard(
-                            icon: Icons.payments_outlined,
-                            label: 'Fees',
-                            onTap: () => _navTo(context, const AdminFeesScreen()),
+                            icon: Icons.schedule_rounded,
+                            label: 'Timetable',
+                            onTap: () =>
+                                _navTo(context, const AdminTimetableScreen()),
                           ),
                           const SizedBox(height: 12),
+                          _DrawerMenuCard(
+                            icon: Icons.access_time_filled_rounded,
+                            label: 'Periods',
+                            onTap: () =>
+                                _navTo(context, const AdminPeriodsScreen()),
+                          ),
+                          const SizedBox(height: 12),
+                          _DrawerMenuCard(
+                            icon: Icons.assignment_rounded,
+                            label: 'Assignments',
+                            onTap: () =>
+                                _navTo(context, const AdminAssignmentsScreen()),
+                          ),
+                          const SizedBox(height: 12),
+                          _DrawerMenuCard(
+                            icon: Icons.menu_book_rounded,
+                            label: 'Class Subjects',
+                            onTap: () => _navTo(
+                              context,
+                              const AdminClassSubjectsScreen(),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          _DrawerMenuCard(
+                            icon: Icons.calendar_month_rounded,
+                            label: 'Academic Years',
+                            onTap: () =>
+                                _navTo(context, const AcademicYearsPage()),
+                          ),
+                          const SizedBox(height: 12),
+                          _DrawerMenuCard(
+                            icon: Icons.quiz_outlined,
+                            label: 'Exams',
+                            onTap: () =>
+                                _navTo(context, const AdminExamsScreen()),
+                          ),
+                          const SizedBox(height: 12),
+                          _DrawerMenuCard(
+                            icon: Icons.trending_up_rounded,
+                            label: 'Student Promotions',
+                            onTap: () =>
+                                _navTo(context, const StudentPromotionsPage()),
+                          ),
+                          const SizedBox(height: 12),
+                          _DrawerMenuCard(
+                            icon: Icons.grade_outlined,
+                            label: 'Marks',
+                            onTap: () =>
+                                _navTo(context, const AdminMarksScreen()),
+                          ),
+                          const SizedBox(height: 12),
+                          _DrawerMenuCard(
+                            icon: Icons.campaign_outlined,
+                            label: 'Notices',
+                            onTap: () =>
+                                _navTo(context, const AdminNoticesScreen()),
+                          ),
+                          const SizedBox(height: 12),
+                          _DrawerMenuCard(
+                            icon: Icons.family_restroom_outlined,
+                            label: 'Parents',
+                            onTap: () =>
+                                _navTo(context, const AdminParentsScreen()),
+                          ),
+                          const SizedBox(height: 12),
+                          if (context.watch<AuthProvider>().feesEnabled) ...[
+                            _DrawerMenuCard(
+                              icon: Icons.payments_outlined,
+                              label: 'Fees',
+                              onTap: () =>
+                                  _navTo(context, const AdminFeesScreen()),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                          _DrawerMenuCard(
+                            icon: Icons.event_note_outlined,
+                            label: 'Attendance',
+                            onTap: () =>
+                                _navTo(context, const AdminAttendanceScreen()),
+                          ),
+                          const SizedBox(height: 12),
+                          _DrawerMenuCard(
+                            icon: Icons.notifications_outlined,
+                            label: 'Notification',
+                            onTap: () =>
+                                _navTo(context, const NotificationsPage()),
+                          ),
+                          const SizedBox(height: 12),
+                          _DrawerMenuCard(
+                            icon: Icons.lock_reset_rounded,
+                            label: 'Change Password',
+                            onTap: () =>
+                                _navTo(context, const ChangePasswordPage()),
+                          ),
                         ],
-                        _DrawerMenuCard(
-                          icon: Icons.event_note_outlined,
-                          label: 'Attendance',
-                          onTap: () => _navTo(context, const AdminAttendanceScreen()),
-                        ),
-                        const SizedBox(height: 12),
-                        _DrawerMenuCard(
-                          icon: Icons.notifications_outlined,
-                          label: 'Notification',
-                          onTap: () => _navTo(context, const NotificationsPage()),
-                        ),
-                        const SizedBox(height: 12),
-                        _DrawerMenuCard(
-                          icon: Icons.lock_reset_rounded,
-                          label: 'Change Password',
-                          onTap: () => _navTo(context, const ChangePasswordPage()),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
                     const SizedBox(height: 36),
                     _LogOutButton(
                       onTap: () async {
@@ -218,105 +250,111 @@ class _DrawerProfileHeader extends StatelessWidget {
     final email = user?.email ?? user?.emisNumber ?? 'admin@school.com';
 
     return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: _NeumorphicPillCard(
-            raised: true,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: InkWell(
-              onTap: () {
-                Navigator.pop(context);
-                if (onProfileTap != null) {
-                  onProfileTap!();
-                } else {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminProfilePage()));
-                }
-              },
-              borderRadius: BorderRadius.circular(999),
-              child: Row(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: _NeumorphicPillCard(
+        raised: true,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: InkWell(
+          onTap: () {
+            Navigator.pop(context);
+            if (onProfileTap != null) {
+              onProfileTap!();
+            } else {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AdminProfilePage()),
+              );
+            }
+          },
+          borderRadius: BorderRadius.circular(999),
+          child: Row(
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: kDrawerTextDark.withOpacity(0.35), width: 1.5),
-                        ),
-                        child: CircleAvatar(
-                          radius: 28,
-                          backgroundColor: kDrawerIconBlue.withOpacity(0.2),
-                          child: Text(
-                            name.isNotEmpty ? name[0].toUpperCase() : 'A',
-                            style: const TextStyle(
-                              color: kDrawerBlue,
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                  Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: kDrawerTextDark.withOpacity(0.35),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: CircleAvatar(
+                      radius: 28,
+                      backgroundColor: kDrawerIconBlue.withOpacity(0.2),
+                      child: Text(
+                        name.isNotEmpty ? name[0].toUpperCase() : 'A',
+                        style: const TextStyle(
+                          color: kDrawerBlue,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                      Positioned(
-                        right: 0,
-                        bottom: 0,
-                        child: Container(
-                          width: 14,
-                          height: 14,
-                          decoration: BoxDecoration(
-                            color: kDrawerTeal,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
-                            boxShadow: [
-                              BoxShadow(
-                                color: kDrawerTeal.withOpacity(0.4),
-                                blurRadius: 4,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          name,
-                          style: const TextStyle(
-                            color: kDrawerTextDark,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 17,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          email ?? '',
-                          style: const TextStyle(
-                            color: kDrawerTextGray,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w400,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
                     ),
                   ),
-                  Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    size: 14,
-                    color: kDrawerIconBlue,
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: kDrawerTeal,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: kDrawerTeal.withOpacity(0.4),
+                            blurRadius: 4,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
-            ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        color: kDrawerTextDark,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 17,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      email ?? '',
+                      style: const TextStyle(
+                        color: kDrawerTextGray,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 14,
+                color: kDrawerIconBlue,
+              ),
+            ],
           ),
-        );
+        ),
+      ),
+    );
   }
 }
 
@@ -411,7 +449,10 @@ class _DrawerMenuCard extends StatelessWidget {
                   if (badgeCount != null && badgeCount! > 0) ...[
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: kDrawerIconBlue,
                         shape: BoxShape.circle,
