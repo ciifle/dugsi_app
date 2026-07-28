@@ -825,7 +825,10 @@ class TeacherService {
         'marks_obtained': marksObtained,
         'max_marks': maxMarks,
       };
-      final response = await _client.post(apiUrl('$_base/marks'), body: body);
+      final endpoint = apiUrl('$_base/marks');
+      debugPrint('[TeacherService.createMark] endpoint=$endpoint');
+      debugPrint('[TeacherService.createMark] payload=${jsonEncode(body)}');
+      final response = await _client.post(endpoint, body: body);
       devLogResponse('TeacherService.createMark', response.statusCode, response.body);
       if (response.statusCode == 403) {
         return TeacherError(_errorMessage(response) ?? 'Not allowed for this class/subject.', 403);
@@ -863,7 +866,10 @@ class TeacherService {
         'marks_obtained': marksObtained,
         'max_marks': maxMarks,
       };
-      final response = await _client.post(apiUrl('$_base/marks/student'), body: body);
+      final endpoint = apiUrl('$_base/marks/student');
+      debugPrint('[TeacherService.createMarkForSingleStudent] endpoint=$endpoint');
+      debugPrint('[TeacherService.createMarkForSingleStudent] payload=${jsonEncode(body)}');
+      final response = await _client.post(endpoint, body: body);
       devLogResponse('TeacherService.createMarkForSingleStudent', response.statusCode, response.body);
       if (response.statusCode == 403) {
         return TeacherError(_errorMessage(response) ?? 'Not allowed for this student/subject.', 403);
@@ -888,7 +894,7 @@ class TeacherService {
     required int examId,
     required int classId,
     required int subjectId,
-    required int maxMarks,
+    required num maxMarks,
     required List<Map<String, dynamic>> records,
   }) async {
     try {
@@ -899,7 +905,10 @@ class TeacherService {
         'max_marks': maxMarks,
         'records': records,
       };
-      final response = await _client.post(apiUrl('$_base/marks'), body: body);
+      final endpoint = apiUrl('$_base/marks');
+      debugPrint('[TeacherService.createBulkMarks] endpoint=$endpoint');
+      debugPrint('[TeacherService.createBulkMarks] payload=${jsonEncode(body)}');
+      final response = await _client.post(endpoint, body: body);
       devLogResponse('TeacherService.createBulkMarks', response.statusCode, response.body);
       if (response.statusCode == 403) {
         return TeacherError(_errorMessage(response) ?? 'Not allowed for this class/subject.', 403);
@@ -917,6 +926,8 @@ class TeacherService {
       final items = marksData.whereType<Map<String, dynamic>>().map(TeacherMarkModel.fromJson).toList();
       return TeacherSuccess(items);
     } catch (e, st) {
+      debugPrint('[TeacherService.createBulkMarks] exception=$e');
+      debugPrint('$st');
       return TeacherError(userFriendlyMessage(e, st, 'TeacherService.createBulkMarks'));
     }
   }
@@ -925,7 +936,10 @@ class TeacherService {
   Future<TeacherResult<void>> updateMark(int id, {required num marksObtained, required num maxMarks}) async {
     try {
       final body = {'marks_obtained': marksObtained, 'max_marks': maxMarks};
-      final response = await _client.patch(apiUrl('$_base/marks/$id'), body: body);
+      final endpoint = apiUrl('$_base/marks/$id');
+      debugPrint('[TeacherService.updateMark] endpoint=$endpoint');
+      debugPrint('[TeacherService.updateMark] payload=${jsonEncode(body)}');
+      final response = await _client.patch(endpoint, body: body);
       devLogResponse('TeacherService.updateMark', response.statusCode, response.body);
       if (response.statusCode == 403) return TeacherError(_errorMessage(response) ?? 'Not allowed.', 403);
       if (response.statusCode == 404) return TeacherError('Mark not found.', 404);

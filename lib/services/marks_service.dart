@@ -45,8 +45,8 @@ class MarkModel {
   final int examId;
   final int studentId;
   final int subjectId;
-  final int marksObtained;
-  final int maxMarks;
+  final num marksObtained;
+  final num maxMarks;
   final int? teacherId;
   final String? grade;
   final String? createdAt;
@@ -98,15 +98,14 @@ class MarkModel {
       if (v is String) return int.tryParse(v) ?? 0;
       return 0;
     }
-    /// Parse numeric value from backend (int, double, or string). Only use fallback when value is truly missing.
-    int parseMarksNum(dynamic v, int fallback) {
+    /// Parse numeric mark values without rounding. Only use fallback when value is truly missing.
+    num parseMarksNum(dynamic v, num fallback) {
       if (v == null) return fallback;
-      if (v is int) return v;
-      if (v is double) return v.round();
+      if (v is num) return v;
       if (v is String) {
         final s = v.trim();
         if (s.isEmpty) return fallback;
-        return int.tryParse(s) ?? double.tryParse(s)?.round() ?? fallback;
+        return num.tryParse(s) ?? fallback;
       }
       return fallback;
     }
@@ -278,16 +277,24 @@ class MarksService {
   Future<MarkResult<MarkModel>> createMark(Map<String, dynamic> payload) async {
     try {
       int toInt(dynamic v) => v == null ? 0 : (v is int ? v : int.tryParse(v.toString()) ?? 0);
+      num toMarkNum(dynamic v, num fallback) {
+        if (v == null) return fallback;
+        if (v is num) return v;
+        return num.tryParse(v.toString()) ?? fallback;
+      }
       final body = <String, dynamic>{
         'exam_id': toInt(payload['exam_id']),
         'student_id': toInt(payload['student_id']),
         'subject_id': toInt(payload['subject_id']),
-        'marks_obtained': toInt(payload['marks_obtained']),
-        'max_marks': toInt(payload['max_marks']),
+        'marks_obtained': toMarkNum(payload['marks_obtained'], 0),
+        'max_marks': toMarkNum(payload['max_marks'], 100),
       };
       final tid = toInt(payload['teacher_id']);
       if (tid > 0) body['teacher_id'] = tid;
-      final response = await _client.post(apiUrl(_base), body: body);
+      final endpoint = apiUrl(_base);
+      debugPrint('[MarksService.createMark] endpoint=$endpoint');
+      debugPrint('[MarksService.createMark] payload=${jsonEncode(body)}');
+      final response = await _client.post(endpoint, body: body);
       devLogResponse('MarksService.createMark', response.statusCode, response.body);
       if (response.statusCode == 201) {
         final raw = _parseJson(response.body);
@@ -307,9 +314,14 @@ class MarksService {
   /// PATCH /api/school-admin/marks/{id}
   Future<MarkResult<MarkModel>> updateMark(int id, Map<String, dynamic> payload) async {
     try {
+      num toMarkNum(dynamic v, num fallback) {
+        if (v == null) return fallback;
+        if (v is num) return v;
+        return num.tryParse(v.toString()) ?? fallback;
+      }
       final body = <String, dynamic>{};
-      if (payload.containsKey('marks_obtained')) body['marks_obtained'] = payload['marks_obtained'] is int ? payload['marks_obtained'] as int : int.tryParse(payload['marks_obtained'].toString()) ?? 0;
-      if (payload.containsKey('max_marks')) body['max_marks'] = payload['max_marks'] is int ? payload['max_marks'] as int : int.tryParse(payload['max_marks'].toString()) ?? 100;
+      if (payload.containsKey('marks_obtained')) body['marks_obtained'] = toMarkNum(payload['marks_obtained'], 0);
+      if (payload.containsKey('max_marks')) body['max_marks'] = toMarkNum(payload['max_marks'], 100);
       if (payload.containsKey('teacher_id')) body['teacher_id'] = payload['teacher_id'] is int ? payload['teacher_id'] as int : int.tryParse(payload['teacher_id'].toString()) ?? 0;
       if (body.isEmpty) return MarkError('No fields to update.');
       

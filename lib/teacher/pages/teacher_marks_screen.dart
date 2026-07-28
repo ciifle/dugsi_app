@@ -17,6 +17,13 @@ const Color kCardColor = Colors.white;
 const Color kBgColor = kSoftBlue;
 const double kTopPadding = 40.0;
 
+String formatMark(num? value) {
+  if (value == null) return '-';
+  final v = value.toDouble();
+  if (v % 1 == 0) return v.toStringAsFixed(0);
+  return v.toStringAsFixed(2).replaceFirst(RegExp(r'\.?0+$'), '');
+}
+
 class TeacherMarksScreen extends StatefulWidget {
   final bool embedBodyOnly;
   final void Function(String pageKey, {Object? arguments})? onNavigateToPage;
@@ -1166,7 +1173,7 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
       return;
     }
 
-    final maxMarks = int.tryParse(maxMarksText);
+    final maxMarks = double.tryParse(maxMarksText);
     if (maxMarks == null || maxMarks <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1184,10 +1191,11 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
       if (controller != null) {
         final marksText = controller.text.trim();
         if (marksText.isNotEmpty) {
-          final marksObtained = int.tryParse(marksText);
+          final marksObtained = double.tryParse(marksText);
           if (marksObtained != null && marksObtained >= 0 && marksObtained <= maxMarks) {
             records.add({
               'student_id': student.id,
+              'student_name': student.name ?? 'student',
               'marks_obtained': marksObtained,
             });
           } else if (marksObtained != null) {
@@ -1216,41 +1224,68 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
     setState(() => _submitting = true);
     
     try {
-      final result = await TeacherService().createBulkMarks(
-        examId: _examId!,
-        classId: widget.classId,
-        subjectId: _subjectId!,
-        maxMarks: maxMarks,
-        records: records,
-      );
-      
+      final failures = <String>[];
+      var savedCount = 0;
+
+      for (final entry in records) {
+        try {
+          debugPrint(
+            'MARK_SAVE_ATTEMPT student_id=${entry['student_id']} '
+            'student_name=${entry['student_name']} subject_id=$_subjectId '
+            'exam_id=$_examId mark=${entry['marks_obtained']} max_marks=$maxMarks',
+          );
+          final result = await TeacherService().createMarkForSingleStudent(
+            examId: _examId!,
+            classId: widget.classId,
+            studentId: entry['student_id'] as int,
+            subjectId: _subjectId!,
+            marksObtained: entry['marks_obtained'] as num,
+            maxMarks: maxMarks,
+          );
+
+          if (result is TeacherSuccess<TeacherMarkModel>) {
+            savedCount++;
+          } else if (result is TeacherError) {
+            final message = result.statusCode == null
+                ? result.message
+                : '${result.message} (status ${result.statusCode})';
+            debugPrint('MARK_SAVE_FAILED ${entry['student_name']}: $message');
+            failures.add('${entry['student_name']}: $message');
+          }
+        } catch (e, stack) {
+          debugPrint('MARK_SAVE_FAILED ${entry['student_name']}: $e');
+          debugPrint('$stack');
+          failures.add('${entry['student_name']}: $e');
+        }
+      }
+
       if (!mounted) return;
-      
-      if (result is TeacherSuccess<List<TeacherMarkModel>>) {
+
+      if (failures.isEmpty) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Marks submitted successfully and are pending admin release'),
+          const SnackBar(
+            content: Text('All marks saved successfully.'),
             backgroundColor: kPrimaryGreen,
           ),
         );
         widget.onSaved();
-      } else if (result is TeacherError) {
-        String message = result.message;
-        if (result.statusCode == 409) {
-          message = 'Marks already exist for one or more students';
-        }
+      } else {
+        debugPrint('Failed marks: $failures');
+        if (savedCount > 0) widget.onSaved();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(message),
+          const SnackBar(
+            content: Text('Some marks failed to save. Check terminal for details.'),
             backgroundColor: kErrorColor,
           ),
         );
       }
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('MARK_SAVE_FAILED bulk submit: $e');
+      debugPrint('$stack');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('An error occurred while saving marks'),
+          content: Text('Some marks failed to save. Check terminal for details.'),
           backgroundColor: kErrorColor,
         ),
       );
