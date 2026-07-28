@@ -14,6 +14,7 @@ import 'package:kobac/printing/class_letter_pdf.dart';
 import 'package:kobac/school_admin/pages/create_student_screen.dart';
 import 'package:kobac/school_admin/pages/student_detail_screen.dart';
 import 'package:kobac/school_admin/pages/class_subject_management_screen.dart';
+import 'package:kobac/school_admin/pages/rankings_pages.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
 const Color kPrimaryGreen = Color(0xFF5AB04B);
@@ -230,6 +231,29 @@ class _AdminClassDetailsScreenState extends State<AdminClassDetailsScreen> {
                       });
                       await _loadStudents();
                     },
+            ),
+          ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: OutlinedButton.icon(
+              onPressed: _academicYearId == null
+                  ? null
+                  : () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ClassRankingsPage(
+                          classId: widget.classId,
+                          className: widget.className,
+                          academicYearId: _academicYearId!,
+                        ),
+                      ),
+                    ),
+              icon: const Icon(Icons.emoji_events_rounded),
+              label: const Text('View Rankings'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: kPrimaryBlue,
+                minimumSize: const Size(double.infinity, 46),
+              ),
             ),
           ),
           const SizedBox(height: 12),

@@ -15,6 +15,8 @@ import 'package:kobac/student/pages/student_profile.dart';
 import 'package:kobac/student/pages/student_result.dart';
 import 'package:kobac/student/pages/student_timetable_screen.dart';
 import 'package:kobac/student/pages/student_total_page.dart';
+import 'package:kobac/student/pages/change_password_page.dart';
+import 'package:kobac/student/pages/academic_performance_page.dart';
 import 'package:kobac/student/widgets/student_web_dashboard.dart';
 import 'package:kobac/student/widgets/student_web_sidebar.dart';
 import 'package:kobac/student/widgets/student_web_top_bar.dart';
@@ -77,6 +79,10 @@ class _StudentWebShellState extends State<StudentWebShell> {
         return 'Chat';
       case 'profile':
         return 'Profile';
+      case 'performance':
+        return 'Academic Performance';
+      case 'changePassword':
+        return 'Change Password';
       default:
         return 'Dashboard';
     }
@@ -112,6 +118,10 @@ class _StudentWebShellState extends State<StudentWebShell> {
         return 'Send and receive messages without leaving the portal.';
       case 'profile':
         return 'Your student account details.';
+      case 'performance':
+        return 'Your released academic results and class ranking.';
+      case 'changePassword':
+        return 'Update your student account password securely.';
       default:
         return null;
     }
@@ -205,6 +215,10 @@ class _StudentWebShellState extends State<StudentWebShell> {
           embedBodyOnly: true,
           onNavigateToPage: _navigateToPage,
         );
+      case 'performance':
+        return const AcademicPerformancePage();
+      case 'changePassword':
+        return const ChangePasswordPage();
       case 'dashboard':
       default:
         return StudentWebDashboard(onNavigateToPage: _navigateToPage);

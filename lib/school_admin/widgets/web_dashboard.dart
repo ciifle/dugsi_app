@@ -28,6 +28,7 @@ import 'package:kobac/school_admin/pages/settings_page.dart';
 import 'package:kobac/services/academic_years_service.dart';
 import 'package:kobac/school_admin/pages/academic_years_page.dart';
 import 'package:intl/intl.dart';
+import 'package:kobac/school_admin/pages/rankings_pages.dart';
 
 /// Desktop dashboard with stat cards and quick actions
 class WebDashboard extends StatefulWidget {
@@ -385,6 +386,13 @@ class _WebDashboardState extends State<WebDashboard> {
       title: 'Marks',
       description: 'Manage marks',
       onTap: () => _navigateToPage('marks', const AdminMarksScreen()),
+    ),
+    QuickActionCard(
+      icon: Icons.emoji_events_rounded,
+      iconColor: const Color(0xFF023471),
+      title: 'Top Students',
+      description: 'View the highest-performing students',
+      onTap: () => _navigateToPage('topStudents', const TopStudentsPage()),
     ),
     QuickActionCard(
       icon: Icons.campaign_rounded,

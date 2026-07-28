@@ -9,6 +9,7 @@ import 'package:kobac/services/auth_provider.dart';
 import 'package:kobac/services/dummy_school_service.dart';
 import 'package:kobac/printing/student_letter_pdf.dart';
 import 'package:kobac/school_admin/pages/edit_student_screen.dart';
+import 'package:kobac/school_admin/widgets/reset_student_password_dialog.dart';
 import 'package:kobac/school_admin/widgets/delete_confirm_dialog.dart';
 
 const Color kDarkBlue = Color(0xFF023471);
@@ -262,6 +263,29 @@ class _StudentDetailBody extends StatelessWidget {
             fallbackSchoolNameFuture: fallbackSchoolNameFuture,
           ),
           const SizedBox(height: 24),
+          OutlinedButton.icon(
+            onPressed: () async {
+              final reset = await showResetStudentPasswordDialog(
+                context,
+                student,
+              );
+              if (reset == true && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Student password reset successfully.'),
+                    backgroundColor: Color(0xFF5AB04B),
+                  ),
+                );
+              }
+            },
+            icon: const Icon(Icons.password_rounded),
+            label: const Text('Reset Password'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: kDarkBlue,
+              minimumSize: const Size(0, 48),
+            ),
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(

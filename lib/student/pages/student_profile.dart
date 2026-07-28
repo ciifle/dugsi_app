@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:kobac/models/auth_me_models.dart';
 import 'package:kobac/services/auth_provider.dart';
 import 'package:kobac/student/widgets/student_web_ui.dart';
+import 'package:kobac/student/pages/change_password_page.dart';
+import 'package:kobac/student/pages/academic_performance_page.dart';
 
 // ---------- COLOR PALETTE (Matching Dashboard) ----------
 const Color kPrimaryBlue = Color(0xFF023471); // Dark blue
@@ -354,6 +356,25 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
                     ),
                     const SizedBox(height: 16),
                   ],
+                  _ProfileAction(
+                    icon: Icons.insights_rounded,
+                    title: 'My Academic Performance',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const AcademicPerformancePage(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _ProfileAction(
+                    icon: Icons.lock_outline_rounded,
+                    title: 'Change Password',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const ChangePasswordPage(),
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 24),
                   _buildLogoutButton(context),
                   const SizedBox(height: 32),
@@ -432,6 +453,57 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
       ),
     );
   }
+}
+
+class _ProfileAction extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+
+  const _ProfileAction({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(18),
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: kPrimaryBlue.withOpacity(0.06),
+              blurRadius: 16,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: kPrimaryBlue),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: kPrimaryBlue,
+                ),
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: kPrimaryBlue),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class _DesktopStudentProfileCard extends StatelessWidget {

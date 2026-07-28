@@ -27,6 +27,7 @@ import 'package:kobac/school_admin/pages/admin_timetable_screen.dart';
 import 'package:kobac/school_admin/pages/admin_exams_screen.dart';
 import 'package:kobac/school_admin/pages/academic_years_page.dart';
 import 'package:kobac/school_admin/pages/student_promotions_page.dart';
+import 'package:kobac/school_admin/pages/rankings_pages.dart';
 import 'package:kobac/school_admin/pages/admin_marks_screen.dart';
 import 'package:kobac/school_admin/pages/admin_notices_screen.dart';
 
@@ -109,6 +110,8 @@ class _WebAdminShellState extends State<WebAdminShell> {
         return 'Student Promotions';
       case 'marks':
         return 'Marks';
+      case 'topStudents':
+        return 'Top Students';
       case 'notices':
         return 'Notices';
       case 'notifications':
@@ -273,6 +276,8 @@ class _WebAdminShellState extends State<WebAdminShell> {
           embedBodyOnly: true,
           onNavigateToPage: _navigateToPage,
         );
+      case 'topStudents':
+        return const TopStudentsPage();
       case 'notices':
         return AdminNoticesScreen(
           embedBodyOnly: true,

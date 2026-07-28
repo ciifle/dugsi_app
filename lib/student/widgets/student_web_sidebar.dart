@@ -93,6 +93,13 @@ class StudentWebSidebar extends StatelessWidget {
                   selectedPage: selectedPage,
                   onNavigate: onNavigate,
                 ),
+                _StudentNavItem(
+                  icon: Icons.insights_rounded,
+                  label: 'Performance',
+                  pageKey: 'performance',
+                  selectedPage: selectedPage,
+                  onNavigate: onNavigate,
+                ),
                 if (feesEnabled) ...[
                   _StudentNavItem(
                     icon: Icons.account_balance_wallet_rounded,
@@ -134,6 +141,13 @@ class StudentWebSidebar extends StatelessWidget {
                   icon: Icons.person_rounded,
                   label: 'Profile',
                   pageKey: 'profile',
+                  selectedPage: selectedPage,
+                  onNavigate: onNavigate,
+                ),
+                _StudentNavItem(
+                  icon: Icons.lock_outline_rounded,
+                  label: 'Change Password',
+                  pageKey: 'changePassword',
                   selectedPage: selectedPage,
                   onNavigate: onNavigate,
                 ),
