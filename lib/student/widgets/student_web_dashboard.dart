@@ -101,12 +101,8 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [_kPrimaryBlue, _kPrimaryBlue, _kPrimaryGreen],
-          stops: [0.3, 0.7, 1.0],
-        ),
+        color: Colors.white,
+        border: Border.all(color: const Color(0xFFE8ECF2)),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
@@ -125,7 +121,7 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
                 Text(
                   'Welcome back!',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.92),
+                    color: _kTextSecondary,
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                   ),
@@ -136,7 +132,7 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: _kPrimaryBlue,
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
                   ),
@@ -175,13 +171,13 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.18),
+        color: _kPrimaryBlue.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(30),
       ),
       child: Text(
         label,
         style: const TextStyle(
-          color: Colors.white,
+          color: _kPrimaryBlue,
           fontSize: 12,
           fontWeight: FontWeight.w600,
         ),

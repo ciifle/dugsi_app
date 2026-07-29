@@ -10,7 +10,7 @@ const Color kSoftBlue = Color(0xFFE0E9F5); // Light tint of blue
 const Color kSoftGreen = Color(0xFFE4F1E2); // Light tint of green
 const Color kDarkGreen = Color(0xFF3D8C30); // Darker shade of green
 const Color kDarkBlue = Color(0xFF011A3D); // Darker shade of blue
-const Color kSoftPurple = Color(0xFF4A6FA5); // Soft blue-purple
+const Color kSoftBlueAccent = kPrimaryBlue;
 const Color kSoftPink = Color(0xFF7CB86E); // Soft green-pink
 const Color kSoftOrange = Color(0xFFF59E0B); // Amber for warning
 const Color kSuccessColor = Color(0xFF3D8C30); // Darker green
@@ -63,7 +63,7 @@ class _StudentExamScheduleScreenState extends State<StudentExamScheduleScreen> {
       "instructions": "Stable internet connection required. Webcam must be ON.",
       "syllabus": "World Wars, Industrial Revolution, Colonialism.",
       "teacher": "Mr. Alan Shepherd",
-      "color": kSoftPurple,
+      "color": kSoftBlueAccent,
     },
     {
       "name": "Quiz 2",
@@ -183,14 +183,7 @@ class _StudentExamScheduleScreenState extends State<StudentExamScheduleScreen> {
       ..sort((a, b) => b.compareTo(a));
 
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [kSoftBlue, kSoftGreen],
-          stops: [0.0, 1.0],
-        ),
-      ),
+      decoration: const BoxDecoration(color: Color(0xFFF0F3F7)),
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: CustomScrollView(
@@ -201,12 +194,7 @@ class _StudentExamScheduleScreenState extends State<StudentExamScheduleScreen> {
               child: Container(
                 padding: const EdgeInsets.fromLTRB(24, 50, 24, 40),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
-                    stops: const [0.3, 0.7, 1.0],
-                  ),
+                  color: Colors.white,
                   borderRadius: const BorderRadius.only(
                     bottomLeft: Radius.circular(40),
                     bottomRight: Radius.circular(40),
@@ -358,11 +346,7 @@ class _StudentExamScheduleScreenState extends State<StudentExamScheduleScreen> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.white, kSoftGreen],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
@@ -381,11 +365,7 @@ class _StudentExamScheduleScreenState extends State<StudentExamScheduleScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [kPrimaryBlue, kPrimaryGreen],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: kPrimaryBlue,
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: const Icon(
@@ -502,11 +482,7 @@ class _StudentExamScheduleScreenState extends State<StudentExamScheduleScreen> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [kSoftBlue, kSoftGreen],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: kSoftBlue,
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -590,11 +566,7 @@ class _ExamDateSection extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [kPrimaryBlue, kPrimaryGreen],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: kPrimaryBlue,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: const Icon(
@@ -683,11 +655,7 @@ class _ExamCard extends StatelessWidget {
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [cardColor, cardColor.withOpacity(0.7)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: cardColor,
               borderRadius: BorderRadius.circular(18),
               boxShadow: [
                 BoxShadow(

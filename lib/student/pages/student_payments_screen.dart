@@ -46,14 +46,7 @@ class _StudentPaymentsScreenState extends State<StudentPaymentsScreen> {
     final body = Container(
       decoration: embedded
           ? const BoxDecoration(color: studentWebBg)
-          : const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [kSoftBlue, kSoftGreen],
-                stops: [0.0, 1.0],
-              ),
-            ),
+          : const BoxDecoration(color: studentWebBg),
       child: SafeArea(
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),

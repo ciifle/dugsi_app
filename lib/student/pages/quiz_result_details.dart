@@ -107,14 +107,7 @@ class StudentQuizResultScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [kSoftBlue, kSoftGreen],
-          stops: [0.0, 1.0],
-        ),
-      ),
+      decoration: const BoxDecoration(color: Color(0xFFF0F3F7)),
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: CustomScrollView(
@@ -125,12 +118,7 @@ class StudentQuizResultScreen extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.fromLTRB(24, 50, 24, 40),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
-                    stops: const [0.3, 0.7, 1.0],
-                  ),
+                  color: Colors.white,
                   borderRadius: const BorderRadius.only(
                     bottomLeft: Radius.circular(40),
                     bottomRight: Radius.circular(40),
@@ -294,11 +282,7 @@ class StudentQuizResultScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.white, kSoftGreen],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
@@ -314,15 +298,11 @@ class StudentQuizResultScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(15),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: result.percentage >= 75
-                    ? [kPrimaryGreen, kDarkGreen]
-                    : result.percentage >= 40
-                    ? [kPrimaryBlue, kDarkBlue]
-                    : [Colors.redAccent, Colors.red],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: result.percentage >= 75
+                  ? kPrimaryGreen
+                  : result.percentage >= 40
+                  ? kPrimaryBlue
+                  : Colors.red,
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
@@ -396,11 +376,7 @@ class StudentQuizResultScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.white, kSoftBlue.withOpacity(0.3)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
@@ -419,11 +395,7 @@ class StudentQuizResultScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [kPrimaryBlue, kPrimaryGreen],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: kPrimaryBlue,
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: const Icon(
@@ -566,11 +538,7 @@ class StudentQuizResultScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: gradientColors.map((c) => c.withOpacity(0.1)).toList(),
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: gradientColors.first.withOpacity(0.1),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color.withOpacity(0.2), width: 1.5),
       ),
@@ -821,11 +789,7 @@ class StudentQuizResultScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [kPrimaryBlue, kPrimaryGreen],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: kPrimaryBlue,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
@@ -901,13 +865,7 @@ class StudentQuizResultScreen extends StatelessWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: isCorrect
-                          ? [kPrimaryGreen, kDarkGreen]
-                          : [kPrimaryBlue, kDarkBlue],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                    color: isCorrect ? kPrimaryGreen : kPrimaryBlue,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
@@ -1049,11 +1007,7 @@ class StudentQuizResultScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.white, kSoftGreen],
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
@@ -1070,11 +1024,7 @@ class StudentQuizResultScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(15),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [kPrimaryBlue, kPrimaryGreen],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: kPrimaryBlue,
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(

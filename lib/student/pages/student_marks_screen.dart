@@ -90,14 +90,7 @@ class _StudentMarksScreenState extends State<StudentMarksScreen> {
     return Scaffold(
       backgroundColor: kSoftBlue,
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [kSoftBlue, kSoftGreen],
-            stops: [0.0, 1.0],
-          ),
-        ),
+        decoration: const BoxDecoration(color: studentWebBg),
         child: SafeArea(
           child: CustomScrollView(
             physics: const BouncingScrollPhysics(),

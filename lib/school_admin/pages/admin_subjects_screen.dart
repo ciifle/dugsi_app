@@ -19,7 +19,7 @@ class AdminSubjectsScreen extends StatefulWidget {
   final void Function(String, {Object? arguments})? onNavigateToPage;
 
   const AdminSubjectsScreen({
-    Key? key, 
+    Key? key,
     this.openCreateOnLoad = false,
     this.embedBodyOnly = false,
     this.onNavigateToPage,
@@ -72,7 +72,10 @@ class _AdminSubjectsScreenState extends State<AdminSubjectsScreen> {
           if (result is SubjectSuccess) return true;
           if (ctx.mounted) {
             ScaffoldMessenger.of(ctx).showSnackBar(
-              SnackBar(content: Text((result as SubjectError).message), backgroundColor: Colors.red),
+              SnackBar(
+                content: Text((result as SubjectError).message),
+                backgroundColor: Colors.red,
+              ),
             );
           }
           return false;
@@ -83,7 +86,10 @@ class _AdminSubjectsScreenState extends State<AdminSubjectsScreen> {
       _loadSubjects();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Subject created'), backgroundColor: kPrimaryGreen),
+          const SnackBar(
+            content: Text('Subject created'),
+            backgroundColor: kPrimaryGreen,
+          ),
         );
       }
     }
@@ -97,11 +103,17 @@ class _AdminSubjectsScreenState extends State<AdminSubjectsScreen> {
         initialName: subject.name,
         submitLabel: 'Save',
         onSave: (data) async {
-          final result = await SubjectsService().updateSubject(subject.id, data);
+          final result = await SubjectsService().updateSubject(
+            subject.id,
+            data,
+          );
           if (result is SubjectSuccess) return true;
           if (ctx.mounted) {
             ScaffoldMessenger.of(ctx).showSnackBar(
-              SnackBar(content: Text((result as SubjectError).message), backgroundColor: Colors.red),
+              SnackBar(
+                content: Text((result as SubjectError).message),
+                backgroundColor: Colors.red,
+              ),
             );
           }
           return false;
@@ -112,7 +124,10 @@ class _AdminSubjectsScreenState extends State<AdminSubjectsScreen> {
       _loadSubjects();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Subject updated'), backgroundColor: kPrimaryGreen),
+          const SnackBar(
+            content: Text('Subject updated'),
+            backgroundColor: kPrimaryGreen,
+          ),
         );
       }
     }
@@ -130,11 +145,17 @@ class _AdminSubjectsScreenState extends State<AdminSubjectsScreen> {
     if (result is SubjectSuccess) {
       _loadSubjects();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${subject.name} removed'), backgroundColor: kPrimaryGreen),
+        SnackBar(
+          content: Text('${subject.name} removed'),
+          backgroundColor: kPrimaryGreen,
+        ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text((result as SubjectError).message), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text((result as SubjectError).message),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -154,158 +175,276 @@ class _AdminSubjectsScreenState extends State<AdminSubjectsScreen> {
 
   Widget _buildMobilePageBody(BuildContext context) {
     return Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [kBgColor, kPrimaryBlue.withOpacity(0.02)],
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                child: Row(
-                  children: [
-                    _BackButton(onPressed: () => Navigator.pop(context)),
-                    const SizedBox(width: 16),
-                    const Expanded(
-                      child: Text(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [kBgColor, kPrimaryBlue.withValues(alpha: 0.02)],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+            child: Row(
+              children: [
+                _BackButton(onPressed: () => Navigator.pop(context)),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
                         "Subjects",
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: kPrimaryBlue,
+                        ),
                       ),
-                    ),
-                    _AddButton(onPressed: _openCreateSubject),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 20, offset: const Offset(0, 6)),
-                      BoxShadow(color: kPrimaryBlue.withOpacity(0.03), blurRadius: 40, offset: const Offset(0, 12)),
+                      Text(
+                        'Manage school subjects',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
                     ],
                   ),
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (val) => setState(() => searchQuery = val),
-                    decoration: InputDecoration(
-                      hintText: "Search subjects...",
-                      prefixIcon: const Icon(Icons.search_rounded, color: kPrimaryBlue),
-                      suffixIcon: searchQuery.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear, color: Colors.grey),
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() => searchQuery = '');
-                              },
-                            )
-                          : null,
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                ),
+                ElevatedButton.icon(
+                  onPressed: _openCreateSubject,
+                  icon: const Icon(Icons.add_rounded, size: 19),
+                  label: const Text('Add Subject'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kPrimaryGreen,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: RefreshIndicator(
-                  onRefresh: () async => _loadSubjects(),
-                  color: kPrimaryGreen,
-                  child: FutureBuilder<SubjectResult<List<SubjectModel>>>(
-                    future: _subjectsFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator(color: kPrimaryGreen));
-                      }
-                      if (snapshot.hasError) {
-                        final userMsg = userFriendlyMessage(snapshot.error!, null, 'AdminSubjectsScreen');
-                        return Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
-                                const SizedBox(height: 12),
-                                Text(userMsg, textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.grey[800])),
-                                const SizedBox(height: 16),
-                                TextButton.icon(
-                                  onPressed: _loadSubjects,
-                                  icon: const Icon(Icons.refresh),
-                                  label: const Text('Retry'),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }
-                      final result = snapshot.data;
-                      if (result == null) return const Center(child: Text('No data'));
-                      if (result is SubjectError) {
-                        return Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
-                                const SizedBox(height: 12),
-                                Text(result.message, textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.grey[800])),
-                                const SizedBox(height: 16),
-                                TextButton.icon(
-                                  onPressed: _loadSubjects,
-                                  icon: const Icon(Icons.refresh),
-                                  label: const Text('Retry'),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }
-                      final subjects = _filter((result as SubjectSuccess<List<SubjectModel>>).data);
-                      if (subjects.isEmpty) {
-                        return ListView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          children: [
-                            SizedBox(height: MediaQuery.of(context).size.height * 0.25),
-                            Center(
-                              child: Column(
-                                children: [
-                                  Icon(Icons.subject_rounded, size: 56, color: Colors.grey[400]),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    'No subjects found. Add subjects to get started.',
-                                    style: TextStyle(fontSize: 13, color: Colors.orange[800]),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        );
-                      }
-                      return ListView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        children: [
-                          ...subjects.map((s) => _SubjectCard(
-                            subject: s,
-                            onEdit: () => _openEditSubject(s),
-                            onDelete: () => _deleteSubject(s),
-                          )).toList(),
-                        ],
-                      );
-                    },
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: kPrimaryBlue.withValues(alpha: 0.06),
+                    blurRadius: 20,
+                    offset: const Offset(0, 6),
                   ),
+                  BoxShadow(
+                    color: kPrimaryBlue.withValues(alpha: 0.03),
+                    blurRadius: 40,
+                    offset: const Offset(0, 12),
+                  ),
+                ],
+              ),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (val) => setState(() => searchQuery = val),
+                decoration: InputDecoration(
+                  hintText: "Search subjects...",
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                    color: kPrimaryBlue,
+                  ),
+                  suffixIcon: searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, color: Colors.grey),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => searchQuery = '');
+                          },
+                        )
+                      : null,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 15),
                 ),
               ),
-            ],
+            ),
           ),
-        );
+          const SizedBox(height: 16),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () async => _loadSubjects(),
+              color: kPrimaryGreen,
+              child: FutureBuilder<SubjectResult<List<SubjectModel>>>(
+                future: _subjectsFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const _SubjectSkeletonList();
+                  }
+                  if (snapshot.hasError) {
+                    final userMsg = userFriendlyMessage(
+                      snapshot.error!,
+                      null,
+                      'AdminSubjectsScreen',
+                    );
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              size: 48,
+                              color: Colors.red[300],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              userMsg,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey[800],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            TextButton.icon(
+                              onPressed: _loadSubjects,
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+                  final result = snapshot.data;
+                  if (result == null)
+                    return const Center(child: Text('No data'));
+                  if (result is SubjectError) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              size: 48,
+                              color: Colors.red[300],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              result.message,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey[800],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            TextButton.icon(
+                              onPressed: _loadSubjects,
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+                  final subjects = _filter(
+                    (result as SubjectSuccess<List<SubjectModel>>).data,
+                  );
+                  if (subjects.isEmpty) {
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.25,
+                        ),
+                        Center(
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 20),
+                            padding: const EdgeInsets.all(28),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(kCardRadius),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: kPrimaryBlue.withValues(alpha: 0.06),
+                                  blurRadius: 18,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.menu_book_rounded,
+                                  size: 60,
+                                  color: kPrimaryBlue.withValues(alpha: 0.25),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  searchQuery.isEmpty
+                                      ? 'No subjects created'
+                                      : 'No subjects match your search',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: kPrimaryBlue,
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                if (searchQuery.isEmpty) ...[
+                                  const SizedBox(height: 14),
+                                  ElevatedButton.icon(
+                                    onPressed: _openCreateSubject,
+                                    icon: const Icon(Icons.add_rounded),
+                                    label: const Text('Create Subject'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: kPrimaryGreen,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+                  return ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 8,
+                    ),
+                    itemCount: subjects.length,
+                    itemBuilder: (context, index) {
+                      final subject = subjects[index];
+                      return _SubjectCard(
+                        index: index,
+                        subject: subject,
+                        onEdit: () => _openEditSubject(subject),
+                        onDelete: () => _deleteSubject(subject),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildDesktopPageBody(BuildContext context) {
@@ -322,7 +461,10 @@ class _AdminSubjectsScreenState extends State<AdminSubjectsScreen> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFE8ECF2), width: 1),
+                      border: Border.all(
+                        color: const Color(0xFFE8ECF2),
+                        width: 1,
+                      ),
                     ),
                     child: TextField(
                       controller: _searchController,
@@ -330,10 +472,16 @@ class _AdminSubjectsScreenState extends State<AdminSubjectsScreen> {
                       decoration: InputDecoration(
                         hintText: 'Search subjects...',
                         hintStyle: TextStyle(color: Colors.grey.shade500),
-                        prefixIcon: Icon(Icons.search_rounded, color: Colors.grey.shade500),
+                        prefixIcon: Icon(
+                          Icons.search_rounded,
+                          color: Colors.grey.shade500,
+                        ),
                         suffixIcon: searchQuery.isNotEmpty
                             ? IconButton(
-                                icon: const Icon(Icons.clear, color: Colors.grey),
+                                icon: const Icon(
+                                  Icons.clear,
+                                  color: Colors.grey,
+                                ),
                                 onPressed: () {
                                   _searchController.clear();
                                   setState(() => searchQuery = '');
@@ -341,7 +489,10 @@ class _AdminSubjectsScreenState extends State<AdminSubjectsScreen> {
                               )
                             : null,
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
                       ),
                     ),
                   ),
@@ -353,7 +504,9 @@ class _AdminSubjectsScreenState extends State<AdminSubjectsScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             decoration: const BoxDecoration(
               color: Colors.white,
-              border: Border(bottom: BorderSide(color: Color(0xFFE8ECF2), width: 1)),
+              border: Border(
+                bottom: BorderSide(color: Color(0xFFE8ECF2), width: 1),
+              ),
             ),
             child: Row(
               children: [
@@ -377,17 +530,34 @@ class _AdminSubjectsScreenState extends State<AdminSubjectsScreen> {
               future: _subjectsFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator(color: kPrimaryBlue));
+                  return const Center(
+                    child: CircularProgressIndicator(color: kPrimaryBlue),
+                  );
                 }
                 if (snapshot.hasError) {
-                  final userMsg = userFriendlyMessage(snapshot.error!, null, 'AdminSubjectsScreen');
+                  final userMsg = userFriendlyMessage(
+                    snapshot.error!,
+                    null,
+                    'AdminSubjectsScreen',
+                  );
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+                        Icon(
+                          Icons.error_outline,
+                          size: 48,
+                          color: Colors.red[300],
+                        ),
                         const SizedBox(height: 12),
-                        Text(userMsg, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, color: Colors.grey)),
+                        Text(
+                          userMsg,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey,
+                          ),
+                        ),
                         const SizedBox(height: 16),
                         TextButton.icon(
                           onPressed: _loadSubjects,
@@ -409,9 +579,20 @@ class _AdminSubjectsScreenState extends State<AdminSubjectsScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+                        Icon(
+                          Icons.error_outline,
+                          size: 48,
+                          color: Colors.red[300],
+                        ),
                         const SizedBox(height: 12),
-                        Text(result.message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, color: Colors.grey)),
+                        Text(
+                          result.message,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey,
+                          ),
+                        ),
                         const SizedBox(height: 16),
                         TextButton.icon(
                           onPressed: _loadSubjects,
@@ -426,19 +607,26 @@ class _AdminSubjectsScreenState extends State<AdminSubjectsScreen> {
                     ),
                   );
                 }
-                final subjects = _filter((result as SubjectSuccess<List<SubjectModel>>).data);
+                final subjects = _filter(
+                  (result as SubjectSuccess<List<SubjectModel>>).data,
+                );
                 if (subjects.isEmpty) {
                   return ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     children: [
-                      SizedBox(height: MediaQuery.of(context).size.height * 0.25),
+                      SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.25,
+                      ),
                       Center(
                         child: Text(
                           searchQuery.isEmpty
                               ? 'No subjects found. Add subjects to get started.'
                               : 'No subjects match your search',
-                          style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 16,
+                          ),
                         ),
                       ),
                     ],
@@ -495,7 +683,10 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Subject name is required'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('Subject name is required'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -506,7 +697,10 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
     setState(() => _submitting = false);
     if (result is SubjectSuccess) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Subject created'), backgroundColor: kPrimaryGreen),
+        const SnackBar(
+          content: Text('Subject created'),
+          backgroundColor: kPrimaryGreen,
+        ),
       );
       if (widget.onNavigateToPage != null) {
         widget.onNavigateToPage!('subjects');
@@ -516,7 +710,10 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text((result as SubjectError).message), backgroundColor: Colors.red),
+      SnackBar(
+        content: Text((result as SubjectError).message),
+        backgroundColor: Colors.red,
+      ),
     );
   }
 
@@ -565,7 +762,7 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
             border: Border.all(color: const Color(0xFFE8ECF2)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04),
+                color: Colors.black.withValues(alpha: 0.04),
                 blurRadius: 16,
                 offset: const Offset(0, 4),
               ),
@@ -577,7 +774,9 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final isWide = constraints.maxWidth >= 700;
-                final fieldWidth = isWide ? (constraints.maxWidth - 24) / 2 : constraints.maxWidth;
+                final fieldWidth = isWide
+                    ? (constraints.maxWidth - 24) / 2
+                    : constraints.maxWidth;
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -603,10 +802,14 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: const Color(0xFF374151),
                                 backgroundColor: Colors.white,
-                                side: const BorderSide(color: Color(0xFFE5E7EB)),
+                                side: const BorderSide(
+                                  color: Color(0xFFE5E7EB),
+                                ),
                                 elevation: 0,
                                 shadowColor: Colors.transparent,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                               ),
                               child: const Text('Cancel'),
                             ),
@@ -622,13 +825,18 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
                                 foregroundColor: Colors.white,
                                 elevation: 0,
                                 shadowColor: Colors.transparent,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                               ),
                               child: _submitting
                                   ? const SizedBox(
                                       width: 20,
                                       height: 20,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
                                     )
                                   : const Text('Add Subject'),
                             ),
@@ -646,10 +854,14 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: const Color(0xFF374151),
                                 backgroundColor: Colors.white,
-                                side: const BorderSide(color: Color(0xFFE5E7EB)),
+                                side: const BorderSide(
+                                  color: Color(0xFFE5E7EB),
+                                ),
                                 elevation: 0,
                                 shadowColor: Colors.transparent,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                               ),
                               child: const Text('Cancel'),
                             ),
@@ -665,13 +877,18 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
                                 foregroundColor: Colors.white,
                                 elevation: 0,
                                 shadowColor: Colors.transparent,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                               ),
                               child: _submitting
                                   ? const SizedBox(
                                       width: 20,
                                       height: 20,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
                                     )
                                   : const Text('Add Subject'),
                             ),
@@ -710,9 +927,19 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(14),
-                        boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+                        boxShadow: [
+                          BoxShadow(
+                            color: kPrimaryBlue.withValues(alpha: 0.08),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      child: const Icon(Icons.arrow_back_rounded, color: kPrimaryBlue, size: 24),
+                      child: const Icon(
+                        Icons.arrow_back_rounded,
+                        color: kPrimaryBlue,
+                        size: 24,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -720,7 +947,11 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
                     child: Text(
                       'Add Subject',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: kPrimaryBlue,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 44),
@@ -773,16 +1004,17 @@ class _SubjectFormDialogState extends State<_SubjectFormDialog> {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Subject name is required'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('Subject name is required'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
     if (_submitting) return;
     setState(() => _submitting = true);
-    
-    final data = <String, dynamic>{
-      'name': name,
-    };
+
+    final data = <String, dynamic>{'name': name};
     final ok = await widget.onSave(data);
     if (!mounted) return;
     setState(() => _submitting = false);
@@ -802,7 +1034,11 @@ class _SubjectFormDialogState extends State<_SubjectFormDialog> {
           children: [
             Text(
               widget.title,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: kPrimaryBlue,
+              ),
             ),
             const SizedBox(height: 20),
             Input3D(
@@ -817,7 +1053,9 @@ class _SubjectFormDialogState extends State<_SubjectFormDialog> {
               children: [
                 Expanded(
                   child: TextButton(
-                    onPressed: _submitting ? null : () => Navigator.of(context).pop(false),
+                    onPressed: _submitting
+                        ? null
+                        : () => Navigator.of(context).pop(false),
                     child: const Text('Cancel'),
                   ),
                 ),
@@ -852,14 +1090,25 @@ class _BackButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+          boxShadow: [
+            BoxShadow(
+              color: kPrimaryBlue.withValues(alpha: 0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        child: const Icon(Icons.arrow_back_rounded, color: kPrimaryBlue, size: 24),
+        child: const Icon(
+          Icons.arrow_back_rounded,
+          color: kPrimaryBlue,
+          size: 24,
+        ),
       ),
     );
   }
 }
 
+// ignore: unused_element
 class _AddButton extends StatelessWidget {
   final VoidCallback onPressed;
   const _AddButton({required this.onPressed});
@@ -870,9 +1119,15 @@ class _AddButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: kPrimaryGreen.withOpacity(0.12),
+          color: kPrimaryGreen.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(14),
-          boxShadow: [BoxShadow(color: kPrimaryGreen.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))],
+          boxShadow: [
+            BoxShadow(
+              color: kPrimaryGreen.withValues(alpha: 0.2),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: const Icon(Icons.add_rounded, color: kPrimaryGreen, size: 24),
       ),
@@ -910,10 +1165,14 @@ class _SubjectRow extends StatelessWidget {
                   height: 40,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: kPrimaryBlue.withOpacity(0.1),
+                    color: kPrimaryBlue.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.menu_book_outlined, color: kPrimaryBlue, size: 20),
+                  child: const Icon(
+                    Icons.menu_book_outlined,
+                    color: kPrimaryBlue,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -936,13 +1195,21 @@ class _SubjectRow extends StatelessWidget {
             child: Row(
               children: [
                 IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 20, color: kPrimaryGreen),
+                  icon: const Icon(
+                    Icons.edit_outlined,
+                    size: 20,
+                    color: kPrimaryGreen,
+                  ),
                   onPressed: onEdit,
                   tooltip: 'Edit',
                   visualDensity: VisualDensity.compact,
                 ),
                 IconButton(
-                  icon: Icon(Icons.delete_outline, size: 20, color: Colors.red[400]),
+                  icon: Icon(
+                    Icons.delete_outline,
+                    size: 20,
+                    color: Colors.red[400],
+                  ),
                   onPressed: onDelete,
                   tooltip: 'Delete',
                   visualDensity: VisualDensity.compact,
@@ -957,11 +1224,13 @@ class _SubjectRow extends StatelessWidget {
 }
 
 class _SubjectCard extends StatelessWidget {
+  final int index;
   final SubjectModel subject;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   const _SubjectCard({
+    this.index = 0,
     required this.subject,
     required this.onEdit,
     required this.onDelete,
@@ -969,47 +1238,181 @@ class _SubjectCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
+    return TweenAnimationBuilder<double>(
+      duration: Duration(milliseconds: 240 + (index.clamp(0, 5).toInt() * 40)),
+      tween: Tween(begin: 0, end: 1),
+      builder: (context, value, child) => Opacity(
+        opacity: value,
+        child: Transform.translate(
+          offset: Offset(0, 10 * (1 - value)),
+          child: child,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(kCardRadius),
+            boxShadow: [
+              BoxShadow(
+                color: kPrimaryBlue.withValues(alpha: 0.07),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
+              ),
+              BoxShadow(
+                color: kPrimaryBlue.withValues(alpha: 0.03),
+                blurRadius: 32,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: kPrimaryBlue.withValues(alpha: 0.1),
+                    child: const Icon(
+                      Icons.menu_book_rounded,
+                      color: kPrimaryBlue,
+                      size: 30,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      subject.name,
+                      style: const TextStyle(
+                        fontSize: 19,
+                        height: 1.2,
+                        fontWeight: FontWeight.w700,
+                        color: kPrimaryBlue,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Container(height: 1, color: const Color(0xFFE8ECF2)),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton.icon(
+                      onPressed: onEdit,
+                      icon: const Icon(Icons.edit_outlined, size: 20),
+                      label: const Text('Edit'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: kPrimaryGreen,
+                        minimumSize: const Size(0, 46),
+                      ),
+                    ),
+                  ),
+                  Container(
+                    width: 1,
+                    height: 28,
+                    color: const Color(0xFFE8ECF2),
+                  ),
+                  Expanded(
+                    child: TextButton.icon(
+                      onPressed: onDelete,
+                      icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                      label: const Text('Delete'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        minimumSize: const Size(0, 46),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SubjectSkeletonList extends StatelessWidget {
+  const _SubjectSkeletonList();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      itemCount: 4,
+      itemBuilder: (context, index) => Container(
+        height: 156,
+        margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(kCardRadius),
-          boxShadow: [
-            BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 6)),
-            BoxShadow(color: kPrimaryBlue.withOpacity(0.03), blurRadius: 32, offset: const Offset(0, 12)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x12023471),
+              blurRadius: 18,
+              offset: Offset(0, 6),
+            ),
           ],
         ),
-        child: Row(
+        child: Column(
           children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: kPrimaryBlue.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: const Icon(Icons.menu_book_rounded, color: kPrimaryBlue, size: 28),
+            Row(
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFE8ECF2),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Container(
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8ECF2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                subject.name,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimaryBlue),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.edit_outlined, size: 22, color: kPrimaryGreen),
-              onPressed: onEdit,
-              tooltip: 'Edit',
-            ),
-            IconButton(
-              icon: Icon(Icons.delete_outline, size: 22, color: Colors.red[400]),
-              onPressed: onDelete,
-              tooltip: 'Delete',
+            const SizedBox(height: 18),
+            Container(height: 1, color: const Color(0xFFE8ECF2)),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0F3F7),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Container(
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0F3F7),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

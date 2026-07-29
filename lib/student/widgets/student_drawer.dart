@@ -4,12 +4,12 @@ import 'package:kobac/services/auth_provider.dart';
 import 'package:kobac/student/pages/student_timetable_screen.dart';
 import 'package:kobac/student/pages/student_marks_screen.dart';
 import 'package:kobac/student/pages/student_result.dart';
-import 'package:kobac/student/pages/student_fees.dart';
 import 'package:kobac/student/pages/student_attendance.dart';
 import 'package:kobac/student/pages/student_profile.dart';
+import 'package:kobac/student/pages/academic_performance_page.dart';
 import 'package:kobac/student/pages/student_notices.dart';
-import 'package:kobac/student/pages/student_payments_screen.dart';
 import 'package:kobac/messages/messages_screen.dart';
+import 'package:kobac/student/widgets/student_learning_ui.dart';
 
 // ---------- COLOR PALETTE (Matching Dashboard) ----------
 const Color kPrimaryBlue = Color(0xFF023471);
@@ -18,7 +18,7 @@ const Color kSoftBlue = Color(0xFFE0E9F5);
 const Color kSoftGreen = Color(0xFFE4F1E2);
 const Color kDarkGreen = Color(0xFF3D8C30);
 const Color kDarkBlue = Color(0xFF011A3D);
-const Color kSoftPurple = Color(0xFF4A6FA5);
+const Color kSoftBlueAccent = kPrimaryBlue;
 const Color kSoftPink = Color(0xFF7CB86E);
 const Color kSoftOrange = Color(0xFFF59E0B);
 const Color kErrorColor = Color(0xFFEF4444);
@@ -42,14 +42,20 @@ class DrawerItem {
 
 // ==================== CLEAN WHITE APP DRAWER ====================
 class AppDrawer extends StatelessWidget {
-  AppDrawer({Key? key}) : super(key: key);
+  final ValueChanged<int>? onSelectTab;
+
+  AppDrawer({Key? key, this.onSelectTab}) : super(key: key);
 
   static const List<DrawerItem> _allItems = [
-    DrawerItem(label: "Dashboard", icon: Icons.dashboard_rounded),
     DrawerItem(
       label: "Timetable",
       icon: Icons.schedule_rounded,
       screen: StudentTimetableScreen(),
+    ),
+    DrawerItem(
+      label: "Academic Performance",
+      icon: Icons.insights_rounded,
+      screen: AcademicPerformancePage(),
     ),
     DrawerItem(
       label: "Marks",
@@ -60,16 +66,6 @@ class AppDrawer extends StatelessWidget {
       label: "Results",
       icon: Icons.stars_rounded,
       screen: StudentResultsScreen(),
-    ),
-    DrawerItem(
-      label: "Fees",
-      icon: Icons.account_balance_wallet_rounded,
-      screen: StudentFeesScreen(),
-    ),
-    DrawerItem(
-      label: "Payments",
-      icon: Icons.payment_rounded,
-      screen: StudentPaymentsScreen(),
     ),
     DrawerItem(
       label: "Attendance",
@@ -104,7 +100,7 @@ class AppDrawer extends StatelessWidget {
           bottomRight: Radius.circular(40),
         ),
       ),
-      width: MediaQuery.of(context).size.width * 0.78,
+      width: (MediaQuery.sizeOf(context).width * 0.88).clamp(280.0, 380.0),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -125,19 +121,28 @@ class AppDrawer extends StatelessWidget {
           children: [
             _buildHeader(context),
             Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 16),
-                    _buildMenuItems(context),
-                    _buildLogoutButton(context),
-                    const SizedBox(height: 20),
-                  ],
-                ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = constraints.maxHeight < 560;
+                  return Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      0,
+                      compact ? 4 : 8,
+                      0,
+                      compact ? 36 : 60,
+                    ),
+                    child: Column(
+                      children: [
+                        _buildMenuItems(context),
+                        Expanded(
+                          child: Center(child: _buildLogoutButton(context)),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
             ),
-            _buildFooter(),
           ],
         ),
       ),
@@ -145,28 +150,52 @@ class AppDrawer extends StatelessWidget {
   }
 
   Widget _buildHeader(BuildContext context) {
-    final user = context.watch<AuthProvider>().user;
+    {
+      final accountAuth = context.watch<AuthProvider>();
+      final accountUser = accountAuth.user;
+      final accountProfile = accountAuth.studentProfile;
+      final accountName = accountProfile?.studentName?.trim().isNotEmpty == true
+          ? accountProfile!.studentName!.trim()
+          : (accountUser?.name ?? 'Student');
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
+        child: StudentIdentityCard(
+          name: accountName,
+          className: accountProfile?.className ?? 'Class not assigned',
+          emis:
+              accountProfile?.emisNumber ??
+              accountUser?.emisNumber ??
+              'Not available',
+          onTap: () {
+            Navigator.pop(context);
+            onSelectTab?.call(3);
+          },
+        ),
+      );
+    }
+
+    final auth = context.watch<AuthProvider>();
+    final user = auth.user;
     final name = user?.name ?? 'Student';
-    final initials = name.isNotEmpty ? name.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase() : 'S';
+    final initials = name.isNotEmpty
+        ? name
+              .split(' ')
+              .map((e) => e.isNotEmpty ? e[0] : '')
+              .take(2)
+              .join()
+              .toUpperCase()
+        : 'S';
     final idOrEmail = user?.emisNumber ?? user?.email ?? '—';
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
-          stops: const [0.2, 0.6, 1.0],
-        ),
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(35),
-          bottomRight: Radius.circular(35),
-        ),
+        color: kPrimaryBlue,
+        border: Border(bottom: BorderSide(color: Colors.white24)),
         boxShadow: [
           BoxShadow(
-            color: kPrimaryBlue.withOpacity(0.2),
+            color: const Color(0x33023471),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -179,17 +208,17 @@ class AppDrawer extends StatelessWidget {
               Container(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 3),
+                  border: Border.all(color: kPrimaryGreen, width: 3),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.white.withOpacity(0.3),
+                      color: const Color(0x33000000),
                       blurRadius: 10,
                       spreadRadius: 1,
                     ),
                   ],
                 ),
                 child: CircleAvatar(
-                  radius: 38,
+                  radius: 30,
                   backgroundColor: Colors.white,
                   child: Text(
                     initials.isEmpty ? 'S' : initials,
@@ -223,7 +252,7 @@ class AppDrawer extends StatelessWidget {
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
+                        color: kPrimaryBlue.withOpacity(0.08),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: const Row(
@@ -231,14 +260,14 @@ class AppDrawer extends StatelessWidget {
                         children: [
                           Icon(
                             Icons.school_rounded,
-                            color: Colors.white,
+                            color: kPrimaryBlue,
                             size: 12,
                           ),
                           SizedBox(width: 4),
                           Text(
                             'Student',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: kPrimaryBlue,
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
                             ),
@@ -253,13 +282,13 @@ class AppDrawer extends StatelessWidget {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
+                        color: kPrimaryBlue.withOpacity(0.05),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         idOrEmail.contains('@') ? idOrEmail : 'ID: $idOrEmail',
                         style: const TextStyle(
-                          color: Colors.white70,
+                          color: kTextSecondary,
                           fontSize: 10,
                           fontWeight: FontWeight.w400,
                         ),
@@ -278,19 +307,12 @@ class AppDrawer extends StatelessWidget {
   }
 
   Widget _buildMenuItems(BuildContext context) {
-    final feesEnabled = context.watch<AuthProvider>().feesEnabled;
-    final items = feesEnabled
-        ? _allItems
-        : _allItems.where((i) => i.label != 'Fees' && i.label != 'Payments').toList();
-    return ListView.builder(
-      padding: EdgeInsets.zero,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        return _buildMenuItem(context, item, index);
-      },
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.start,
+      children: List.generate(
+        _allItems.length,
+        (index) => _buildMenuItem(context, _allItems[index], index),
+      ),
     );
   }
 
@@ -298,6 +320,44 @@ class AppDrawer extends StatelessWidget {
     final bool isDashboard = item.label == "Dashboard";
     final bool isNotices = item.label == "Notices";
 
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      child: StudentDrawerItem(
+        icon: item.icon,
+        label: item.label,
+        selected: isDashboard,
+        accent: item.label == 'Attendance' ? kPrimaryGreen : kPrimaryBlue,
+        onTap: () {
+          Navigator.pop(context);
+          if (isDashboard) return;
+          if (item.label == 'Attendance' && onSelectTab != null) {
+            onSelectTab!(1);
+            return;
+          }
+          if (item.label == 'Messages' && onSelectTab != null) {
+            onSelectTab!(2);
+            return;
+          }
+          if (item.label == 'Profile' && onSelectTab != null) {
+            onSelectTab!(3);
+            return;
+          }
+          if (item.screen != null) {
+            Future.delayed(const Duration(milliseconds: 200), () {
+              if (context.mounted) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => item.screen!),
+                );
+              }
+            });
+          }
+        },
+      ),
+    );
+
+    // Legacy item kept below temporarily for callback parity while the new
+    // Student Learning Hub drawer is validated.
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: Material(
@@ -332,14 +392,9 @@ class AppDrawer extends StatelessWidget {
                   width: 38,
                   height: 38,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        _getItemColor(index),
-                        _getItemColor(index).withOpacity(0.7),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                    color: isDashboard
+                        ? kPrimaryBlue.withOpacity(0.1)
+                        : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
@@ -349,7 +404,11 @@ class AppDrawer extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: Icon(item.icon, color: Colors.white, size: 20),
+                  child: Icon(
+                    item.icon,
+                    color: isDashboard ? kPrimaryBlue : kTextSecondary,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -398,7 +457,7 @@ class AppDrawer extends StatelessWidget {
   // This button now directly navigates to the login page
   Widget _buildLogoutButton(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -411,15 +470,15 @@ class AppDrawer extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
-              gradient: LinearGradient(
-                colors: [
-                  kErrorColor.withOpacity(0.05),
-                  kErrorColor.withOpacity(0.02),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              border: Border.all(color: kErrorColor.withOpacity(0.2), width: 1),
+              color: Colors.white,
+              border: Border.all(color: const Color(0xFFFECACA), width: 1),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x18EF4444),
+                  blurRadius: 12,
+                  offset: Offset(0, 5),
+                ),
+              ],
             ),
             child: Row(
               children: [
@@ -427,15 +486,11 @@ class AppDrawer extends StatelessWidget {
                   width: 38,
                   height: 38,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [kErrorColor, kErrorColor.withOpacity(0.7)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                    color: kErrorColor,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: kErrorColor.withOpacity(0.2),
+                        color: Color(0x32EF4444),
                         blurRadius: 6,
                         offset: const Offset(0, 3),
                       ),
@@ -480,11 +535,7 @@ class AppDrawer extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(3),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [kPrimaryBlue, kPrimaryGreen],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: kPrimaryBlue,
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -512,7 +563,7 @@ class AppDrawer extends StatelessWidget {
       kPrimaryBlue,
       kPrimaryGreen,
       kSoftOrange,
-      kSoftPurple,
+      kSoftBlueAccent,
       kSoftPink,
     ];
     return colors[index % colors.length];

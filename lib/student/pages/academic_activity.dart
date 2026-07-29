@@ -10,7 +10,7 @@ const Color kSoftBlue = Color(0xFFE0E9F5); // Light tint of blue
 const Color kSoftGreen = Color(0xFFE4F1E2); // Light tint of green
 const Color kDarkGreen = Color(0xFF3D8C30); // Darker shade of green
 const Color kDarkBlue = Color(0xFF011A3D); // Darker shade of blue
-const Color kSoftPurple = Color(0xFF4A6FA5); // Soft blue-purple
+const Color kSoftBlueAccent = kPrimaryBlue;
 const Color kSoftPink = Color(0xFF7CB86E); // Soft green-pink
 const Color kSoftOrange = Color(0xFFF59E0B); // Amber for warning
 const Color kSuccessColor = Color(0xFF3D8C30); // Darker green
@@ -223,14 +223,7 @@ class _StudentAcademicActivityScreenState
     final activitiesToShow = getFilteredActivities();
 
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [kSoftBlue, kSoftGreen],
-          stops: [0.0, 1.0],
-        ),
-      ),
+      decoration: const BoxDecoration(color: Color(0xFFF0F3F7)),
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: CustomScrollView(
@@ -241,12 +234,7 @@ class _StudentAcademicActivityScreenState
               child: Container(
                 padding: const EdgeInsets.fromLTRB(24, 50, 24, 40),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
-                    stops: const [0.3, 0.7, 1.0],
-                  ),
+                  color: Colors.white,
                   borderRadius: const BorderRadius.only(
                     bottomLeft: Radius.circular(40),
                     bottomRight: Radius.circular(40),
@@ -477,11 +465,7 @@ class _StudentAcademicActivityScreenState
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [kPrimaryBlue, kPrimaryGreen],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: kPrimaryBlue,
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(
@@ -529,11 +513,7 @@ class _StudentAcademicActivityScreenState
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [kSoftBlue, kSoftGreen],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: kSoftBlue,
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -589,11 +569,7 @@ class _ActivitySummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.white, kSoftGreen],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
@@ -612,11 +588,7 @@ class _ActivitySummaryCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [kPrimaryBlue, kPrimaryGreen],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: kPrimaryBlue,
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: const Icon(
@@ -874,14 +846,7 @@ class _AcademicActivityCard extends StatelessWidget {
             width: 50,
             height: 50,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  _getActivityColor(activity.type),
-                  _getActivityColor(activity.type).withOpacity(0.7),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: _getActivityColor(activity.type),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Icon(
@@ -1120,7 +1085,7 @@ class _AcademicActivityCard extends StatelessWidget {
   Color _getActivityColor(String type) {
     switch (type) {
       case "Assignment":
-        return kSoftPurple;
+        return kSoftBlueAccent;
       case "Project":
         return kSoftOrange;
       case "Homework":

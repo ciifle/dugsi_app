@@ -17,7 +17,7 @@ class AdminStudentsScreen extends StatefulWidget {
   final void Function(String, {Object? arguments})? onNavigateToPage;
 
   const AdminStudentsScreen({
-    Key? key, 
+    Key? key,
     this.embedBodyOnly = false,
     this.onNavigateToPage,
   }) : super(key: key);
@@ -73,11 +73,13 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
       return;
     }
 
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => StudentDetailPage(studentId: student.id),
-      ),
-    ).then((_) => _loadStudents());
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute(
+            builder: (_) => StudentDetailPage(studentId: student.id),
+          ),
+        )
+        .then((_) => _loadStudents());
   }
 
   void _navigateToEdit(StudentModel student) async {
@@ -99,7 +101,8 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
     final confirmed = await showDeleteConfirmDialog(
       context,
       title: 'Delete student?',
-      message: 'Delete student ${student.studentName}? This will also delete the linked user.',
+      message:
+          'Delete student ${student.studentName}? This will also delete the linked user.',
     );
     if (confirmed != true) return;
     final result = await StudentsService().deleteStudent(student.id);
@@ -107,11 +110,17 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
     if (result is StudentSuccess) {
       _loadStudents();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${student.studentName} deleted'), backgroundColor: kPrimaryGreen),
+        SnackBar(
+          content: Text('${student.studentName} deleted'),
+          backgroundColor: kPrimaryGreen,
+        ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text((result as StudentError).message), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text((result as StudentError).message),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -119,15 +128,12 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
   @override
   Widget build(BuildContext context) {
     final body = _buildPageBody(context);
-    
+
     if (isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)) {
       return body;
     }
-    
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FC),
-      body: body,
-    );
+
+    return Scaffold(backgroundColor: const Color(0xFFF8F9FC), body: body);
   }
 
   Widget _buildPageBody(BuildContext context) {
@@ -136,82 +142,10 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
       child: Column(
         children: [
           if (!isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly))
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(bottom: BorderSide(color: Color(0xFFE8ECF2), width: 1)),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _StudentsBackButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final compact = constraints.maxWidth < 520;
-                        return Wrap(
-                          alignment: WrapAlignment.spaceBetween,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          spacing: 16,
-                          runSpacing: 16,
-                          children: [
-                            SizedBox(
-                              width: compact
-                                  ? constraints.maxWidth
-                                  : constraints.maxWidth - 170,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Students',
-                                    style: TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                      color: kPrimaryBlue,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Manage all student records and information',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey.shade600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            ElevatedButton.icon(
-                              onPressed: _navigateToCreate,
-                              icon: const Icon(Icons.add_rounded, size: 20),
-                              label: const Text('Add Student'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: kPrimaryGreen,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 14,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            _buildPremiumHeader(context),
           // Search and filters section
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final compact = constraints.maxWidth < 650;
@@ -242,14 +176,29 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
                   return const _StudentCardSkeletonList();
                 }
                 if (snapshot.hasError) {
-                  final userMsg = userFriendlyMessage(snapshot.error!, null, 'AdminStudentsScreen');
+                  final userMsg = userFriendlyMessage(
+                    snapshot.error!,
+                    null,
+                    'AdminStudentsScreen',
+                  );
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+                        Icon(
+                          Icons.error_outline,
+                          size: 48,
+                          color: Colors.red[300],
+                        ),
                         const SizedBox(height: 12),
-                        Text(userMsg, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, color: Colors.grey)),
+                        Text(
+                          userMsg,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey,
+                          ),
+                        ),
                         const SizedBox(height: 16),
                         TextButton.icon(
                           onPressed: _loadStudents,
@@ -271,9 +220,20 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+                        Icon(
+                          Icons.error_outline,
+                          size: 48,
+                          color: Colors.red[300],
+                        ),
                         const SizedBox(height: 12),
-                        Text(result.message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, color: Colors.grey)),
+                        Text(
+                          result.message,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey,
+                          ),
+                        ),
                         const SizedBox(height: 16),
                         TextButton.icon(
                           onPressed: _loadStudents,
@@ -288,13 +248,17 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
                     ),
                   );
                 }
-                final students = _filter((result as StudentSuccess<List<StudentModel>>).data);
+                final students = _filter(
+                  (result as StudentSuccess<List<StudentModel>>).data,
+                );
                 if (students.isEmpty) {
                   return ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     children: [
-                      SizedBox(height: MediaQuery.of(context).size.height * 0.25),
+                      SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.25,
+                      ),
                       Center(
                         child: Container(
                           padding: const EdgeInsets.all(28),
@@ -305,7 +269,7 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: kPrimaryBlue.withOpacity(0.06),
+                                color: kPrimaryBlue.withValues(alpha: 0.06),
                                 blurRadius: 18,
                                 offset: const Offset(0, 6),
                               ),
@@ -316,7 +280,7 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
                               Icon(
                                 Icons.person_search_rounded,
                                 size: 60,
-                                color: kPrimaryBlue.withOpacity(0.25),
+                                color: kPrimaryBlue.withValues(alpha: 0.25),
                               ),
                               const SizedBox(height: 12),
                               const Text(
@@ -369,17 +333,177 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
     );
   }
 
+  Widget _buildPremiumHeader(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        MediaQuery.paddingOf(context).top + 12,
+        20,
+        20,
+      ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFE8ECF2))),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x16023471),
+            blurRadius: 24,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              _StudentsBackButton(onPressed: () => Navigator.of(context).pop()),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Students',
+                      style: TextStyle(
+                        fontSize: 25,
+                        height: 1.05,
+                        fontWeight: FontWeight.w800,
+                        color: kPrimaryBlue,
+                      ),
+                    ),
+                    SizedBox(height: 5),
+                    Text(
+                      'Manage all student records and information',
+                      maxLines: 2,
+                      style: TextStyle(
+                        fontSize: 13,
+                        height: 1.25,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE3EAF4)),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x18023471),
+                      blurRadius: 14,
+                      offset: Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.school_rounded,
+                  color: kPrimaryBlue,
+                  size: 27,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFD),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: const Color(0xFFE3EAF4)),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x16023471),
+                  blurRadius: 20,
+                  offset: Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 54,
+                  height: 54,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE6F0FF),
+                    borderRadius: BorderRadius.circular(17),
+                  ),
+                  child: const Icon(
+                    Icons.groups_rounded,
+                    color: kPrimaryBlue,
+                    size: 30,
+                  ),
+                ),
+                const SizedBox(width: 13),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Student records',
+                        style: TextStyle(
+                          color: Color(0xFF64748B),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      SizedBox(height: 3),
+                      Text(
+                        'Manage your students',
+                        maxLines: 2,
+                        style: TextStyle(
+                          color: kPrimaryBlue,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: _navigateToCreate,
+                  icon: const Icon(Icons.add_rounded, size: 21),
+                  label: const Text('Add'),
+                  style: ElevatedButton.styleFrom(
+                    elevation: 0,
+                    backgroundColor: kPrimaryGreen,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(92, 48),
+                    padding: const EdgeInsets.symmetric(horizontal: 15),
+                    textStyle: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    shadowColor: const Color(0x555AB04B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSearchField() {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(19),
         border: Border.all(color: const Color(0xFFE8ECF2)),
         boxShadow: [
           BoxShadow(
-            color: kPrimaryBlue.withOpacity(0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: const Color(0x18023471),
+            blurRadius: 18,
+            offset: const Offset(0, 7),
           ),
         ],
       ),
@@ -389,10 +513,7 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
         decoration: InputDecoration(
           hintText: 'Search students...',
           hintStyle: TextStyle(color: Colors.grey.shade500),
-          prefixIcon: Icon(
-            Icons.search_rounded,
-            color: Colors.grey.shade500,
-          ),
+          prefixIcon: Icon(Icons.search_rounded, color: kPrimaryBlue),
           suffixIcon: searchQuery.isEmpty
               ? null
               : IconButton(
@@ -405,7 +526,7 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
-            vertical: 14,
+            vertical: 17,
           ),
         ),
       ),
@@ -416,10 +537,17 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(19),
         border: Border.all(color: const Color(0xFFE8ECF2)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14023471),
+            blurRadius: 16,
+            offset: Offset(0, 6),
+          ),
+        ],
       ),
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(5),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -462,7 +590,7 @@ class _StudentsBackButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
-              color: kPrimaryBlue.withOpacity(0.08),
+              color: kPrimaryBlue.withValues(alpha: 0.08),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -499,6 +627,7 @@ class _StatusFilterLabel extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _StudentRow extends StatelessWidget {
   final StudentModel student;
   final VoidCallback onTap;
@@ -532,11 +661,13 @@ class _StudentRow extends StatelessWidget {
                   height: 40,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF023471).withOpacity(0.1),
+                    color: const Color(0xFF023471).withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Text(
-                    student.studentName.isNotEmpty ? student.studentName.substring(0, 1).toUpperCase() : '?',
+                    student.studentName.isNotEmpty
+                        ? student.studentName.substring(0, 1).toUpperCase()
+                        : '?',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -578,10 +709,7 @@ class _StudentRow extends StatelessWidget {
             flex: 1,
             child: Text(
               student.emisNumber.trim().isEmpty ? '—' : student.emisNumber,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade700,
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
             ),
           ),
           // Class
@@ -589,10 +717,7 @@ class _StudentRow extends StatelessWidget {
             flex: 1,
             child: Text(
               student.classDisplayName,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade700,
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
             ),
           ),
           // Phone
@@ -600,10 +725,7 @@ class _StudentRow extends StatelessWidget {
             flex: 1,
             child: Text(
               student.telephone ?? '—',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade700,
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
             ),
           ),
           // Status
@@ -612,10 +734,11 @@ class _StudentRow extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: (student.absenteeismStatus?.toLowerCase() == 'active'
-                        ? const Color(0xFF5AB04B)
-                        : Colors.orange)
-                    .withOpacity(0.1),
+                color:
+                    (student.absenteeismStatus?.toLowerCase() == 'active'
+                            ? const Color(0xFF5AB04B)
+                            : Colors.orange)
+                        .withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
@@ -636,13 +759,21 @@ class _StudentRow extends StatelessWidget {
             child: Row(
               children: [
                 IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 20, color: Color(0xFF5AB04B)),
+                  icon: const Icon(
+                    Icons.edit_outlined,
+                    size: 20,
+                    color: Color(0xFF5AB04B),
+                  ),
                   onPressed: onEdit,
                   tooltip: 'Edit',
                   visualDensity: VisualDensity.compact,
                 ),
                 IconButton(
-                  icon: Icon(Icons.delete_outline, size: 20, color: Colors.red[400]),
+                  icon: Icon(
+                    Icons.delete_outline,
+                    size: 20,
+                    color: Colors.red[400],
+                  ),
                   onPressed: onDelete,
                   tooltip: 'Delete',
                   visualDensity: VisualDensity.compact,
@@ -680,16 +811,22 @@ class _StudentCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(kStudentCardRadius),
         child: Container(
-          margin: const EdgeInsets.only(bottom: 14),
+          margin: const EdgeInsets.only(bottom: 18),
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(kStudentCardRadius),
-            boxShadow: [
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFFE3EAF4)),
+            boxShadow: const [
               BoxShadow(
-                color: kPrimaryBlue.withOpacity(0.07),
-                blurRadius: 18,
-                offset: const Offset(0, 6),
+                color: Color(0x1C023471),
+                blurRadius: 24,
+                offset: Offset(0, 10),
+              ),
+              BoxShadow(
+                color: Color(0x0D023471),
+                blurRadius: 5,
+                offset: Offset(0, 2),
               ),
             ],
           ),
@@ -698,19 +835,53 @@ class _StudentCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  CircleAvatar(
-                    radius: 24,
-                    backgroundColor: kPrimaryBlue.withOpacity(0.1),
-                    child: Text(
-                      student.studentName.isEmpty
-                          ? '?'
-                          : student.studentName[0].toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: kPrimaryBlue,
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: 58,
+                        height: 58,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF2F7FF),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: const Color(0xFF6ABCEB),
+                            width: 1.5,
+                          ),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x18023471),
+                              blurRadius: 12,
+                              offset: Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          student.studentName.isEmpty
+                              ? '?'
+                              : student.studentName[0].toUpperCase(),
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: kPrimaryBlue,
+                          ),
+                        ),
                       ),
-                    ),
+                      Positioned(
+                        right: -1,
+                        bottom: 1,
+                        child: Container(
+                          width: 15,
+                          height: 15,
+                          decoration: BoxDecoration(
+                            color: statusColor,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 3),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -722,7 +893,7 @@ class _StudentCard extends StatelessWidget {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontSize: 16,
+                            fontSize: 17,
                             height: 1.25,
                             fontWeight: FontWeight.w700,
                             color: kPrimaryBlue,
@@ -746,7 +917,7 @@ class _StudentCard extends StatelessWidget {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.12),
+                      color: statusColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(
@@ -764,7 +935,7 @@ class _StudentCard extends StatelessWidget {
                         Text(
                           active ? 'Active' : 'Inactive',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 11,
                             fontWeight: FontWeight.w700,
                             color: statusColor,
                           ),
@@ -803,25 +974,47 @@ class _StudentCard extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: TextButton.icon(
+                    child: ElevatedButton.icon(
                       onPressed: onEdit,
-                      icon: const Icon(Icons.edit_outlined, size: 20),
+                      icon: const Icon(Icons.edit_rounded, size: 19),
                       label: const Text('Edit'),
-                      style: TextButton.styleFrom(
+                      style: ElevatedButton.styleFrom(
+                        elevation: 0,
+                        backgroundColor: const Color(0xFFEDF8EF),
                         foregroundColor: kPrimaryGreen,
-                        minimumSize: const Size(0, 44),
+                        minimumSize: const Size(0, 48),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          side: const BorderSide(color: Color(0xFFD4EBD8)),
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: TextButton.icon(
+                    child: ElevatedButton.icon(
                       onPressed: onDelete,
-                      icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                      icon: const Icon(Icons.delete_outline_rounded, size: 19),
                       label: const Text('Delete'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        minimumSize: const Size(0, 44),
+                      style: ElevatedButton.styleFrom(
+                        elevation: 0,
+                        backgroundColor: const Color(0xFFFFF0F2),
+                        foregroundColor: const Color(0xFFE53945),
+                        minimumSize: const Size(0, 48),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          side: const BorderSide(color: Color(0xFFFFD8DC)),
+                        ),
                       ),
                     ),
                   ),
@@ -843,29 +1036,59 @@ class _StudentInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: Colors.grey.shade500,
+    return Container(
+      constraints: const BoxConstraints(minHeight: 70),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFD),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: const Color(0xFFE7EDF5)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: const Color(0xFFEAF1FF),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              label == 'Class' ? Icons.school_rounded : Icons.phone_rounded,
+              color: kPrimaryBlue,
+              size: 17,
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: kPrimaryBlue,
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: kPrimaryBlue,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -887,7 +1110,7 @@ class _StudentCardSkeletonList extends StatelessWidget {
           borderRadius: BorderRadius.circular(kStudentCardRadius),
           boxShadow: [
             BoxShadow(
-              color: kPrimaryBlue.withOpacity(0.05),
+              color: kPrimaryBlue.withValues(alpha: 0.05),
               blurRadius: 18,
               offset: const Offset(0, 6),
             ),

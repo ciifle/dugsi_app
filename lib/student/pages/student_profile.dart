@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:kobac/models/auth_me_models.dart';
 import 'package:kobac/services/auth_provider.dart';
 import 'package:kobac/student/widgets/student_web_ui.dart';
+import 'package:kobac/student/widgets/student_learning_ui.dart';
 import 'package:kobac/student/pages/change_password_page.dart';
 import 'package:kobac/student/pages/academic_performance_page.dart';
 
@@ -16,7 +17,7 @@ const Color kSoftBlue = Color(0xFFE0E9F5); // Light tint of blue
 const Color kSoftGreen = Color(0xFFE4F1E2); // Light tint of green
 const Color kDarkGreen = Color(0xFF3D8C30); // Darker shade of green
 const Color kDarkBlue = Color(0xFF011A3D); // Darker shade of blue
-const Color kSoftPurple = Color(0xFF4A6FA5); // Soft blue-purple
+const Color kSoftBlueAccent = kPrimaryBlue;
 const Color kSoftPink = Color(0xFF7CB86E); // Soft green-pink
 const Color kSoftOrange = Color(0xFFF59E0B); // Amber for warning
 const Color kSuccessColor = Color(0xFF3D8C30); // Darker green
@@ -58,7 +59,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
     final p = prof is StudentProfile ? prof : null;
     return {
       'fullName': p?.studentName ?? user?.name ?? _dash,
-      'studentID': p?.emisNumber ?? user?.emisNumber ?? (user != null ? 'ID ${user.id}' : _dash),
+      'studentID':
+          p?.emisNumber ??
+          user?.emisNumber ??
+          (user != null ? 'ID ${user.id}' : _dash),
       'class': p?.className ?? _dash,
       'dob': p?.birthDate ?? _dash,
       'gender': p?.sex ?? _dash,
@@ -82,10 +86,14 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
   }
 
   /// Builds card rows only for keys that have a non-empty value (not placeholder).
-  List<_CardRow> _rows(Map<String, String> student, List<({String label, String key})> entries) {
+  List<_CardRow> _rows(
+    Map<String, String> student,
+    List<({String label, String key})> entries,
+  ) {
     return [
       for (final e in entries)
-        if ((student[e.key] ?? _dash).trim().isNotEmpty && student[e.key] != _dash)
+        if ((student[e.key] ?? _dash).trim().isNotEmpty &&
+            student[e.key] != _dash)
           _CardRow(label: e.label, value: student[e.key]!),
     ];
   }
@@ -112,7 +120,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
     return _buildContent(context, student, onRefresh: _refresh);
   }
 
-  Widget _buildDesktopProfileBody(BuildContext context, Map<String, String> student) {
+  Widget _buildDesktopProfileBody(
+    BuildContext context,
+    Map<String, String> student,
+  ) {
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(24),
@@ -128,16 +139,14 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
     );
   }
 
-  Widget _buildError(BuildContext context, String message, VoidCallback onRetry, {bool is404 = false}) {
+  Widget _buildError(
+    BuildContext context,
+    String message,
+    VoidCallback onRetry, {
+    bool is404 = false,
+  }) {
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [kSoftBlue, kSoftGreen],
-          stops: [0.0, 1.0],
-        ),
-      ),
+      decoration: const BoxDecoration(color: kBackgroundColor),
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: Center(
@@ -147,7 +156,9 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  is404 ? Icons.person_off_rounded : Icons.error_outline_rounded,
+                  is404
+                      ? Icons.person_off_rounded
+                      : Icons.error_outline_rounded,
                   size: 56,
                   color: kErrorColor.withOpacity(0.8),
                 ),
@@ -155,7 +166,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
                 Text(
                   message,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 16, color: kTextPrimaryColor),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: kTextPrimaryColor,
+                  ),
                 ),
                 const SizedBox(height: 24),
                 TextButton.icon(
@@ -172,16 +186,13 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
     );
   }
 
-  Widget _buildContent(BuildContext context, Map<String, String> student, {VoidCallback? onRefresh}) {
+  Widget _buildContent(
+    BuildContext context,
+    Map<String, String> student, {
+    VoidCallback? onRefresh,
+  }) {
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [kSoftBlue, kSoftGreen],
-          stops: [0.0, 1.0],
-        ),
-      ),
+      decoration: const BoxDecoration(color: kBackgroundColor),
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: RefreshIndicator(
@@ -189,201 +200,190 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
           color: kPrimaryBlue,
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            // App Bar
-            SliverToBoxAdapter(
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(24, 50, 24, 40),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
-                    stops: const [0.3, 0.7, 1.0],
+            slivers: [
+              // App Bar
+              SliverToBoxAdapter(
+                child: Container(
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    MediaQuery.paddingOf(context).top + 12,
+                    20,
+                    18,
                   ),
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(40),
-                    bottomRight: Radius.circular(40),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: kPrimaryBlue.withOpacity(0.06),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: kPrimaryBlue.withOpacity(0.3),
-                      blurRadius: 30,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        const SizedBox(width: 44),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Text(
-                                "My Profile",
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.9),
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          const SizedBox(width: 44),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Text(
+                                  "Profile",
+                                  style: const TextStyle(
+                                    color: kPrimaryBlue,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 2),
-                              const Text(
-                                "Personal Info",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
+                                const SizedBox(height: 2),
+                                const Text(
+                                  "Your personal information",
+                                  style: TextStyle(
+                                    color: kTextSecondaryColor,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  textAlign: TextAlign.center,
                                 ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: const Padding(
-                            padding: EdgeInsets.all(8.0),
-                            child: Icon(
-                              Icons.edit_rounded,
-                              color: Colors.white,
-                              size: 28,
+                              ],
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          const SizedBox(width: 44),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
 
-            // Main Content
-            SliverPadding(
-              padding: const EdgeInsets.all(20),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  _ProfileHeaderCard(student: student),
-                  const SizedBox(height: 20),
-                  if (_rows(student, [
-                    (label: "Date of Birth", key: 'dob'),
-                    (label: "Gender", key: 'gender'),
-                    (label: "Phone", key: 'phone'),
-                    (label: "Email", key: 'email'),
-                    (label: "Mother's name", key: 'motherName'),
-                    (label: "Birth place", key: 'birthPlace'),
-                    (label: "Nationality", key: 'nationality'),
-                  ]).isNotEmpty) ...[
-                    _InfoCard(
-                      title: "Personal Information",
-                      icon: Icons.person_outline_rounded,
-                      gradientColor: kPrimaryBlue,
-                      data: _rows(student, [
-                        (label: "Date of Birth", key: 'dob'),
-                        (label: "Gender", key: 'gender'),
-                        (label: "Phone", key: 'phone'),
-                        (label: "Email", key: 'email'),
-                        (label: "Mother's name", key: 'motherName'),
-                        (label: "Birth place", key: 'birthPlace'),
-                        (label: "Nationality", key: 'nationality'),
-                      ]),
+              // Main Content
+              SliverPadding(
+                padding: const EdgeInsets.all(20),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    StudentIdentityCard(
+                      name: student['fullName']!,
+                      className: student['class']!,
+                      emis: student['studentID']!,
                     ),
-                    const SizedBox(height: 16),
-                  ],
-                  if (_rows(student, [
-                    (label: "School", key: 'schoolName'),
-                    (label: "Class", key: 'class'),
-                    (label: "EMIS Number", key: 'studentID'),
-                    (label: "Age", key: 'age'),
-                    (label: "Absenteeism status", key: 'absenteeismStatus'),
-                  ]).isNotEmpty) ...[
-                    _InfoCard(
-                      title: "Academic Information",
-                      icon: Icons.school_rounded,
-                      gradientColor: kPrimaryGreen,
-                      data: _rows(student, [
-                        (label: "School", key: 'schoolName'),
-                        (label: "Class", key: 'class'),
-                        (label: "EMIS Number", key: 'studentID'),
-                        (label: "Age", key: 'age'),
-                        (label: "Absenteeism status", key: 'absenteeismStatus'),
-                      ]),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  if (_rows(student, [
-                    (label: "Name", key: 'guardianName'),
-                    (label: "Phone", key: 'guardianPhone'),
-                  ]).isNotEmpty) ...[
-                    _InfoCard(
-                      title: "Guardian Information",
-                      icon: Icons.family_restroom_rounded,
-                      gradientColor: kSoftOrange,
-                      data: _rows(student, [
-                        (label: "Name", key: 'guardianName'),
-                        (label: "Phone", key: 'guardianPhone'),
-                      ]),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  if (_rows(student, [
-                    (label: "State / Region", key: 'studentState'),
-                    (label: "District", key: 'studentDistrict'),
-                    (label: "Village", key: 'studentVillage'),
-                    (label: "Refugee status", key: 'refugeeStatus'),
-                    (label: "Orphan status", key: 'orphanStatus'),
-                    (label: "Disability status", key: 'disabilityStatus'),
-                  ]).isNotEmpty) ...[
-                    _InfoCard(
-                      title: "Address & Status",
-                      icon: Icons.location_on_rounded,
-                      gradientColor: kSoftPurple,
-                      data: _rows(student, [
-                        (label: "State / Region", key: 'studentState'),
-                        (label: "District", key: 'studentDistrict'),
-                        (label: "Village", key: 'studentVillage'),
-                        (label: "Refugee status", key: 'refugeeStatus'),
-                        (label: "Orphan status", key: 'orphanStatus'),
-                        (label: "Disability status", key: 'disabilityStatus'),
-                      ]),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  _ProfileAction(
-                    icon: Icons.insights_rounded,
-                    title: 'My Academic Performance',
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const AcademicPerformancePage(),
+                    const SizedBox(height: 20),
+                    if (_rows(student, [
+                      (label: "Date of Birth", key: 'dob'),
+                      (label: "Gender", key: 'gender'),
+                      (label: "Phone", key: 'phone'),
+                      (label: "Email", key: 'email'),
+                      (label: "Mother's name", key: 'motherName'),
+                      (label: "Birth place", key: 'birthPlace'),
+                      (label: "Nationality", key: 'nationality'),
+                    ]).isNotEmpty) ...[
+                      _InfoCard(
+                        title: "Personal Information",
+                        icon: Icons.person_outline_rounded,
+                        gradientColor: kPrimaryBlue,
+                        data: _rows(student, [
+                          (label: "Date of Birth", key: 'dob'),
+                          (label: "Gender", key: 'gender'),
+                          (label: "Phone", key: 'phone'),
+                          (label: "Email", key: 'email'),
+                          (label: "Mother's name", key: 'motherName'),
+                          (label: "Birth place", key: 'birthPlace'),
+                          (label: "Nationality", key: 'nationality'),
+                        ]),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    if (_rows(student, [
+                      (label: "School", key: 'schoolName'),
+                      (label: "Class", key: 'class'),
+                      (label: "EMIS Number", key: 'studentID'),
+                      (label: "Age", key: 'age'),
+                      (label: "Absenteeism status", key: 'absenteeismStatus'),
+                    ]).isNotEmpty) ...[
+                      _InfoCard(
+                        title: "Academic Information",
+                        icon: Icons.school_rounded,
+                        gradientColor: kPrimaryGreen,
+                        data: _rows(student, [
+                          (label: "School", key: 'schoolName'),
+                          (label: "Class", key: 'class'),
+                          (label: "EMIS Number", key: 'studentID'),
+                          (label: "Age", key: 'age'),
+                          (
+                            label: "Absenteeism status",
+                            key: 'absenteeismStatus',
+                          ),
+                        ]),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    if (_rows(student, [
+                      (label: "Name", key: 'guardianName'),
+                      (label: "Phone", key: 'guardianPhone'),
+                    ]).isNotEmpty) ...[
+                      _InfoCard(
+                        title: "Guardian Information",
+                        icon: Icons.family_restroom_rounded,
+                        gradientColor: kSoftOrange,
+                        data: _rows(student, [
+                          (label: "Name", key: 'guardianName'),
+                          (label: "Phone", key: 'guardianPhone'),
+                        ]),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    if (_rows(student, [
+                      (label: "State / Region", key: 'studentState'),
+                      (label: "District", key: 'studentDistrict'),
+                      (label: "Village", key: 'studentVillage'),
+                      (label: "Refugee status", key: 'refugeeStatus'),
+                      (label: "Orphan status", key: 'orphanStatus'),
+                      (label: "Disability status", key: 'disabilityStatus'),
+                    ]).isNotEmpty) ...[
+                      _InfoCard(
+                        title: "Address & Status",
+                        icon: Icons.location_on_rounded,
+                        gradientColor: kSoftBlueAccent,
+                        data: _rows(student, [
+                          (label: "State / Region", key: 'studentState'),
+                          (label: "District", key: 'studentDistrict'),
+                          (label: "Village", key: 'studentVillage'),
+                          (label: "Refugee status", key: 'refugeeStatus'),
+                          (label: "Orphan status", key: 'orphanStatus'),
+                          (label: "Disability status", key: 'disabilityStatus'),
+                        ]),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    _ProfileAction(
+                      icon: Icons.insights_rounded,
+                      title: 'My Academic Performance',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const AcademicPerformancePage(),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  _ProfileAction(
-                    icon: Icons.lock_outline_rounded,
-                    title: 'Change Password',
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const ChangePasswordPage(),
+                    const SizedBox(height: 12),
+                    _ProfileAction(
+                      icon: Icons.lock_outline_rounded,
+                      title: 'Change Password',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const ChangePasswordPage(),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  _buildLogoutButton(context),
-                  const SizedBox(height: 32),
-                ]),
+                    const SizedBox(height: 24),
+                    _buildLogoutButton(context),
+                    const SizedBox(height: 32),
+                  ]),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -401,15 +401,15 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            gradient: LinearGradient(
-              colors: [
-                kErrorColor.withOpacity(0.05),
-                kErrorColor.withOpacity(0.02),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            border: Border.all(color: kErrorColor.withOpacity(0.2), width: 1),
+            color: Colors.white,
+            border: Border.all(color: const Color(0xFFFECACA), width: 1),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x18EF4444),
+                blurRadius: 16,
+                offset: Offset(0, 7),
+              ),
+            ],
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -418,15 +418,11 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [kErrorColor, kErrorColor.withOpacity(0.7)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: kErrorColor,
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: kErrorColor.withOpacity(0.2),
+                      color: const Color(0x32EF4444),
                       blurRadius: 6,
                       offset: const Offset(0, 3),
                     ),
@@ -477,17 +473,33 @@ class _ProfileAction extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
-          boxShadow: [
+          border: Border.all(color: const Color(0xFFE8ECF2)),
+          boxShadow: const [
             BoxShadow(
-              color: kPrimaryBlue.withOpacity(0.06),
-              blurRadius: 16,
-              offset: const Offset(0, 5),
+              color: Color(0x18023471),
+              blurRadius: 18,
+              offset: Offset(0, 7),
             ),
           ],
         ),
         child: Row(
           children: [
-            Icon(icon, color: kPrimaryBlue),
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: kPrimaryBlue,
+                borderRadius: BorderRadius.circular(13),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x30023471),
+                    blurRadius: 10,
+                    offset: Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Icon(icon, color: Colors.white, size: 21),
+            ),
             const SizedBox(width: 14),
             Expanded(
               child: Text(
@@ -527,16 +539,57 @@ class _DesktopStudentProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final detailEntries = <({String label, String key, IconData icon, Color accent})>[
-      (label: 'Email', key: 'email', icon: Icons.email_outlined, accent: studentWebBlue),
-      (label: 'Phone', key: 'phone', icon: Icons.phone_outlined, accent: studentWebGreen),
-      (label: 'Gender', key: 'gender', icon: Icons.wc_outlined, accent: studentWebBlue),
-      (label: 'Class', key: 'class', icon: Icons.school_outlined, accent: studentWebGreen),
-      (label: 'Student ID', key: 'studentID', icon: Icons.badge_outlined, accent: studentWebBlue),
-      (label: "Mother's name", key: 'motherName', icon: Icons.family_restroom_outlined, accent: studentWebGreen),
-      (label: 'Date of birth', key: 'dob', icon: Icons.cake_outlined, accent: studentWebBlue),
-      (label: 'Attendance status', key: 'absenteeismStatus', icon: Icons.event_available_outlined, accent: studentWebGreen),
-    ];
+    final detailEntries =
+        <({String label, String key, IconData icon, Color accent})>[
+          (
+            label: 'Email',
+            key: 'email',
+            icon: Icons.email_outlined,
+            accent: studentWebBlue,
+          ),
+          (
+            label: 'Phone',
+            key: 'phone',
+            icon: Icons.phone_outlined,
+            accent: studentWebGreen,
+          ),
+          (
+            label: 'Gender',
+            key: 'gender',
+            icon: Icons.wc_outlined,
+            accent: studentWebBlue,
+          ),
+          (
+            label: 'Class',
+            key: 'class',
+            icon: Icons.school_outlined,
+            accent: studentWebGreen,
+          ),
+          (
+            label: 'Student ID',
+            key: 'studentID',
+            icon: Icons.badge_outlined,
+            accent: studentWebBlue,
+          ),
+          (
+            label: "Mother's name",
+            key: 'motherName',
+            icon: Icons.family_restroom_outlined,
+            accent: studentWebGreen,
+          ),
+          (
+            label: 'Date of birth',
+            key: 'dob',
+            icon: Icons.cake_outlined,
+            accent: studentWebBlue,
+          ),
+          (
+            label: 'Attendance status',
+            key: 'absenteeismStatus',
+            icon: Icons.event_available_outlined,
+            accent: studentWebGreen,
+          ),
+        ];
 
     return Container(
       decoration: BoxDecoration(
@@ -634,14 +687,7 @@ class _DesktopProfileGradientHeader extends StatelessWidget {
     return Container(
       constraints: const BoxConstraints(minHeight: 178, maxHeight: 210),
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 22),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [studentWebBlue, Color(0xFF0B5A8A), studentWebGreen],
-          stops: [0.0, 0.55, 1.0],
-        ),
-      ),
+      decoration: const BoxDecoration(color: Colors.white),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -651,7 +697,7 @@ class _DesktopProfileGradientHeader extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: Colors.white,
-              border: Border.all(color: Colors.white.withValues(alpha: 0.85), width: 3),
+              border: Border.all(color: kSoftBlue, width: 3),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.12),
@@ -684,7 +730,7 @@ class _DesktopProfileGradientHeader extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
-                    color: Colors.white,
+                    color: kPrimaryBlue,
                     height: 1.15,
                   ),
                 ),
@@ -846,7 +892,8 @@ class _DesktopProfileFooter extends StatelessWidget {
     required this.onLogout,
   });
 
-  bool get _hasAttendanceStatus => attendanceStatus.trim().isNotEmpty && attendanceStatus != '—';
+  bool get _hasAttendanceStatus =>
+      attendanceStatus.trim().isNotEmpty && attendanceStatus != '—';
 
   bool get _isActiveStatus {
     final normalized = attendanceStatus.trim().toLowerCase();
@@ -863,17 +910,21 @@ class _DesktopProfileFooter extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             decoration: BoxDecoration(
-              color: (_isActiveStatus ? studentWebGreen : kErrorColor).withValues(alpha: 0.12),
+              color: (_isActiveStatus ? studentWebGreen : kErrorColor)
+                  .withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(999),
               border: Border.all(
-                color: (_isActiveStatus ? studentWebGreen : kErrorColor).withValues(alpha: 0.24),
+                color: (_isActiveStatus ? studentWebGreen : kErrorColor)
+                    .withValues(alpha: 0.24),
               ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  _isActiveStatus ? Icons.verified_rounded : Icons.info_outline_rounded,
+                  _isActiveStatus
+                      ? Icons.verified_rounded
+                      : Icons.info_outline_rounded,
                   size: 15,
                   color: _isActiveStatus ? studentWebGreen : kErrorColor,
                 ),
@@ -899,8 +950,13 @@ class _DesktopProfileFooter extends StatelessWidget {
             side: BorderSide(color: kErrorColor.withValues(alpha: 0.45)),
             backgroundColor: kErrorColor.withValues(alpha: 0.04),
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            textStyle: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],
@@ -933,11 +989,7 @@ class _ProfileHeaderCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.white, kSoftGreen],
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
@@ -954,11 +1006,7 @@ class _ProfileHeaderCard extends StatelessWidget {
           Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [kPrimaryBlue, kPrimaryGreen],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: kPrimaryBlue.withOpacity(0.1),
               boxShadow: [
                 BoxShadow(
                   color: kPrimaryBlue.withOpacity(0.3),
@@ -1031,11 +1079,7 @@ class _ProfileHeaderCard extends StatelessWidget {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [kPrimaryBlue, kPrimaryBlue.withOpacity(0.7)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: kPrimaryBlue,
                   borderRadius: BorderRadius.circular(25),
                   boxShadow: [
                     BoxShadow(
@@ -1083,14 +1127,14 @@ class _InfoCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-            color: gradientColor.withOpacity(0.1),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
+            color: Color(0x18023471),
+            blurRadius: 20,
+            offset: Offset(0, 8),
           ),
         ],
-        border: Border.all(color: gradientColor.withOpacity(0.2), width: 1),
+        border: Border.all(color: const Color(0xFFE8ECF2), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1100,15 +1144,11 @@ class _InfoCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [gradientColor, gradientColor.withOpacity(0.7)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: gradientColor,
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: [
-                    BoxShadow(
-                      color: gradientColor.withOpacity(0.3),
+                    const BoxShadow(
+                      color: Color(0x26023471),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),

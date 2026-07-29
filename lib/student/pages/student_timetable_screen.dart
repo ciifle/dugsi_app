@@ -18,11 +18,11 @@ final List<Color> kSlotAccentColors = [
   kPrimaryBlue,
   kPrimaryGreen,
   const Color(0xFFF59E0B), // amber
-  const Color(0xFF4A6FA5), // soft purple
+  kPrimaryBlue,
   const Color(0xFF3D8C30), // dark green
-  const Color(0xFF0EA5E9), // sky
-  const Color(0xFFE91E63), // pink
-  const Color(0xFF9C27B0), // purple
+  kPrimaryGreen,
+  kPrimaryBlue,
+  kPrimaryGreen,
 ];
 
 class StudentTimetableScreen extends StatefulWidget {
@@ -150,12 +150,9 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen>
                 height: 44,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  gradient: isSelected
-                      ? const LinearGradient(
-                          colors: [kPrimaryBlue, kPrimaryGreen],
-                        )
-                      : null,
-                  color: isSelected ? null : const Color(0xFFF7F9FC),
+                  color: isSelected
+                      ? kPrimaryBlue
+                      : const Color(0xFFF7F9FC),
                   border: Border.all(
                     color: isSelected ? Colors.transparent : studentWebBorder,
                   ),
@@ -294,14 +291,7 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen>
 
   Widget _buildMobileTimetableBody(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [kSoftBlue, kSoftGreen],
-          stops: [0.0, 1.0],
-        ),
-      ),
+      decoration: const BoxDecoration(color: studentWebBg),
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -849,7 +839,7 @@ class _TimetableSlotCard extends StatelessWidget {
     } else if (hour < 17) {
       return kPrimaryBlue; // Afternoon - blue
     } else {
-      return const Color(0xFF9C27B0); // Evening - purple
+      return kPrimaryBlue;
     }
   }
 

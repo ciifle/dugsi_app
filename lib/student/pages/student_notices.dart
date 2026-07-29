@@ -63,14 +63,7 @@ class _AllNoticesScreenState extends State<AllNoticesScreen> {
     final body = Container(
       decoration: embedded
           ? const BoxDecoration(color: studentWebBg)
-          : const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [kSoftBlue, kSoftGreen],
-                stops: [0.0, 1.0],
-              ),
-            ),
+          : const BoxDecoration(color: studentWebBg),
       child: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
@@ -79,16 +72,7 @@ class _AllNoticesScreenState extends State<AllNoticesScreen> {
               child: Container(
                 padding: const EdgeInsets.fromLTRB(24, 50, 24, 30),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
-                    stops: const [0.3, 0.7, 1.0],
-                  ),
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(40),
-                    bottomRight: Radius.circular(40),
-                  ),
+                  color: Colors.white,
                   boxShadow: [
                     BoxShadow(
                       color: kPrimaryBlue.withOpacity(0.3),
@@ -103,7 +87,7 @@ class _AllNoticesScreenState extends State<AllNoticesScreen> {
                     const Text(
                       "Stay Updated",
                       style: TextStyle(
-                        color: Colors.white70,
+                        color: kTextSecondary,
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
@@ -112,7 +96,7 @@ class _AllNoticesScreenState extends State<AllNoticesScreen> {
                     const Text(
                       "All Notices",
                       style: TextStyle(
-                        color: Colors.white,
+                        color: kPrimaryBlue,
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                       ),
@@ -280,11 +264,7 @@ class _AllNoticesScreenState extends State<AllNoticesScreen> {
                   width: 4,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(2),
-                    gradient: const LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [kPrimaryBlue, kPrimaryGreen],
-                    ),
+                    color: kPrimaryBlue,
                   ),
                 ),
                 const SizedBox(width: 16),

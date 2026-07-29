@@ -9,7 +9,7 @@ import 'package:kobac/student/widgets/student_web_ui.dart';
 const Color kPrimaryColor = Color(0xFF023471); // Deep blue (from your palette)
 const Color kSecondaryColor = Color(0xFF5AB04B); // Green (from your palette)
 const Color kAccentColor = Color(0xFF5AB04B); // Green as accent
-const Color kSoftPurple = Color(0xFF4A6FA5); // Soft blue-purple (adjusted)
+const Color kSoftBlueAccent = kPrimaryColor;
 const Color kSoftPink = Color(0xFF7CB86E); // Soft green-pink (adjusted)
 const Color kSoftOrange = Color(0xFFF59E0B); // Keep amber for warning
 const Color kSoftBlue = Color(0xFF4D7EC1); // Lighter blue (adjusted)
@@ -209,14 +209,7 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
     return Container(
       decoration: embedded
           ? const BoxDecoration(color: studentWebBg)
-          : const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [kSoftBlue, kSoftGreen],
-                stops: [0.0, 1.0],
-              ),
-            ),
+          : const BoxDecoration(color: studentWebBg),
         child: Scaffold(
           backgroundColor: Colors.transparent,
           body: CustomScrollView(
@@ -227,16 +220,7 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
               child: Container(
                 padding: const EdgeInsets.fromLTRB(24, 50, 24, 40),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [kPrimaryColor, kPrimaryColor, kSecondaryColor],
-                    stops: const [0.3, 0.7, 1.0],
-                  ),
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(40),
-                    bottomRight: Radius.circular(40),
-                  ),
+                  color: Colors.white,
                   boxShadow: [
                     BoxShadow(
                       color: kPrimaryColor.withOpacity(0.3),
@@ -254,14 +238,14 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
                           onTap: () => Navigator.pop(context),
                           child: Container(
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
+                              color: kSoftBlue,
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: const Padding(
                               padding: EdgeInsets.all(8.0),
                               child: Icon(
                                 Icons.arrow_back_rounded,
-                                color: Colors.white,
+                                color: kPrimaryColor,
                                 size: 28,
                               ),
                             ),
@@ -276,7 +260,7 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
                               Text(
                                 "Fees Management",
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.9),
+                                  color: kTextSecondaryColor,
                                   fontSize: 16,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -285,7 +269,7 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
                               const Text(
                                 "Fee Details",
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: kPrimaryColor,
                                   fontSize: 24,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -297,14 +281,14 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
                         // Download Button
                         Container(
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
+                            color: kSoftBlue,
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: const Padding(
                             padding: EdgeInsets.all(8.0),
                             child: Icon(
                               Icons.download_rounded,
-                              color: Colors.white,
+                              color: kPrimaryColor,
                               size: 28,
                             ),
                           ),
@@ -503,11 +487,7 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.white, kSoftGreen],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
@@ -527,12 +507,12 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: kSoftPurple.withOpacity(0.1),
+                  color: kSoftBlueAccent.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: const Icon(
                   Icons.account_balance_wallet_rounded,
-                  color: kSoftPurple,
+                  color: kSoftBlueAccent,
                   size: 24,
                 ),
               ),
@@ -709,11 +689,7 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [kPrimaryColor, kSecondaryColor],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: kPrimaryColor,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: const Icon(
@@ -771,15 +747,7 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
                   width: 50,
                   height: 50,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: i == 0
-                          ? [kSoftPurple, kPrimaryColor]
-                          : i == 1
-                          ? [kSoftPink, kSecondaryColor]
-                          : [kSoftBlue, kPrimaryColor],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                    color: i.isEven ? kPrimaryColor : kSecondaryColor,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Center(
@@ -1022,7 +990,7 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
       scrollDirection: Axis.horizontal,
       child: DataTable(
         headingRowColor: MaterialStateProperty.all(
-          kSoftPurple.withOpacity(0.05),
+          kSoftBlueAccent.withOpacity(0.05),
         ),
         dataRowColor: MaterialStateProperty.all(Colors.transparent),
         columnSpacing: 20,
@@ -1160,11 +1128,7 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
             width: 50,
             height: 50,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [kSoftBlue, kPrimaryColor],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: kPrimaryColor,
               borderRadius: BorderRadius.circular(16),
             ),
             child: const Icon(
@@ -1210,11 +1174,7 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.white, kSoftGreen.withOpacity(0.3)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: Colors.grey.shade100),
               ),
@@ -1259,13 +1219,13 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
                                   vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: kSoftPurple.withOpacity(0.1),
+                                  color: kSoftBlueAccent.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
                                   p['date']?.toString() ?? "Unknown",
                                   style: TextStyle(
-                                    color: kSoftPurple,
+                                    color: kSoftBlueAccent,
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -1345,11 +1305,7 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.white, kSoftGreen],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
@@ -1368,11 +1324,7 @@ class _StudentFeesScreenState extends State<StudentFeesScreen>
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [kSoftOrange, kWarningColor],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: kWarningColor,
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: const Icon(

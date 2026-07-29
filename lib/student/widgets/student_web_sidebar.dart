@@ -4,6 +4,7 @@ import 'package:kobac/services/auth_provider.dart';
 
 const Color _kPrimaryBlue = Color(0xFF023471);
 const Color _kPrimaryGreen = Color(0xFF5AB04B);
+const Color _kTextPrimary = Color(0xFF2D3436);
 const Color _kTextSecondary = Color(0xFF6B7280);
 
 class StudentWebSidebar extends StatelessWidget {
@@ -222,12 +223,9 @@ class _StudentNavItem extends StatelessWidget {
           child: Ink(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
-              gradient: selected
-                  ? const LinearGradient(
-                      colors: [_kPrimaryBlue, _kPrimaryGreen],
-                    )
-                  : null,
-              color: selected ? null : Colors.transparent,
+              color: selected
+                  ? _kPrimaryBlue.withValues(alpha: 0.1)
+                  : Colors.transparent,
             ),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -236,7 +234,7 @@ class _StudentNavItem extends StatelessWidget {
                   Icon(
                     icon,
                     size: 20,
-                    color: selected ? Colors.white : _kPrimaryBlue,
+                    color: selected ? _kPrimaryBlue : _kTextSecondary,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -247,7 +245,7 @@ class _StudentNavItem extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: selected ? Colors.white : _kPrimaryBlue,
+                        color: selected ? _kPrimaryBlue : _kTextPrimary,
                       ),
                     ),
                   ),

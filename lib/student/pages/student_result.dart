@@ -567,14 +567,7 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
 
   Widget _buildMobileResultsBody(BuildContext context) {
     final shell = Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [kSoftBlue, kSoftGreen],
-          stops: [0.0, 1.0],
-        ),
-      ),
+      decoration: const BoxDecoration(color: studentWebBg),
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: FutureBuilder<StudentResult<List<StudentExamModel>>>(
@@ -1146,16 +1139,7 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
       child: Container(
         padding: const EdgeInsets.fromLTRB(24, 50, 24, 40),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
-            stops: const [0.3, 0.7, 1.0],
-          ),
-          borderRadius: const BorderRadius.only(
-            bottomLeft: Radius.circular(40),
-            bottomRight: Radius.circular(40),
-          ),
+          color: Colors.white,
           boxShadow: [
             BoxShadow(
               color: kPrimaryBlue.withOpacity(0.3),

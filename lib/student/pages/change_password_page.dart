@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:kobac/services/academic_performance_service.dart';
 import 'package:kobac/student/widgets/student_web_ui.dart';
+import 'package:kobac/student/widgets/student_learning_ui.dart';
 
 class ChangePasswordPage extends StatefulWidget {
   const ChangePasswordPage({super.key});
@@ -101,12 +102,6 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: studentWebBg,
-      appBar: AppBar(
-        backgroundColor: studentWebBg,
-        foregroundColor: studentWebBlue,
-        elevation: 0,
-        title: const Text('Change Password'),
-      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Center(
@@ -115,9 +110,16 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  'Use a strong password that you do not use elsewhere.',
-                  style: TextStyle(color: Colors.grey.shade600),
+                StudentPageHeader(
+                  title: 'Change Password',
+                  subtitle: 'Keep your student account secure',
+                  onBack: () => Navigator.pop(context),
+                ),
+                const SizedBox(height: 20),
+                const StudentMetricCard(
+                  label: 'Use a password you do not use elsewhere',
+                  value: 'Account security',
+                  icon: Icons.shield_outlined,
                 ),
                 const SizedBox(height: 18),
                 Container(

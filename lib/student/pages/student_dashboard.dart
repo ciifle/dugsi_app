@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:kobac/student/widgets/student_web_shell.dart';
 import 'package:kobac/student/widgets/student_web_ui.dart';
+import 'package:kobac/student/widgets/student_learning_ui.dart';
 import 'package:kobac/services/auth_provider.dart';
 import 'package:kobac/services/student_service.dart';
 import 'package:kobac/student/pages/student_attendance.dart';
@@ -13,6 +14,8 @@ import 'package:kobac/student/pages/student_timetable_screen.dart';
 import 'package:kobac/student/pages/student_pay_fee_screen.dart';
 import 'package:kobac/student/widgets/student_drawer.dart';
 import 'package:kobac/student/pages/student_notices.dart';
+import 'package:kobac/student/pages/academic_performance_page.dart';
+import 'package:kobac/services/academic_performance_service.dart';
 import 'package:kobac/messages/messages_screen.dart';
 
 // ---------- COLOR PALETTE (Only two colors) ----------
@@ -68,27 +71,52 @@ class _StudentDashboardScreenView extends StatelessWidget {
     final state = context.watch<_StudentDashboardScreenState>();
     return Scaffold(
       key: state._scaffoldKey,
-      drawer: AppDrawer(), // Drawer opens from left
+      drawer: AppDrawer(onSelectTab: state._onNavItemTapped),
       body: IndexedStack(index: state._selectedIndex, children: state._screens),
       bottomNavigationBar: Container(
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 10),
         decoration: BoxDecoration(
-          boxShadow: [
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(color: studentLine),
+          boxShadow: const [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 20,
-              offset: const Offset(0, -5),
+              color: Color(0x22023471),
+              blurRadius: 24,
+              offset: Offset(0, 10),
             ),
           ],
         ),
         child: ClipRRect(
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(30),
-            topRight: Radius.circular(30),
-          ),
+          borderRadius: BorderRadius.circular(25),
           child: BottomNavigationBar(
-            items: state._navItems.map((item) {
+            items: state._navItems.asMap().entries.map((entry) {
+              final index = entry.key;
+              final item = entry.value;
+              final selected = index == state._selectedIndex;
               return BottomNavigationBarItem(
-                icon: Icon(item['icon']),
+                icon: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  width: 38,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: selected ? studentBlue : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: selected
+                        ? const [
+                            BoxShadow(
+                              color: Color(0x32023471),
+                              blurRadius: 10,
+                              offset: Offset(0, 5),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Icon(
+                    item['icon'],
+                    color: selected ? Colors.white : studentMuted,
+                    size: 21,
+                  ),
+                ),
                 label: item['label'],
               );
             }).toList(),
@@ -119,7 +147,7 @@ class _StudentDashboardScreenView extends StatelessWidget {
 class _StudentDashboardScreenState with ChangeNotifier {
   int _selectedIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  
+
   // Expose the scaffold key for access by child widgets
   GlobalKey<ScaffoldState> get scaffoldKey => _scaffoldKey;
 
@@ -127,7 +155,9 @@ class _StudentDashboardScreenState with ChangeNotifier {
   late final List<Widget> _screens = [
     _DashboardHomeContent(navigateToTab: _onNavItemTapped),
     const StudentAttendanceScreen(),
-    const MessagesScreen(embedInParent: true), // Messages - proper messages screen
+    const MessagesScreen(
+      embedInParent: true,
+    ), // Messages - proper messages screen
     StudentProfileScreen(),
   ];
 
@@ -148,15 +178,24 @@ class _StudentDashboardScreenState with ChangeNotifier {
 // Dashboard Home Content — API-driven, clean layout
 class _DashboardHomeContent extends StatefulWidget {
   final void Function(int index) navigateToTab;
-  
-  const _DashboardHomeContent({Key? key, required this.navigateToTab}) : super(key: key);
+
+  const _DashboardHomeContent({Key? key, required this.navigateToTab})
+    : super(key: key);
 
   @override
   State<_DashboardHomeContent> createState() => _DashboardHomeContentState();
 }
 
 class _DashboardHomeContentState extends State<_DashboardHomeContent> {
-  static const List<String> _kDays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+  static const List<String> _kDays = [
+    'MON',
+    'TUE',
+    'WED',
+    'THU',
+    'FRI',
+    'SAT',
+    'SUN',
+  ];
 
   static String _initialsFromName(String name) {
     if (name.isEmpty || name == 'Student') return '?';
@@ -171,7 +210,9 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
         : '?';
   }
 
-  late Future<StudentResult<List<StudentTimetableSlotModel>>> _timetableTodayFuture;
+  late Future<StudentResult<List<StudentTimetableSlotModel>>>
+  _timetableTodayFuture;
+  late Future<PerformanceResult<StudentAcademicPerformance>> _performanceFuture;
   late Future<StudentResult<List<StudentNoticeModel>>> _noticesFuture;
   late Future<StudentResult<List<StudentFeeModel>>> _feesFuture;
 
@@ -180,7 +221,7 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
   @override
   void initState() {
     super.initState();
-    
+
     // Initialize feature cards after widget is available (ALL ORIGINAL CARDS)
     _featureCards = [
       _FeatureCardData(
@@ -229,6 +270,15 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
         ),
       ),
       _FeatureCardData(
+        title: 'Academic Performance',
+        subtitle: 'Academic progress',
+        icon: Icons.insights_rounded,
+        onTap: (context) => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const AcademicPerformancePage()),
+        ),
+      ),
+      _FeatureCardData(
         title: 'Attendance',
         subtitle: 'My attendance',
         icon: Icons.calendar_month_rounded,
@@ -244,11 +294,12 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
         ),
       ),
     ];
-    
+
     final wd = DateTime.now().weekday;
     final todayIndex = (wd == DateTime.sunday ? 7 : wd) - 1;
     final todayDay = _kDays[todayIndex.clamp(0, 6)];
     _timetableTodayFuture = StudentService().getTimetable(day: todayDay);
+    _performanceFuture = AcademicPerformanceService().performance();
     _noticesFuture = StudentService().listNotices();
     _feesFuture = StudentService().listFees();
   }
@@ -259,16 +310,25 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
     setState(() {
       final wd = DateTime.now().weekday;
       final todayIndex = (wd == DateTime.sunday ? 7 : wd) - 1;
-      _timetableTodayFuture = StudentService().getTimetable(day: _kDays[todayIndex.clamp(0, 6)]);
+      _timetableTodayFuture = StudentService().getTimetable(
+        day: _kDays[todayIndex.clamp(0, 6)],
+      );
+      _performanceFuture = AcademicPerformanceService().performance();
       _noticesFuture = StudentService().listNotices();
       _feesFuture = StudentService().listFees();
     });
   }
 
   List<_FeatureCardData> _visibleQuickActions(BuildContext context) {
-    final feesEnabled = context.watch<AuthProvider>().feesEnabled;
-    if (feesEnabled) return _featureCards;
-    return _featureCards.where((c) => c.title != 'Fees' && c.title != 'Payments').toList();
+    const quickTitles = {
+      'View Timetable',
+      'My Marks',
+      'Exam Results',
+      'Attendance',
+    };
+    return _featureCards
+        .where((card) => quickTitles.contains(card.title))
+        .toList();
   }
 
   @override
@@ -285,189 +345,317 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // ---------- SECTION 1: Header ----------
+                // ---------- STUDENT LEARNING HUB HEADER ----------
                 Builder(
                   builder: (context) {
                     final auth = context.watch<AuthProvider>();
-                    final prof = auth.studentProfile;
+                    final profile = auth.studentProfile;
                     final user = auth.user;
-                    final name = prof?.studentName?.trim().isNotEmpty == true ? prof!.studentName! : (user?.name ?? 'Student');
-                    final className = prof?.className ?? '—';
-                    final emis = prof?.emisNumber ?? user?.emisNumber ?? '—';
-                    final initials = _initialsFromName(name);
-                    return Container(
-                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 40),
-                      decoration: BoxDecoration(
-                        borderRadius: const BorderRadius.only(
-                          bottomLeft: Radius.circular(40),
-                          bottomRight: Radius.circular(40),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: kPrimaryBlue.withOpacity(0.3),
-                            blurRadius: 30,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            kPrimaryBlue,
-                            kPrimaryBlue,
-                            kDarkBlue,
-                          ],
-                          stops: const [0.3, 0.7, 1.0],
-                        ),
-                      ),
-                      child: Stack(
+                    final name = profile?.studentName?.trim().isNotEmpty == true
+                        ? profile!.studentName!.trim()
+                        : (user?.name ?? 'Student');
+                    final firstName = name.trim().split(RegExp(r'\s+')).first;
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+                      child: Column(
                         children: [
-                          // Subtle top highlight
-                          Positioned(
-                            left: 0,
-                            right: 0,
-                            top: 0,
-                            height: 100,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                borderRadius: const BorderRadius.only(
-                                  bottomLeft: Radius.circular(40),
-                                  bottomRight: Radius.circular(40),
-                                ),
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    Colors.white.withOpacity(0.1),
-                                    Colors.transparent,
-                                  ],
-                                ),
-                              ),
-                            ),
+                          StudentPageHeader(
+                            title: 'Good morning,',
+                            subtitle: firstName,
+                            onMenu: () => context
+                                .read<_StudentDashboardScreenState>()
+                                ._scaffoldKey
+                                .currentState
+                                ?.openDrawer(),
                           ),
-                          Column(
-                            children: [
-                              const SizedBox(height: 20),
-                              // Menu button and profile avatar row
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  // Menu button to open drawer
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(12),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: kPrimaryBlue.withOpacity(0.1),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: IconButton(
-                                      icon: const Icon(Icons.menu_rounded, color: kPrimaryBlue),
-                                      onPressed: () {
-                                        // Access the dashboard state through the provider and open drawer
-                                        final dashboardState = context.read<_StudentDashboardScreenState>();
-                                        dashboardState._scaffoldKey.currentState?.openDrawer();
-                                      },
-                                      tooltip: 'Menu',
-                                    ),
-                                  ),
-                                  // Profile avatar
-                                  Container(
-                                    width: 90,
-                                    height: 90,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      gradient: LinearGradient(
-                                        colors: [kSoftBlue, kSoftGreen],
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      ),
-                                      border: Border.all(color: Colors.white, width: 4),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: kPrimaryBlue.withOpacity(0.2),
-                                          blurRadius: 20,
-                                          offset: const Offset(0, 8),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        initials,
-                                        style: const TextStyle(
-                                          fontSize: 32,
-                                          fontWeight: FontWeight.bold,
-                                          color: kPrimaryBlue,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 48), // Spacer to balance the menu button
-                                ],
-                              ),
-                              const SizedBox(height: 20),
-                              // Name
-                              Text(
-                                name,
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 6),
-                              // Class & EMIS
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      className,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      'EMIS: $emis',
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 20),
-                            ],
+                          const SizedBox(height: 18),
+                          StudentIdentityCard(
+                            name: name,
+                            className: profile?.className ?? 'Not assigned',
+                            emis:
+                                profile?.emisNumber ??
+                                user?.emisNumber ??
+                                'Not available',
+                            onTap: () => widget.navigateToTab(3),
                           ),
                         ],
                       ),
                     );
                   },
                 ),
+                if (false)
+                  Builder(
+                    builder: (context) {
+                      final auth = context.watch<AuthProvider>();
+                      final prof = auth.studentProfile;
+                      final user = auth.user;
+                      final name = prof?.studentName?.trim().isNotEmpty == true
+                          ? prof!.studentName!
+                          : (user?.name ?? 'Student');
+                      final className = prof?.className ?? '—';
+                      final emis = prof?.emisNumber ?? user?.emisNumber ?? '—';
+                      final initials = _initialsFromName(name);
+                      return Container(
+                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                        decoration: BoxDecoration(
+                          color: studentWebBg,
+                          boxShadow: [
+                            BoxShadow(
+                              color: kPrimaryBlue.withOpacity(0.06),
+                              blurRadius: 16,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Stack(
+                          children: [
+                            // Subtle top highlight
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              top: 0,
+                              height: 100,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: const BorderRadius.only(
+                                    bottomLeft: Radius.circular(40),
+                                    bottomRight: Radius.circular(40),
+                                  ),
+                                  color: Colors.transparent,
+                                ),
+                              ),
+                            ),
+                            Column(
+                              children: [
+                                const SizedBox(height: 20),
+                                // Menu button and profile avatar row
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    // Menu button to open drawer
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(12),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: kPrimaryBlue.withOpacity(
+                                              0.1,
+                                            ),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                      child: IconButton(
+                                        icon: const Icon(
+                                          Icons.menu_rounded,
+                                          color: kPrimaryBlue,
+                                        ),
+                                        onPressed: () {
+                                          // Access the dashboard state through the provider and open drawer
+                                          final dashboardState = context
+                                              .read<
+                                                _StudentDashboardScreenState
+                                              >();
+                                          dashboardState
+                                              ._scaffoldKey
+                                              .currentState
+                                              ?.openDrawer();
+                                        },
+                                        tooltip: 'Menu',
+                                      ),
+                                    ),
+                                    // Profile avatar
+                                    Container(
+                                      width: 90,
+                                      height: 90,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: kSoftBlue,
+                                        border: Border.all(
+                                          color: kPrimaryBlue.withOpacity(0.12),
+                                          width: 2,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: kPrimaryBlue.withOpacity(
+                                              0.2,
+                                            ),
+                                            blurRadius: 20,
+                                            offset: const Offset(0, 8),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          initials,
+                                          style: const TextStyle(
+                                            fontSize: 32,
+                                            fontWeight: FontWeight.bold,
+                                            color: kPrimaryBlue,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(
+                                      width: 48,
+                                    ), // Spacer to balance the menu button
+                                  ],
+                                ),
+                                const SizedBox(height: 20),
+                                // Name
+                                Text(
+                                  name,
+                                  style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color: kPrimaryBlue,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 6),
+                                // Class & EMIS
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        className,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        'EMIS: $emis',
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 20),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
 
-                // ---------- SECTION 2: Today's Timetable Preview ----------
+                // ---------- ACADEMIC PERFORMANCE ----------
+                const SizedBox(height: 24),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: const StudentSectionHeader(
+                    title: 'Academic Performance',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                FutureBuilder<PerformanceResult<StudentAcademicPerformance>>(
+                  future: _performanceFuture,
+                  builder: (context, snapshot) {
+                    final success =
+                        snapshot.data
+                            is PerformanceSuccess<StudentAcademicPerformance>;
+                    final performance = success
+                        ? (snapshot.data
+                                  as PerformanceSuccess<
+                                    StudentAcademicPerformance
+                                  >)
+                              .data
+                        : null;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _AcademicPerformanceFeatureCard(
+                        loading:
+                            snapshot.connectionState == ConnectionState.waiting,
+                        percentage: performance?.percentage,
+                        grade: performance?.grade,
+                        status: performance?.status,
+                        position: performance?.position,
+                        academicYear: performance?.yearName,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const AcademicPerformancePage(),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 20),
+                FutureBuilder<StudentResult<List<StudentTimetableSlotModel>>>(
+                  future: _timetableTodayFuture,
+                  builder: (context, snapshot) {
+                    final classes =
+                        snapshot.data
+                            is StudentSuccess<List<StudentTimetableSlotModel>>
+                        ? List<StudentTimetableSlotModel>.from(
+                            (snapshot.data
+                                    as StudentSuccess<
+                                      List<StudentTimetableSlotModel>
+                                    >)
+                                .data,
+                          )
+                        : <StudentTimetableSlotModel>[];
+                    classes.sort(
+                      (a, b) =>
+                          (a.startTime ?? '').compareTo(b.startTime ?? ''),
+                    );
+                    if (classes.isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+                    final next = classes.first;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: StudentNextClassCard(
+                        time:
+                            '${next.startTime ?? '--:--'} – ${next.endTime ?? '--:--'}',
+                        subject: next.subject?['name']?.toString() ?? 'Class',
+                        teacher:
+                            next.teacher?['fullName']?.toString() ??
+                            next.teacher?['name']?.toString() ??
+                            'Teacher not available',
+                        onViewTimetable: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const StudentTimetableScreen(),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+
+                // ---------- TODAY'S SCHEDULE ----------
                 const SizedBox(height: 24),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -476,14 +664,22 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
                     children: [
                       Text(
                         "Today's classes",
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kTextPrimary),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: kTextPrimary,
+                        ),
                       ),
                       TextButton(
                         onPressed: () => Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const StudentTimetableScreen()),
+                          MaterialPageRoute(
+                            builder: (_) => const StudentTimetableScreen(),
+                          ),
                         ),
-                        style: TextButton.styleFrom(foregroundColor: kPrimaryBlue),
+                        style: TextButton.styleFrom(
+                          foregroundColor: kPrimaryBlue,
+                        ),
                         child: const Text('View Full Timetable'),
                       ),
                     ],
@@ -501,16 +697,40 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(18),
-                            boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 4))],
+                            boxShadow: [
+                              BoxShadow(
+                                color: kPrimaryBlue.withOpacity(0.06),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                           ),
-                          child: const Center(child: SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2, color: kPrimaryBlue))),
+                          child: const Center(
+                            child: SizedBox(
+                              height: 24,
+                              width: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: kPrimaryBlue,
+                              ),
+                            ),
+                          ),
                         ),
                       );
                     }
-                    final list = snap.data is StudentSuccess<List<StudentTimetableSlotModel>>
-                        ? (snap.data as StudentSuccess<List<StudentTimetableSlotModel>>).data
+                    final list =
+                        snap.data
+                            is StudentSuccess<List<StudentTimetableSlotModel>>
+                        ? (snap.data
+                                  as StudentSuccess<
+                                    List<StudentTimetableSlotModel>
+                                  >)
+                              .data
                         : <StudentTimetableSlotModel>[];
-                    list.sort((a, b) => (a.startTime ?? '').compareTo(b.startTime ?? ''));
+                    list.sort(
+                      (a, b) =>
+                          (a.startTime ?? '').compareTo(b.startTime ?? ''),
+                    );
                     final showList = list.take(3).toList();
                     if (showList.isEmpty) {
                       return Padding(
@@ -520,13 +740,29 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(18),
-                            boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 4))],
+                            boxShadow: [
+                              BoxShadow(
+                                color: kPrimaryBlue.withOpacity(0.06),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.schedule_rounded, size: 40, color: kTextSecondary.withOpacity(0.5)),
+                              Icon(
+                                Icons.schedule_rounded,
+                                size: 40,
+                                color: kTextSecondary.withOpacity(0.5),
+                              ),
                               const SizedBox(width: 16),
-                              Text('No classes today', style: TextStyle(fontSize: 15, color: kTextSecondary)),
+                              Text(
+                                'No classes today',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  color: kTextSecondary,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -537,35 +773,65 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
                       child: Column(
                         children: showList.map((s) {
                           final subj = s.subject?['name']?.toString() ?? '—';
-                          final teacher = s.teacher?['fullName']?.toString() ?? s.teacher?['name']?.toString() ?? '—';
+                          final teacher =
+                              s.teacher?['fullName']?.toString() ??
+                              s.teacher?['name']?.toString() ??
+                              '—';
                           return Container(
                             margin: const EdgeInsets.only(bottom: 10),
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(18),
-                              boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 4))],
+                              boxShadow: [
+                                BoxShadow(
+                                  color: kPrimaryBlue.withOpacity(0.06),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
                             ),
                             child: Row(
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 8,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: kPrimaryBlue.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(
                                     s.startTime ?? '—',
-                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kPrimaryBlue),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: kPrimaryBlue,
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(width: 14),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Text(subj, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: kTextPrimary)),
-                                      Text(teacher, style: TextStyle(fontSize: 13, color: kTextSecondary)),
+                                      Text(
+                                        subj,
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                          color: kTextPrimary,
+                                        ),
+                                      ),
+                                      Text(
+                                        teacher,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: kTextSecondary,
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -578,13 +844,17 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
                   },
                 ),
 
-                // ---------- SECTION 3: Quick Actions (2x grid) ----------
+                // ---------- QUICK ACCESS ----------
                 const SizedBox(height: 24),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Text(
-                    'Quick Actions',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kTextPrimary),
+                    'Quick Access',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: kTextPrimary,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -599,7 +869,10 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
                     childAspectRatio: 1.05,
                     children: List.generate(
                       _visibleQuickActions(context).length,
-                      (i) => _DashboardFeatureCard(card: _visibleQuickActions(context)[i], index: i),
+                      (i) => _DashboardFeatureCard(
+                        card: _visibleQuickActions(context)[i],
+                        index: i,
+                      ),
                     ),
                   ),
                 ),
@@ -613,14 +886,22 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
                     children: [
                       Text(
                         'Latest Notices',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kTextPrimary),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: kTextPrimary,
+                        ),
                       ),
                       TextButton(
                         onPressed: () => Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const AllNoticesScreen()),
+                          MaterialPageRoute(
+                            builder: (_) => const AllNoticesScreen(),
+                          ),
                         ),
-                        style: TextButton.styleFrom(foregroundColor: kPrimaryBlue),
+                        style: TextButton.styleFrom(
+                          foregroundColor: kPrimaryBlue,
+                        ),
                         child: const Text('View All Notices'),
                       ),
                     ],
@@ -630,8 +911,11 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
                 FutureBuilder<StudentResult<List<StudentNoticeModel>>>(
                   future: _noticesFuture,
                   builder: (context, snap) {
-                    final list = snap.data is StudentSuccess<List<StudentNoticeModel>>
-                        ? (snap.data as StudentSuccess<List<StudentNoticeModel>>).data
+                    final list =
+                        snap.data is StudentSuccess<List<StudentNoticeModel>>
+                        ? (snap.data
+                                  as StudentSuccess<List<StudentNoticeModel>>)
+                              .data
                         : <StudentNoticeModel>[];
                     final showList = list.take(2).toList();
                     if (showList.isEmpty) {
@@ -639,19 +923,40 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 32,
+                            horizontal: 24,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: kPrimaryBlue.withOpacity(0.08)),
-                            boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 4))],
+                            border: Border.all(
+                              color: kPrimaryBlue.withOpacity(0.08),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: kPrimaryBlue.withOpacity(0.06),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.campaign_rounded, size: 28, color: kTextSecondary.withOpacity(0.7)),
+                              Icon(
+                                Icons.campaign_rounded,
+                                size: 28,
+                                color: kTextSecondary.withOpacity(0.7),
+                              ),
                               const SizedBox(width: 12),
-                              Text('No notices yet', style: TextStyle(fontSize: 14, color: kTextSecondary)),
+                              Text(
+                                'No notices yet',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: kTextSecondary,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -662,16 +967,20 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: showList
-                            .map((n) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 14),
-                                  child: _DashboardNoticeCard(
-                                    notice: n,
-                                    onTap: () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(builder: (_) => const AllNoticesScreen()),
+                            .map(
+                              (n) => Padding(
+                                padding: const EdgeInsets.only(bottom: 14),
+                                child: _DashboardNoticeCard(
+                                  notice: n,
+                                  onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => const AllNoticesScreen(),
                                     ),
                                   ),
-                                ))
+                                ),
+                              ),
+                            )
                             .toList(),
                       ),
                     );
@@ -682,13 +991,17 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
                 FutureBuilder<StudentResult<List<StudentFeeModel>>>(
                   future: _feesFuture,
                   builder: (context, snap) {
-                    if (snap.data is StudentError && (snap.data as StudentError).statusCode == 403) {
+                    if (snap.data is StudentError &&
+                        (snap.data as StudentError).statusCode == 403) {
                       return const SizedBox.shrink();
                     }
-                    if (snap.connectionState == ConnectionState.waiting || snap.data is! StudentSuccess<List<StudentFeeModel>>) {
+                    if (snap.connectionState == ConnectionState.waiting ||
+                        snap.data is! StudentSuccess<List<StudentFeeModel>>) {
                       return const SizedBox.shrink();
                     }
-                    final fees = (snap.data as StudentSuccess<List<StudentFeeModel>>).data;
+                    final fees =
+                        (snap.data as StudentSuccess<List<StudentFeeModel>>)
+                            .data;
                     num remaining = 0;
                     int unpaidCount = 0;
                     for (final fee in fees) {
@@ -705,7 +1018,11 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
                           color: kCardColor,
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
-                            BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 20, offset: const Offset(0, 8)),
+                            BoxShadow(
+                              color: kPrimaryBlue.withOpacity(0.06),
+                              blurRadius: 20,
+                              offset: const Offset(0, 8),
+                            ),
                           ],
                         ),
                         child: Row(
@@ -716,7 +1033,11 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
                                 color: kPrimaryGreen.withOpacity(0.12),
                                 borderRadius: BorderRadius.circular(14),
                               ),
-                              child: const Icon(Icons.account_balance_wallet_rounded, color: kPrimaryBlue, size: 24),
+                              child: const Icon(
+                                Icons.account_balance_wallet_rounded,
+                                color: kPrimaryBlue,
+                                size: 24,
+                              ),
                             ),
                             const SizedBox(width: 16),
                             Expanded(
@@ -725,32 +1046,54 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
                                 children: [
                                   Text(
                                     'Fees summary',
-                                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kTextPrimary),
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: kTextPrimary,
+                                    ),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
                                     'Remaining: $remaining',
-                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: kPrimaryBlue,
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
                             if (unpaidCount > 0)
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
                                 decoration: BoxDecoration(
                                   color: kPrimaryGreen.withOpacity(0.12),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
                                   '$unpaidCount unpaid',
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kPrimaryGreen),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: kPrimaryGreen,
+                                  ),
                                 ),
                               ),
                             const SizedBox(width: 8),
                             TextButton(
-                              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StudentFeesScreen())),
-                              style: TextButton.styleFrom(foregroundColor: kPrimaryBlue),
+                              onPressed: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const StudentFeesScreen(),
+                                ),
+                              ),
+                              style: TextButton.styleFrom(
+                                foregroundColor: kPrimaryBlue,
+                              ),
                               child: const Text('View'),
                             ),
                           ],
@@ -778,7 +1121,9 @@ class _DashboardNoticeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final content = notice.content ?? '';
-    final preview = content.length > 120 ? '${content.substring(0, 120).trim()}…' : content;
+    final preview = content.length > 120
+        ? '${content.substring(0, 120).trim()}…'
+        : content;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -808,11 +1153,7 @@ class _DashboardNoticeCard extends StatelessWidget {
                   width: 4,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(2),
-                    gradient: const LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [kPrimaryBlue, kPrimaryGreen],
-                    ),
+                    color: kPrimaryBlue,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -836,10 +1177,14 @@ class _DashboardNoticeCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          if (notice.createdAt != null && notice.createdAt!.isNotEmpty) ...[
+                          if (notice.createdAt != null &&
+                              notice.createdAt!.isNotEmpty) ...[
                             const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: kSoftBlue,
                                 borderRadius: BorderRadius.circular(8),
@@ -887,6 +1232,197 @@ class _DashboardNoticeCard extends StatelessWidget {
   }
 }
 
+class _AcademicPerformanceFeatureCard extends StatelessWidget {
+  final bool loading;
+  final double? percentage;
+  final String? grade;
+  final String? status;
+  final int? position;
+  final String? academicYear;
+  final VoidCallback onTap;
+
+  const _AcademicPerformanceFeatureCard({
+    required this.loading,
+    required this.percentage,
+    required this.grade,
+    required this.status,
+    required this.position,
+    required this.academicYear,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final available = percentage != null;
+    final passed = status?.toLowerCase() != 'fail';
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(24),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: studentLine),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x22023471),
+                blurRadius: 22,
+                offset: Offset(0, 9),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 64,
+                height: 74,
+                decoration: BoxDecoration(
+                  color: studentBlue,
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x34023471),
+                      blurRadius: 12,
+                      offset: Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.insights_rounded,
+                  color: Colors.white,
+                  size: 31,
+                ),
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Academic Performance',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: studentBlue,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        if (academicYear?.isNotEmpty == true)
+                          Text(
+                            academicYear!,
+                            style: const TextStyle(
+                              color: studentMuted,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (loading)
+                      const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: studentBlue,
+                        ),
+                      )
+                    else if (available)
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            '${percentage!.toStringAsFixed(1)}%',
+                            style: const TextStyle(
+                              color: studentInk,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          if (grade?.isNotEmpty == true)
+                            Text(
+                              'Grade $grade',
+                              style: const TextStyle(
+                                color: studentBlue,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          if (status?.isNotEmpty == true)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: passed ? studentGreen : Colors.red,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                status!,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          if (position != null)
+                            Text(
+                              'Position $position',
+                              style: const TextStyle(
+                                color: studentMuted,
+                                fontSize: 11,
+                              ),
+                            ),
+                        ],
+                      )
+                    else
+                      const Text(
+                        'Performance not available yet',
+                        style: TextStyle(color: studentMuted, fontSize: 12),
+                      ),
+                    const SizedBox(height: 8),
+                    const Row(
+                      children: [
+                        Text(
+                          'View performance',
+                          style: TextStyle(
+                            color: studentBlue,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        SizedBox(width: 4),
+                        Icon(
+                          Icons.arrow_forward_rounded,
+                          color: studentBlue,
+                          size: 16,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ---------------- FEATURE CARD ----------------
 class _DashboardFeatureCard extends StatelessWidget {
   final _FeatureCardData card;
@@ -900,62 +1436,12 @@ class _DashboardFeatureCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cardColor = _getCardColor(index);
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => card.onTap!(context),
-        borderRadius: BorderRadius.circular(28),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: [
-              BoxShadow(
-                color: cardColor.withOpacity(0.15),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: cardColor.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(card.icon, color: cardColor, size: 30),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                card.title,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: cardColor,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                card.subtitle,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: kTextSecondary,
-                  fontWeight: FontWeight.w500,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ),
+    return StudentActionTile(
+      icon: card.icon,
+      title: card.title,
+      subtitle: card.subtitle,
+      accent: index.isEven ? studentBlue : studentGreen,
+      onTap: () => card.onTap?.call(context),
     );
   }
 }

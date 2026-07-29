@@ -32,14 +32,7 @@ class _StudentResultReportScreenState extends State<StudentResultReportScreen> {
     return Scaffold(
       backgroundColor: kSoftBlue,
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [kSoftBlue, kSoftGreen],
-            stops: [0.0, 1.0],
-          ),
-        ),
+        decoration: const BoxDecoration(color: Color(0xFFF0F3F7)),
         child: SafeArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
