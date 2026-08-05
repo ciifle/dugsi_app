@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// Quick action card for desktop layout
-class QuickActionCard extends StatelessWidget {
+class QuickActionCard extends StatefulWidget {
   final IconData icon;
   final Color iconColor;
   final String title;
@@ -18,19 +18,28 @@ class QuickActionCard extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<QuickActionCard> createState() => _QuickActionCardState();
+}
+
+class _QuickActionCardState extends State<QuickActionCard> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    final card = Container(
+    final card = AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      transform: Matrix4.translationValues(0, _hovered ? -3 : 0, 0),
       height: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: const Color(0xFFE5E7EB)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 6,
-            offset: const Offset(0, 1),
+            color: widget.iconColor.withValues(alpha: _hovered ? 0.13 : 0.05),
+            blurRadius: _hovered ? 18 : 10,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -41,13 +50,13 @@ class QuickActionCard extends StatelessWidget {
             height: 38,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: 0.1),
+                color: widget.iconColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Center(
                 child: Icon(
-                  icon,
-                  color: iconColor,
+                  widget.icon,
+                  color: widget.iconColor,
                   size: 20,
                 ),
               ),
@@ -61,7 +70,7 @@ class QuickActionCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  title,
+                  widget.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -73,7 +82,7 @@ class QuickActionCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  description,
+                  widget.description,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -90,14 +99,16 @@ class QuickActionCard extends StatelessWidget {
       ),
     );
 
-    if (onTap != null) {
-      return InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: card,
-      );
-    }
-
-    return card;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: widget.onTap == null
+          ? card
+          : InkWell(
+              onTap: widget.onTap,
+              borderRadius: BorderRadius.circular(18),
+              child: card,
+            ),
+    );
   }
 }

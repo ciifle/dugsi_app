@@ -76,6 +76,18 @@ class _StudentWebTopBarState extends State<StudentWebTopBar> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(child: _buildTitleBlock()),
+              _shortcut(
+                tooltip: 'Notices',
+                icon: Icons.notifications_none_rounded,
+                onTap: () => widget.onNavigateToPage?.call('notices'),
+              ),
+              const SizedBox(width: 10),
+              _shortcut(
+                tooltip: 'Messages',
+                icon: Icons.chat_bubble_outline_rounded,
+                onTap: () => widget.onNavigateToPage?.call('messages'),
+              ),
+              const SizedBox(width: 14),
               _buildUserMenu(
                 userInitials: userInitials,
                 userName: userName,
@@ -88,6 +100,24 @@ class _StudentWebTopBarState extends State<StudentWebTopBar> {
       ),
     );
   }
+
+  Widget _shortcut({
+    required String tooltip,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) => Tooltip(
+        message: tooltip,
+        child: IconButton(
+          onPressed: onTap,
+          style: IconButton.styleFrom(
+            backgroundColor: const Color(0xFFF7F9FC),
+            foregroundColor: _kPrimaryBlue,
+            side: const BorderSide(color: _kBorderGray),
+            minimumSize: const Size(44, 44),
+          ),
+          icon: Icon(icon, size: 20),
+        ),
+      );
 
   Widget _buildTitleBlock() {
     return Column(

@@ -33,6 +33,7 @@ import 'package:kobac/school_admin/pages/admin_notices_screen.dart';
 
 import 'package:kobac/school_admin/pages/admin_profile.dart';
 import 'package:kobac/school_admin/pages/notifications_page.dart';
+import 'package:kobac/school_admin/pages/settings_page.dart';
 
 /// Responsive admin shell for desktop/web layout
 /// Shows sidebar + top bar + main content area
@@ -118,6 +119,8 @@ class _WebAdminShellState extends State<WebAdminShell> {
         return 'Notifications';
       case 'profile':
         return 'Profile';
+      case 'settings':
+        return 'Settings';
       default:
         return 'Dashboard';
     }
@@ -133,6 +136,8 @@ class _WebAdminShellState extends State<WebAdminShell> {
         return "Create a new teacher record";
       case 'addClass':
         return 'Create a new class record';
+      case 'promotions':
+        return 'Review eligible students, preview results, then process the promotion.';
       case 'addSubject':
         return 'Create a new subject record';
       default:
@@ -294,6 +299,8 @@ class _WebAdminShellState extends State<WebAdminShell> {
           embedBodyOnly: true,
           onNavigateToPage: _navigateToPage,
         );
+      case 'settings':
+        return SettingsPage();
       default:
         return WebDashboard();
     }

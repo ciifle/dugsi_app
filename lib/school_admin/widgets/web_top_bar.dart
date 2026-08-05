@@ -124,6 +124,21 @@ class _WebTopBarState extends State<WebTopBar> {
               const SizedBox(width: 16),
               Expanded(child: _buildSearchField()),
               const SizedBox(width: 16),
+              _topAction(
+                icon: Icons.notifications_none_rounded,
+                tooltip: 'Notifications',
+                badge: '3',
+                onPressed: () =>
+                    widget.onNavigateToPage?.call('notifications'),
+              ),
+              const SizedBox(width: 10),
+              _topAction(
+                icon: Icons.chat_bubble_outline_rounded,
+                tooltip: 'Messages',
+                badge: '2',
+                onPressed: () => widget.onNavigateToPage?.call('messages'),
+              ),
+              const SizedBox(width: 16),
               _buildUserMenu(
                 userInitials: userInitials,
                 userName: userName,
@@ -223,6 +238,54 @@ class _WebTopBarState extends State<WebTopBar> {
       ),
     );
   }
+
+  Widget _topAction({
+    required IconData icon,
+    required String tooltip,
+    required String badge,
+    required VoidCallback onPressed,
+  }) => Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Tooltip(
+            message: tooltip,
+            child: IconButton(
+              onPressed: onPressed,
+              style: IconButton.styleFrom(
+                backgroundColor: const Color(0xFFF8F9FC),
+                foregroundColor: _kPrimaryBlue,
+                side: const BorderSide(color: _kBorderGray),
+                minimumSize: const Size(44, 44),
+              ),
+              icon: Icon(icon, size: 20),
+            ),
+          ),
+          Positioned(
+            right: -2,
+            top: -3,
+            child: Container(
+              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: tooltip == 'Notifications'
+                    ? const Color(0xFFEF4444)
+                    : const Color(0xFF1267D8),
+                borderRadius: BorderRadius.circular(9),
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+              child: Text(
+                badge,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
 
   Widget _buildUserMenu({
     required String userInitials,

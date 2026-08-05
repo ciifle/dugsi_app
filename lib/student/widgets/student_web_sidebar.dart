@@ -28,17 +28,29 @@ class StudentWebSidebar extends StatelessWidget {
         ? prof!.studentName!.trim()
         : (user?.name?.trim().isNotEmpty == true ? user!.name.trim() : 'Student');
     final className = prof?.className?.trim().isNotEmpty == true ? prof!.className!.trim() : null;
+    final emis = user?.emisNumber?.trim().isNotEmpty == true
+        ? user!.emisNumber!.trim()
+        : '—';
+    final initials = name
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .take(2)
+        .map((part) => part[0].toUpperCase())
+        .join();
     final feesEnabled = auth.feesEnabled;
 
     return Container(
-      width: width,
-      decoration: const BoxDecoration(
+      width: width - 16,
+      margin: const EdgeInsets.all(8),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
         color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: Color(0x0A000000),
-            blurRadius: 10,
-            offset: Offset(2, 0),
+            color: _kPrimaryBlue.withValues(alpha: .09),
+            blurRadius: 26,
+            offset: const Offset(4, 8),
           ),
         ],
       ),
@@ -60,6 +72,15 @@ class StudentWebSidebar extends StatelessWidget {
                   fit: BoxFit.contain,
                 ),
               ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+            child: _StudentIdentityCard(
+              initials: initials.isEmpty ? 'S' : initials,
+              name: name,
+              className: className ?? 'Class unavailable',
+              emis: emis,
             ),
           ),
           Expanded(
@@ -96,7 +117,7 @@ class StudentWebSidebar extends StatelessWidget {
                 ),
                 _StudentNavItem(
                   icon: Icons.insights_rounded,
-                  label: 'Performance',
+                  label: 'Academic Performance',
                   pageKey: 'performance',
                   selectedPage: selectedPage,
                   onNavigate: onNavigate,
@@ -145,50 +166,146 @@ class StudentWebSidebar extends StatelessWidget {
                   selectedPage: selectedPage,
                   onNavigate: onNavigate,
                 ),
-                _StudentNavItem(
-                  icon: Icons.lock_outline_rounded,
-                  label: 'Change Password',
-                  pageKey: 'changePassword',
-                  selectedPage: selectedPage,
-                  onNavigate: onNavigate,
-                ),
               ],
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: _kTextSecondary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (className != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    className,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: _kTextSecondary,
-                    ),
-                  ),
-                ],
-              ],
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
+            child: _StudentLogoutCard(
+              onTap: () async => context.read<AuthProvider>().logout(),
             ),
           ),
         ],
       ),
     );
   }
+}
+
+class _StudentIdentityCard extends StatelessWidget {
+  final String initials;
+  final String name;
+  final String className;
+  final String emis;
+
+  const _StudentIdentityCard({
+    required this.initials,
+    required this.name,
+    required this.className,
+    required this.emis,
+  });
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF7F9FC),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE8ECF2)),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 21,
+              backgroundColor: _kPrimaryBlue,
+              foregroundColor: Colors.white,
+              child: Text(initials,
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          color: _kPrimaryBlue,
+                          fontWeight: FontWeight.w700)),
+                  Text('$className • $emis',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          color: _kTextSecondary, fontSize: 10.5)),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: _kPrimaryGreen.withValues(alpha: .12),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: const Text('STUDENT',
+                        style: TextStyle(
+                            color: _kPrimaryGreen,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+}
+
+class _StudentLogoutCard extends StatelessWidget {
+  final Future<void> Function() onTap;
+  const _StudentLogoutCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Ink(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFFF2C7C7)),
+              boxShadow: const [
+                BoxShadow(
+                    color: Color(0x10C73737),
+                    blurRadius: 12,
+                    offset: Offset(0, 5)),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFEEEE),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.logout_rounded,
+                      color: Color(0xFFC73737), size: 19),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Logout',
+                          style: TextStyle(
+                              color: Color(0xFFC73737),
+                              fontWeight: FontWeight.w700)),
+                      Text('Sign out of your account',
+                          style: TextStyle(
+                              color: _kTextSecondary, fontSize: 9.5)),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right_rounded,
+                    color: Color(0xFFC73737), size: 18),
+              ],
+            ),
+          ),
+        ),
+      );
 }
 
 class _StudentNavItem extends StatelessWidget {

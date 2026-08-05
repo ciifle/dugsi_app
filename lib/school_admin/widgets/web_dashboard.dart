@@ -29,6 +29,8 @@ import 'package:kobac/services/academic_years_service.dart';
 import 'package:kobac/school_admin/pages/academic_years_page.dart';
 import 'package:intl/intl.dart';
 import 'package:kobac/school_admin/pages/rankings_pages.dart';
+import 'package:kobac/school_admin/widgets/dashboard_analytics.dart';
+import 'package:kobac/school_admin/pages/student_promotions_page.dart';
 
 /// Desktop dashboard with stat cards and quick actions
 class WebDashboard extends StatefulWidget {
@@ -123,8 +125,13 @@ class _WebDashboardState extends State<WebDashboard> {
           _buildStatCardsGrid(),
           const SizedBox(height: 24),
 
+          const DashboardAnalyticsSection(),
+          const SizedBox(height: 24),
+
           // Quick Actions Section
           _buildQuickActionsSection(),
+          const SizedBox(height: 24),
+          const DashboardUpdatesSection(),
         ],
       ),
     );
@@ -137,25 +144,37 @@ class _WebDashboardState extends State<WebDashboard> {
         ? '${DateFormat('dd MMM yyyy').format(year!.startDate!)} — ${DateFormat('dd MMM yyyy').format(year.endDate!)}'
         : 'Dates unavailable';
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        color: const Color(0xFF084AA5),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF023471).withOpacity(.08),
-            blurRadius: 24,
-            offset: const Offset(6, 8),
+            color: const Color(0xFF023471).withValues(alpha: .2),
+            blurRadius: 28,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: Row(
         children: [
-          const CircleAvatar(
-            backgroundColor: Color(0xFFE8EEF5),
-            child: Icon(Icons.calendar_month_rounded, color: Color(0xFF023471)),
+          Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(17),
+              boxShadow: const [
+                BoxShadow(color: Color(0x33000000), blurRadius: 12),
+              ],
+            ),
+            child: const Icon(
+              Icons.calendar_month_rounded,
+              color: Color(0xFF084AA5),
+              size: 28,
+            ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 18),
           Expanded(
             child: provider.loading
                 ? const LinearProgressIndicator()
@@ -166,7 +185,7 @@ class _WebDashboardState extends State<WebDashboard> {
                         'Active Academic Year',
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: Colors.grey,
+                          color: Color(0xFFDCEAFF),
                         ),
                       ),
                       Text(
@@ -174,17 +193,45 @@ class _WebDashboardState extends State<WebDashboard> {
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF023471),
+                          color: Colors.white,
                         ),
                       ),
-                      if (year != null) Text(dates),
+                      if (year != null)
+                        Text(dates,
+                            style: const TextStyle(color: Color(0xFFDCEAFF))),
+                      const SizedBox(height: 5),
+                      const Text(
+                        'Current term  •  Term information unavailable',
+                        style: TextStyle(
+                          color: Color(0xFFBFD8FA),
+                          fontSize: 12,
+                        ),
+                      ),
                     ],
                   ),
           ),
-          TextButton(
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24),
+            child: Icon(
+              Icons.auto_stories_rounded,
+              size: 66,
+              color: Color(0x66FFFFFF),
+            ),
+          ),
+          OutlinedButton.icon(
             onPressed: () =>
                 _navigateToPage('academicYears', const AcademicYearsPage()),
-            child: const Text('Manage'),
+            style: OutlinedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: const Color(0xFF084AA5),
+              side: BorderSide.none,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+            label: const Text('Manage Year'),
           ),
         ],
       ),
@@ -211,7 +258,7 @@ class _WebDashboardState extends State<WebDashboard> {
       ),
       DashboardStatCard(
         icon: Icons.event_note_rounded,
-        iconColor: const Color(0xFF8B5CF6),
+        iconColor: const Color(0xFF2E7CC9),
         label: 'Attendance',
         value: _loading ? '...' : '92%',
         growth: '+5%',
@@ -220,7 +267,7 @@ class _WebDashboardState extends State<WebDashboard> {
       ),
       DashboardStatCard(
         icon: Icons.class_rounded,
-        iconColor: const Color(0xFFF59E0B),
+        iconColor: const Color(0xFF43983C),
         label: 'Classes',
         value: _loading ? '...' : '${_classCount ?? 0}',
         growth: '+3%',
@@ -330,35 +377,35 @@ class _WebDashboardState extends State<WebDashboard> {
     ),
     QuickActionCard(
       icon: Icons.class_rounded,
-      iconColor: const Color(0xFFF59E0B),
+      iconColor: const Color(0xFF2E7CC9),
       title: 'Add Class',
       description: 'Create a new class',
       onTap: () => _navigateToPage('addClass', const AddClassScreen()),
     ),
     QuickActionCard(
       icon: Icons.book_rounded,
-      iconColor: const Color(0xFF8B5CF6),
+      iconColor: const Color(0xFF5AB04B),
       title: 'Add Subject',
       description: 'Add a new subject',
       onTap: () => _navigateToPage('addSubject', const AddSubjectScreen()),
     ),
     QuickActionCard(
       icon: Icons.calendar_today_rounded,
-      iconColor: const Color(0xFF10B981),
+      iconColor: const Color(0xFF5AB04B),
       title: 'Attendance',
       description: 'Track attendance',
       onTap: () => _navigateToPage('attendance', const AdminAttendanceScreen()),
     ),
     QuickActionCard(
       icon: Icons.attach_money_rounded,
-      iconColor: const Color(0xFFEF4444),
+      iconColor: const Color(0xFF2E7CC9),
       title: 'Fees',
       description: 'Manage fees',
       onTap: () => _navigateToPage('fees', const AdminFeesScreen()),
     ),
     QuickActionCard(
       icon: Icons.message_rounded,
-      iconColor: const Color(0xFF06B6D4),
+      iconColor: const Color(0xFF023471),
       title: 'Messages',
       description: 'Send messages',
       onTap: () => _navigateToPage(
@@ -382,7 +429,7 @@ class _WebDashboardState extends State<WebDashboard> {
     ),
     QuickActionCard(
       icon: Icons.grade_rounded,
-      iconColor: const Color(0xFFF59E0B),
+      iconColor: const Color(0xFF2E7CC9),
       title: 'Marks',
       description: 'Manage marks',
       onTap: () => _navigateToPage('marks', const AdminMarksScreen()),
@@ -396,10 +443,40 @@ class _WebDashboardState extends State<WebDashboard> {
     ),
     QuickActionCard(
       icon: Icons.campaign_rounded,
-      iconColor: const Color(0xFF8B5CF6),
+      iconColor: const Color(0xFF5AB04B),
       title: 'Notices',
       description: 'Post notices',
       onTap: () => _navigateToPage('notices', const AdminNoticesScreen()),
+    ),
+    QuickActionCard(
+      icon: Icons.calendar_month_rounded,
+      iconColor: const Color(0xFF023471),
+      title: 'Academic Years',
+      description: 'Manage academic years',
+      onTap: () =>
+          _navigateToPage('academicYears', const AcademicYearsPage()),
+    ),
+    QuickActionCard(
+      icon: Icons.trending_up_rounded,
+      iconColor: const Color(0xFF5AB04B),
+      title: 'Promotions',
+      description: 'Promote students',
+      onTap: () =>
+          _navigateToPage('promotions', const StudentPromotionsPage()),
+    ),
+    QuickActionCard(
+      icon: Icons.analytics_rounded,
+      iconColor: const Color(0xFF2E7CC9),
+      title: 'Reports',
+      description: 'View performance reports',
+      onTap: () => _navigateToPage('topStudents', const TopStudentsPage()),
+    ),
+    QuickActionCard(
+      icon: Icons.settings_rounded,
+      iconColor: const Color(0xFF023471),
+      title: 'Settings',
+      description: 'System settings',
+      onTap: () => _navigateToPage('settings', SettingsPage()),
     ),
   ];
 

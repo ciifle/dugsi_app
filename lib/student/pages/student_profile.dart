@@ -133,6 +133,9 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
           child: _DesktopStudentProfileCard(
             student: student,
             onLogout: () => context.read<AuthProvider>().logout(),
+            onPerformance: () => widget.onNavigateToPage?.call('performance'),
+            onChangePassword: () =>
+                widget.onNavigateToPage?.call('changePassword'),
           ),
         ),
       ),
@@ -521,10 +524,14 @@ class _ProfileAction extends StatelessWidget {
 class _DesktopStudentProfileCard extends StatelessWidget {
   final Map<String, String> student;
   final VoidCallback onLogout;
+  final VoidCallback onPerformance;
+  final VoidCallback onChangePassword;
 
   const _DesktopStudentProfileCard({
     required this.student,
     required this.onLogout,
+    required this.onPerformance,
+    required this.onChangePassword,
   });
 
   static const String _dash = '—';
@@ -641,6 +648,23 @@ class _DesktopStudentProfileCard extends StatelessWidget {
                   },
                 ),
                 const SizedBox(height: 22),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: onPerformance,
+                      icon: const Icon(Icons.insights_rounded),
+                      label: const Text('My Academic Performance'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: onChangePassword,
+                      icon: const Icon(Icons.lock_outline_rounded),
+                      label: const Text('Change Password'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
                 _DesktopProfileFooter(
                   attendanceStatus: _displayValue('absenteeismStatus'),
                   onLogout: onLogout,

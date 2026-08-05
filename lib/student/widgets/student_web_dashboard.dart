@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:kobac/services/auth_provider.dart';
 import 'package:kobac/services/student_service.dart';
+import 'package:kobac/services/academic_performance_service.dart';
 
 const Color _kPrimaryBlue = Color(0xFF023471);
 const Color _kPrimaryGreen = Color(0xFF5AB04B);
@@ -24,6 +25,7 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
   late Future<StudentResult<List<StudentNoticeModel>>> _noticesFuture;
   late Future<StudentResult<List<StudentFeeModel>>> _feesFuture;
   late Future<StudentResult<List<StudentAttendanceRecordModel>>> _attendanceFuture;
+  late Future<PerformanceResult<StudentAcademicPerformance>> _performanceFuture;
 
   @override
   void initState() {
@@ -45,6 +47,7 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
       from: '${monthStart.year.toString().padLeft(4, '0')}-${monthStart.month.toString().padLeft(2, '0')}-${monthStart.day.toString().padLeft(2, '0')}',
       to: '${monthEnd.year.toString().padLeft(4, '0')}-${monthEnd.month.toString().padLeft(2, '0')}-${monthEnd.day.toString().padLeft(2, '0')}',
     );
+    _performanceFuture = AcademicPerformanceService().performance();
   }
 
   Future<void> _refresh() async {
@@ -69,6 +72,9 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
     final initials = name.isNotEmpty
         ? name.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase()
         : 'S';
+    final emis = user?.emisNumber?.trim().isNotEmpty == true
+        ? user!.emisNumber!.trim()
+        : '—';
 
     return Container(
       color: const Color(0xFFF0F3F7),
@@ -81,7 +87,9 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildHero(name, initials, className),
+              _buildHero(name, initials, className, emis),
+              const SizedBox(height: 24),
+              _buildFeatureCards(),
               const SizedBox(height: 24),
               _buildStatsGrid(auth.feesEnabled),
               const SizedBox(height: 24),
@@ -97,7 +105,12 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
     );
   }
 
-  Widget _buildHero(String name, String initials, String className) {
+  Widget _buildHero(
+    String name,
+    String initials,
+    String className,
+    String emis,
+  ) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -144,6 +157,7 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
                   children: [
                     _heroChip('STUDENT'),
                     _heroChip(className),
+                    _heroChip('EMIS $emis'),
                   ],
                 ),
               ],
@@ -166,6 +180,145 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
       ),
     );
   }
+
+  Widget _buildFeatureCards() => LayoutBuilder(
+        builder: (context, constraints) {
+          final performance = _buildPerformanceFeature();
+          final nextClass = _buildNextClassFeature();
+          if (constraints.maxWidth < 760) {
+            return Column(
+              children: [performance, const SizedBox(height: 16), nextClass],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(flex: 3, child: performance),
+              const SizedBox(width: 16),
+              Expanded(flex: 2, child: nextClass),
+            ],
+          );
+        },
+      );
+
+  Widget _buildPerformanceFeature() => FutureBuilder<
+          PerformanceResult<StudentAcademicPerformance>>(
+        future: _performanceFuture,
+        builder: (context, snapshot) {
+          final result = snapshot.data;
+          final data = result is PerformanceSuccess<StudentAcademicPerformance>
+              ? result.data
+              : null;
+          return _FeatureCard(
+            icon: Icons.insights_rounded,
+            title: 'Academic Performance',
+            accent: _kPrimaryBlue,
+            onTap: () => _navigate('performance'),
+            child: data == null
+                ? const Text(
+                    'Performance not available yet',
+                    style: TextStyle(color: _kTextSecondary),
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${data.percentage}%  •  ${data.grade}',
+                        style: const TextStyle(
+                          color: _kPrimaryBlue,
+                          fontSize: 25,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 7),
+                      Wrap(
+                        spacing: 9,
+                        runSpacing: 7,
+                        children: [
+                          _featurePill(data.status.isEmpty
+                              ? 'Result unavailable'
+                              : data.status),
+                          _featurePill(
+                            data.position == null
+                                ? 'Position unavailable'
+                                : 'Position ${data.position} of ${data.totalStudents}',
+                          ),
+                          _featurePill('${data.yearName} • ${data.className}'),
+                        ],
+                      ),
+                    ],
+                  ),
+          );
+        },
+      );
+
+  Widget _buildNextClassFeature() => FutureBuilder<
+          StudentResult<List<StudentTimetableSlotModel>>>(
+        future: _timetableTodayFuture,
+        builder: (context, snapshot) {
+          final slots = snapshot.data
+                  is StudentSuccess<List<StudentTimetableSlotModel>>
+              ? List<StudentTimetableSlotModel>.from(
+                  (snapshot.data
+                          as StudentSuccess<List<StudentTimetableSlotModel>>)
+                      .data,
+                )
+              : <StudentTimetableSlotModel>[];
+          slots.sort(
+            (a, b) => (a.startTime ?? '').compareTo(b.startTime ?? ''),
+          );
+          final slot = slots.isEmpty ? null : slots.first;
+          final subject = slot?.subject?['name']?.toString() ??
+              'No more classes today.';
+          final teacher = slot?.teacher?['fullName']?.toString() ??
+              slot?.teacher?['name']?.toString();
+          return _FeatureCard(
+            icon: Icons.schedule_rounded,
+            title: 'Next Class',
+            accent: _kPrimaryGreen,
+            onTap: () => _navigate('timetable'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  subject,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _kPrimaryBlue,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (slot != null) ...[
+                  const SizedBox(height: 7),
+                  Text(
+                    '${slot.startTime ?? '—'} – ${slot.endTime ?? '—'}'
+                    '${teacher == null ? '' : '  •  $teacher'}',
+                    style: const TextStyle(color: _kTextSecondary),
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
+      );
+
+  Widget _featurePill(String text) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        decoration: BoxDecoration(
+          color: _kPrimaryGreen.withValues(alpha: .1),
+          borderRadius: BorderRadius.circular(99),
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: _kPrimaryGreen,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
 
   Widget _heroChip(String label) {
     return Container(
@@ -536,6 +689,96 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
       },
     );
   }
+}
+
+class _FeatureCard extends StatefulWidget {
+  final IconData icon;
+  final String title;
+  final Color accent;
+  final Widget child;
+  final VoidCallback onTap;
+
+  const _FeatureCard({
+    required this.icon,
+    required this.title,
+    required this.accent,
+    required this.child,
+    required this.onTap,
+  });
+
+  @override
+  State<_FeatureCard> createState() => _FeatureCardState();
+}
+
+class _FeatureCardState extends State<_FeatureCard> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 170),
+          transform: Matrix4.translationValues(0, _hovered ? -3 : 0, 0),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: const Color(0xFFE8ECF2)),
+            boxShadow: [
+              BoxShadow(
+                color: widget.accent.withValues(alpha: _hovered ? .14 : .07),
+                blurRadius: _hovered ? 24 : 16,
+                offset: const Offset(0, 7),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(22),
+            child: InkWell(
+              onTap: widget.onTap,
+              borderRadius: BorderRadius.circular(22),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: widget.accent.withValues(alpha: .1),
+                            borderRadius: BorderRadius.circular(13),
+                          ),
+                          child: Icon(widget.icon,
+                              color: widget.accent, size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            widget.title,
+                            style: const TextStyle(
+                              color: _kPrimaryBlue,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        const Icon(Icons.arrow_forward_rounded,
+                            color: _kPrimaryBlue, size: 18),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    widget.child,
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
 }
 
 class _StatCard extends StatelessWidget {

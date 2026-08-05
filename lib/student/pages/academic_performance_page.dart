@@ -4,7 +4,9 @@ import 'package:kobac/student/widgets/student_web_ui.dart';
 import 'package:kobac/student/widgets/student_learning_ui.dart';
 
 class AcademicPerformancePage extends StatefulWidget {
-  const AcademicPerformancePage({super.key});
+  final bool embedBodyOnly;
+
+  const AcademicPerformancePage({super.key, this.embedBodyOnly = false});
 
   @override
   State<AcademicPerformancePage> createState() =>
@@ -55,12 +57,14 @@ class _AcademicPerformancePageState extends State<AcademicPerformancePage> {
                 24,
               ),
               children: [
-                StudentPageHeader(
-                  title: 'Academic Performance',
-                  subtitle: 'Your released academic progress',
-                  onBack: () => Navigator.pop(context),
-                ),
-                const SizedBox(height: 20),
+                if (!widget.embedBodyOnly) ...[
+                  StudentPageHeader(
+                    title: 'Academic Performance',
+                    subtitle: 'Your released academic progress',
+                    onBack: () => Navigator.pop(context),
+                  ),
+                  const SizedBox(height: 20),
+                ],
                 _PerformanceSummaryCard(data: data),
                 if (false)
                   _PerformanceCard(
@@ -345,7 +349,7 @@ class _PerformanceSummaryCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        '${data.percentage.toStringAsFixed(1)}%',
+                        '${data.percentage}%',
                         style: const TextStyle(
                           color: studentWebBlue,
                           fontSize: 34,

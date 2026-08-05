@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// Dashboard stat card for desktop layout
-class DashboardStatCard extends StatelessWidget {
+class DashboardStatCard extends StatefulWidget {
   final IconData icon;
   final Color iconColor;
   final String label;
@@ -20,19 +20,28 @@ class DashboardStatCard extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<DashboardStatCard> createState() => _DashboardStatCardState();
+}
+
+class _DashboardStatCardState extends State<DashboardStatCard> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    final card = Container(
+    final card = AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      transform: Matrix4.translationValues(0, _hovered ? -4 : 0, 0),
       height: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: const Color(0xFFE8ECF2)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            color: widget.iconColor.withValues(alpha: _hovered ? 0.16 : 0.08),
+            blurRadius: _hovered ? 26 : 16,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -45,12 +54,12 @@ class DashboardStatCard extends StatelessWidget {
             height: 46,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
+              color: widget.iconColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(
-              icon,
-              color: iconColor,
+              widget.icon,
+              color: widget.iconColor,
               size: 22,
             ),
           ),
@@ -59,7 +68,7 @@ class DashboardStatCard extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                value,
+                widget.value,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -71,7 +80,7 @@ class DashboardStatCard extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                label,
+                widget.label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -91,7 +100,7 @@ class DashboardStatCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    growth,
+                    widget.growth,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -121,14 +130,16 @@ class DashboardStatCard extends StatelessWidget {
       ),
     );
 
-    if (onTap != null) {
-      return InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: card,
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: widget.onTap == null
+          ? card
+          : InkWell(
+              onTap: widget.onTap,
+              borderRadius: BorderRadius.circular(22),
+              child: card,
+            ),
       );
-    }
-
-    return card;
   }
 }

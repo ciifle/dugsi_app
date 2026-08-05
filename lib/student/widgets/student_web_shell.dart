@@ -216,9 +216,9 @@ class _StudentWebShellState extends State<StudentWebShell> {
           onNavigateToPage: _navigateToPage,
         );
       case 'performance':
-        return const AcademicPerformancePage();
+        return const AcademicPerformancePage(embedBodyOnly: true);
       case 'changePassword':
-        return const ChangePasswordPage();
+        return const ChangePasswordPage(embedBodyOnly: true);
       case 'dashboard':
       default:
         return StudentWebDashboard(onNavigateToPage: _navigateToPage);

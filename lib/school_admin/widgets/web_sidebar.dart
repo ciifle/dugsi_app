@@ -25,14 +25,17 @@ class _WebSidebarState extends State<WebSidebar> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: widget.width,
-      decoration: const BoxDecoration(
+      width: widget.width - 16,
+      margin: const EdgeInsets.all(8),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
         color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: Color(0x0A000000),
-            blurRadius: 10,
-            offset: Offset(2, 0),
+            color: const Color(0xFF023471).withValues(alpha: .09),
+            blurRadius: 26,
+            offset: const Offset(4, 8),
           ),
         ],
       ),
@@ -278,19 +281,14 @@ class _WebSidebarState extends State<WebSidebar> {
                     icon: Icons.person_outline_rounded,
                     onTap: () => _navigateToPage('profile'),
                   ),
-                  const _SidebarDivider(),
-                  _SidebarSection(
-                    title: 'Logout',
-                    icon: Icons.logout_rounded,
-                    isExpanded: false,
-                    onTap: () async {
-                      await context.read<AuthProvider>().logout();
-                    },
-                    children: [],
-                  ),
                 ],
               ),
             ),
+          ),
+          _LogoutCard(
+            onTap: () async {
+              await context.read<AuthProvider>().logout();
+            },
           ),
         ],
       ),
@@ -308,7 +306,116 @@ class _WebSidebarState extends State<WebSidebar> {
   }
 
   void _navigateToPage(String pageKey) {
+    setState(() => _expandedSection = pageKey);
     widget.onNavigate(pageKey);
+  }
+}
+
+class _LogoutCard extends StatefulWidget {
+  final Future<void> Function() onTap;
+
+  const _LogoutCard({required this.onTap});
+
+  @override
+  State<_LogoutCard> createState() => _LogoutCardState();
+}
+
+class _LogoutCardState extends State<_LogoutCard> {
+  bool _hovered = false;
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() {
+        _hovered = false;
+        _pressed = false;
+      }),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOut,
+        margin: const EdgeInsets.all(14),
+        transform: Matrix4.translationValues(0, _pressed ? 1 : (_hovered ? -2 : 0), 0),
+        decoration: BoxDecoration(
+          color: const Color(0xFFC73737),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFC73737).withValues(
+                alpha: _hovered ? .28 : .18,
+              ),
+              blurRadius: _hovered ? 20 : 14,
+              offset: Offset(0, _hovered ? 8 : 5),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: widget.onTap,
+            onTapDown: (_) => setState(() => _pressed = true),
+            onTapCancel: () => setState(() => _pressed = false),
+            onTapUp: (_) => setState(() => _pressed = false),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+              child: Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: .16),
+                      borderRadius: BorderRadius.circular(11),
+                    ),
+                    child: const Icon(
+                      Icons.logout_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Logout',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Sign out of your account',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Color(0xFFFFE4E4),
+                            fontSize: 10.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(
+                    Icons.arrow_forward_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -333,18 +440,36 @@ class _SidebarSection extends StatelessWidget {
       children: [
         InkWell(
           onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          borderRadius: BorderRadius.circular(14),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: isExpanded ? const Color(0xFF023471) : Colors.transparent,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: isExpanded
+                  ? const [BoxShadow(color: Color(0x33023471), blurRadius: 12)]
+                  : null,
+            ),
             child: Row(
               children: [
-                Icon(
-                  icon,
-                  size: 20,
-                  color: isExpanded
-                      ? const Color(0xFF023471)
-                      : const Color(0xFF6B6B6B),
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: isExpanded
+                        ? Colors.white.withValues(alpha: .16)
+                        : const Color(0xFFF1F5FA),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 18,
+                    color: isExpanded ? Colors.white : const Color(0xFF023471),
+                  ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 11),
                 Expanded(
                   child: Text(
                     title,
@@ -352,7 +477,7 @@ class _SidebarSection extends StatelessWidget {
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: isExpanded
-                          ? const Color(0xFF023471)
+                          ? Colors.white
                           : const Color(0xFF2D2D2D),
                     ),
                   ),
@@ -361,7 +486,7 @@ class _SidebarSection extends StatelessWidget {
                   Icon(
                     isExpanded ? Icons.expand_less : Icons.expand_more,
                     size: 16,
-                    color: const Color(0xFF6B6B6B),
+                    color: isExpanded ? Colors.white : const Color(0xFF6B6B6B),
                   ),
               ],
             ),

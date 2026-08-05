@@ -34,6 +34,8 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
   String? _error;
   PromotionPreview? _preview;
   PromotionRequest? _previewedRequest;
+  String _resultFilter = 'all';
+  String _eligibilityFilter = 'all';
 
   bool get _needsDestination =>
       _decision == 'promoted' || _decision == 'repeated';
@@ -46,14 +48,28 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
 
   List<PromotionStudent> get _visibleStudents {
     final query = _search.text.trim().toLowerCase();
-    if (query.isEmpty) return _students;
     return _students
         .where(
           (student) =>
-              student.name.toLowerCase().contains(query) ||
-              student.emis.toLowerCase().contains(query),
+              (query.isEmpty ||
+                  student.name.toLowerCase().contains(query) ||
+                  student.emis.toLowerCase().contains(query)) &&
+              (_resultFilter == 'all' ||
+                  (student.status ?? '').toLowerCase() == _resultFilter) &&
+              (_eligibilityFilter == 'all' ||
+                  _eligibilityKey(student) == _eligibilityFilter),
         )
         .toList();
+  }
+
+  String _eligibilityKey(PromotionStudent student) {
+    if (student.eligible == true) return 'ready';
+    final value = (student.reason ?? '').toLowerCase();
+    if (value.contains('result') || value.contains('unavailable')) {
+      return 'no_result';
+    }
+    if (value.contains('processed')) return 'already_processed';
+    return 'issue';
   }
 
   String get _processLabel => switch (_decision) {
@@ -117,6 +133,9 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
     if (clearStudents) {
       _students = const [];
       _studentsLoaded = false;
+      _search.clear();
+      _resultFilter = 'all';
+      _eligibilityFilter = 'all';
     }
     _selected.clear();
     _preview = null;
@@ -277,17 +296,16 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
         length: 2,
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
-              child: Row(
+            if (!widget.embedBodyOnly)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
+                child: Row(
                 children: [
-                  if (!widget.embedBodyOnly) ...[
-                    IconButton(
-                      onPressed: () => Navigator.maybePop(context),
-                      icon: const Icon(Icons.arrow_back, color: _blue),
-                    ),
-                    const SizedBox(width: 10),
-                  ],
+                  IconButton(
+                    onPressed: () => Navigator.maybePop(context),
+                    icon: const Icon(Icons.arrow_back, color: _blue),
+                  ),
+                  const SizedBox(width: 10),
                   const Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -309,8 +327,8 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
                     ),
                   ),
                 ],
+                ),
               ),
-            ),
             TabBar(
               labelColor: _blue,
               unselectedLabelColor: FormTheme3D.textHint,
@@ -437,7 +455,8 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
                     _invalidate(clearStudents: true);
                   }),
                 ),
-                SizedBox(
+                if (!widget.embedBodyOnly)
+                  SizedBox(
                   width: 220,
                   child: TextField(
                     controller: _search,
@@ -447,7 +466,7 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
                       Icons.search_rounded,
                     ),
                   ),
-                ),
+                  ),
                 SizedBox(
                   width: 240,
                   child: Column(
@@ -525,6 +544,8 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
               ),
             ),
           )
+        else if (widget.embedBodyOnly)
+          _desktopReviewTable()
         else
           _card(
             Column(
@@ -620,6 +641,343 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
       ],
     ],
   );
+
+  Widget _desktopReviewTable() {
+    final visible = _visibleStudents;
+    final visibleIds = visible.map((student) => student.id).toSet();
+    final allVisibleSelected =
+        visibleIds.isNotEmpty && visibleIds.every(_selected.contains);
+    final ready = _students.where((student) => student.eligible == true).length;
+    final issues = _students.where((student) => student.eligible != true).length;
+
+    void toggleAll(bool? selected) => setState(() {
+      if (selected == true) {
+        _selected.addAll(visibleIds);
+      } else {
+        _selected.removeAll(visibleIds);
+      }
+      _preview = null;
+      _previewedRequest = null;
+    });
+
+    return Column(
+      children: [
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            _reviewMetric('Total eligible', _students.length,
+                Icons.groups_rounded, _blue),
+            _reviewMetric('Selected', _selected.length,
+                Icons.how_to_reg_rounded, _green),
+            _reviewMetric('Ready', ready, Icons.check_circle_rounded, _green),
+            _reviewMetric(
+                'Issues', issues, Icons.warning_amber_rounded, Colors.orange),
+          ],
+        ),
+        const SizedBox(height: 14),
+        _card(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 320,
+                    child: TextField(
+                      controller: _search,
+                      onChanged: (_) => setState(() {}),
+                      decoration: _fieldDecoration(
+                        'Search by name or EMIS number',
+                        Icons.search_rounded,
+                      ),
+                    ),
+                  ),
+                  _compactFilter(
+                    label: 'Result status',
+                    value: _resultFilter,
+                    values: const ['all', 'pass', 'passed', 'fail', 'failed'],
+                    onChanged: (value) =>
+                        setState(() => _resultFilter = value ?? 'all'),
+                  ),
+                  _compactFilter(
+                    label: 'Eligibility',
+                    value: _eligibilityFilter,
+                    values: const [
+                      'all',
+                      'ready',
+                      'issue',
+                      'no_result',
+                      'already_processed',
+                    ],
+                    onChanged: (value) =>
+                        setState(() => _eligibilityFilter = value ?? 'all'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _selected.isEmpty
+                        ? null
+                        : () => setState(() {
+                            _selected.clear();
+                            _preview = null;
+                            _previewedRequest = null;
+                          }),
+                    icon: const Icon(Icons.clear_all_rounded),
+                    label: const Text('Clear selection'),
+                  ),
+                  FilledButton.icon(
+                    onPressed:
+                        _working || _selected.isEmpty ? null : _runPreview,
+                    style: _primaryButtonStyle(),
+                    icon: const Icon(Icons.visibility_outlined),
+                    label: Text('Preview Promotion (${_selected.length})'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Semantics(
+                    label: 'Select all shown students',
+                    child: Checkbox(
+                      value: allVisibleSelected,
+                      onChanged: visible.isEmpty ? null : toggleAll,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${_selected.length} selected  •  ${_students.length} total  •  ${visible.length} shown',
+                    style: const TextStyle(
+                      color: FormTheme3D.textHint,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (visible.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 34),
+                  child: Column(
+                    children: [
+                      Icon(Icons.search_off_rounded,
+                          size: 44, color: FormTheme3D.textHint),
+                      SizedBox(height: 10),
+                      Text('No eligible students found',
+                          style: TextStyle(
+                              color: _blue,
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold)),
+                      SizedBox(height: 4),
+                      Text('No students matched the selected filters.'),
+                    ],
+                  ),
+                )
+              else
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                    ),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: DataTable(
+                        headingRowColor: const WidgetStatePropertyAll(
+                          Color(0xFFF7F9FC),
+                        ),
+                        headingTextStyle: const TextStyle(
+                          color: Color(0xFF253858),
+                          fontWeight: FontWeight.w700,
+                        ),
+                        dataRowMinHeight: 68,
+                        dataRowMaxHeight: 78,
+                        horizontalMargin: 16,
+                        columnSpacing: 28,
+                        columns: const [
+                          DataColumn(label: Text('#')),
+                          DataColumn(label: Text('Student')),
+                          DataColumn(label: Text('EMIS')),
+                          DataColumn(label: Text('Current Class')),
+                          DataColumn(label: Text('Percentage')),
+                          DataColumn(label: Text('Grade')),
+                          DataColumn(label: Text('Result Status')),
+                          DataColumn(label: Text('Eligibility')),
+                        ],
+                        rows: [
+                          for (var index = 0; index < visible.length; index++)
+                            _studentDataRow(visible[index], index + 1),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  DataRow _studentDataRow(PromotionStudent student, int rowNumber) {
+    final selected = _selected.contains(student.id);
+    return DataRow(
+      selected: selected,
+      onSelectChanged: (value) => setState(() {
+        value == true
+            ? _selected.add(student.id)
+            : _selected.remove(student.id);
+        _preview = null;
+        _previewedRequest = null;
+      }),
+      cells: [
+        DataCell(Text('$rowNumber')),
+        DataCell(
+          SizedBox(
+            width: 230,
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: _blue.withValues(alpha: 0.09),
+                  foregroundColor: _blue,
+                  child: Text(
+                    _initials(student.name),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    student.name.isEmpty ? 'Unnamed student' : student.name,
+                    maxLines: 2,
+                    softWrap: true,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: _blue,
+                      fontWeight: FontWeight.w700,
+                      height: 1.25,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        DataCell(Text(student.emis.trim().isEmpty ? '—' : student.emis)),
+        DataCell(_badge(student.className ?? '—', _blue)),
+        DataCell(Text(student.percentage == null
+            ? '—'
+            : '${student.percentage}%')),
+        DataCell(_badge(student.grade ?? '—', _green)),
+        DataCell(_statusBadge(student.status ?? 'Unavailable')),
+        DataCell(_eligibilityBadge(student)),
+      ],
+    );
+  }
+
+  Widget _compactFilter({
+    required String label,
+    required String value,
+    required List<String> values,
+    required ValueChanged<String?> onChanged,
+  }) => SizedBox(
+        width: 170,
+        child: DropdownButtonFormField<String>(
+          value: value,
+          isExpanded: true,
+          decoration: _fieldDecoration(label, Icons.filter_list_rounded),
+          items: values
+              .map((item) => DropdownMenuItem(
+                    value: item,
+                    child: Text(_label(item)),
+                  ))
+              .toList(),
+          onChanged: onChanged,
+        ),
+      );
+
+  Widget _reviewMetric(
+          String label, int value, IconData icon, Color color) =>
+      Container(
+        width: 178,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE8ECF2)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(children: [
+          CircleAvatar(
+            backgroundColor: color.withValues(alpha: 0.1),
+            foregroundColor: color,
+            child: Icon(icon, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label,
+                style: const TextStyle(
+                    color: FormTheme3D.textHint, fontSize: 12)),
+            Text('$value',
+                style: const TextStyle(
+                    color: _blue,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold)),
+          ]),
+        ]),
+      );
+
+  Widget _badge(String text, Color color) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.09),
+          borderRadius: BorderRadius.circular(7),
+        ),
+        child: Text(text,
+            style: TextStyle(color: color, fontWeight: FontWeight.w600)),
+      );
+
+  Widget _statusBadge(String status) {
+    final normalized = status.toLowerCase();
+    final color = normalized.contains('pass')
+        ? _green
+        : normalized.contains('fail')
+            ? Colors.red
+            : Colors.orange;
+    return _badge(_label(status), color);
+  }
+
+  Widget _eligibilityBadge(PromotionStudent student) {
+    final key = _eligibilityKey(student);
+    final label = key == 'ready'
+        ? 'Ready'
+        : (student.reason?.trim().isNotEmpty == true
+            ? student.reason!
+            : _label(key));
+    final color = key == 'ready'
+        ? _green
+        : key == 'already_processed'
+            ? Colors.blueGrey
+            : Colors.orange;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 170),
+      child: _badge(label, color),
+    );
+  }
+
+  String _initials(String name) {
+    final words = name.trim().split(RegExp(r'\s+')).where((e) => e.isNotEmpty);
+    return words.take(2).map((word) => word[0].toUpperCase()).join();
+  }
 
   Widget _previewView(PromotionPreview preview) => _card(
     Column(

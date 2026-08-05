@@ -4,7 +4,9 @@ import 'package:kobac/student/widgets/student_web_ui.dart';
 import 'package:kobac/student/widgets/student_learning_ui.dart';
 
 class ChangePasswordPage extends StatefulWidget {
-  const ChangePasswordPage({super.key});
+  final bool embedBodyOnly;
+
+  const ChangePasswordPage({super.key, this.embedBodyOnly = false});
 
   @override
   State<ChangePasswordPage> createState() => _ChangePasswordPageState();
@@ -110,12 +112,14 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                StudentPageHeader(
-                  title: 'Change Password',
-                  subtitle: 'Keep your student account secure',
-                  onBack: () => Navigator.pop(context),
-                ),
-                const SizedBox(height: 20),
+                if (!widget.embedBodyOnly) ...[
+                  StudentPageHeader(
+                    title: 'Change Password',
+                    subtitle: 'Keep your student account secure',
+                    onBack: () => Navigator.pop(context),
+                  ),
+                  const SizedBox(height: 20),
+                ],
                 const StudentMetricCard(
                   label: 'Use a password you do not use elsewhere',
                   value: 'Account security',
