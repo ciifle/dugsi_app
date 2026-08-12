@@ -10,6 +10,7 @@ import 'package:kobac/services/students_service.dart';
 import 'package:kobac/services/school_admin_assignments_service.dart';
 import 'package:kobac/services/api_error_helpers.dart';
 import 'package:kobac/school_admin/widgets/delete_confirm_dialog.dart';
+import 'package:kobac/school_admin/widgets/class_marks_print_dialog.dart';
 import 'package:kobac/school_admin/pages/mark_details_page.dart';
 import 'package:kobac/widgets/form_3d/form_3d.dart';
 
@@ -71,9 +72,12 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
     setState(() {
       if (examsR is ExamSuccess<List<ExamModel>>) _exams = examsR.data;
       if (classesR is ClassSuccess<List<ClassModel>>) _classes = classesR.data;
-      if (subjectsR is SubjectSuccess<List<SubjectModel>>) _subjects = subjectsR.data;
-      if (studentsR is StudentSuccess<List<StudentModel>>) _students = studentsR.data;
-      if (teachersR is TeacherSuccess<List<TeacherModel>>) _teachers = teachersR.data;
+      if (subjectsR is SubjectSuccess<List<SubjectModel>>)
+        _subjects = subjectsR.data;
+      if (studentsR is StudentSuccess<List<StudentModel>>)
+        _students = studentsR.data;
+      if (teachersR is TeacherSuccess<List<TeacherModel>>)
+        _teachers = teachersR.data;
       _refDataLoaded = true;
     });
     if (widget.openCreateOnLoad && mounted) _openAddMarks();
@@ -125,7 +129,11 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
       if (!mounted) return;
       setState(() {
         _loadedMarks = [];
-        _marksErrorMessage = userFriendlyMessage(e, stackTrace, 'AdminMarksScreen');
+        _marksErrorMessage = userFriendlyMessage(
+          e,
+          stackTrace,
+          'AdminMarksScreen',
+        );
         _marksVisibleCount = _marksPageSize;
       });
     } finally {
@@ -157,9 +165,11 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
       _classSubjects = [];
       _loadingClassSubjects = true;
     });
-    
+
     if (classId != null) {
-      final result = await SchoolAdminAssignmentsService().listClassSubjects(classId);
+      final result = await SchoolAdminAssignmentsService().listClassSubjects(
+        classId,
+      );
       if (!mounted) return;
       setState(() {
         _loadingClassSubjects = false;
@@ -172,47 +182,67 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
         _loadingClassSubjects = false;
       });
     }
-    
+
     _loadMarks();
   }
 
   List<SubjectModel> get _effectiveSubjects {
     if (_filterClassId != null && _classSubjects.isNotEmpty) {
       // Convert ClassSubjectItem to SubjectModel for display
-      return _classSubjects.map((cs) => SubjectModel(id: cs.id, name: cs.name)).toList();
+      return _classSubjects
+          .map((cs) => SubjectModel(id: cs.id, name: cs.name))
+          .toList();
     }
     return _subjects; // Fallback to all subjects if no class selected
   }
 
   String _examName(int id) {
-    for (final e in _exams) { if (e.id == id) return e.name; }
+    for (final e in _exams) {
+      if (e.id == id) return e.name;
+    }
     return '—';
   }
+
   String _className(int id) {
-    for (final c in _classes) { if (c.id == id) return c.name; }
+    for (final c in _classes) {
+      if (c.id == id) return c.name;
+    }
     return '—';
   }
+
   String _subjectName(int id) {
-    for (final s in _subjects) { if (s.id == id) return s.name; }
+    for (final s in _subjects) {
+      if (s.id == id) return s.name;
+    }
     return '—';
   }
+
   String _studentName(int id) {
-    for (final s in _students) { if (s.id == id) return s.studentName; }
+    for (final s in _students) {
+      if (s.id == id) return s.studentName;
+    }
     return '—';
   }
+
   String _studentEmis(int id) {
-    for (final s in _students) { if (s.id == id) return s.emisNumber; }
+    for (final s in _students) {
+      if (s.id == id) return s.emisNumber;
+    }
     return '—';
   }
+
   String _studentClass(int id) {
     for (final s in _students) {
       if (s.id == id) return s.classDisplayName;
     }
     return '—';
   }
+
   String _teacherName(int id) {
     if (id == 0) return '—';
-    for (final t in _teachers) { if (t.id == id) return t.fullName; }
+    for (final t in _teachers) {
+      if (t.id == id) return t.fullName;
+    }
     return '—';
   }
 
@@ -268,7 +298,9 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
 
     String topGrade = '-';
     if (gradeCounts.isNotEmpty) {
-      topGrade = gradeCounts.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
+      topGrade = gradeCounts.entries
+          .reduce((a, b) => a.value >= b.value ? a : b)
+          .key;
     }
 
     return _MarksSummaryData(
@@ -319,17 +351,26 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
     if (created == true && mounted) {
       _loadMarks();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Marks saved'), backgroundColor: kPrimaryGreen),
+        const SnackBar(
+          content: Text('Marks saved'),
+          backgroundColor: kPrimaryGreen,
+        ),
       );
     }
   }
 
-  Future<bool> _createMarkFromDialog(BuildContext ctx, Map<String, dynamic> payload) async {
+  Future<bool> _createMarkFromDialog(
+    BuildContext ctx,
+    Map<String, dynamic> payload,
+  ) async {
     final result = await MarksService().createMark(payload);
     if (result is MarkSuccess) return true;
     if (ctx.mounted) {
       ScaffoldMessenger.of(ctx).showSnackBar(
-        SnackBar(content: Text((result as MarkError).message), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text((result as MarkError).message),
+          backgroundColor: Colors.red,
+        ),
       );
     }
     return false;
@@ -347,17 +388,27 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
     if (updated == true && mounted) {
       _loadMarks();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Marks updated'), backgroundColor: kPrimaryGreen),
+        const SnackBar(
+          content: Text('Marks updated'),
+          backgroundColor: kPrimaryGreen,
+        ),
       );
     }
   }
 
-  Future<bool> _updateMarkFromDialog(BuildContext ctx, int id, Map<String, dynamic> payload) async {
+  Future<bool> _updateMarkFromDialog(
+    BuildContext ctx,
+    int id,
+    Map<String, dynamic> payload,
+  ) async {
     final result = await MarksService().updateMark(id, payload);
     if (result is MarkSuccess) return true;
     if (ctx.mounted) {
       ScaffoldMessenger.of(ctx).showSnackBar(
-        SnackBar(content: Text((result as MarkError).message), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text((result as MarkError).message),
+          backgroundColor: Colors.red,
+        ),
       );
     }
     return false;
@@ -370,7 +421,8 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
     final confirmed = await showDeleteConfirmDialog(
       context,
       title: 'Delete marks entry?',
-      message: 'Delete this marks entry for $studentName / $subjectName / $examName?',
+      message:
+          'Delete this marks entry for $studentName / $subjectName / $examName?',
     );
     if (confirmed != true) return;
     final result = await MarksService().deleteMark(mark.id);
@@ -378,11 +430,17 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
     if (result is MarkSuccess) {
       _loadMarks();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Marks entry deleted'), backgroundColor: kPrimaryGreen),
+        const SnackBar(
+          content: Text('Marks entry deleted'),
+          backgroundColor: kPrimaryGreen,
+        ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text((result as MarkError).message), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text((result as MarkError).message),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -404,7 +462,10 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
     if (result == true && mounted) {
       _loadMarks();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Teacher updated successfully'), backgroundColor: kPrimaryGreen),
+        const SnackBar(
+          content: Text('Teacher updated successfully'),
+          backgroundColor: kPrimaryGreen,
+        ),
       );
     }
   }
@@ -413,14 +474,27 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
     if (!_refDataLoaded) return;
     final result = await showDialog<bool>(
       context: context,
-      builder: (ctx) => _ExportMarksDialog(
-        classes: _classes,
-        exams: _exams,
-      ),
+      builder: (ctx) => _ExportMarksDialog(classes: _classes, exams: _exams),
     );
     if (result == true && mounted) {
       // Success message is shown in the dialog
     }
+  }
+
+  Future<void> _openClassMarksPrint() async {
+    final classId = _filterClassId;
+    if (classId == null) return;
+    final selectedClass = _classes.firstWhere(
+      (item) => item.id == classId,
+      orElse: () => ClassModel(id: classId, name: 'Class'),
+    );
+    await showClassMarksPrintDialog(
+      context,
+      classId: classId,
+      className: selectedClass.name,
+      studentCount: _studentsFilteredByClass.length,
+      initialExamId: _filterExamId,
+    );
   }
 
   Future<void> _openReleaseMarksDialog() async {
@@ -509,7 +583,11 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
     );
   }
 
-  Widget _buildMarksListFooter(BuildContext context, int visibleCount, int totalCount) {
+  Widget _buildMarksListFooter(
+    BuildContext context,
+    int visibleCount,
+    int totalCount,
+  ) {
     if (totalCount <= visibleCount) {
       return const SizedBox(height: 16);
     }
@@ -531,7 +609,10 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
 
   Widget _buildMarksContent(BuildContext context, {required bool isDesktop}) {
     if (_isLoadingMarks && _loadedMarks.isEmpty) {
-      return _buildMarksLoadingView(context, isDesktop ? kPrimaryBlue : kPrimaryGreen);
+      return _buildMarksLoadingView(
+        context,
+        isDesktop ? kPrimaryBlue : kPrimaryGreen,
+      );
     }
     if (_marksErrorMessage != null && _loadedMarks.isEmpty) {
       return _buildMarksErrorView(context);
@@ -539,7 +620,9 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
 
     final filteredMarks = _filteredSortedMarks(_loadedMarks);
     final totalCount = filteredMarks.length;
-    final visibleCount = totalCount < _marksVisibleCount ? totalCount : _marksVisibleCount;
+    final visibleCount = totalCount < _marksVisibleCount
+        ? totalCount
+        : _marksVisibleCount;
 
     if (filteredMarks.isEmpty) {
       return ListView(
@@ -555,7 +638,10 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                 ),
               ),
             ),
-          SizedBox(height: MediaQuery.of(context).size.height * (isDesktop ? 0.12 : 0.2)),
+          SizedBox(
+            height:
+                MediaQuery.of(context).size.height * (isDesktop ? 0.12 : 0.2),
+          ),
           Center(
             child: Column(
               children: [
@@ -563,7 +649,10 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                   Icon(Icons.grade_rounded, size: 60, color: Colors.grey[300]),
                   const SizedBox(height: 12),
                 ],
-                Text('No marks found', style: TextStyle(color: Colors.grey[600], fontSize: 16)),
+                Text(
+                  'No marks found',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                ),
                 if (!isDesktop) ...[
                   const SizedBox(height: 16),
                   TextButton.icon(
@@ -596,7 +685,9 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                 if (_isLoadingMarks)
                   const Padding(
                     padding: EdgeInsets.only(bottom: 16),
-                    child: Center(child: CircularProgressIndicator(color: kPrimaryBlue)),
+                    child: Center(
+                      child: CircularProgressIndicator(color: kPrimaryBlue),
+                    ),
                   ),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
@@ -645,7 +736,9 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
         }
 
         final mark = filteredMarks[index];
-        final pct = mark.maxMarks > 0 ? (mark.marksObtained / mark.maxMarks * 100).toStringAsFixed(1) : '—';
+        final pct = mark.maxMarks > 0
+            ? (mark.marksObtained / mark.maxMarks * 100).toStringAsFixed(1)
+            : '—';
         return _MarkCard(
           mark: mark,
           studentName: mark.studentName ?? _studentName(mark.studentId),
@@ -656,9 +749,7 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
           teacherName: mark.teacherName ?? _teacherName(mark.teacherId ?? 0),
           percentage: pct,
           onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => MarkDetailsPage(markId: mark.id),
-            ),
+            MaterialPageRoute(builder: (_) => MarkDetailsPage(markId: mark.id)),
           ),
           onEdit: () => _openEditMark(mark),
           onDelete: () => _deleteMark(mark),
@@ -702,7 +793,14 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                 _BackButton(onPressed: () => Navigator.pop(context)),
                 const SizedBox(width: 16),
                 const Expanded(
-                  child: Text('Marks', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
+                  child: Text(
+                    'Marks',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: kPrimaryBlue,
+                    ),
+                  ),
                 ),
                 _UpdateTeacherButton(onPressed: _openUpdateTeacherDialog),
                 const SizedBox(width: 8),
@@ -729,8 +827,16 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                             value: _filterExamId,
                             label: 'Exam',
                             items: [
-                              const DropdownMenuItem<int?>(value: null, child: Text('All')),
-                              ..._exams.map((e) => DropdownMenuItem<int?>(value: e.id, child: Text(e.name))),
+                              const DropdownMenuItem<int?>(
+                                value: null,
+                                child: Text('All'),
+                              ),
+                              ..._exams.map(
+                                (e) => DropdownMenuItem<int?>(
+                                  value: e.id,
+                                  child: Text(e.name),
+                                ),
+                              ),
                             ],
                             onChanged: _onFilterExamChanged,
                           ),
@@ -741,8 +847,16 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                             value: _filterClassId,
                             label: 'Class',
                             items: [
-                              const DropdownMenuItem<int?>(value: null, child: Text('All')),
-                              ..._classes.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name))),
+                              const DropdownMenuItem<int?>(
+                                value: null,
+                                child: Text('All'),
+                              ),
+                              ..._classes.map(
+                                (c) => DropdownMenuItem<int?>(
+                                  value: c.id,
+                                  child: Text(c.name),
+                                ),
+                              ),
                             ],
                             onChanged: (v) => _onFilterClassChanged(v),
                           ),
@@ -757,10 +871,26 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                             value: _filterSubjectId,
                             label: 'Subject',
                             items: [
-                              DropdownMenuItem<int?>(value: null, child: Text(_loadingClassSubjects ? 'Loading...' : (_filterClassId == null ? 'Select class first' : 'All'))),
-                              ..._effectiveSubjects.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text(s.name))),
+                              DropdownMenuItem<int?>(
+                                value: null,
+                                child: Text(
+                                  _loadingClassSubjects
+                                      ? 'Loading...'
+                                      : (_filterClassId == null
+                                            ? 'Select class first'
+                                            : 'All'),
+                                ),
+                              ),
+                              ..._effectiveSubjects.map(
+                                (s) => DropdownMenuItem<int?>(
+                                  value: s.id,
+                                  child: Text(s.name),
+                                ),
+                              ),
                             ],
-                            onChanged: _loadingClassSubjects ? null : _onFilterSubjectChanged,
+                            onChanged: _loadingClassSubjects
+                                ? null
+                                : _onFilterSubjectChanged,
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -769,8 +899,18 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                             value: _filterStudentId,
                             label: 'Student',
                             items: [
-                              const DropdownMenuItem<int?>(value: null, child: Text('All')),
-                              ..._studentsFilteredByClass.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text('${s.studentName} (${s.emisNumber.trim().isEmpty ? '—' : s.emisNumber})'))),
+                              const DropdownMenuItem<int?>(
+                                value: null,
+                                child: Text('All'),
+                              ),
+                              ..._studentsFilteredByClass.map(
+                                (s) => DropdownMenuItem<int?>(
+                                  value: s.id,
+                                  child: Text(
+                                    '${s.studentName} (${s.emisNumber.trim().isEmpty ? '—' : s.emisNumber})',
+                                  ),
+                                ),
+                              ),
                             ],
                             onChanged: _onFilterStudentChanged,
                           ),
@@ -783,22 +923,33 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                       icon: const Icon(Icons.clear_rounded, size: 18),
                       label: const Text('Clear Filters'),
                     ),
+                    OutlinedButton.icon(
+                      onPressed: _filterClassId == null
+                          ? null
+                          : _openClassMarksPrint,
+                      icon: const Icon(Icons.print_rounded, size: 18),
+                      label: Text(
+                        _filterClassId == null
+                            ? 'Select a class to print marks'
+                            : 'Print Class Marks',
+                      ),
+                    ),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 12),
           ],
-              Expanded(
-                child: RefreshIndicator(
-                  onRefresh: _loadMarks,
-                  color: kPrimaryGreen,
-                  child: _buildMarksContent(context, isDesktop: false),
-                ),
-              ),
-            ],
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _loadMarks,
+              color: kPrimaryGreen,
+              child: _buildMarksContent(context, isDesktop: false),
+            ),
           ),
-        );
+        ],
+      ),
+    );
   }
 
   Widget _buildDesktopPageBody(BuildContext context) {
@@ -856,7 +1007,9 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: kPrimaryBlue,
                       side: const BorderSide(color: Color(0xFFE5E7EB)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
                   OutlinedButton.icon(
@@ -866,7 +1019,9 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: kPrimaryBlue,
                       side: const BorderSide(color: Color(0xFFE5E7EB)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
                   OutlinedButton.icon(
@@ -876,7 +1031,23 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: kPrimaryBlue,
                       side: const BorderSide(color: Color(0xFFE5E7EB)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _filterClassId == null
+                        ? null
+                        : _openClassMarksPrint,
+                    icon: const Icon(Icons.print_rounded, size: 18),
+                    label: const Text('Print Class Marks'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: kPrimaryBlue,
+                      side: const BorderSide(color: Color(0xFFE5E7EB)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
                   ElevatedButton.icon(
@@ -888,18 +1059,16 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shadowColor: Colors.transparent,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
                 ],
               );
 
               if (isWide) {
-                return Row(
-                  children: [
-                    Expanded(child: actionButtons),
-                  ],
-                );
+                return Row(children: [Expanded(child: actionButtons)]);
               }
               return actionButtons;
             },
@@ -908,10 +1077,15 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
           LayoutBuilder(
             builder: (context, constraints) {
               final isWide = constraints.maxWidth >= 900;
-              final fieldWidth = isWide ? (constraints.maxWidth - 16) / 2 : constraints.maxWidth;
+              final fieldWidth = isWide
+                  ? (constraints.maxWidth - 16) / 2
+                  : constraints.maxWidth;
 
               Widget filterField(Widget child) {
-                return SizedBox(width: isWide ? fieldWidth : double.infinity, child: child);
+                return SizedBox(
+                  width: isWide ? fieldWidth : double.infinity,
+                  child: child,
+                );
               }
 
               return Wrap(
@@ -923,8 +1097,16 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                       value: _filterExamId,
                       decoration: _desktopFilterDecoration('Exam'),
                       items: [
-                        const DropdownMenuItem<int?>(value: null, child: Text('All')),
-                        ..._exams.map((e) => DropdownMenuItem<int?>(value: e.id, child: Text(e.name))),
+                        const DropdownMenuItem<int?>(
+                          value: null,
+                          child: Text('All'),
+                        ),
+                        ..._exams.map(
+                          (e) => DropdownMenuItem<int?>(
+                            value: e.id,
+                            child: Text(e.name),
+                          ),
+                        ),
                       ],
                       onChanged: _onFilterExamChanged,
                     ),
@@ -934,8 +1116,16 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                       value: _filterClassId,
                       decoration: _desktopFilterDecoration('Class'),
                       items: [
-                        const DropdownMenuItem<int?>(value: null, child: Text('All')),
-                        ..._classes.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name))),
+                        const DropdownMenuItem<int?>(
+                          value: null,
+                          child: Text('All'),
+                        ),
+                        ..._classes.map(
+                          (c) => DropdownMenuItem<int?>(
+                            value: c.id,
+                            child: Text(c.name),
+                          ),
+                        ),
                       ],
                       onChanged: (value) => _onFilterClassChanged(value),
                     ),
@@ -947,11 +1137,24 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                       items: [
                         DropdownMenuItem<int?>(
                           value: null,
-                          child: Text(_loadingClassSubjects ? 'Loading...' : (_filterClassId == null ? 'Select class first' : 'All')),
+                          child: Text(
+                            _loadingClassSubjects
+                                ? 'Loading...'
+                                : (_filterClassId == null
+                                      ? 'Select class first'
+                                      : 'All'),
+                          ),
                         ),
-                        ..._effectiveSubjects.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text(s.name))),
+                        ..._effectiveSubjects.map(
+                          (s) => DropdownMenuItem<int?>(
+                            value: s.id,
+                            child: Text(s.name),
+                          ),
+                        ),
                       ],
-                      onChanged: _loadingClassSubjects ? null : _onFilterSubjectChanged,
+                      onChanged: _loadingClassSubjects
+                          ? null
+                          : _onFilterSubjectChanged,
                     ),
                   ),
                   filterField(
@@ -959,11 +1162,16 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                       value: _filterStudentId,
                       decoration: _desktopFilterDecoration('Student'),
                       items: [
-                        const DropdownMenuItem<int?>(value: null, child: Text('All')),
+                        const DropdownMenuItem<int?>(
+                          value: null,
+                          child: Text('All'),
+                        ),
                         ..._studentsFilteredByClass.map(
                           (s) => DropdownMenuItem<int?>(
                             value: s.id,
-                            child: Text('${s.studentName} (${s.emisNumber.trim().isEmpty ? '—' : s.emisNumber})'),
+                            child: Text(
+                              '${s.studentName} (${s.emisNumber.trim().isEmpty ? '—' : s.emisNumber})',
+                            ),
                           ),
                         ),
                       ],
@@ -1011,13 +1219,37 @@ class _MarksSummaryCards extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: _SummaryCard(label: 'Total Marks Records', value: '${summary.totalRecords}', color: kPrimaryBlue)),
+        Expanded(
+          child: _SummaryCard(
+            label: 'Total Marks Records',
+            value: '${summary.totalRecords}',
+            color: kPrimaryBlue,
+          ),
+        ),
         const SizedBox(width: 16),
-        Expanded(child: _SummaryCard(label: 'Average Score', value: '${summary.averageScore.toStringAsFixed(1)}%', color: kPrimaryGreen)),
+        Expanded(
+          child: _SummaryCard(
+            label: 'Average Score',
+            value: '${summary.averageScore.toStringAsFixed(1)}%',
+            color: kPrimaryGreen,
+          ),
+        ),
         const SizedBox(width: 16),
-        Expanded(child: _SummaryCard(label: 'Graded', value: '${summary.gradedCount}', color: const Color(0xFF2563EB))),
+        Expanded(
+          child: _SummaryCard(
+            label: 'Graded',
+            value: '${summary.gradedCount}',
+            color: const Color(0xFF2563EB),
+          ),
+        ),
         const SizedBox(width: 16),
-        Expanded(child: _SummaryCard(label: 'Top Grade', value: summary.topGrade, color: const Color(0xFFE67E22))),
+        Expanded(
+          child: _SummaryCard(
+            label: 'Top Grade',
+            value: summary.topGrade,
+            color: const Color(0xFFE67E22),
+          ),
+        ),
       ],
     );
   }
@@ -1046,9 +1278,23 @@ class _SummaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade600,
+            ),
+          ),
           const SizedBox(height: 8),
-          Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color)),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
         ],
       ),
     );
@@ -1081,7 +1327,9 @@ class _MarkRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final initial = studentName.trim().isNotEmpty ? studentName.trim().substring(0, 1).toUpperCase() : '?';
+    final initial = studentName.trim().isNotEmpty
+        ? studentName.trim().substring(0, 1).toUpperCase()
+        : '?';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -1105,14 +1353,22 @@ class _MarkRow extends StatelessWidget {
                   ),
                   child: Text(
                     initial,
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade700,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     studentName,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kPrimaryBlue),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: kPrimaryBlue,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1151,15 +1407,16 @@ class _MarkRow extends StatelessWidget {
             flex: 1,
             child: Text(
               percentage == '—' ? '-' : '$percentage%',
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kPrimaryGreen),
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: kPrimaryGreen,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          Expanded(
-            flex: 1,
-            child: _MarkGradeBadge(grade: mark.grade),
-          ),
+          Expanded(flex: 1, child: _MarkGradeBadge(grade: mark.grade)),
           Expanded(
             flex: 2,
             child: Text(
@@ -1174,13 +1431,21 @@ class _MarkRow extends StatelessWidget {
             child: Row(
               children: [
                 IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 20, color: kPrimaryGreen),
+                  icon: const Icon(
+                    Icons.edit_outlined,
+                    size: 20,
+                    color: kPrimaryGreen,
+                  ),
                   onPressed: onEdit,
                   tooltip: 'Edit',
                   visualDensity: VisualDensity.compact,
                 ),
                 IconButton(
-                  icon: Icon(Icons.delete_outline, size: 20, color: Colors.red[400]),
+                  icon: Icon(
+                    Icons.delete_outline,
+                    size: 20,
+                    color: Colors.red[400],
+                  ),
                   onPressed: onDelete,
                   tooltip: 'Delete',
                   visualDensity: VisualDensity.compact,
@@ -1203,7 +1468,10 @@ class _MarkGradeBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final value = grade?.trim();
     if (value == null || value.isEmpty) {
-      return Text('-', style: TextStyle(fontSize: 14, color: Colors.grey.shade700));
+      return Text(
+        '-',
+        style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+      );
     }
 
     final normalized = value.toUpperCase();
@@ -1233,7 +1501,11 @@ class _MarkGradeBadge extends StatelessWidget {
         ),
         child: Text(
           value,
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: foreground),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: foreground,
+          ),
         ),
       ),
     );
@@ -1246,7 +1518,12 @@ class _FilterDropdown<T> extends StatelessWidget {
   final List<DropdownMenuItem<T>> items;
   final void Function(T?)? onChanged;
 
-  const _FilterDropdown({required this.value, required this.label, required this.items, this.onChanged});
+  const _FilterDropdown({
+    required this.value,
+    required this.label,
+    required this.items,
+    this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1254,7 +1531,10 @@ class _FilterDropdown<T> extends StatelessWidget {
       value: value,
       decoration: InputDecoration(
         labelText: label,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 10,
+        ),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         isDense: true,
       ),
@@ -1300,50 +1580,100 @@ class _MarkCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(kCardRadius),
         child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(kCardRadius),
-          boxShadow: [
-            BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 6)),
-            BoxShadow(color: kPrimaryBlue.withOpacity(0.03), blurRadius: 32, offset: const Offset(0, 12)),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: kPrimaryBlue.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(14),
+          margin: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(kCardRadius),
+            boxShadow: [
+              BoxShadow(
+                color: kPrimaryBlue.withOpacity(0.06),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
               ),
-              child: const Icon(Icons.grade_rounded, color: kPrimaryBlue, size: 24),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(studentName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
-                  Text('$subjectName · $examName', style: TextStyle(fontSize: 13, color: Colors.grey[700])),
-                  Text('${mark.marksObtained} / ${mark.maxMarks} ($percentage%)', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
-                  if (mark.grade != null && mark.grade!.isNotEmpty) Text('Grade: ${mark.grade}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kPrimaryGreen)),
-                ],
+              BoxShadow(
+                color: kPrimaryBlue.withOpacity(0.03),
+                blurRadius: 32,
+                offset: const Offset(0, 12),
               ),
-            ),
-            IconButton(icon: const Icon(Icons.edit_outlined, size: 22, color: kPrimaryGreen), onPressed: onEdit, tooltip: 'Edit'),
-            IconButton(icon: Icon(Icons.delete_outline, size: 22, color: Colors.red[400]), onPressed: onDelete, tooltip: 'Delete'),
-          ],
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: kPrimaryBlue.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.grade_rounded,
+                  color: kPrimaryBlue,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      studentName,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: kPrimaryBlue,
+                      ),
+                    ),
+                    Text(
+                      '$subjectName · $examName',
+                      style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                    ),
+                    Text(
+                      '${mark.marksObtained} / ${mark.maxMarks} ($percentage%)',
+                      style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                    ),
+                    if (mark.grade != null && mark.grade!.isNotEmpty)
+                      Text(
+                        'Grade: ${mark.grade}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: kPrimaryGreen,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(
+                  Icons.edit_outlined,
+                  size: 22,
+                  color: kPrimaryGreen,
+                ),
+                onPressed: onEdit,
+                tooltip: 'Edit',
+              ),
+              IconButton(
+                icon: Icon(
+                  Icons.delete_outline,
+                  size: 22,
+                  color: Colors.red[400],
+                ),
+                onPressed: onDelete,
+                tooltip: 'Delete',
+              ),
+            ],
+          ),
         ),
       ),
-    ),
     );
   }
 }
 
-bool _isDesktopAdminModal(BuildContext context) => isDesktopWebAdminLayout(context);
+bool _isDesktopAdminModal(BuildContext context) =>
+    isDesktopWebAdminLayout(context);
 
 class _AdminModalHeader extends StatelessWidget {
   final String title;
@@ -1369,11 +1699,18 @@ class _AdminModalHeader extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: kPrimaryBlue),
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: kPrimaryBlue,
+                  ),
                 ),
                 if (subtitle != null) ...[
                   const SizedBox(height: 4),
-                  Text(subtitle!, style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
+                  Text(
+                    subtitle!,
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                  ),
                 ],
               ],
             ),
@@ -1408,7 +1745,12 @@ class _AdminModalActionFooter extends StatelessWidget {
     if (!_isDesktopAdminModal(context)) {
       return Row(
         children: [
-          Expanded(child: TextButton(onPressed: submitting ? null : onCancel, child: const Text('Cancel'))),
+          Expanded(
+            child: TextButton(
+              onPressed: submitting ? null : onCancel,
+              child: const Text('Cancel'),
+            ),
+          ),
           const SizedBox(width: 12),
           Expanded(
             flex: 2,
@@ -1433,7 +1775,9 @@ class _AdminModalActionFooter extends StatelessWidget {
             style: OutlinedButton.styleFrom(
               foregroundColor: const Color(0xFF374151),
               side: const BorderSide(color: Color(0xFFE5E7EB)),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             ),
             child: const Text('Cancel'),
@@ -1446,14 +1790,19 @@ class _AdminModalActionFooter extends StatelessWidget {
               foregroundColor: Colors.white,
               elevation: 0,
               shadowColor: Colors.transparent,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             ),
             child: submitting
                 ? const SizedBox(
                     width: 18,
                     height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
                 : Text(primaryLabel),
           ),
@@ -1495,11 +1844,18 @@ class _AdminModalLayout extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: kPrimaryBlue,
+                  ),
                 ),
                 if (subtitle != null) ...[
                   const SizedBox(height: 8),
-                  Text(subtitle!, style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
+                  Text(
+                    subtitle!,
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                  ),
                 ],
                 const SizedBox(height: 20),
                 child,
@@ -1595,14 +1951,17 @@ class _AddMarksDialogState extends State<_AddMarksDialog> {
 
   Future<void> _loadClassSubjects(int classId) async {
     setState(() => _loadingClassSubjects = true);
-    final result = await SchoolAdminAssignmentsService().listClassSubjects(classId);
+    final result = await SchoolAdminAssignmentsService().listClassSubjects(
+      classId,
+    );
     if (!mounted) return;
     setState(() {
       _loadingClassSubjects = false;
       if (result is AssignmentSuccess<List<ClassSubjectItem>>) {
         _classSubjects = result.data;
         final currentId = _subjectId;
-        final inList = currentId != null && _classSubjects.any((s) => s.id == currentId);
+        final inList =
+            currentId != null && _classSubjects.any((s) => s.id == currentId);
         if (!inList) _subjectId = null;
       } else {
         _classSubjects = [];
@@ -1625,7 +1984,9 @@ class _AddMarksDialogState extends State<_AddMarksDialog> {
   List<SubjectModel> get _effectiveSubjects {
     if (_classId != null && _classSubjects.isNotEmpty) {
       // Convert ClassSubjectItem to SubjectModel for display
-      return _classSubjects.map((cs) => SubjectModel(id: cs.id, name: cs.name)).toList();
+      return _classSubjects
+          .map((cs) => SubjectModel(id: cs.id, name: cs.name))
+          .toList();
     }
     return widget.subjects; // Fallback to all subjects if no class selected
   }
@@ -1639,30 +2000,53 @@ class _AddMarksDialogState extends State<_AddMarksDialog> {
 
   List<StudentModel> get _studentsForClass {
     if (_classId == null) return widget.students;
-    final filtered = widget.students.where((s) => s.classId == _classId).toList();
+    final filtered = widget.students
+        .where((s) => s.classId == _classId)
+        .toList();
     // If no students match the class (e.g. API doesn't return class_id in list), show all so user can still select
     return filtered.isEmpty ? widget.students : filtered;
   }
 
   Future<void> _submit() async {
-    if (_examId == null || _studentId == null || _subjectId == null || _teacherId == null) {
+    if (_examId == null ||
+        _studentId == null ||
+        _subjectId == null ||
+        _teacherId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select exam, student, subject and teacher'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('Please select exam, student, subject and teacher'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
     final obtained = int.tryParse(_marksObtained.text.trim()) ?? 0;
     final max = int.tryParse(_maxMarks.text.trim()) ?? 100;
     if (obtained < 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Marks obtained must be >= 0'), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Marks obtained must be >= 0'),
+          backgroundColor: Colors.red,
+        ),
+      );
       return;
     }
     if (max <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Max marks must be > 0'), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Max marks must be > 0'),
+          backgroundColor: Colors.red,
+        ),
+      );
       return;
     }
     if (obtained > max) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Marks obtained cannot exceed max marks'), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Marks obtained cannot exceed max marks'),
+          backgroundColor: Colors.red,
+        ),
+      );
       return;
     }
     if (_submitting) return;
@@ -1697,21 +2081,47 @@ class _AddMarksDialogState extends State<_AddMarksDialog> {
           Select3D<int?>(
             value: _examId,
             label: 'Exam',
-            items: [const DropdownMenuItem<int?>(value: null, child: Text('Select exam')), ...widget.exams.map((e) => DropdownMenuItem<int?>(value: e.id, child: Text(e.name)))],
+            items: [
+              const DropdownMenuItem<int?>(
+                value: null,
+                child: Text('Select exam'),
+              ),
+              ...widget.exams.map(
+                (e) => DropdownMenuItem<int?>(value: e.id, child: Text(e.name)),
+              ),
+            ],
             onChanged: (v) => setState(() => _examId = v),
           ),
           const SizedBox(height: 16),
           Select3D<int?>(
             value: _classId,
             label: 'Class (filter)',
-            items: [const DropdownMenuItem<int?>(value: null, child: Text('All')), ...widget.classes.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name)))],
+            items: [
+              const DropdownMenuItem<int?>(value: null, child: Text('All')),
+              ...widget.classes.map(
+                (c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name)),
+              ),
+            ],
             onChanged: (v) => _onClassChanged(v),
           ),
           const SizedBox(height: 16),
           Select3D<int?>(
             value: _studentId,
             label: 'Student',
-            items: [const DropdownMenuItem<int?>(value: null, child: Text('Select student')), ..._studentsForClass.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text('${s.studentName} (${s.emisNumber.trim().isEmpty ? '—' : s.emisNumber})')))],
+            items: [
+              const DropdownMenuItem<int?>(
+                value: null,
+                child: Text('Select student'),
+              ),
+              ..._studentsForClass.map(
+                (s) => DropdownMenuItem<int?>(
+                  value: s.id,
+                  child: Text(
+                    '${s.studentName} (${s.emisNumber.trim().isEmpty ? '—' : s.emisNumber})',
+                  ),
+                ),
+              ),
+            ],
             onChanged: (v) => setState(() => _studentId = v),
           ),
           const SizedBox(height: 16),
@@ -1719,16 +2129,40 @@ class _AddMarksDialogState extends State<_AddMarksDialog> {
             value: _subjectId,
             label: 'Subject',
             items: [
-              DropdownMenuItem<int?>(value: null, child: Text(_loadingClassSubjects ? 'Loading...' : (_classId == null ? 'Select class first' : 'Select subject'))),
-              ..._effectiveSubjects.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text(s.name))),
+              DropdownMenuItem<int?>(
+                value: null,
+                child: Text(
+                  _loadingClassSubjects
+                      ? 'Loading...'
+                      : (_classId == null
+                            ? 'Select class first'
+                            : 'Select subject'),
+                ),
+              ),
+              ..._effectiveSubjects.map(
+                (s) => DropdownMenuItem<int?>(value: s.id, child: Text(s.name)),
+              ),
             ],
-            onChanged: _loadingClassSubjects ? null : (v) => setState(() => _subjectId = v),
+            onChanged: _loadingClassSubjects
+                ? null
+                : (v) => setState(() => _subjectId = v),
           ),
           const SizedBox(height: 16),
           Select3D<int?>(
             value: _teacherId,
             label: 'Teacher',
-            items: [const DropdownMenuItem<int?>(value: null, child: Text('Select teacher')), ...widget.teachers.map((t) => DropdownMenuItem<int?>(value: t.id, child: Text(t.fullName)))],
+            items: [
+              const DropdownMenuItem<int?>(
+                value: null,
+                child: Text('Select teacher'),
+              ),
+              ...widget.teachers.map(
+                (t) => DropdownMenuItem<int?>(
+                  value: t.id,
+                  child: Text(t.fullName),
+                ),
+              ),
+            ],
             onChanged: (v) => setState(() => _teacherId = v),
           ),
           const SizedBox(height: 16),
@@ -1758,7 +2192,11 @@ class _EditMarksDialog extends StatefulWidget {
   final List<TeacherModel> teachers;
   final Future<bool> Function(Map<String, dynamic> payload) onSave;
 
-  const _EditMarksDialog({required this.mark, required this.teachers, required this.onSave});
+  const _EditMarksDialog({
+    required this.mark,
+    required this.teachers,
+    required this.onSave,
+  });
 
   @override
   State<_EditMarksDialog> createState() => _EditMarksDialogState();
@@ -1773,7 +2211,9 @@ class _EditMarksDialogState extends State<_EditMarksDialog> {
   @override
   void initState() {
     super.initState();
-    _marksObtained = TextEditingController(text: widget.mark.marksObtained.toString());
+    _marksObtained = TextEditingController(
+      text: widget.mark.marksObtained.toString(),
+    );
     _maxMarks = TextEditingController(text: widget.mark.maxMarks.toString());
     _teacherId = widget.mark.teacherId;
   }
@@ -1789,20 +2229,38 @@ class _EditMarksDialogState extends State<_EditMarksDialog> {
     final obtained = int.tryParse(_marksObtained.text.trim()) ?? 0;
     final max = int.tryParse(_maxMarks.text.trim()) ?? 100;
     if (obtained < 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Marks obtained must be >= 0'), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Marks obtained must be >= 0'),
+          backgroundColor: Colors.red,
+        ),
+      );
       return;
     }
     if (max <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Max marks must be > 0'), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Max marks must be > 0'),
+          backgroundColor: Colors.red,
+        ),
+      );
       return;
     }
     if (obtained > max) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Marks obtained cannot exceed max marks'), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Marks obtained cannot exceed max marks'),
+          backgroundColor: Colors.red,
+        ),
+      );
       return;
     }
     if (_submitting) return;
     setState(() => _submitting = true);
-    final payload = <String, dynamic>{'marks_obtained': obtained, 'max_marks': max};
+    final payload = <String, dynamic>{
+      'marks_obtained': obtained,
+      'max_marks': max,
+    };
     if (_teacherId != null) payload['teacher_id'] = _teacherId;
     final ok = await widget.onSave(payload);
     if (!mounted) return;
@@ -1843,7 +2301,18 @@ class _EditMarksDialogState extends State<_EditMarksDialog> {
           Select3D<int?>(
             value: _teacherId,
             label: 'Teacher',
-            items: [const DropdownMenuItem<int?>(value: null, child: Text('Unchanged')), ...widget.teachers.map((t) => DropdownMenuItem<int?>(value: t.id, child: Text(t.fullName)))],
+            items: [
+              const DropdownMenuItem<int?>(
+                value: null,
+                child: Text('Unchanged'),
+              ),
+              ...widget.teachers.map(
+                (t) => DropdownMenuItem<int?>(
+                  value: t.id,
+                  child: Text(t.fullName),
+                ),
+              ),
+            ],
             onChanged: (v) => setState(() => _teacherId = v),
           ),
         ],
@@ -1864,9 +2333,19 @@ class _BackButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+          boxShadow: [
+            BoxShadow(
+              color: kPrimaryBlue.withOpacity(0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        child: const Icon(Icons.arrow_back_rounded, color: kPrimaryBlue, size: 24),
+        child: const Icon(
+          Icons.arrow_back_rounded,
+          color: kPrimaryBlue,
+          size: 24,
+        ),
       ),
     );
   }
@@ -1884,9 +2363,19 @@ class _ReleaseButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.deepPurple.withOpacity(0.12),
           borderRadius: BorderRadius.circular(14),
-          boxShadow: [BoxShadow(color: Colors.deepPurple.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.deepPurple.withOpacity(0.2),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        child: const Icon(Icons.publish_rounded, color: Colors.deepPurple, size: 24),
+        child: const Icon(
+          Icons.publish_rounded,
+          color: Colors.deepPurple,
+          size: 24,
+        ),
       ),
     );
   }
@@ -1904,7 +2393,13 @@ class _AddButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: kPrimaryGreen.withOpacity(0.12),
           borderRadius: BorderRadius.circular(14),
-          boxShadow: [BoxShadow(color: kPrimaryGreen.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))],
+          boxShadow: [
+            BoxShadow(
+              color: kPrimaryGreen.withOpacity(0.2),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: const Icon(Icons.add_rounded, color: kPrimaryGreen, size: 24),
       ),
@@ -1924,7 +2419,13 @@ class _UpdateTeacherButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.orange.withOpacity(0.12),
           borderRadius: BorderRadius.circular(14),
-          boxShadow: [BoxShadow(color: Colors.orange.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.orange.withOpacity(0.2),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: const Icon(Icons.person, color: Colors.orange, size: 24),
       ),
@@ -1944,7 +2445,13 @@ class _ExportButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.blue.withOpacity(0.12),
           borderRadius: BorderRadius.circular(14),
-          boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.blue.withOpacity(0.2),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: const Icon(Icons.download_rounded, color: Colors.blue, size: 24),
       ),
@@ -2001,36 +2508,47 @@ class _UpdateTeacherDialogState extends State<_UpdateTeacherDialog> {
 
   List<SubjectModel> get _effectiveSubjects {
     if (_classId != null && widget.classSubjects.isNotEmpty) {
-      return widget.classSubjects.map((cs) => SubjectModel(id: cs.id, name: cs.name)).toList();
+      return widget.classSubjects
+          .map((cs) => SubjectModel(id: cs.id, name: cs.name))
+          .toList();
     }
     return widget.subjects;
   }
 
   Future<void> _submit() async {
-    if (_classId == null || _subjectId == null || _teacherId == null || _examId == null) {
+    if (_classId == null ||
+        _subjectId == null ||
+        _teacherId == null ||
+        _examId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select class, subject, teacher and exam'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('Please select class, subject, teacher and exam'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
     if (_submitting) return;
     setState(() => _submitting = true);
-    
+
     final result = await MarksService().bulkUpdateTeacher(
       classId: _classId!,
       subjectId: _subjectId!,
       teacherId: _teacherId!,
       examId: _examId!,
     );
-    
+
     if (!mounted) return;
     setState(() => _submitting = false);
-    
+
     if (result is MarkSuccess) {
       Navigator.of(context).pop(true);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text((result as MarkError).message), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text((result as MarkError).message),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -2041,34 +2559,65 @@ class _UpdateTeacherDialogState extends State<_UpdateTeacherDialog> {
     final classField = Select3D<int?>(
       value: _classId,
       label: 'Class',
-      items: [const DropdownMenuItem<int?>(value: null, child: Text('Select class')), ...widget.classes.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name)))],
+      items: [
+        const DropdownMenuItem<int?>(value: null, child: Text('Select class')),
+        ...widget.classes.map(
+          (c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name)),
+        ),
+      ],
       onChanged: (v) => _onClassChanged(v),
     );
     final subjectField = Select3D<int?>(
       value: _subjectId,
       label: 'Subject',
       items: [
-        DropdownMenuItem<int?>(value: null, child: Text(widget.loadingClassSubjects ? 'Loading...' : (_classId == null ? 'Select class first' : 'Select subject'))),
-        ..._effectiveSubjects.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text(s.name))),
+        DropdownMenuItem<int?>(
+          value: null,
+          child: Text(
+            widget.loadingClassSubjects
+                ? 'Loading...'
+                : (_classId == null ? 'Select class first' : 'Select subject'),
+          ),
+        ),
+        ..._effectiveSubjects.map(
+          (s) => DropdownMenuItem<int?>(value: s.id, child: Text(s.name)),
+        ),
       ],
-      onChanged: widget.loadingClassSubjects ? null : (v) => setState(() => _subjectId = v),
+      onChanged: widget.loadingClassSubjects
+          ? null
+          : (v) => setState(() => _subjectId = v),
     );
     final teacherField = Select3D<int?>(
       value: _teacherId,
       label: 'New Teacher',
-      items: [const DropdownMenuItem<int?>(value: null, child: Text('Select teacher')), ...widget.teachers.map((t) => DropdownMenuItem<int?>(value: t.id, child: Text(t.fullName)))],
+      items: [
+        const DropdownMenuItem<int?>(
+          value: null,
+          child: Text('Select teacher'),
+        ),
+        ...widget.teachers.map(
+          (t) => DropdownMenuItem<int?>(value: t.id, child: Text(t.fullName)),
+        ),
+      ],
       onChanged: (v) => setState(() => _teacherId = v),
     );
     final examField = Select3D<int?>(
       value: _examId,
       label: 'Exam',
-      items: [const DropdownMenuItem<int?>(value: null, child: Text('Select exam')), ...widget.exams.map((e) => DropdownMenuItem<int?>(value: e.id, child: Text(e.name)))],
+      items: [
+        const DropdownMenuItem<int?>(value: null, child: Text('Select exam')),
+        ...widget.exams.map(
+          (e) => DropdownMenuItem<int?>(value: e.id, child: Text(e.name)),
+        ),
+      ],
       onChanged: (v) => setState(() => _examId = v),
     );
 
     return _AdminModalLayout(
       title: 'Update Teacher',
-      subtitle: isDesktop ? 'Assign a teacher for the selected class and subject' : null,
+      subtitle: isDesktop
+          ? 'Assign a teacher for the selected class and subject'
+          : null,
       maxWidth: 820,
       footer: _AdminModalActionFooter(
         submitting: _submitting,
@@ -2119,10 +2668,7 @@ class _ExportMarksDialog extends StatefulWidget {
   final List<ClassModel> classes;
   final List<ExamModel> exams;
 
-  const _ExportMarksDialog({
-    required this.classes,
-    required this.exams,
-  });
+  const _ExportMarksDialog({required this.classes, required this.exams});
 
   @override
   State<_ExportMarksDialog> createState() => _ExportMarksDialogState();
@@ -2145,30 +2691,36 @@ class _ExportMarksDialogState extends State<_ExportMarksDialog> {
   Future<void> _submit() async {
     if (_classId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select class'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('Please select class'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
-    
+
     // Additional validation for per-exam export
     if (_exportMode == _ExportMode.perExam && _examId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select exam'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('Please select exam'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
-    
+
     if (_submitting) return;
     setState(() => _submitting = true);
-    
+
     final result = await MarksService().exportMarks(
       classId: _classId!,
       examId: _exportMode == _ExportMode.perExam ? _examId : null,
     );
-    
+
     if (!mounted) return;
     setState(() => _submitting = false);
-    
+
     if (result is MarkSuccess) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -2181,7 +2733,7 @@ class _ExportMarksDialogState extends State<_ExportMarksDialog> {
     } else {
       final error = result as MarkError;
       print('DEBUG: Export error in dialog: ${error.message}');
-      
+
       // Handle user cancellation gracefully - don't show error message
       if (error.message == 'USER_CANCELLED') {
         print('DEBUG: User cancelled export - no error message shown');
@@ -2216,14 +2768,29 @@ class _ExportMarksDialogState extends State<_ExportMarksDialog> {
           Select3D<int?>(
             value: _classId,
             label: 'Class',
-            items: [const DropdownMenuItem<int?>(value: null, child: Text('Select class')), ...widget.classes.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name)))],
+            items: [
+              const DropdownMenuItem<int?>(
+                value: null,
+                child: Text('Select class'),
+              ),
+              ...widget.classes.map(
+                (c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name)),
+              ),
+            ],
             onChanged: (v) => setState(() => _classId = v),
           ),
           const SizedBox(height: 16),
           Select3D<_ExportMode>(
             value: _exportMode,
             label: 'Export Type',
-            items: _ExportMode.values.map((mode) => DropdownMenuItem<_ExportMode>(value: mode, child: Text(mode.label))).toList(),
+            items: _ExportMode.values
+                .map(
+                  (mode) => DropdownMenuItem<_ExportMode>(
+                    value: mode,
+                    child: Text(mode.label),
+                  ),
+                )
+                .toList(),
             onChanged: (v) => setState(() => _exportMode = v!),
           ),
           if (_exportMode == _ExportMode.perExam) ...[
@@ -2231,7 +2798,16 @@ class _ExportMarksDialogState extends State<_ExportMarksDialog> {
             Select3D<int?>(
               value: _examId,
               label: 'Exam',
-              items: [const DropdownMenuItem<int?>(value: null, child: Text('Select exam')), ...widget.exams.map((e) => DropdownMenuItem<int?>(value: e.id, child: Text(e.name)))],
+              items: [
+                const DropdownMenuItem<int?>(
+                  value: null,
+                  child: Text('Select exam'),
+                ),
+                ...widget.exams.map(
+                  (e) =>
+                      DropdownMenuItem<int?>(value: e.id, child: Text(e.name)),
+                ),
+              ],
               onChanged: (v) => setState(() => _examId = v),
             ),
           ],
@@ -2289,34 +2865,34 @@ class _ReleaseMarksDialogState extends State<_ReleaseMarksDialog> {
 
   Future<void> _submit() async {
     // Validation based on release type
-      String? errorMessage;
-      switch (_releaseType) {
-        case ReleaseType.oneSubject:
-          if (_classId == null || _examId == null || _subjectId == null) {
-            errorMessage = 'Please select class, exam and subject';
-          }
-          break;
-        case ReleaseType.oneClass:
-          if (_classId == null || _examId == null) {
-            errorMessage = 'Please select class and exam';
-          }
-          break;
-        case ReleaseType.classes:
-          if (_selectedClassIds.isEmpty || _examId == null) {
-            errorMessage = 'Please select at least one class and exam';
-          }
-          break;
-      }
-      
-      if (errorMessage != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
-        );
-        return;
-      }
-    
+    String? errorMessage;
+    switch (_releaseType) {
+      case ReleaseType.oneSubject:
+        if (_classId == null || _examId == null || _subjectId == null) {
+          errorMessage = 'Please select class, exam and subject';
+        }
+        break;
+      case ReleaseType.oneClass:
+        if (_classId == null || _examId == null) {
+          errorMessage = 'Please select class and exam';
+        }
+        break;
+      case ReleaseType.classes:
+        if (_selectedClassIds.isEmpty || _examId == null) {
+          errorMessage = 'Please select at least one class and exam';
+        }
+        break;
+    }
+
+    if (errorMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
     setState(() => _submitting = true);
-    
+
     MarkResult<Map<String, dynamic>> result;
     switch (_releaseType) {
       case ReleaseType.oneSubject:
@@ -2339,10 +2915,10 @@ class _ReleaseMarksDialogState extends State<_ReleaseMarksDialog> {
         );
         break;
     }
-    
+
     if (!mounted) return;
     setState(() => _submitting = false);
-    
+
     if (result is MarkSuccess<Map<String, dynamic>>) {
       String message = result.data['message'] ?? 'Marks released successfully';
       // Add released count if available
@@ -2355,7 +2931,10 @@ class _ReleaseMarksDialogState extends State<_ReleaseMarksDialog> {
       Navigator.pop(context, true);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text((result as MarkError).message), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text((result as MarkError).message),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -2377,7 +2956,11 @@ class _ReleaseMarksDialogState extends State<_ReleaseMarksDialog> {
       children: [
         Text(
           'Release Type',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey.shade700,
+          ),
         ),
         const SizedBox(height: 10),
         Wrap(
@@ -2393,11 +2976,16 @@ class _ReleaseMarksDialogState extends State<_ReleaseMarksDialog> {
               }),
               borderRadius: BorderRadius.circular(10),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: isSelected ? kPrimaryBlue : Colors.white,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: isSelected ? kPrimaryBlue : const Color(0xFFE5E7EB)),
+                  border: Border.all(
+                    color: isSelected ? kPrimaryBlue : const Color(0xFFE5E7EB),
+                  ),
                 ),
                 child: Text(
                   type.label,
@@ -2432,19 +3020,29 @@ class _ReleaseMarksDialogState extends State<_ReleaseMarksDialog> {
               children: [
                 Text(
                   'Selected Classes (${_selectedClassIds.length})',
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kPrimaryBlue),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: kPrimaryBlue,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: _selectedClassIds.map((classId) {
-                    final className = widget.classes.firstWhere((c) => c.id == classId).name;
+                    final className = widget.classes
+                        .firstWhere((c) => c.id == classId)
+                        .name;
                     return Chip(
-                      label: Text(className, style: const TextStyle(fontSize: 12)),
+                      label: Text(
+                        className,
+                        style: const TextStyle(fontSize: 12),
+                      ),
                       backgroundColor: kPrimaryBlue.withOpacity(0.08),
                       deleteIcon: const Icon(Icons.close, size: 16),
-                      onDeleted: () => setState(() => _selectedClassIds.remove(classId)),
+                      onDeleted: () =>
+                          setState(() => _selectedClassIds.remove(classId)),
                     );
                   }).toList(),
                 ),
@@ -2456,7 +3054,9 @@ class _ReleaseMarksDialogState extends State<_ReleaseMarksDialog> {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: kPrimaryBlue,
                     side: const BorderSide(color: Color(0xFFE5E7EB)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                 ),
               ],
@@ -2467,8 +3067,13 @@ class _ReleaseMarksDialogState extends State<_ReleaseMarksDialog> {
             value: _classId,
             label: 'Class',
             items: [
-              const DropdownMenuItem<int?>(value: null, child: Text('Select class')),
-              ...widget.classes.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name))),
+              const DropdownMenuItem<int?>(
+                value: null,
+                child: Text('Select class'),
+              ),
+              ...widget.classes.map(
+                (c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name)),
+              ),
             ],
             onChanged: (v) => setState(() => _classId = v),
           ),
@@ -2477,8 +3082,13 @@ class _ReleaseMarksDialogState extends State<_ReleaseMarksDialog> {
           value: _examId,
           label: 'Exam',
           items: [
-            const DropdownMenuItem<int?>(value: null, child: Text('Select exam')),
-            ...widget.exams.map((e) => DropdownMenuItem<int?>(value: e.id, child: Text(e.name))),
+            const DropdownMenuItem<int?>(
+              value: null,
+              child: Text('Select exam'),
+            ),
+            ...widget.exams.map(
+              (e) => DropdownMenuItem<int?>(value: e.id, child: Text(e.name)),
+            ),
           ],
           onChanged: (v) => setState(() => _examId = v),
         ),
@@ -2488,8 +3098,13 @@ class _ReleaseMarksDialogState extends State<_ReleaseMarksDialog> {
             value: _subjectId,
             label: 'Subject',
             items: [
-              const DropdownMenuItem<int?>(value: null, child: Text('Select subject')),
-              ...widget.subjects.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text(s.name))),
+              const DropdownMenuItem<int?>(
+                value: null,
+                child: Text('Select subject'),
+              ),
+              ...widget.subjects.map(
+                (s) => DropdownMenuItem<int?>(value: s.id, child: Text(s.name)),
+              ),
             ],
             onChanged: (v) => setState(() => _subjectId = v),
           ),
@@ -2528,7 +3143,8 @@ class _ReleaseMarksDialogState extends State<_ReleaseMarksDialog> {
       builder: (ctx) => _MultiClassSelectorDialog(
         classes: widget.classes,
         selectedClassIds: _selectedClassIds,
-        onSelectionChanged: (classIds) => setState(() => _selectedClassIds = classIds),
+        onSelectionChanged: (classIds) =>
+            setState(() => _selectedClassIds = classIds),
       ),
     );
   }
@@ -2546,7 +3162,8 @@ class _MultiClassSelectorDialog extends StatefulWidget {
   });
 
   @override
-  State<_MultiClassSelectorDialog> createState() => _MultiClassSelectorDialogState();
+  State<_MultiClassSelectorDialog> createState() =>
+      _MultiClassSelectorDialogState();
 }
 
 class _MultiClassSelectorDialogState extends State<_MultiClassSelectorDialog> {

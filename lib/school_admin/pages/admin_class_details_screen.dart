@@ -1,16 +1,11 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:kobac/school_admin/widgets/admin_responsive_layout.dart';
 import 'package:provider/provider.dart';
-import 'package:printing/printing.dart';
 import 'package:kobac/services/students_service.dart';
 import 'package:kobac/services/classes_service.dart';
 import 'package:kobac/services/academic_years_service.dart';
-import 'package:kobac/services/class_subjects_service.dart';
-import 'package:kobac/services/subjects_service.dart';
-import 'package:kobac/services/api_error_helpers.dart';
-import 'package:kobac/services/auth_provider.dart';
-import 'package:kobac/printing/class_letter_pdf.dart';
+import 'package:kobac/school_admin/widgets/class_roster_print_dialog.dart';
+import 'package:kobac/school_admin/widgets/class_marks_print_dialog.dart';
 import 'package:kobac/school_admin/pages/create_student_screen.dart';
 import 'package:kobac/school_admin/pages/student_detail_screen.dart';
 import 'package:kobac/school_admin/pages/class_subject_management_screen.dart';
@@ -135,11 +130,6 @@ class _AdminClassDetailsScreenState extends State<AdminClassDetailsScreen> {
     }
     final details = (result as ClassSuccess<ClassModel>).data;
     final list = details.students;
-    if (kDebugMode) {
-      debugPrint(
-        '[ClassDetails] schoolId=(see Print log) classId=${widget.classId} students=${list.length}',
-      );
-    }
     setState(() {
       _students = list;
       _studentCount = details.studentCount;
@@ -272,65 +262,98 @@ class _AdminClassDetailsScreenState extends State<AdminClassDetailsScreen> {
                     SizedBox(
                       width: buttonWidth,
                       child: OutlinedButton.icon(
-                    onPressed: _loading
-                        ? null
-                        : () async {
-                            final isDesktop = isDesktopWebAdminLayout(context);
-                            if (isDesktop && widget.onNavigateToPage != null) {
-                              widget.onNavigateToPage!(
-                                'addStudent',
-                                arguments: {
-                                  'initialClassId': widget.classId,
-                                  'initialAcademicYearId': _academicYearId,
-                                },
-                              );
-                            } else {
-                              final created = await Navigator.of(context)
-                                  .push<bool>(
-                                    MaterialPageRoute(
-                                      builder: (_) => CreateStudentScreen(
-                                        initialClassId: widget.classId,
-                                      ),
-                                    ),
+                        onPressed: _loading
+                            ? null
+                            : () async {
+                                final isDesktop = isDesktopWebAdminLayout(
+                                  context,
+                                );
+                                if (isDesktop &&
+                                    widget.onNavigateToPage != null) {
+                                  widget.onNavigateToPage!(
+                                    'addStudent',
+                                    arguments: {
+                                      'initialClassId': widget.classId,
+                                      'initialAcademicYearId': _academicYearId,
+                                    },
                                   );
-                              if (created == true && mounted) _loadStudents();
-                            }
-                          },
-                    icon: const Icon(Icons.person_add_rounded, size: 20),
-                    label: const Text('Add student'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: kPrimaryGreen,
-                      side: const BorderSide(color: kPrimaryGreen),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
+                                } else {
+                                  final created = await Navigator.of(context)
+                                      .push<bool>(
+                                        MaterialPageRoute(
+                                          builder: (_) => CreateStudentScreen(
+                                            initialClassId: widget.classId,
+                                          ),
+                                        ),
+                                      );
+                                  if (created == true && mounted)
+                                    _loadStudents();
+                                }
+                              },
+                        icon: const Icon(Icons.person_add_rounded, size: 20),
+                        label: const Text('Add student'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: kPrimaryGreen,
+                          side: const BorderSide(color: kPrimaryGreen),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
                       ),
                     ),
                     SizedBox(
                       width: buttonWidth,
                       child: ElevatedButton.icon(
-                    onPressed: _loading ? null : () => _manageClassSubjects(),
-                    icon: const Icon(Icons.menu_book_rounded, size: 20),
-                    label: const Text('Manage subjects'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: kPrimaryGreen,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
+                        onPressed: _loading
+                            ? null
+                            : () => _manageClassSubjects(),
+                        icon: const Icon(Icons.menu_book_rounded, size: 20),
+                        label: const Text('Manage subjects'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: kPrimaryGreen,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
                       ),
                     ),
                     SizedBox(
                       width: buttonWidth,
                       child: ElevatedButton.icon(
-                    onPressed: (_loading || _students.isEmpty)
-                        ? null
-                        : () => _printClassLetter(context),
-                    icon: const Icon(Icons.print_rounded, size: 20),
-                    label: const Text('Print class letter'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: kPrimaryBlue,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                        onPressed: (_loading || _students.isEmpty)
+                            ? null
+                            : () => showClassRosterPrintDialog(
+                                context,
+                                classId: widget.classId,
+                                className: widget.className,
+                                studentCount: _studentCount,
+                                initialAcademicYearId: _academicYearId,
+                              ),
+                        icon: const Icon(Icons.print_rounded, size: 20),
+                        label: const Text('Print Class List'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: kPrimaryBlue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
                     ),
+                    SizedBox(
+                      width: buttonWidth,
+                      child: ElevatedButton.icon(
+                        onPressed: (_loading || _students.isEmpty)
+                            ? null
+                            : () => showClassMarksPrintDialog(
+                                context,
+                                classId: widget.classId,
+                                className: widget.className,
+                                studentCount: _studentCount,
+                                initialAcademicYearId: _academicYearId,
+                              ),
+                        icon: const Icon(Icons.assessment_rounded, size: 20),
+                        label: const Text('Print Class Marks'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: kPrimaryBlue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
                       ),
                     ),
                   ],
@@ -447,7 +470,10 @@ class _AdminClassDetailsScreenState extends State<AdminClassDetailsScreen> {
               Navigator.of(context)
                   .push(
                     MaterialPageRoute(
-                      builder: (_) => StudentDetailPage(studentId: student.id),
+                      builder: (_) => StudentDetailPage(
+                        studentId: student.id,
+                        initialAcademicYearId: _academicYearId,
+                      ),
                     ),
                   )
                   .then((_) => _loadStudents());
@@ -456,44 +482,6 @@ class _AdminClassDetailsScreenState extends State<AdminClassDetailsScreen> {
         );
       },
     );
-  }
-
-  Future<void> _printClassLetter(BuildContext context) async {
-    if (_students.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No students to print'),
-          backgroundColor: kPrimaryBlue,
-        ),
-      );
-      return;
-    }
-    // Use the exact list displayed (single source of truth); do NOT refetch.
-    final studentsToPrint = List<StudentModel>.from(_students);
-    if (kDebugMode) {
-      final schoolId = context.read<AuthProvider>().user?.schoolId;
-      debugPrint(
-        '[Print] schoolId=$schoolId classId=${widget.classId} students=${studentsToPrint.length} first=${studentsToPrint.isNotEmpty ? studentsToPrint.first.id : 'none'}',
-      );
-    }
-    try {
-      final classModel = ClassModel(id: widget.classId, name: widget.className);
-      final pdfBytes = await buildClassLetterPdf(
-        classModel: classModel,
-        students: studentsToPrint,
-        schoolName: null,
-      );
-      await Printing.layoutPdf(onLayout: (_) async => pdfBytes);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Could not generate PDF: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
   }
 }
 

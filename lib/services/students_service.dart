@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'package:kobac/services/api_client.dart';
+import 'package:kobac/services/pdf_file_result.dart';
 import 'package:kobac/services/api_error_helpers.dart';
 
 /// Student model matching API response (list/detail).
@@ -40,6 +41,9 @@ class StudentModel {
   final Map<String, dynamic>? class_;
   final int? enrollmentId;
   final String? enrollmentStatus;
+  final int? academicYearId;
+  final String? academicYearName;
+  final String? studentStatus;
 
   const StudentModel({
     required this.id,
@@ -71,6 +75,9 @@ class StudentModel {
     this.class_,
     this.enrollmentId,
     this.enrollmentStatus,
+    this.academicYearId,
+    this.academicYearName,
+    this.studentStatus,
   });
 
   /// Class display name: Class.name or className
@@ -97,11 +104,23 @@ class StudentModel {
       return null;
     }
 
+    final enrollment = _parseEnrollmentMap(json);
+    final academicYear =
+        enrollment?['academic_year'] ??
+        enrollment?['academicYear'] ??
+        json['academic_year'] ??
+        json['academicYear'];
+    final enrollmentClass = enrollment?['class'] ?? enrollment?['Class'];
     return StudentModel(
       id: parseId(json['id']),
       userId: json['user_id'] != null ? parseId(json['user_id']) : null,
       schoolId: json['school_id'] != null ? parseId(json['school_id']) : null,
-      classId: json['class_id'] != null ? intOpt(json['class_id']) : null,
+      classId: intOpt(
+        enrollment?['class_id'] ??
+            enrollment?['classId'] ??
+            (enrollmentClass is Map ? enrollmentClass['id'] : null) ??
+            json['class_id'],
+      ),
       // Backend returns emisNumber; legacy API/DB may send emis_number or null
       emisNumber: str(json['emisNumber'] ?? json['emis_number']),
       studentName: str(json['studentName'] ?? json['student_name']),
@@ -123,7 +142,12 @@ class StudentModel {
       ),
       guardianName: strOpt(json['guardianName'] ?? json['guardian_name']),
       schoolName: strOpt(json['schoolName'] ?? json['school_name']),
-      className: strOpt(json['className'] ?? json['class_name']),
+      className: strOpt(
+        enrollment?['class_name'] ??
+            enrollment?['className'] ??
+            json['className'] ??
+            json['class_name'],
+      ),
       age: intOpt(json['age']),
       absenteeismStatus: strOpt(
         json['absenteeismStatus'] ?? json['absenteeism_status'],
@@ -134,10 +158,31 @@ class StudentModel {
           ? Map<String, dynamic>.from(json['user'] as Map)
           : null,
       // API may send "Class" (capital C) or "class"
-      class_: _parseClassMap(json),
-      enrollmentId: intOpt(json['enrollmentId'] ?? json['enrollment_id']),
+      class_: enrollmentClass is Map
+          ? Map<String, dynamic>.from(enrollmentClass)
+          : _parseClassMap(json),
+      enrollmentId: intOpt(
+        enrollment?['id'] ?? json['enrollmentId'] ?? json['enrollment_id'],
+      ),
       enrollmentStatus: strOpt(
-        json['enrollmentStatus'] ?? json['enrollment_status'],
+        enrollment?['status'] ??
+            enrollment?['enrollment_status'] ??
+            json['enrollmentStatus'] ??
+            json['enrollment_status'],
+      ),
+      academicYearId: intOpt(
+        enrollment?['academic_year_id'] ??
+            enrollment?['academicYearId'] ??
+            (academicYear is Map ? academicYear['id'] : null) ??
+            json['academic_year_id'],
+      ),
+      academicYearName: strOpt(
+        academicYear is Map
+            ? academicYear['name']
+            : json['academic_year_name'] ?? json['academicYearName'],
+      ),
+      studentStatus: strOpt(
+        json['studentStatus'] ?? json['student_status'] ?? json['status'],
       ),
     );
   }
@@ -147,7 +192,18 @@ class StudentModel {
     if (c is Map) return Map<String, dynamic>.from(c);
     return null;
   }
+
+  static Map<String, dynamic>? _parseEnrollmentMap(Map<String, dynamic> json) {
+    final value =
+        json['selected_enrollment'] ??
+        json['selectedEnrollment'] ??
+        json['enrollment'] ??
+        json['Enrollment'];
+    return value is Map ? Map<String, dynamic>.from(value) : null;
+  }
 }
+
+typedef StudentPdfDocument = PdfFileResult;
 
 /// Payload for creating a student (POST). Exact API keys.
 Map<String, dynamic> createStudentPayload({
@@ -300,6 +356,85 @@ String? _errorMessage(http.Response response) {
   return null;
 }
 
+Map<String, String> buildStudentListQuery({
+  int? academicYearId,
+  int? classId,
+  String? enrollmentStatus,
+  String? studentStatus,
+  String? search,
+  int? page,
+  int? limit,
+}) {
+  final query = <String, String>{};
+  if (academicYearId != null && academicYearId > 0)
+    query['academic_year_id'] = '$academicYearId';
+  if (classId != null && classId > 0) query['class_id'] = '$classId';
+  void addText(String key, String? value) {
+    final clean = value?.trim();
+    if (clean != null && clean.isNotEmpty) query[key] = clean;
+  }
+
+  addText('enrollment_status', enrollmentStatus);
+  addText('student_status', studentStatus);
+  addText('search', search);
+  if (page != null && page > 0) query['page'] = '$page';
+  if (limit != null && limit > 0) query['limit'] = '$limit';
+  return query;
+}
+
+String _pdfFallback(int status) {
+  if (status == 400) return 'Choose a valid academic year and try again.';
+  if (status == 401) return 'Your session has expired. Please sign in again.';
+  if (status == 403) return 'School administrator access is required.';
+  return 'The student document could not be generated. Please try again.';
+}
+
+Map<String, String> buildAcademicReportQuery({
+  required int academicYearId,
+  required String examScope,
+  int? examId,
+  required bool includeAttendance,
+  required bool download,
+}) {
+  if (examScope != 'single' && examScope != 'all') {
+    throw ArgumentError.value(examScope, 'examScope', 'Must be single or all.');
+  }
+  if (examScope == 'single' && (examId == null || examId <= 0)) {
+    throw ArgumentError('examId is required for single-exam reports.');
+  }
+  return {
+    'academic_year_id': '$academicYearId',
+    'exam_scope': examScope,
+    if (examScope == 'single') 'exam_id': '$examId',
+    'include_attendance': '$includeAttendance',
+    'download': '$download',
+  };
+}
+
+String _academicReportFallback(int status, String? backendMessage) {
+  final message = backendMessage?.trim();
+  if (message != null && message.isNotEmpty) {
+    final lower = message.toLowerCase();
+    if (lower.contains('no released result')) {
+      return 'No released result is available for the selected exam.';
+    }
+    if (lower.contains('enroll')) {
+      return 'This student is not enrolled in the selected academic year.';
+    }
+    if (!lower.contains('<html') &&
+        !lower.contains('sql') &&
+        !lower.contains('stack trace')) {
+      return message;
+    }
+  }
+  if (status == 400) return 'Choose a valid academic year and exam.';
+  if (status == 401) return 'Your session has expired. Please sign in again.';
+  if (status == 403) return 'School administrator access is required.';
+  if (status == 404)
+    return 'The selected student or enrollment could not be found.';
+  return 'The academic report could not be generated. Please try again.';
+}
+
 class StudentsService {
   StudentsService._();
   static final StudentsService _instance = StudentsService._();
@@ -352,12 +487,27 @@ class StudentsService {
   }
 
   /// List students, optionally filtered by class. Uses GET .../students?class_id=X when [classId] is set.
-  Future<StudentResult<List<StudentModel>>> listStudents({int? classId}) async {
+  Future<StudentResult<List<StudentModel>>> listStudents({
+    int? academicYearId,
+    int? classId,
+    String? enrollmentStatus,
+    String? studentStatus,
+    String? search,
+    int? page,
+    int? limit,
+  }) async {
     try {
       var url = apiUrl(_base);
-      if (classId != null) {
-        url = url.replace(queryParameters: {'class_id': classId.toString()});
-      }
+      final query = buildStudentListQuery(
+        academicYearId: academicYearId,
+        classId: classId,
+        enrollmentStatus: enrollmentStatus,
+        studentStatus: studentStatus,
+        search: search,
+        page: page,
+        limit: limit,
+      );
+      if (query.isNotEmpty) url = url.replace(queryParameters: query);
       final response = await _client.get(url);
       devLogResponse(
         'StudentsService.listStudents',
@@ -409,9 +559,18 @@ class StudentsService {
     }
   }
 
-  Future<StudentResult<StudentModel>> getStudent(int id) async {
+  Future<StudentResult<StudentModel>> getStudent(
+    int id, {
+    int? academicYearId,
+  }) async {
     try {
-      final response = await _client.get(apiUrl('$_base/$id'));
+      var url = apiUrl('$_base/$id');
+      if (academicYearId != null && academicYearId > 0) {
+        url = url.replace(
+          queryParameters: {'academic_year_id': '$academicYearId'},
+        );
+      }
+      final response = await _client.get(url);
       devLogResponse(
         'StudentsService.getStudent',
         response.statusCode,
@@ -448,6 +607,87 @@ class StudentsService {
     } catch (e, st) {
       return StudentError(
         userFriendlyMessage(e, st, 'StudentsService.getStudent'),
+      );
+    }
+  }
+
+  Future<StudentResult<StudentPdfDocument>> getStudentPrintPdf({
+    required int studentId,
+    required int academicYearId,
+    required bool download,
+  }) async {
+    try {
+      final url = apiUrl('$_base/$studentId/print').replace(
+        queryParameters: {
+          'academic_year_id': '$academicYearId',
+          'download': '$download',
+        },
+      );
+      final response = await _client.get(
+        url,
+        headers: const {'Accept': 'application/pdf'},
+      );
+      final document = pdfFileResultFromResponse(response);
+      if (document == null) {
+        final message = _errorMessage(response);
+        if (response.statusCode == 404) {
+          return StudentError(
+            message?.toLowerCase().contains('enrollment') == true
+                ? 'This student has no enrollment for the selected academic year.'
+                : 'The selected student could not be found.',
+            404,
+          );
+        }
+        return StudentError(
+          message ?? _pdfFallback(response.statusCode),
+          response.statusCode,
+        );
+      }
+      return StudentSuccess(document);
+    } catch (e, st) {
+      return StudentError(
+        userFriendlyMessage(e, st, 'StudentsService.getStudentPrintPdf'),
+      );
+    }
+  }
+
+  Future<StudentResult<StudentPdfDocument>> getStudentAcademicReportPdf({
+    required int studentId,
+    required int academicYearId,
+    required String examScope,
+    int? examId,
+    required bool includeAttendance,
+    required bool download,
+  }) async {
+    try {
+      final url = apiUrl('$_base/$studentId/report-card').replace(
+        queryParameters: buildAcademicReportQuery(
+          academicYearId: academicYearId,
+          examScope: examScope,
+          examId: examId,
+          includeAttendance: includeAttendance,
+          download: download,
+        ),
+      );
+      final response = await _client.get(
+        url,
+        headers: const {'Accept': 'application/pdf'},
+      );
+      final document = pdfFileResultFromResponse(response);
+      if (document == null) {
+        return StudentError(
+          _academicReportFallback(response.statusCode, _errorMessage(response)),
+          response.statusCode,
+        );
+      }
+      return StudentSuccess(document);
+    } catch (e, st) {
+      return StudentError(
+        userFriendlyMessage(
+          e,
+          st,
+          'StudentsService.getStudentAcademicReportPdf',
+        ),
       );
     }
   }

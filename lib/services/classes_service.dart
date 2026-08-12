@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:kobac/services/api_client.dart';
 import 'package:kobac/services/api_error_helpers.dart';
 import 'package:kobac/services/academic_years_service.dart';
+import 'package:kobac/services/pdf_file_result.dart';
 import 'package:kobac/services/students_service.dart';
 
 /// Class model (school-admin scope). API returns id and name.
@@ -34,7 +35,7 @@ class ClassModel {
     }
 
     String str(dynamic v) => v == null ? '' : v.toString().trim();
-    final rawStudents = json['Students'];
+    final rawStudents = json['Students'] ?? json['students'];
     final students = rawStudents is List
         ? rawStudents
               .whereType<Map>()
@@ -94,10 +95,165 @@ String? _errorMessage(http.Response response) {
   return null;
 }
 
+const classMarksOrderValues = {
+  'alphabetical_asc',
+  'alphabetical_desc',
+  'marks_high_to_low',
+  'marks_low_to_high',
+  'position_asc',
+  'emis_asc',
+};
+
+Map<String, String> buildClassStudentListQuery({
+  required int academicYearId,
+  required bool includeContact,
+  required bool includeAddress,
+  required bool download,
+}) => {
+  'academic_year_id': '$academicYearId',
+  'include_contact': '$includeContact',
+  'include_address': '$includeAddress',
+  'download': '$download',
+};
+
+Map<String, String> buildClassMarksReportQuery({
+  required int academicYearId,
+  required String examScope,
+  int? examId,
+  required String orderBy,
+  required bool download,
+}) {
+  if (examScope != 'single' && examScope != 'all') {
+    throw ArgumentError.value(
+      examScope,
+      'examScope',
+      'Unsupported exam scope.',
+    );
+  }
+  if (!classMarksOrderValues.contains(orderBy)) {
+    throw ArgumentError.value(orderBy, 'orderBy', 'Unsupported marks order.');
+  }
+  if (examScope == 'single' && (examId == null || examId <= 0)) {
+    throw ArgumentError('examId is required for a one-exam marks report.');
+  }
+  return {
+    'academic_year_id': '$academicYearId',
+    'exam_scope': examScope,
+    if (examScope == 'single') 'exam_id': '$examId',
+    'order_by': orderBy,
+    'download': '$download',
+  };
+}
+
+String _classPdfError(http.Response response, {required bool marksReport}) {
+  final backend = _errorMessage(response);
+  if (backend != null &&
+      !backend.toLowerCase().contains('<html') &&
+      !backend.toLowerCase().contains('sql')) {
+    return backend;
+  }
+  if (response.statusCode == 400) {
+    return marksReport
+        ? 'Check the selected academic year and exam, then try again.'
+        : 'Select an academic year before generating the class list.';
+  }
+  if (response.statusCode == 401)
+    return 'Your session has expired. Please sign in again.';
+  if (response.statusCode == 403)
+    return 'School administrator access is required.';
+  if (response.statusCode == 404) {
+    return 'No students were found for this class and academic year.';
+  }
+  return marksReport
+      ? 'The PDF could not be generated. Please try again.'
+      : 'The class list could not be generated. Please try again.';
+}
+
 class ClassesService {
   ClassesService._();
   static final ClassesService _instance = ClassesService._();
   factory ClassesService() => _instance;
+
+  Future<ClassResult<PdfFileResult>> getClassStudentListPdf({
+    required int classId,
+    required int academicYearId,
+    required bool includeContact,
+    required bool includeAddress,
+    required bool download,
+  }) async {
+    try {
+      final query = buildClassStudentListQuery(
+        academicYearId: academicYearId,
+        includeContact: includeContact,
+        includeAddress: includeAddress,
+        download: download,
+      );
+      final response = await _client.get(
+        apiUrl('$_base/$classId/print').replace(queryParameters: query),
+        headers: const {'Accept': 'application/pdf'},
+      );
+      final document = pdfFileResultFromResponse(response);
+      if (document == null) {
+        return ClassError(
+          _classPdfError(response, marksReport: false),
+          response.statusCode,
+        );
+      }
+      return ClassSuccess(document);
+    } catch (error, stackTrace) {
+      if (error is ArgumentError)
+        return ClassError(error.message.toString(), 400);
+      return ClassError(
+        userFriendlyMessage(
+          error,
+          stackTrace,
+          'ClassesService.getClassStudentListPdf',
+        ),
+      );
+    }
+  }
+
+  Future<ClassResult<PdfFileResult>> getClassMarksReportPdf({
+    required int classId,
+    required int academicYearId,
+    required String examScope,
+    int? examId,
+    required String orderBy,
+    required bool download,
+  }) async {
+    try {
+      final query = buildClassMarksReportQuery(
+        academicYearId: academicYearId,
+        examScope: examScope,
+        examId: examId,
+        orderBy: orderBy,
+        download: download,
+      );
+      final response = await _client.get(
+        apiUrl('$_base/$classId/marks-report').replace(queryParameters: query),
+        headers: const {'Accept': 'application/pdf'},
+      );
+      final document = pdfFileResultFromResponse(response);
+      if (document == null) {
+        return ClassError(
+          _classPdfError(response, marksReport: true),
+          response.statusCode,
+        );
+      }
+      return ClassSuccess(document);
+    } catch (error, stackTrace) {
+      if (error is ArgumentError) {
+        return ClassError(error.message.toString(), 400);
+      }
+      return ClassError(
+        userFriendlyMessage(
+          error,
+          stackTrace,
+          'ClassesService.getClassMarksReportPdf',
+        ),
+      );
+    }
+  }
 
   /// POST /api/school-admin/classes  Body: { "name": "string" }
   Future<ClassResult<ClassModel>> createClass(Map<String, dynamic> data) async {
@@ -140,9 +296,17 @@ class ClassesService {
   }
 
   /// GET /api/school-admin/classes
-  Future<ClassResult<List<ClassModel>>> listClasses() async {
+  Future<ClassResult<List<ClassModel>>> listClasses({
+    int? academicYearId,
+  }) async {
     try {
-      final response = await _client.get(apiUrl(_base));
+      var url = apiUrl(_base);
+      if (academicYearId != null && academicYearId > 0) {
+        url = url.replace(
+          queryParameters: {'academic_year_id': '$academicYearId'},
+        );
+      }
+      final response = await _client.get(url);
       devLogResponse(
         'ClassesService.listClasses',
         response.statusCode,
@@ -179,7 +343,7 @@ class ClassesService {
           List<dynamic>? found;
           for (final value in raw.values) {
             if (value is List) {
-              found = value as List<dynamic>;
+              found = value;
               break;
             }
           }

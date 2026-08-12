@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:kobac/school_admin/widgets/admin_responsive_layout.dart';
 import 'package:kobac/services/students_service.dart';
+import 'package:kobac/services/academic_years_service.dart';
+import 'package:provider/provider.dart';
 import 'package:kobac/services/api_error_helpers.dart';
 import 'package:kobac/school_admin/pages/student_detail_screen.dart';
 import 'package:kobac/school_admin/widgets/delete_confirm_dialog.dart';
@@ -29,17 +31,34 @@ class AdminStudentsScreen extends StatefulWidget {
 class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
   late Future<StudentResult<List<StudentModel>>> _studentsFuture;
   String searchQuery = '';
+  String? _studentStatus;
+  int? _academicYearId;
   final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    _studentsFuture = Future.value(StudentSuccess(<StudentModel>[]));
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initialize());
+  }
+
+  Future<void> _initialize() async {
+    final years = context.read<AcademicYearsProvider>();
+    await years.ensureLoaded();
+    if (!mounted) return;
+    _academicYearId = years.activeYear?.id;
     _loadStudents();
   }
 
   void _loadStudents() {
     setState(() {
-      _studentsFuture = StudentsService().listStudents();
+      _studentsFuture = StudentsService().listStudents(
+        academicYearId: _academicYearId,
+        studentStatus: _studentStatus,
+        search: searchQuery,
+        page: 1,
+        limit: 50,
+      );
     });
   }
 
@@ -76,7 +95,7 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
     Navigator.of(context)
         .push(
           MaterialPageRoute(
-            builder: (_) => StudentDetailPage(studentId: student.id),
+            builder: (_) => StudentDetailPage(studentId: student.id, initialAcademicYearId: _academicYearId),
           ),
         )
         .then((_) => _loadStudents());
@@ -150,7 +169,9 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
               builder: (context, constraints) {
                 final compact = constraints.maxWidth < 650;
                 final search = _buildSearchField();
-                final filters = _buildStatusFilters();
+                final filters = Wrap(spacing: 12, runSpacing: 10, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                  _buildAcademicYearFilter(), _buildStatusFilters(),
+                ]);
                 if (compact) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -510,6 +531,7 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
       child: TextField(
         controller: _searchController,
         onChanged: (value) => setState(() => searchQuery = value),
+        onSubmitted: (_) => _loadStudents(),
         decoration: InputDecoration(
           hintText: 'Search students...',
           hintStyle: TextStyle(color: Colors.grey.shade500),
@@ -521,6 +543,7 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
                   onPressed: () {
                     _searchController.clear();
                     setState(() => searchQuery = '');
+                    _loadStudents();
                   },
                 ),
           border: InputBorder.none,
@@ -551,24 +574,34 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-            decoration: BoxDecoration(
-              color: kPrimaryBlue,
+          for (final value in <String?>[null, 'Active', 'Inactive'])
+            InkWell(
               borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Text(
-              'All',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
+              onTap: () { setState(() => _studentStatus = value); _loadStudents(); },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                decoration: BoxDecoration(color: _studentStatus == value ? kPrimaryBlue : null, borderRadius: BorderRadius.circular(12)),
+                child: Text(value ?? 'All', style: TextStyle(color: _studentStatus == value ? Colors.white : Colors.grey.shade600, fontWeight: FontWeight.w600)),
               ),
             ),
-          ),
-          _StatusFilterLabel(label: 'Active'),
-          _StatusFilterLabel(label: 'Inactive'),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAcademicYearFilter() {
+    final years = context.watch<AcademicYearsProvider>().years;
+    return SizedBox(
+      width: 210,
+      child: DropdownButtonFormField<int>(
+        value: years.any((year) => year.id == _academicYearId) ? _academicYearId : null,
+        decoration: const InputDecoration(labelText: 'Academic Year', prefixIcon: Icon(Icons.calendar_month_rounded), isDense: true, border: OutlineInputBorder()),
+        items: years.map((year) => DropdownMenuItem(value: year.id, child: Text(year.name))).toList(),
+        onChanged: (value) {
+          if (value == null || value == _academicYearId) return;
+          setState(() { _academicYearId = value; searchQuery = _searchController.text.trim(); });
+          _loadStudents();
+        },
       ),
     );
   }

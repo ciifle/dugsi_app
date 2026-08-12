@@ -54,12 +54,18 @@ class _WebDashboardState extends State<WebDashboard> {
   int? _classCount;
   bool _loading = true;
   String _userName = "School Admin";
+  bool _initialized = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    context.read<AcademicYearsProvider>().ensureLoaded();
-    _loadData();
+    if (_initialized) return;
+    _initialized = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<AcademicYearsProvider>().ensureLoaded();
+      _loadData();
+    });
   }
 
   Future<void> _loadData() async {

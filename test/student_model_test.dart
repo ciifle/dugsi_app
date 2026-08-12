@@ -86,4 +86,27 @@ void main() {
       expect(payload['studentName'], 'Updated');
     });
   });
+
+  test('selected enrollment overrides legacy class membership', () {
+    final student = StudentModel.fromJson({
+      'id': 9,
+      'studentName': 'Amina',
+      'emisNumber': 'E-9',
+      'class_id': 1,
+      'className': 'Old class',
+      'selected_enrollment': {
+        'id': 44,
+        'status': 'Enrolled',
+        'class_id': 8,
+        'class': {'id': 8, 'name': 'Grade 8'},
+        'academic_year': {'id': 3, 'name': '2025/26'},
+      },
+    });
+    expect(student.classId, 8);
+    expect(student.classDisplayName, 'Grade 8');
+    expect(student.enrollmentId, 44);
+    expect(student.enrollmentStatus, 'Enrolled');
+    expect(student.academicYearId, 3);
+    expect(student.academicYearName, '2025/26');
+  });
 }
