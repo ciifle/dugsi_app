@@ -134,7 +134,8 @@ class _WebSidebarState extends State<WebSidebar> {
                         widget.selectedPage == 'addClass' ||
                         widget.selectedPage == 'editClass' ||
                         widget.selectedPage == 'classDetail' ||
-                        widget.selectedPage == 'classDetails',
+                        widget.selectedPage == 'classDetails' ||
+                        widget.selectedPage == 'classMerge',
                     onTap: () => _toggleSection('classes'),
                     children: [
                       _SidebarItem(
@@ -148,6 +149,12 @@ class _WebSidebarState extends State<WebSidebar> {
                         icon: Icons.add_circle_outline_rounded,
                         isActive: widget.selectedPage == 'addClass',
                         onTap: () => _navigateToPage('addClass'),
+                      ),
+                      _SidebarItem(
+                        title: 'Class Merge',
+                        icon: Icons.swap_horiz_rounded,
+                        isActive: widget.selectedPage == 'classMerge',
+                        onTap: () => _navigateToPage('classMerge'),
                       ),
                     ],
                   ),
@@ -336,15 +343,19 @@ class _LogoutCardState extends State<_LogoutCard> {
         duration: const Duration(milliseconds: 160),
         curve: Curves.easeOut,
         margin: const EdgeInsets.all(14),
-        transform: Matrix4.translationValues(0, _pressed ? 1 : (_hovered ? -2 : 0), 0),
+        transform: Matrix4.translationValues(
+          0,
+          _pressed ? 1 : (_hovered ? -2 : 0),
+          0,
+        ),
         decoration: BoxDecoration(
           color: const Color(0xFFC73737),
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFC73737).withValues(
-                alpha: _hovered ? .28 : .18,
-              ),
+              color: const Color(
+                0xFFC73737,
+              ).withValues(alpha: _hovered ? .28 : .18),
               blurRadius: _hovered ? 20 : 14,
               offset: Offset(0, _hovered ? 8 : 5),
             ),

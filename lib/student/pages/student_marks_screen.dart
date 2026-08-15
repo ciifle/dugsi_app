@@ -26,22 +26,55 @@ class StudentMarksScreen extends StatefulWidget {
 }
 
 class _StudentMarksScreenState extends State<StudentMarksScreen> {
+  late Future<StudentResult<List<StudentAcademicYearOption>>> _yearsFuture;
   late Future<StudentResult<List<StudentExamModel>>> _examsFuture;
   late Future<StudentResult<List<StudentMarkModel>>> _marksFuture;
+  StudentAcademicYearOption? _selectedYear;
   int? _examId;
 
   @override
   void initState() {
     super.initState();
+    _yearsFuture = StudentService().listAcademicYears();
     _examsFuture = StudentService().listExams();
     _loadMarks();
+    _yearsFuture.then((result) {
+      if (!mounted ||
+          result is! StudentSuccess<List<StudentAcademicYearOption>>)
+        return;
+      final years = result.data;
+      if (years.isEmpty) return;
+      var year = years.first;
+      for (final item in years) {
+        if (item.isCurrent || item.isActive) {
+          year = item;
+          break;
+        }
+      }
+      setState(() => _selectedYear = year);
+      _loadYear(year.id);
+    });
   }
 
   void _loadMarks() {
     setState(() {
-      _marksFuture = StudentService().listMarks(examId: _examId);
+      _marksFuture = StudentService().listMarks(
+        academicYearId: _selectedYear?.id,
+        examId: _examId,
+      );
     });
   }
+
+  void _loadYear(int yearId) {
+    setState(() {
+      _examId = null;
+      _examsFuture = StudentService().listExams(academicYearId: yearId);
+      _marksFuture = StudentService().listMarks(academicYearId: yearId);
+    });
+  }
+
+  String _number(num value) =>
+      value % 1 == 0 ? value.toInt().toString() : value.toString();
 
   void _openTotalPage(List<StudentMarkModel> list) {
     if (widget.embedBodyOnly &&
@@ -52,9 +85,7 @@ class _StudentMarksScreenState extends State<StudentMarksScreen> {
     }
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => StudentTotalPage(marks: list),
-      ),
+      MaterialPageRoute(builder: (context) => StudentTotalPage(marks: list)),
     );
   }
 
@@ -77,6 +108,8 @@ class _StudentMarksScreenState extends State<StudentMarksScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                _buildYearFilter(),
+                const SizedBox(height: 16),
                 _buildExamFilter(),
                 const SizedBox(height: 16),
                 _buildMarksBody(compact: true),
@@ -108,10 +141,18 @@ class _StudentMarksScreenState extends State<StudentMarksScreen> {
                             color: Colors.white.withOpacity(0.9),
                             borderRadius: BorderRadius.circular(14),
                             boxShadow: [
-                              BoxShadow(color: kPrimaryBlue.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4)),
+                              BoxShadow(
+                                color: kPrimaryBlue.withOpacity(0.1),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
                             ],
                           ),
-                          child: const Icon(Icons.arrow_back_rounded, color: kPrimaryBlue, size: 24),
+                          child: const Icon(
+                            Icons.arrow_back_rounded,
+                            color: kPrimaryBlue,
+                            size: 24,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 16),
@@ -129,7 +170,7 @@ class _StudentMarksScreenState extends State<StudentMarksScreen> {
                   ),
                 ),
               ),
-              SliverToBoxAdapter(child: _buildExamFilter()),
+              SliverToBoxAdapter(child: _buildYearFilter()),
               const SliverToBoxAdapter(child: SizedBox(height: 16)),
               SliverToBoxAdapter(child: _buildExamFilter()),
               const SliverToBoxAdapter(child: SizedBox(height: 16)),
@@ -142,14 +183,62 @@ class _StudentMarksScreenState extends State<StudentMarksScreen> {
     );
   }
 
+  Widget _buildYearFilter() {
+    return FutureBuilder<StudentResult<List<StudentAcademicYearOption>>>(
+      future: _yearsFuture,
+      builder: (context, snapshot) {
+        final years =
+            snapshot.data is StudentSuccess<List<StudentAcademicYearOption>>
+            ? (snapshot.data as StudentSuccess<List<StudentAcademicYearOption>>)
+                  .data
+            : <StudentAcademicYearOption>[];
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: StudentWebCard(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: StudentWebDropdown<int>(
+              value: _selectedYear?.id,
+              hint: Text(
+                snapshot.connectionState == ConnectionState.waiting
+                    ? 'Loading academic years...'
+                    : 'Academic year',
+              ),
+              items: years
+                  .map(
+                    (year) => DropdownMenuItem<int>(
+                      value: year.id,
+                      child: Text(
+                        year.historicalClassName == null
+                            ? year.name
+                            : '${year.name} - ${year.historicalClassName}',
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (id) {
+                if (id == null) return;
+                final year = years.firstWhere((item) => item.id == id);
+                setState(() => _selectedYear = year);
+                _loadYear(id);
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildExamFilter() {
     return FutureBuilder<StudentResult<List<StudentExamModel>>>(
       future: _examsFuture,
       builder: (context, examSnap) {
-        if (examSnap.data is StudentError && (examSnap.data as StudentError).statusCode == 403) {
+        if (examSnap.data is StudentError &&
+            (examSnap.data as StudentError).statusCode == 403) {
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: _ModuleDisabledBanner(message: (examSnap.data as StudentError).message),
+            child: _ModuleDisabledBanner(
+              message: (examSnap.data as StudentError).message,
+            ),
           );
         }
         final exams = examSnap.data is StudentSuccess<List<StudentExamModel>>
@@ -163,8 +252,14 @@ class _StudentMarksScreenState extends State<StudentMarksScreen> {
               value: _examId,
               hint: const Text('All exams'),
               items: [
-                const DropdownMenuItem<int?>(value: null, child: Text('All exams')),
-                ...exams.map((e) => DropdownMenuItem<int?>(value: e.id, child: Text(e.name))),
+                const DropdownMenuItem<int?>(
+                  value: null,
+                  child: Text('All exams'),
+                ),
+                ...exams.map(
+                  (e) =>
+                      DropdownMenuItem<int?>(value: e.id, child: Text(e.name)),
+                ),
               ],
               onChanged: (v) {
                 setState(() {
@@ -186,7 +281,19 @@ class _StudentMarksScreenState extends State<StudentMarksScreen> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Padding(
             padding: EdgeInsets.all(40),
-            child: Center(child: CircularProgressIndicator(color: kPrimaryBlue)),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(color: kPrimaryBlue),
+                  SizedBox(height: 14),
+                  Text(
+                    'Loading marks...',
+                    style: TextStyle(color: kTextSecondary),
+                  ),
+                ],
+              ),
+            ),
           );
         }
         if (snapshot.hasError || snapshot.data is StudentError) {
@@ -199,15 +306,30 @@ class _StudentMarksScreenState extends State<StudentMarksScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.error_outline, size: 48, color: kErrorColor.withOpacity(0.8)),
+                  Icon(
+                    Icons.error_outline,
+                    size: 48,
+                    color: kErrorColor.withOpacity(0.8),
+                  ),
                   const SizedBox(height: 12),
-                  Text(msg, textAlign: TextAlign.center, style: const TextStyle(color: kTextPrimary, fontSize: 15)),
+                  Text(
+                    msg,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: kTextPrimary, fontSize: 15),
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton.icon(
+                    onPressed: _loadMarks,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Retry'),
+                  ),
                 ],
               ),
             ),
           );
         }
-        final list = (snapshot.data as StudentSuccess<List<StudentMarkModel>>).data;
+        final list =
+            (snapshot.data as StudentSuccess<List<StudentMarkModel>>).data;
         if (list.isEmpty) {
           return Padding(
             padding: const EdgeInsets.all(40),
@@ -215,9 +337,26 @@ class _StudentMarksScreenState extends State<StudentMarksScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.assignment_rounded, size: 56, color: Colors.grey[400]),
+                  Icon(
+                    Icons.assignment_rounded,
+                    size: 56,
+                    color: Colors.grey[400],
+                  ),
                   const SizedBox(height: 12),
-                  Text('No marks yet', style: TextStyle(fontSize: 16, color: kTextSecondary)),
+                  const Text(
+                    'No marks available',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: kTextPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Released marks for ${_selectedYear?.name ?? 'this academic year'} will appear here.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: kTextSecondary),
+                  ),
                 ],
               ),
             ),
@@ -230,16 +369,36 @@ class _StudentMarksScreenState extends State<StudentMarksScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                StudentWebTableHeader(columns: const ['Subject', 'Exam', 'Score', 'Grade']),
+                StudentWebTableHeader(
+                  columns: const ['Subject', 'Exam', 'Score', 'Grade'],
+                ),
                 ...list.map((m) {
                   final examName = m.exam['name']?.toString() ?? '—';
                   final subjectName = m.subject['name']?.toString() ?? '—';
                   return StudentWebTableRow(
                     cells: [
-                      Text(subjectName, style: const TextStyle(fontWeight: FontWeight.w600, color: kTextPrimary)),
-                      Text(examName, style: const TextStyle(color: kTextSecondary)),
-                      Text('${m.marksObtained}/${m.maxMarks}', style: const TextStyle(fontWeight: FontWeight.w700, color: kPrimaryGreen)),
-                      Text(m.grade ?? '—', style: const TextStyle(color: kTextSecondary)),
+                      Text(
+                        subjectName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: kTextPrimary,
+                        ),
+                      ),
+                      Text(
+                        examName,
+                        style: const TextStyle(color: kTextSecondary),
+                      ),
+                      Text(
+                        '${_number(m.marksObtained)}/${_number(m.maxMarks)}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: kPrimaryGreen,
+                        ),
+                      ),
+                      Text(
+                        m.grade ?? '—',
+                        style: const TextStyle(color: kTextSecondary),
+                      ),
                     ],
                   );
                 }),
@@ -282,7 +441,11 @@ class _StudentMarksScreenState extends State<StudentMarksScreen> {
                           color: kPrimaryBlue.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(Icons.assessment_rounded, color: kPrimaryBlue, size: 24),
+                        child: const Icon(
+                          Icons.assessment_rounded,
+                          color: kPrimaryBlue,
+                          size: 24,
+                        ),
                       ),
                       const SizedBox(width: 16),
                       const Expanded(
@@ -314,7 +477,10 @@ class _StudentMarksScreenState extends State<StudentMarksScreen> {
                 final m = list[index];
                 final examName = m.exam['name']?.toString() ?? '—';
                 final subjectName = m.subject['name']?.toString() ?? '—';
-                final teacherName = m.teacher?['fullName']?.toString() ?? m.teacher?['name']?.toString() ?? '—';
+                final teacherName =
+                    m.teacher?['fullName']?.toString() ??
+                    m.teacher?['name']?.toString() ??
+                    '—';
                 final className = m.class_?['name']?.toString() ?? '—';
 
                 return Container(
@@ -324,7 +490,11 @@ class _StudentMarksScreenState extends State<StudentMarksScreen> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
-                      BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 14, offset: const Offset(0, 6)),
+                      BoxShadow(
+                        color: kPrimaryBlue.withOpacity(0.08),
+                        blurRadius: 14,
+                        offset: const Offset(0, 6),
+                      ),
                     ],
                   ),
                   child: Column(
@@ -338,37 +508,76 @@ class _StudentMarksScreenState extends State<StudentMarksScreen> {
                               color: kPrimaryBlue.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(14),
                             ),
-                            child: const Icon(Icons.grade_rounded, color: kPrimaryBlue, size: 24),
+                            child: const Icon(
+                              Icons.grade_rounded,
+                              color: kPrimaryBlue,
+                              size: 24,
+                            ),
                           ),
                           const SizedBox(width: 14),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(subjectName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
-                                Text('$examName ${className != '—' ? '· $className' : ''}', style: TextStyle(fontSize: 13, color: kTextSecondary)),
+                                Text(
+                                  subjectName,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: kPrimaryBlue,
+                                  ),
+                                ),
+                                Text(
+                                  '$examName ${className != '—' ? '· $className' : ''}',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: kTextSecondary,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
                           Text(
-                            '${m.marksObtained}/${m.maxMarks}',
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimaryGreen),
+                            '${_number(m.marksObtained)}/${_number(m.maxMarks)}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: kPrimaryGreen,
+                            ),
                           ),
                           if (m.percentage != null) ...[
                             const SizedBox(width: 8),
-                            Text('${m.percentage!.toStringAsFixed(0)}%', style: TextStyle(fontSize: 14, color: kTextSecondary)),
+                            Text(
+                              '${_number(m.percentage!)}%',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: kTextSecondary,
+                              ),
+                            ),
                           ],
                         ],
                       ),
                       if (m.grade != null && m.grade!.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(top: 8),
-                          child: Text('Grade: ${m.grade}', style: TextStyle(fontSize: 13, color: kTextSecondary)),
+                          child: Text(
+                            'Grade: ${m.grade}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: kTextSecondary,
+                            ),
+                          ),
                         ),
                       if (teacherName != '—')
                         Padding(
                           padding: const EdgeInsets.only(top: 4),
-                          child: Text('Teacher: $teacherName', style: TextStyle(fontSize: 12, color: kTextSecondary)),
+                          child: Text(
+                            'Teacher: $teacherName',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: kTextSecondary,
+                            ),
+                          ),
                         ),
                     ],
                   ),
@@ -398,7 +607,11 @@ class _ModuleDisabledBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.info_outline_rounded, color: Colors.orange.shade800, size: 28),
+          Icon(
+            Icons.info_outline_rounded,
+            color: Colors.orange.shade800,
+            size: 28,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(

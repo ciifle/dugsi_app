@@ -109,6 +109,7 @@ void main() {
           'final_percentage': '78.5',
           'result_status': 'PASS',
           'is_eligible': true,
+          'result_available': true,
         },
       ],
     });
@@ -119,6 +120,126 @@ void main() {
     expect(students.single.emis, 'EMIS-490');
     expect(students.single.percentage, 78.5);
     expect(students.single.eligible, isTrue);
+    expect(students.single.resultAvailable, isTrue);
+  });
+
+  test(
+    'promotion percentages and backend statuses preserve boundary decimals',
+    () {
+      final values = <(String, String, bool)>[
+        ('39.8', 'FAIL', false),
+        ('49.9', 'FAIL', false),
+        ('49.99', 'FAIL', false),
+        ('50.0', 'PASS', true),
+        ('50.1', 'PASS', true),
+      ];
+      for (final value in values) {
+        final student = PromotionStudent.fromJson({
+          'student_id': 1,
+          'final_percentage': value.$1,
+          'final_status': value.$2,
+          'promotion_eligible': value.$3,
+          'result_available': true,
+        });
+        expect(student.percentage, double.parse(value.$1));
+        expect(student.status, value.$2);
+        expect(student.eligible, value.$3);
+        expect(student.resultAvailable, isTrue);
+      }
+    },
+  );
+
+  test('promotion threshold helper uses exact decimals without rounding', () {
+    final failures = [39.8, 42.05, 46.9, 49.9, 49.99];
+    final passes = [50.0, 50.36, 56.44, 74.77];
+
+    for (final percentage in failures) {
+      expect(passesPromotionThreshold(percentage), isFalse);
+      expect(promotionResultLabel(percentage), 'Fail');
+    }
+    for (final percentage in passes) {
+      expect(passesPromotionThreshold(percentage), isTrue);
+      expect(promotionResultLabel(percentage), 'Pass');
+    }
+    expect(promotionResultLabel(null), 'No Result');
+  });
+
+  test(
+    'safe promotion percentage parser accepts integer decimal and string',
+    () {
+      expect(parsePromotionPercentage(42), 42.0);
+      expect(parsePromotionPercentage(42.05), 42.05);
+      expect(parsePromotionPercentage('46.9'), 46.9);
+      expect(parsePromotionPercentage(null), isNull);
+      expect(parsePromotionPercentage('invalid'), isNull);
+    },
+  );
+
+  test('promotion selection requires threshold and backend eligibility', () {
+    expect(canPromoteByPercentageAndEligibility(42.05, true), isFalse);
+    expect(canPromoteByPercentageAndEligibility(49.9, true), isFalse);
+    expect(canPromoteByPercentageAndEligibility(50.0, true), isTrue);
+    expect(canPromoteByPercentageAndEligibility(50.0, null), isTrue);
+    expect(canPromoteByPercentageAndEligibility(67.45, null), isTrue);
+    expect(canPromoteByPercentageAndEligibility(74.72, true), isTrue);
+    expect(canPromoteByPercentageAndEligibility(74.72, false), isFalse);
+    expect(canPromoteByPercentageAndEligibility(74.77, false), isFalse);
+    expect(canPromoteByPercentageAndEligibility(74.77, null), isTrue);
+    expect(canPromoteByPercentageAndEligibility(null, true), isFalse);
+  });
+
+  test('nullable promotion booleans preserve explicit and missing values', () {
+    expect(parseNullablePromotionBool(true), isTrue);
+    expect(parseNullablePromotionBool(false), isFalse);
+    expect(parseNullablePromotionBool(1), isTrue);
+    expect(parseNullablePromotionBool(0), isFalse);
+    expect(parseNullablePromotionBool('true'), isTrue);
+    expect(parseNullablePromotionBool('false'), isFalse);
+    expect(parseNullablePromotionBool('1'), isTrue);
+    expect(parseNullablePromotionBool('0'), isFalse);
+    expect(parseNullablePromotionBool(null), isNull);
+    expect(parseNullablePromotionBool('unknown'), isNull);
+  });
+
+  test('promotion student safely parses an unavailable result', () {
+    final student = PromotionStudent.fromJson({
+      'student_id': 2,
+      'result_available': false,
+      'promotion_eligible': false,
+    });
+    expect(student.percentage, isNull);
+    expect(student.status, isNull);
+    expect(student.resultAvailable, isFalse);
+  });
+
+  test('promotion student parses nested eligibility and boolean strings', () {
+    final student = PromotionStudent.fromJson({
+      'student': {
+        'id': 74,
+        'name': 'Nested Student',
+        'final_percentage': '74.47',
+        'final_status': 'PASS',
+        'promotion_eligible': 'true',
+        'result_available': 'true',
+      },
+    });
+
+    expect(student.percentage, 74.47);
+    expect(student.status, 'PASS');
+    expect(student.eligible, isTrue);
+    expect(student.resultAvailable, isTrue);
+  });
+
+  test('promotion_eligible takes precedence over generic eligible', () {
+    final student = PromotionStudent.fromJson({
+      'student_id': 75,
+      'final_percentage': '74.47',
+      'final_status': 'PASS',
+      'promotion_eligible': true,
+      'eligible': false,
+    });
+
+    expect(student.eligible, isTrue);
   });
 
   test('ExamModel parses academic year relation', () {

@@ -6,6 +6,7 @@ import 'package:kobac/school_admin/pages/admin_periods_screen.dart';
 import 'package:kobac/school_admin/pages/admin_exams_screen.dart';
 import 'package:kobac/school_admin/pages/academic_years_page.dart';
 import 'package:kobac/school_admin/pages/student_promotions_page.dart';
+import 'package:kobac/school_admin/pages/class_merge_page.dart';
 import 'package:kobac/school_admin/pages/admin_marks_screen.dart';
 import 'package:kobac/school_admin/pages/admin_notices_screen.dart';
 import 'package:kobac/school_admin/pages/change_password_page.dart';
@@ -138,6 +139,13 @@ class AppDrawer extends StatelessWidget {
                             label: 'Student Promotions',
                             onTap: () =>
                                 _navTo(context, const StudentPromotionsPage()),
+                          ),
+                          const SizedBox(height: 12),
+                          _DrawerMenuCard(
+                            icon: Icons.swap_horiz_rounded,
+                            label: 'Class Merge',
+                            onTap: () =>
+                                _navTo(context, const ClassMergePage()),
                           ),
                           const SizedBox(height: 12),
                           _DrawerMenuCard(

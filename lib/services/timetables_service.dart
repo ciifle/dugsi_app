@@ -38,10 +38,11 @@ class TimetableSlotModel {
       if (v is String) return int.tryParse(v) ?? 0;
       return 0;
     }
+
     String str(dynamic v) => v == null ? '' : v.toString().trim();
     int? pid = parseId(json['period_id'] ?? json['periodId']);
     if (pid == 0) pid = null;
-    
+
     PeriodModel? periodMod;
     final pObj = json['period'] ?? json['Period'];
     if (pObj is Map<String, dynamic>) {
@@ -55,8 +56,14 @@ class TimetableSlotModel {
       subjectId: parseId(json['subject_id'] ?? json['subjectId']),
       teacherId: parseId(json['teacher_id'] ?? json['teacherId']),
       day: str(json['day'] ?? 'MON').toUpperCase(),
-      startTime: TimetableSlotModel.normalizeTime(str(json['start_time'] ?? json['startTime'] ?? periodMod?.startTime ?? '')),
-      endTime: TimetableSlotModel.normalizeTime(str(json['end_time'] ?? json['endTime'] ?? periodMod?.endTime ?? '')),
+      startTime: TimetableSlotModel.normalizeTime(
+        str(
+          json['start_time'] ?? json['startTime'] ?? periodMod?.startTime ?? '',
+        ),
+      ),
+      endTime: TimetableSlotModel.normalizeTime(
+        str(json['end_time'] ?? json['endTime'] ?? periodMod?.endTime ?? ''),
+      ),
       periodId: pid,
       period: periodMod,
     );
@@ -66,8 +73,10 @@ class TimetableSlotModel {
     if (t.isEmpty) return '00:00:00';
     final parts = t.trim().split(':');
     if (parts.length == 1) return '${parts[0].padLeft(2, '0')}:00:00';
-    if (parts.length == 2) return '${parts[0].padLeft(2, '0')}:${parts[1].padLeft(2, '0')}:00';
-    if (parts.length >= 3) return '${parts[0].padLeft(2, '0')}:${parts[1].padLeft(2, '0')}:${parts[2].padLeft(2, '0')}';
+    if (parts.length == 2)
+      return '${parts[0].padLeft(2, '0')}:${parts[1].padLeft(2, '0')}:00';
+    if (parts.length >= 3)
+      return '${parts[0].padLeft(2, '0')}:${parts[1].padLeft(2, '0')}:${parts[2].padLeft(2, '0')}';
     return t;
   }
 }
@@ -120,12 +129,22 @@ class TimetablesService {
   factory TimetablesService() => _instance;
 
   /// GET /api/school-admin/timetables?class_id=<id optional>
-  Future<TimetableResult<List<TimetableSlotModel>>> listTimetables({int? classId}) async {
+  Future<TimetableResult<List<TimetableSlotModel>>> listTimetables({
+    int? classId,
+  }) async {
     try {
       final response = await _client.get(_listUrl(classId));
-      devLogResponse('TimetablesService.listTimetables', response.statusCode, response.body);
+      devLogResponse(
+        'TimetablesService.listTimetables',
+        response.statusCode,
+        response.body,
+      );
       if (response.statusCode != 200) {
-        return TimetableError(_errorMessage(response) ?? 'Could not load timetable. Please try again.', response.statusCode);
+        return TimetableError(
+          _errorMessage(response) ??
+              'Could not load timetable. Please try again.',
+          response.statusCode,
+        );
       }
       final raw = _parseJson(response.body);
       List<dynamic> list;
@@ -136,7 +155,10 @@ class TimetablesService {
         if (data is List) {
           list = data;
         } else if (data is Map<String, dynamic>) {
-          list = data['timetables'] as List<dynamic>? ?? data['items'] as List<dynamic>? ?? [];
+          list =
+              data['timetables'] as List<dynamic>? ??
+              data['items'] as List<dynamic>? ??
+              [];
         } else if (raw['timetables'] is List) {
           list = raw['timetables'] as List<dynamic>;
         } else if (raw['items'] is List) {
@@ -149,11 +171,17 @@ class TimetablesService {
               break;
             }
           }
-          if (found == null) return TimetableError(_errorMessage(response) ?? 'Invalid response from server. Please try again.');
+          if (found == null)
+            return TimetableError(
+              _errorMessage(response) ??
+                  'Invalid response from server. Please try again.',
+            );
           list = found;
         }
       } else {
-        return TimetableError('Invalid response from server. Please try again.');
+        return TimetableError(
+          'Invalid response from server. Please try again.',
+        );
       }
       final slots = <TimetableSlotModel>[];
       for (final e in list) {
@@ -165,7 +193,9 @@ class TimetablesService {
       }
       return TimetableSuccess(slots);
     } catch (e, st) {
-      return TimetableError(userFriendlyMessage(e, st, 'TimetablesService.listTimetables'));
+      return TimetableError(
+        userFriendlyMessage(e, st, 'TimetablesService.listTimetables'),
+      );
     }
   }
 
@@ -173,84 +203,169 @@ class TimetablesService {
   Future<TimetableResult<TimetableSlotModel>> getTimetable(int id) async {
     try {
       final response = await _client.get(apiUrl('$_base/$id'));
-      devLogResponse('TimetablesService.getTimetable', response.statusCode, response.body);
-      if (response.statusCode == 404) return TimetableError('Timetable slot not found.', 404);
+      devLogResponse(
+        'TimetablesService.getTimetable',
+        response.statusCode,
+        response.body,
+      );
+      if (response.statusCode == 404)
+        return TimetableError('Timetable slot not found.', 404);
       if (response.statusCode != 200) {
-        return TimetableError(_errorMessage(response) ?? 'Could not load slot. Please try again.', response.statusCode);
+        return TimetableError(
+          _errorMessage(response) ?? 'Could not load slot. Please try again.',
+          response.statusCode,
+        );
       }
       final raw = _parseJson(response.body);
       Map<String, dynamic> map;
       if (raw is Map<String, dynamic>) {
-        map = raw['timetable'] as Map<String, dynamic>? ?? raw['data'] as Map<String, dynamic>? ?? raw;
+        map =
+            raw['timetable'] as Map<String, dynamic>? ??
+            raw['data'] as Map<String, dynamic>? ??
+            raw;
       } else {
-        return TimetableError('Invalid response from server. Please try again.');
+        return TimetableError(
+          'Invalid response from server. Please try again.',
+        );
       }
       return TimetableSuccess(TimetableSlotModel.fromJson(map));
     } catch (e, st) {
-      return TimetableError(userFriendlyMessage(e, st, 'TimetablesService.getTimetable'));
+      return TimetableError(
+        userFriendlyMessage(e, st, 'TimetablesService.getTimetable'),
+      );
     }
   }
 
   /// POST /api/school-admin/timetables
   /// Body: class_id, subject_id, teacher_id, day, period_id (do NOT send id, start_time, end_time)
-  Future<TimetableResult<TimetableSlotModel>> createTimetableSlot(Map<String, dynamic> payload) async {
+  Future<TimetableResult<TimetableSlotModel>> createTimetableSlot(
+    Map<String, dynamic> payload,
+  ) async {
     try {
       final body = <String, dynamic>{
-        'class_id': payload['class_id'] is int ? payload['class_id'] as int : int.tryParse(payload['class_id'].toString()) ?? 0,
-        'subject_id': payload['subject_id'] is int ? payload['subject_id'] as int : int.tryParse(payload['subject_id'].toString()) ?? 0,
-        'teacher_id': payload['teacher_id'] is int ? payload['teacher_id'] as int : int.tryParse(payload['teacher_id'].toString()) ?? 0,
+        'class_id': payload['class_id'] is int
+            ? payload['class_id'] as int
+            : int.tryParse(payload['class_id'].toString()) ?? 0,
+        'subject_id': payload['subject_id'] is int
+            ? payload['subject_id'] as int
+            : int.tryParse(payload['subject_id'].toString()) ?? 0,
+        'teacher_id': payload['teacher_id'] is int
+            ? payload['teacher_id'] as int
+            : int.tryParse(payload['teacher_id'].toString()) ?? 0,
         'day': (payload['day'] as String? ?? '').toString().toUpperCase(),
       };
-      
+
       if (payload['period_id'] != null) {
-        body['period_id'] = payload['period_id'] is int ? payload['period_id'] as int : int.tryParse(payload['period_id'].toString()) ?? 0;
+        body['period_id'] = payload['period_id'] is int
+            ? payload['period_id'] as int
+            : int.tryParse(payload['period_id'].toString()) ?? 0;
       }
-      
+
       final response = await _client.post(apiUrl(_base), body: body);
-      devLogResponse('TimetablesService.createTimetableSlot', response.statusCode, response.body);
+      devLogResponse(
+        'TimetablesService.createTimetableSlot',
+        response.statusCode,
+        response.body,
+      );
       if (response.statusCode == 201) {
         final raw = _parseJson(response.body);
-        if (raw == null || raw is! Map) return TimetableError('Invalid response from server. Please try again.');
+        if (raw == null || raw is! Map)
+          return TimetableError(
+            'Invalid response from server. Please try again.',
+          );
         final m = raw as Map<String, dynamic>;
         final slotMap = m['timetable'] ?? m['data'] ?? m;
-        if (slotMap is! Map<String, dynamic>) return TimetableError('Invalid response from server. Please try again.');
+        if (slotMap is! Map<String, dynamic>)
+          return TimetableError(
+            'Invalid response from server. Please try again.',
+          );
         return TimetableSuccess(TimetableSlotModel.fromJson(slotMap));
       }
-      if (response.statusCode == 409) return TimetableError('This teacher or class already has a timetable in that period.', 409);
-      if (response.statusCode == 400) return TimetableError(_errorMessage(response) ?? 'Invalid data. Please try again.', 400);
-      return TimetableError(_errorMessage(response) ?? 'Request failed. Please try again.', response.statusCode);
+      if (response.statusCode == 409)
+        return TimetableError(
+          'This teacher or class already has a timetable in that period.',
+          409,
+        );
+      if (response.statusCode == 400)
+        return TimetableError(
+          _errorMessage(response) ?? 'Invalid data. Please try again.',
+          400,
+        );
+      return TimetableError(
+        _errorMessage(response) ?? 'Request failed. Please try again.',
+        response.statusCode,
+      );
     } catch (e, st) {
-      return TimetableError(userFriendlyMessage(e, st, 'TimetablesService.createTimetableSlot'));
+      return TimetableError(
+        userFriendlyMessage(e, st, 'TimetablesService.createTimetableSlot'),
+      );
     }
   }
 
   /// PATCH /api/school-admin/timetables/{id}
-  Future<TimetableResult<TimetableSlotModel>> updateTimetable(int id, Map<String, dynamic> payload) async {
+  Future<TimetableResult<TimetableSlotModel>> updateTimetable(
+    int id,
+    Map<String, dynamic> payload,
+  ) async {
     try {
       final body = <String, dynamic>{};
-      if (payload.containsKey('day')) body['day'] = (payload['day'] as String? ?? '').toString().toUpperCase();
-      if (payload.containsKey('period_id')) body['period_id'] = payload['period_id'] is int ? payload['period_id'] as int : int.tryParse(payload['period_id'].toString()) ?? 0;
-      if (payload.containsKey('class_id')) body['class_id'] = payload['class_id'] is int ? payload['class_id'] as int : int.tryParse(payload['class_id'].toString()) ?? 0;
-      if (payload.containsKey('subject_id')) body['subject_id'] = payload['subject_id'] is int ? payload['subject_id'] as int : int.tryParse(payload['subject_id'].toString()) ?? 0;
-      if (payload.containsKey('teacher_id')) body['teacher_id'] = payload['teacher_id'] is int ? payload['teacher_id'] as int : int.tryParse(payload['teacher_id'].toString()) ?? 0;
+      if (payload.containsKey('day'))
+        body['day'] = (payload['day'] as String? ?? '')
+            .toString()
+            .toUpperCase();
+      if (payload.containsKey('period_id'))
+        body['period_id'] = payload['period_id'] is int
+            ? payload['period_id'] as int
+            : int.tryParse(payload['period_id'].toString()) ?? 0;
+      if (payload.containsKey('class_id'))
+        body['class_id'] = payload['class_id'] is int
+            ? payload['class_id'] as int
+            : int.tryParse(payload['class_id'].toString()) ?? 0;
+      if (payload.containsKey('subject_id'))
+        body['subject_id'] = payload['subject_id'] is int
+            ? payload['subject_id'] as int
+            : int.tryParse(payload['subject_id'].toString()) ?? 0;
+      if (payload.containsKey('teacher_id'))
+        body['teacher_id'] = payload['teacher_id'] is int
+            ? payload['teacher_id'] as int
+            : int.tryParse(payload['teacher_id'].toString()) ?? 0;
       if (body.isEmpty) return TimetableError('No fields to update.');
       final response = await _client.patch(apiUrl('$_base/$id'), body: body);
-      devLogResponse('TimetablesService.updateTimetable', response.statusCode, response.body);
-      if (response.statusCode == 404) return TimetableError('Timetable slot not found.', 404);
-      if (response.statusCode == 409) return TimetableError('This teacher or class already has a timetable in that period.', 409);
+      devLogResponse(
+        'TimetablesService.updateTimetable',
+        response.statusCode,
+        response.body,
+      );
+      if (response.statusCode == 404)
+        return TimetableError('Timetable slot not found.', 404);
+      if (response.statusCode == 409)
+        return TimetableError(
+          'This teacher or class already has a timetable in that period.',
+          409,
+        );
       if (response.statusCode != 200) {
-        return TimetableError(_errorMessage(response) ?? 'Could not update. Please try again.', response.statusCode);
+        return TimetableError(
+          _errorMessage(response) ?? 'Could not update. Please try again.',
+          response.statusCode,
+        );
       }
       final raw = _parseJson(response.body);
       Map<String, dynamic> map;
       if (raw is Map<String, dynamic>) {
-        map = raw['timetable'] as Map<String, dynamic>? ?? raw['data'] as Map<String, dynamic>? ?? raw;
+        map =
+            raw['timetable'] as Map<String, dynamic>? ??
+            raw['data'] as Map<String, dynamic>? ??
+            raw;
       } else {
-        return TimetableError('Invalid response from server. Please try again.');
+        return TimetableError(
+          'Invalid response from server. Please try again.',
+        );
       }
       return TimetableSuccess(TimetableSlotModel.fromJson(map));
     } catch (e, st) {
-      return TimetableError(userFriendlyMessage(e, st, 'TimetablesService.updateTimetable'));
+      return TimetableError(
+        userFriendlyMessage(e, st, 'TimetablesService.updateTimetable'),
+      );
     }
   }
 
@@ -258,14 +373,64 @@ class TimetablesService {
   Future<TimetableResult<bool>> deleteTimetable(int id) async {
     try {
       final response = await _client.delete(apiUrl('$_base/$id'));
-      devLogResponse('TimetablesService.deleteTimetable', response.statusCode, response.body);
-      if (response.statusCode == 404) return TimetableError('Timetable slot not found.', 404);
+      devLogResponse(
+        'TimetablesService.deleteTimetable',
+        response.statusCode,
+        response.body,
+      );
+      if (response.statusCode == 404)
+        return TimetableError('Timetable slot not found.', 404);
       if (response.statusCode != 200) {
-        return TimetableError(_errorMessage(response) ?? 'Could not delete. Please try again.', response.statusCode);
+        return TimetableError(
+          _errorMessage(response) ?? 'Could not delete. Please try again.',
+          response.statusCode,
+        );
       }
       return TimetableSuccess(true);
     } catch (e, st) {
-      return TimetableError(userFriendlyMessage(e, st, 'TimetablesService.deleteTimetable'));
+      return TimetableError(
+        userFriendlyMessage(e, st, 'TimetablesService.deleteTimetable'),
+      );
+    }
+  }
+
+  /// DELETE /api/school-admin/timetables/academic-year/{academicYearId}
+  /// Deletes every timetable entry for the given academic year. Returns the
+  /// backend's reported deleted_count when available.
+  Future<TimetableResult<int?>> deleteTimetablesForYear(
+    int academicYearId,
+  ) async {
+    try {
+      final response = await _client.delete(
+        apiUrl('$_base/academic-year/$academicYearId'),
+      );
+      devLogResponse(
+        'TimetablesService.deleteTimetablesForYear',
+        response.statusCode,
+        response.body,
+      );
+      if (response.statusCode != 200) {
+        return TimetableError(
+          _errorMessage(response) ??
+              'Could not delete timetables for this year. Please try again.',
+          response.statusCode,
+        );
+      }
+      final raw = _parseJson(response.body);
+      int? deletedCount;
+      if (raw is Map<String, dynamic>) {
+        final data = raw['data'];
+        final source = data is Map<String, dynamic> ? data : raw;
+        final value = source['deleted_count'] ?? source['deletedCount'];
+        if (value != null) {
+          deletedCount = value is int ? value : int.tryParse(value.toString());
+        }
+      }
+      return TimetableSuccess(deletedCount);
+    } catch (e, st) {
+      return TimetableError(
+        userFriendlyMessage(e, st, 'TimetablesService.deleteTimetablesForYear'),
+      );
     }
   }
 }

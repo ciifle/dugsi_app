@@ -52,9 +52,7 @@ class RankedStudent {
   }) {
     final classMap = _map(json['class']);
     return RankedStudent(
-      position: _int(
-        json[schoolRank ? 'school_position' : 'position'],
-      ),
+      position: _int(json[schoolRank ? 'school_position' : 'position']),
       studentId: _int(json['student_id']),
       name: (json['student_name'] ?? '').toString(),
       emis: (json['emis_number'] ?? '').toString(),
@@ -213,33 +211,42 @@ class AcademicPerformanceService {
     required String currentPassword,
     required String newPassword,
     required String confirmPassword,
-  }) => _passwordPatch(
-    'api/student/profile/change-password',
-    {
-      'current_password': currentPassword,
-      'new_password': newPassword,
-      'confirm_password': confirmPassword,
-    },
-  );
+  }) => _passwordRequest('api/student/profile/change-password', {
+    'current_password': currentPassword,
+    'new_password': newPassword,
+    'confirm_password': confirmPassword,
+  });
 
   Future<PerformanceResult<void>> resetStudentPassword({
     required int studentId,
     required String newPassword,
     required String confirmPassword,
-  }) => _passwordPatch(
+  }) => _passwordRequest(
     'api/school-admin/students/$studentId/reset-password',
-    {
-      'new_password': newPassword,
-      'confirm_password': confirmPassword,
-    },
+    {'new_password': newPassword, 'confirm_password': confirmPassword},
   );
 
-  Future<PerformanceResult<void>> _passwordPatch(
+  /// School admin's own password change (distinct from [resetStudentPassword],
+  /// which resets a student's password). POST api/school-admin/change-password.
+  Future<PerformanceResult<void>> changeAdminPassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) => _passwordRequest('api/school-admin/change-password', {
+    'current_password': currentPassword,
+    'new_password': newPassword,
+    'confirm_password': confirmPassword,
+  }, method: 'POST');
+
+  Future<PerformanceResult<void>> _passwordRequest(
     String path,
-    Map<String, String> body,
-  ) async {
+    Map<String, String> body, {
+    String method = 'PATCH',
+  }) async {
     try {
-      final response = await _client.patch(apiUrl(path), body: body);
+      final response = method == 'POST'
+          ? await _client.post(apiUrl(path), body: body)
+          : await _client.patch(apiUrl(path), body: body);
       final json = _decode(response.body);
       final message = (_map(json)['message'] ?? '').toString();
       if (response.statusCode == 200) {
@@ -259,14 +266,10 @@ class AcademicPerformanceService {
   Future<PerformanceResult<StudentAcademicPerformance>> performance({
     int? academicYearId,
     int? examId,
-  }) => _get(
-    'api/student/academic-performance',
-    {
-      if (academicYearId != null) 'academic_year_id': '$academicYearId',
-      if (examId != null) 'exam_id': '$examId',
-    },
-    StudentAcademicPerformance.fromJson,
-  );
+  }) => _get('api/student/academic-performance', {
+    if (academicYearId != null) 'academic_year_id': '$academicYearId',
+    if (examId != null) 'exam_id': '$examId',
+  }, StudentAcademicPerformance.fromJson);
 
   Future<PerformanceResult<ClassRankingResponse>> classRankings({
     required int classId,
@@ -289,15 +292,11 @@ class AcademicPerformanceService {
     int? academicYearId,
     int? examId,
     int limit = 10,
-  }) => _get(
-    'api/school-admin/analytics/top-students',
-    {
-      if (academicYearId != null) 'academic_year_id': '$academicYearId',
-      if (examId != null) 'exam_id': '$examId',
-      'limit': '$limit',
-    },
-    TopStudentsResponse.fromJson,
-  );
+  }) => _get('api/school-admin/analytics/top-students', {
+    if (academicYearId != null) 'academic_year_id': '$academicYearId',
+    if (examId != null) 'exam_id': '$examId',
+    'limit': '$limit',
+  }, TopStudentsResponse.fromJson);
 
   Future<PerformanceResult<T>> _get<T>(
     String path,

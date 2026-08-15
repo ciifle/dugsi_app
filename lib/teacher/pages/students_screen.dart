@@ -223,74 +223,7 @@ class _TeacherStudentManagementScreenState
     });
   }
 
-  void _sendMessage(BuildContext context, Student student) {
-    // Show message dialog
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        final TextEditingController messageController = TextEditingController();
-
-        return AlertDialog(
-          title: Text(
-            'Message to ${student.name}',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              color: kPrimaryBlue,
-            ),
-          ),
-          content: Container(
-            width: double.maxFinite,
-            child: TextField(
-              controller: messageController,
-              maxLines: 3,
-              decoration: InputDecoration(
-                hintText: 'Type your message here...',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: kPrimaryBlue, width: 2),
-                ),
-              ),
-            ),
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
-              child: Text('Cancel', style: TextStyle(color: kTextSecondary)),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Message sent to ${student.name}'),
-                    backgroundColor: kSuccessColor,
-                    behavior: SnackBarBehavior.floating,
-                    duration: const Duration(seconds: 2),
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: kPrimaryBlue,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Text('Send'),
-            ),
-          ],
-        );
-      },
-    );
-  }
+  // Messaging temporarily disabled from active UI/navigation.
 
   @override
   Widget build(BuildContext context) {
@@ -504,8 +437,6 @@ class _TeacherStudentManagementScreenState
                         ),
                         onGradesTap: () =>
                             _navigateToGrades(context, filteredStudents[index]),
-                        onMessageTap: () =>
-                            _sendMessage(context, filteredStudents[index]),
                       ),
                     ),
                   )
@@ -829,14 +760,12 @@ class _StudentCard extends StatelessWidget {
   final VoidCallback onAttendanceTap;
   final VoidCallback onAssignmentsTap;
   final VoidCallback onGradesTap;
-  final VoidCallback onMessageTap;
 
   const _StudentCard({
     required this.student,
     required this.onAttendanceTap,
     required this.onAssignmentsTap,
     required this.onGradesTap,
-    required this.onMessageTap,
   });
 
   Color _getPerformanceColor(String performance) {
@@ -1029,12 +958,6 @@ class _StudentCard extends StatelessWidget {
                   label: "Grades",
                   color: kSoftOrange,
                   onTap: onGradesTap,
-                ),
-                _buildActionChip(
-                  icon: Icons.message_rounded,
-                  label: "Message",
-                  color: kErrorColor,
-                  onTap: onMessageTap,
                 ),
               ],
             ),

@@ -18,7 +18,6 @@ import 'package:kobac/school_admin/pages/admin_subjects_screen.dart';
 import 'package:kobac/school_admin/pages/admin_attendance_screen.dart';
 import 'package:kobac/school_admin/pages/admin_fees_screen.dart';
 import 'package:kobac/services/fees_service.dart';
-import 'package:kobac/school_admin/pages/mesaage_screen.dart';
 import 'package:kobac/school_admin/pages/payments_screen.dart';
 import 'package:kobac/school_admin/pages/class_subject_management_screen.dart';
 import 'package:kobac/school_admin/pages/admin_class_subjects_screen.dart';
@@ -34,6 +33,8 @@ import 'package:kobac/school_admin/pages/admin_notices_screen.dart';
 import 'package:kobac/school_admin/pages/admin_profile.dart';
 import 'package:kobac/school_admin/pages/notifications_page.dart';
 import 'package:kobac/school_admin/pages/settings_page.dart';
+import 'package:kobac/school_admin/pages/class_merge_page.dart';
+import 'package:kobac/school_admin/pages/change_password_page.dart';
 
 /// Responsive admin shell for desktop/web layout
 /// Shows sidebar + top bar + main content area
@@ -90,16 +91,14 @@ class _WebAdminShellState extends State<WebAdminShell> {
         return 'Add Subject';
       case 'classSubjects':
         return 'Class Subjects';
+      case 'classMerge':
+        return 'Move / Merge Students';
       case 'attendance':
         return 'Attendance';
       case 'fees':
         return 'Fees';
       case 'payments':
         return 'Payments';
-      case 'messages':
-        return 'Messages';
-      case 'composeMessage':
-        return 'Compose Message';
 
       case 'timetable':
         return 'Timetable';
@@ -121,6 +120,8 @@ class _WebAdminShellState extends State<WebAdminShell> {
         return 'Profile';
       case 'settings':
         return 'Settings';
+      case 'changePassword':
+        return 'Change Password';
       default:
         return 'Dashboard';
     }
@@ -138,6 +139,8 @@ class _WebAdminShellState extends State<WebAdminShell> {
         return 'Create a new class record';
       case 'promotions':
         return 'Review eligible students, preview results, then process the promotion.';
+      case 'classMerge':
+        return 'Move students between classes within the same academic year.';
       case 'addSubject':
         return 'Create a new subject record';
       default:
@@ -231,6 +234,17 @@ class _WebAdminShellState extends State<WebAdminShell> {
           embedBodyOnly: true,
           onNavigateToPage: _navigateToPage,
         );
+      case 'classMerge':
+        final args = _selectedArguments is Map<String, dynamic>
+            ? _selectedArguments as Map<String, dynamic>
+            : const <String, dynamic>{};
+        return ClassMergePage(
+          classId: args['classId'] as int?,
+          className: args['className'] as String?,
+          initialAcademicYearId: args['academicYearId'] as int?,
+          embedBodyOnly: true,
+          onNavigateToPage: _navigateToPage,
+        );
       case 'subjects':
         return AdminSubjectsScreen(
           embedBodyOnly: true,
@@ -259,8 +273,7 @@ class _WebAdminShellState extends State<WebAdminShell> {
           embedBodyOnly: true,
           onNavigateToPage: _navigateToPage,
         );
-      case 'messages':
-        return MessageScreen(embedInParent: true);
+      // Messaging temporarily disabled from active UI/navigation.
       case 'timetable':
         return AdminTimetableScreen(
           embedBodyOnly: true,
@@ -301,6 +314,8 @@ class _WebAdminShellState extends State<WebAdminShell> {
         );
       case 'settings':
         return SettingsPage();
+      case 'changePassword':
+        return const ChangePasswordPage(embedBodyOnly: true);
       default:
         return WebDashboard();
     }

@@ -8,7 +8,6 @@ import 'package:kobac/teacher/pages/teacher_dashboard.dart';
 import 'package:kobac/teacher/pages/teacher_marks_screen.dart';
 import 'package:kobac/teacher/pages/teacher_profile.dart';
 import 'package:kobac/teacher/pages/teacher_students_list_screen.dart';
-import 'package:kobac/messages/messages_screen.dart';
 
 // =======================
 //  TEACHER DRAWER COLORS - MATCHING STUDENT DASHBOARD
@@ -81,14 +80,41 @@ class TeacherDrawer extends StatelessWidget {
                     _buildMenuSection(
                       title: "MAIN",
                       items: const [
-                        _MenuItem(icon: Icons.dashboard_rounded, label: 'Dashboard', color: kPrimaryBlue),
-                        _MenuItem(icon: Icons.assignment_rounded, label: 'My Assignments', color: kPrimaryGreen),
-                        _MenuItem(icon: Icons.class_rounded, label: 'Classes', color: kPrimaryBlue),
-                        _MenuItem(icon: Icons.people_rounded, label: 'My Students', color: kSoftOrange),
-                        _MenuItem(icon: Icons.assignment_turned_in_rounded, label: 'Take Attendance', color: kPrimaryBlue),
-                        _MenuItem(icon: Icons.message_rounded, label: 'Messages', color: kPrimaryBlue),
-                        _MenuItem(icon: Icons.grade_rounded, label: 'Marks', color: kSoftOrange),
-                        _MenuItem(icon: Icons.person_rounded, label: 'Profile', color: kSoftOrange),
+                        _MenuItem(
+                          icon: Icons.dashboard_rounded,
+                          label: 'Dashboard',
+                          color: kPrimaryBlue,
+                        ),
+                        _MenuItem(
+                          icon: Icons.assignment_rounded,
+                          label: 'My Assignments',
+                          color: kPrimaryGreen,
+                        ),
+                        _MenuItem(
+                          icon: Icons.class_rounded,
+                          label: 'Classes',
+                          color: kPrimaryBlue,
+                        ),
+                        _MenuItem(
+                          icon: Icons.people_rounded,
+                          label: 'My Students',
+                          color: kSoftOrange,
+                        ),
+                        _MenuItem(
+                          icon: Icons.assignment_turned_in_rounded,
+                          label: 'Take Attendance',
+                          color: kPrimaryBlue,
+                        ),
+                        _MenuItem(
+                          icon: Icons.grade_rounded,
+                          label: 'Marks',
+                          color: kSoftOrange,
+                        ),
+                        _MenuItem(
+                          icon: Icons.person_rounded,
+                          label: 'Profile',
+                          color: kSoftOrange,
+                        ),
                       ],
                       context: context,
                     ),
@@ -109,9 +135,18 @@ class TeacherDrawer extends StatelessWidget {
   Widget _buildHeader(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
     final name = user?.name ?? teacher?['name'] ?? 'Teacher';
-    final initials = name.isNotEmpty ? name.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase() : 'T';
+    final initials = name.isNotEmpty
+        ? name
+              .split(' ')
+              .map((e) => e.isNotEmpty ? e[0] : '')
+              .take(2)
+              .join()
+              .toUpperCase()
+        : 'T';
     final email = user?.email ?? user?.emisNumber ?? teacher?['email'] ?? '—';
-    final roleLabel = user != null ? user.role.replaceAll('_', ' ') : (teacher?['role'] ?? 'Teacher');
+    final roleLabel = user != null
+        ? user.role.replaceAll('_', ' ')
+        : (teacher?['role'] ?? 'Teacher');
 
     return Container(
       width: double.infinity,
@@ -481,9 +516,7 @@ class TeacherDrawer extends StatelessWidget {
       case 'Marks':
         screen = const TeacherMarksScreen();
         break;
-      case 'Messages':
-        screen = const MessagesScreen();
-        break;
+      // Messaging temporarily disabled from active UI/navigation.
       case 'Profile':
         screen = const TeacherProfileScreen();
         break;

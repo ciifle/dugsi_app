@@ -69,7 +69,9 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
         backgroundColor: studentWebGreen,
       ),
     );
-    Navigator.of(context).pop();
+    if (!widget.embedBodyOnly && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
   }
 
   String? _required(String? value) =>

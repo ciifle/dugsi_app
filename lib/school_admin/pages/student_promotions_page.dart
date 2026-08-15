@@ -55,7 +55,9 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
                   student.name.toLowerCase().contains(query) ||
                   student.emis.toLowerCase().contains(query)) &&
               (_resultFilter == 'all' ||
-                  (student.status ?? '').toLowerCase() == _resultFilter) &&
+                  (_resultFilter == 'selected'
+                      ? _selected.contains(student.id)
+                      : _resultKey(student) == _resultFilter)) &&
               (_eligibilityFilter == 'all' ||
                   _eligibilityKey(student) == _eligibilityFilter),
         )
@@ -63,7 +65,9 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
   }
 
   String _eligibilityKey(PromotionStudent student) {
-    if (student.eligible == true) return 'ready';
+    if (student.percentage == null) return 'no_result';
+    if (!passesPromotionThreshold(student.percentage)) return 'issue';
+    if (student.eligible != false) return 'ready';
     final value = (student.reason ?? '').toLowerCase();
     if (value.contains('result') || value.contains('unavailable')) {
       return 'no_result';
@@ -71,6 +75,65 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
     if (value.contains('processed')) return 'already_processed';
     return 'issue';
   }
+
+  String _ineligibilityReason(PromotionStudent student) {
+    if (_decision == 'promoted' &&
+        !passesPromotionThreshold(student.percentage)) {
+      return student.percentage == null
+          ? 'No final percentage is available for promotion.'
+          : 'Not eligible for promotion: below the 50% threshold.';
+    }
+    return student.reason?.trim().isNotEmpty == true
+        ? student.reason!
+        : 'Backend eligibility marked this student as ineligible.';
+  }
+
+  String _resultKey(PromotionStudent student) {
+    if (student.percentage == null) return 'unavailable';
+    return passesPromotionThreshold(student.percentage) ? 'pass' : 'fail';
+  }
+
+  bool _canSelect(PromotionStudent student) =>
+      _decision != 'promoted' ||
+      canPromoteByPercentageAndEligibility(
+        student.percentage,
+        student.eligible,
+      );
+
+  bool get _hasInvalidPromotedSelection =>
+      _decision == 'promoted' &&
+      _students.any(
+        (student) =>
+            _selected.contains(student.id) &&
+            !passesPromotionThreshold(student.percentage),
+      );
+
+  void _toggleStudentSelection(PromotionStudent student) {
+    if (!_canSelect(student)) return;
+    setState(() {
+      if (_selected.contains(student.id)) {
+        _selected.remove(student.id);
+      } else {
+        _selected.add(student.id);
+      }
+      _preview = null;
+      _previewedRequest = null;
+    });
+  }
+
+  void _selectVisibleStudents(Iterable<PromotionStudent> students) => setState(
+    () {
+      _selected.addAll(students.where(_canSelect).map((student) => student.id));
+      _preview = null;
+      _previewedRequest = null;
+    },
+  );
+
+  void _clearSelectedStudents() => setState(() {
+    _selected.clear();
+    _preview = null;
+    _previewedRequest = null;
+  });
 
   String get _processLabel => switch (_decision) {
     'promoted' => 'Promote Students',
@@ -179,6 +242,14 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
   }
 
   Future<void> _runPreview() async {
+    if (_hasInvalidPromotedSelection) {
+      _snack(
+        'Some selected students are below the 50% promotion threshold. '
+        'Review the selection before continuing.',
+        error: true,
+      );
+      return;
+    }
     final request = _requestSnapshot();
     if (request == null) {
       _snack('Complete the required filters and select students.');
@@ -203,6 +274,14 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
   }
 
   Future<void> _process() async {
+    if (_hasInvalidPromotedSelection) {
+      _snack(
+        'Some selected students are below the 50% promotion threshold. '
+        'Review the selection before continuing.',
+        error: true,
+      );
+      return;
+    }
     final request = _previewedRequest;
     if (request == null || _preview?.canProcess != true) return;
     final confirmed = await showAdminFeatureConfirmation(
@@ -300,33 +379,33 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
                 child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.maybePop(context),
-                    icon: const Icon(Icons.arrow_back, color: _blue),
-                  ),
-                  const SizedBox(width: 10),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Student Promotions',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: _blue,
-                          ),
-                        ),
-                        SizedBox(height: 3),
-                        Text(
-                          'Select years and classes, view eligible students, preview, then process.',
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                      ],
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.maybePop(context),
+                      icon: const Icon(Icons.arrow_back, color: _blue),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Student Promotions',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: _blue,
+                            ),
+                          ),
+                          SizedBox(height: 3),
+                          Text(
+                            'Select years and classes, view eligible students, preview, then process.',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             TabBar(
@@ -457,15 +536,15 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
                 ),
                 if (!widget.embedBodyOnly)
                   SizedBox(
-                  width: 220,
-                  child: TextField(
-                    controller: _search,
-                    onChanged: (_) => setState(() {}),
-                    decoration: _fieldDecoration(
-                      'Student search',
-                      Icons.search_rounded,
+                    width: 220,
+                    child: TextField(
+                      controller: _search,
+                      onChanged: (_) => setState(() {}),
+                      decoration: _fieldDecoration(
+                        'Student search',
+                        Icons.search_rounded,
+                      ),
                     ),
-                  ),
                   ),
                 SizedBox(
                   width: 240,
@@ -547,93 +626,7 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
         else if (widget.embedBodyOnly)
           _desktopReviewTable()
         else
-          _card(
-            Column(
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Eligible Students',
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.bold,
-                              color: _blue,
-                            ),
-                          ),
-                          Text(
-                            '${_students.length} total • ${_visibleStudents.length} shown • ${_selected.length} selected',
-                          ),
-                        ],
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () => setState(() {
-                        _selected
-                          ..clear()
-                          ..addAll(_visibleStudents.map((e) => e.id));
-                        _preview = null;
-                        _previewedRequest = null;
-                      }),
-                      child: const Text('Select visible'),
-                    ),
-                    TextButton(
-                      onPressed: () => setState(() {
-                        _selected.clear();
-                        _preview = null;
-                        _previewedRequest = null;
-                      }),
-                      child: const Text('Clear'),
-                    ),
-                  ],
-                ),
-                ..._visibleStudents.map(
-                  (student) => CheckboxListTile(
-                    value: _selected.contains(student.id),
-                    onChanged: (value) => setState(() {
-                      if (value == true) {
-                        _selected.add(student.id);
-                      } else {
-                        _selected.remove(student.id);
-                      }
-                      _preview = null;
-                      _previewedRequest = null;
-                    }),
-                    title: Text(student.name),
-                    subtitle: Text(
-                      '${student.emis} • ${student.className ?? '—'}',
-                    ),
-                    secondary: IconButton(
-                      tooltip: 'Academic history',
-                      icon: const Icon(Icons.history_edu_rounded),
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => StudentPromotionHistoryPage(
-                            studentId: student.id,
-                            studentName: student.name,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: FilledButton(
-                    onPressed: _working || _selected.isEmpty
-                        ? null
-                        : _runPreview,
-                    style: _primaryButtonStyle(),
-                    child: Text('Preview Promotion (${_selected.length})'),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          _mobileStudentReview(),
       ],
       if (_preview != null) ...[
         const SizedBox(height: 14),
@@ -642,39 +635,217 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
     ],
   );
 
+  Widget _mobileStudentReview() {
+    final visible = _visibleStudents;
+    final selectable = visible.where(_canSelect).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _promotionSummary(),
+        const SizedBox(height: 12),
+        _card(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Choose Students',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: _blue,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${visible.length} shown • ${_selected.length} selected',
+                style: const TextStyle(color: FormTheme3D.textHint),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _search,
+                onChanged: (_) => setState(() {}),
+                decoration: _fieldDecoration(
+                  'Search by name or EMIS',
+                  Icons.search_rounded,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _working || selectable.isEmpty
+                          ? null
+                          : () => _selectVisibleStudents(selectable),
+                      icon: const Icon(Icons.checklist_rounded, size: 18),
+                      label: const Text('Select visible'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _working || _selected.isEmpty
+                          ? null
+                          : _clearSelectedStudents,
+                      icon: const Icon(Icons.clear_all_rounded, size: 18),
+                      label: const Text('Clear'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        ...visible.map(_mobilePromotionStudentCard),
+        if (_selected.isEmpty)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Text(
+              'Select at least one eligible student to preview.',
+              style: TextStyle(color: FormTheme3D.textHint),
+            ),
+          ),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: _working || _selected.isEmpty ? null : _runPreview,
+            style: _primaryButtonStyle(),
+            icon: const Icon(Icons.visibility_outlined),
+            label: Text('Preview Promotion (${_selected.length})'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _mobilePromotionStudentCard(PromotionStudent student) {
+    final selected = _selected.contains(student.id);
+    final selectable = _canSelect(student);
+    final status = _resultKey(student);
+    final statusColor = status == 'pass'
+        ? _green
+        : status == 'fail'
+        ? Colors.red
+        : Colors.orange;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: selected ? _green : statusColor.withValues(alpha: 0.28),
+          width: selected ? 2 : 1,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: selectable ? () => _toggleStudentSelection(student) : null,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Checkbox(
+                value: selected,
+                onChanged: selectable
+                    ? (_) => _toggleStudentSelection(student)
+                    : null,
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            student.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: _blue,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        _statusBadge(status),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${student.emis} • ${student.className ?? '—'}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: FormTheme3D.textHint,
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    Text(
+                      student.percentage == null
+                          ? 'Percentage unavailable'
+                          : '${student.percentage}%',
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: _blue,
+                      ),
+                    ),
+                    if (!selectable)
+                      Text(
+                        _ineligibilityReason(student),
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'Academic history',
+                icon: const Icon(Icons.history_edu_rounded, color: _blue),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => StudentPromotionHistoryPage(
+                      studentId: student.id,
+                      studentName: student.name,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _desktopReviewTable() {
     final visible = _visibleStudents;
-    final visibleIds = visible.map((student) => student.id).toSet();
+    final selectableVisible = visible.where(_canSelect).toList();
+    final visibleIds = selectableVisible.map((student) => student.id).toSet();
     final allVisibleSelected =
         visibleIds.isNotEmpty && visibleIds.every(_selected.contains);
-    final ready = _students.where((student) => student.eligible == true).length;
-    final issues = _students.where((student) => student.eligible != true).length;
 
-    void toggleAll(bool? selected) => setState(() {
-      if (selected == true) {
-        _selected.addAll(visibleIds);
-      } else {
-        _selected.removeAll(visibleIds);
-      }
-      _preview = null;
-      _previewedRequest = null;
-    });
+    void toggleAll(bool? selected) => selected == true
+        ? _selectVisibleStudents(selectableVisible)
+        : _clearSelectedStudents();
 
     return Column(
       children: [
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            _reviewMetric('Total eligible', _students.length,
-                Icons.groups_rounded, _blue),
-            _reviewMetric('Selected', _selected.length,
-                Icons.how_to_reg_rounded, _green),
-            _reviewMetric('Ready', ready, Icons.check_circle_rounded, _green),
-            _reviewMetric(
-                'Issues', issues, Icons.warning_amber_rounded, Colors.orange),
-          ],
-        ),
+        _promotionSummary(),
         const SizedBox(height: 14),
         _card(
           Column(
@@ -699,7 +870,13 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
                   _compactFilter(
                     label: 'Result status',
                     value: _resultFilter,
-                    values: const ['all', 'pass', 'passed', 'fail', 'failed'],
+                    values: const [
+                      'all',
+                      'pass',
+                      'fail',
+                      'unavailable',
+                      'selected',
+                    ],
                     onChanged: (value) =>
                         setState(() => _resultFilter = value ?? 'all'),
                   ),
@@ -717,19 +894,23 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
                         setState(() => _eligibilityFilter = value ?? 'all'),
                   ),
                   OutlinedButton.icon(
-                    onPressed: _selected.isEmpty
+                    onPressed: _working || selectableVisible.isEmpty
                         ? null
-                        : () => setState(() {
-                            _selected.clear();
-                            _preview = null;
-                            _previewedRequest = null;
-                          }),
+                        : () => _selectVisibleStudents(selectableVisible),
+                    icon: const Icon(Icons.checklist_rounded),
+                    label: const Text('Select visible'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _working || _selected.isEmpty
+                        ? null
+                        : _clearSelectedStudents,
                     icon: const Icon(Icons.clear_all_rounded),
                     label: const Text('Clear selection'),
                   ),
                   FilledButton.icon(
-                    onPressed:
-                        _working || _selected.isEmpty ? null : _runPreview,
+                    onPressed: _working || _selected.isEmpty
+                        ? null
+                        : _runPreview,
                     style: _primaryButtonStyle(),
                     icon: const Icon(Icons.visibility_outlined),
                     label: Text('Preview Promotion (${_selected.length})'),
@@ -743,7 +924,9 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
                     label: 'Select all shown students',
                     child: Checkbox(
                       value: allVisibleSelected,
-                      onChanged: visible.isEmpty ? null : toggleAll,
+                      onChanged: _working || selectableVisible.isEmpty
+                          ? null
+                          : toggleAll,
                     ),
                   ),
                   const SizedBox(width: 6),
@@ -762,14 +945,20 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
                   padding: EdgeInsets.symmetric(vertical: 34),
                   child: Column(
                     children: [
-                      Icon(Icons.search_off_rounded,
-                          size: 44, color: FormTheme3D.textHint),
+                      Icon(
+                        Icons.search_off_rounded,
+                        size: 44,
+                        color: FormTheme3D.textHint,
+                      ),
                       SizedBox(height: 10),
-                      Text('No eligible students found',
-                          style: TextStyle(
-                              color: _blue,
-                              fontSize: 17,
-                              fontWeight: FontWeight.bold)),
+                      Text(
+                        'No eligible students found',
+                        style: TextStyle(
+                          color: _blue,
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       SizedBox(height: 4),
                       Text('No students matched the selected filters.'),
                     ],
@@ -823,15 +1012,12 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
 
   DataRow _studentDataRow(PromotionStudent student, int rowNumber) {
     final selected = _selected.contains(student.id);
+    final selectable = _canSelect(student);
     return DataRow(
       selected: selected,
-      onSelectChanged: (value) => setState(() {
-        value == true
-            ? _selected.add(student.id)
-            : _selected.remove(student.id);
-        _preview = null;
-        _previewedRequest = null;
-      }),
+      onSelectChanged: selectable
+          ? (_) => _toggleStudentSelection(student)
+          : null,
       cells: [
         DataCell(Text('$rowNumber')),
         DataCell(
@@ -868,11 +1054,11 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
         ),
         DataCell(Text(student.emis.trim().isEmpty ? '—' : student.emis)),
         DataCell(_badge(student.className ?? '—', _blue)),
-        DataCell(Text(student.percentage == null
-            ? '—'
-            : '${student.percentage}%')),
+        DataCell(
+          Text(student.percentage == null ? '—' : '${student.percentage}%'),
+        ),
         DataCell(_badge(student.grade ?? '—', _green)),
-        DataCell(_statusBadge(student.status ?? 'Unavailable')),
+        DataCell(_statusBadge(_resultKey(student))),
         DataCell(_eligibilityBadge(student)),
       ],
     );
@@ -884,75 +1070,139 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
     required List<String> values,
     required ValueChanged<String?> onChanged,
   }) => SizedBox(
-        width: 170,
-        child: DropdownButtonFormField<String>(
-          value: value,
-          isExpanded: true,
-          decoration: _fieldDecoration(label, Icons.filter_list_rounded),
-          items: values
-              .map((item) => DropdownMenuItem(
-                    value: item,
-                    child: Text(_label(item)),
-                  ))
-              .toList(),
-          onChanged: onChanged,
-        ),
-      );
+    width: 170,
+    child: DropdownButtonFormField<String>(
+      value: value,
+      isExpanded: true,
+      decoration: _fieldDecoration(label, Icons.filter_list_rounded),
+      items: values
+          .map(
+            (item) => DropdownMenuItem(value: item, child: Text(_label(item))),
+          )
+          .toList(),
+      onChanged: onChanged,
+    ),
+  );
+
+  Widget _promotionSummary() {
+    final pass = _students
+        .where((student) => _resultKey(student) == 'pass')
+        .length;
+    final fail = _students
+        .where((student) => _resultKey(student) == 'fail')
+        .length;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = widget.embedBodyOnly
+            ? 178.0
+            : (constraints.maxWidth - 10) / 2;
+        return Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            _reviewMetric(
+              'Total',
+              _students.length,
+              Icons.groups_rounded,
+              _blue,
+              width,
+            ),
+            _reviewMetric(
+              'Pass',
+              pass,
+              Icons.check_circle_rounded,
+              _green,
+              width,
+            ),
+            _reviewMetric(
+              'Fail',
+              fail,
+              Icons.cancel_rounded,
+              Colors.red,
+              width,
+            ),
+            _reviewMetric(
+              'Selected',
+              _selected.length,
+              Icons.how_to_reg_rounded,
+              const Color(0xFF01255C),
+              width,
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   Widget _reviewMetric(
-          String label, int value, IconData icon, Color color) =>
-      Container(
-        width: 178,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE8ECF2)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 12,
-              offset: const Offset(0, 3),
+    String label,
+    int value,
+    IconData icon,
+    Color color,
+    double width,
+  ) => Container(
+    width: width,
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: const Color(0xFFE8ECF2)),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.04),
+          blurRadius: 12,
+          offset: const Offset(0, 3),
+        ),
+      ],
+    ),
+    child: Row(
+      children: [
+        CircleAvatar(
+          backgroundColor: color.withValues(alpha: 0.1),
+          foregroundColor: color,
+          child: Icon(icon, size: 20),
+        ),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(color: FormTheme3D.textHint, fontSize: 12),
+            ),
+            Text(
+              '$value',
+              style: const TextStyle(
+                color: _blue,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),
-        child: Row(children: [
-          CircleAvatar(
-            backgroundColor: color.withValues(alpha: 0.1),
-            foregroundColor: color,
-            child: Icon(icon, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label,
-                style: const TextStyle(
-                    color: FormTheme3D.textHint, fontSize: 12)),
-            Text('$value',
-                style: const TextStyle(
-                    color: _blue,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold)),
-          ]),
-        ]),
-      );
+      ],
+    ),
+  );
 
   Widget _badge(String text, Color color) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.09),
-          borderRadius: BorderRadius.circular(7),
-        ),
-        child: Text(text,
-            style: TextStyle(color: color, fontWeight: FontWeight.w600)),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.09),
+      borderRadius: BorderRadius.circular(7),
+    ),
+    child: Text(
+      text,
+      style: TextStyle(color: color, fontWeight: FontWeight.w600),
+    ),
+  );
 
   Widget _statusBadge(String status) {
     final normalized = status.toLowerCase();
     final color = normalized.contains('pass')
         ? _green
         : normalized.contains('fail')
-            ? Colors.red
-            : Colors.orange;
+        ? Colors.red
+        : Colors.orange;
     return _badge(_label(status), color);
   }
 
@@ -961,13 +1211,13 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
     final label = key == 'ready'
         ? 'Ready'
         : (student.reason?.trim().isNotEmpty == true
-            ? student.reason!
-            : _label(key));
+              ? student.reason!
+              : _label(key));
     final color = key == 'ready'
         ? _green
         : key == 'already_processed'
-            ? Colors.blueGrey
-            : Colors.orange;
+        ? Colors.blueGrey
+        : Colors.orange;
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 170),
       child: _badge(label, color),

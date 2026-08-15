@@ -60,7 +60,10 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
     }
   }
 
-  Future<Map<String, String>?> _loadAdminData(AuthUser? user, dynamic profile) async {
+  Future<Map<String, String>?> _loadAdminData(
+    AuthUser? user,
+    dynamic profile,
+  ) async {
     if (user == null) return null;
 
     String schoolName = '';
@@ -69,18 +72,26 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
         : user.schoolId;
     if (schoolId != null) {
       try {
-        final school = await DummySchoolService().getSchoolById(schoolId.toString());
+        final school = await DummySchoolService().getSchoolById(
+          schoolId.toString(),
+        );
         if (school != null) schoolName = school.name ?? '';
       } catch (e) {
         debugPrint('Error loading school: $e');
       }
     }
 
-    final name = (profile is SchoolAdminProfile && profile.name != null && profile.name!.isNotEmpty)
+    final name =
+        (profile is SchoolAdminProfile &&
+            profile.name != null &&
+            profile.name!.isNotEmpty)
         ? profile.name!
         : user.name;
     final roleStr = user.role.replaceAll('_', ' ').toUpperCase();
-    final email = (profile is SchoolAdminProfile && profile.email != null && profile.email!.isNotEmpty)
+    final email =
+        (profile is SchoolAdminProfile &&
+            profile.email != null &&
+            profile.email!.isNotEmpty)
         ? profile.email!
         : (user.email ?? user.emisNumber ?? '');
 
@@ -121,7 +132,8 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
     final parts = name.trim().split(RegExp(r'\s+'));
     if (parts.isEmpty || parts.first.isEmpty) return '?';
     if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
-    return '${parts.first.substring(0, 1)}${parts.last.substring(0, 1)}'.toUpperCase();
+    return '${parts.first.substring(0, 1)}${parts.last.substring(0, 1)}'
+        .toUpperCase();
   }
 
   void _openEditProfile() {}
@@ -130,9 +142,14 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
     await context.read<AuthProvider>().logout();
   }
 
-  Widget _buildProfileBody(BuildContext context, AsyncSnapshot<Map<String, String>?> snapshot) {
+  Widget _buildProfileBody(
+    BuildContext context,
+    AsyncSnapshot<Map<String, String>?> snapshot,
+  ) {
     if (snapshot.connectionState == ConnectionState.waiting) {
-      return const Center(child: CircularProgressIndicator(color: kPrimaryGreen));
+      return const Center(
+        child: CircularProgressIndicator(color: kPrimaryGreen),
+      );
     }
     final data = snapshot.data;
     if (data == null) return const Center(child: Text('User not found'));
@@ -143,7 +160,10 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
     return _buildMobileProfileBody(context, data);
   }
 
-  Widget _buildMobileProfileBody(BuildContext context, Map<String, String> data) {
+  Widget _buildMobileProfileBody(
+    BuildContext context,
+    Map<String, String> data,
+  ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Column(
@@ -162,7 +182,10 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
     );
   }
 
-  Widget _buildDesktopProfileBody(BuildContext context, Map<String, String> data) {
+  Widget _buildDesktopProfileBody(
+    BuildContext context,
+    Map<String, String> data,
+  ) {
     final phone = data['phone']?.trim() ?? '';
     final school = data['school']?.trim() ?? '';
 
@@ -182,7 +205,8 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                   _InfoRow(label: 'Role', value: data['role'] ?? '—'),
                   _InfoRow(label: 'Email', value: data['email'] ?? '—'),
                   if (phone.isNotEmpty) _InfoRow(label: 'Phone', value: phone),
-                  if (school.isNotEmpty) _InfoRow(label: 'School', value: school),
+                  if (school.isNotEmpty)
+                    _InfoRow(label: 'School', value: school),
                 ],
               );
 
@@ -193,6 +217,12 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                     icon: Icons.edit_outlined,
                     label: 'Edit Profile',
                     onTap: _openEditProfile,
+                  ),
+                  _ActionRow(
+                    icon: Icons.lock_outline_rounded,
+                    label: 'Change Password',
+                    onTap: () =>
+                        widget.onNavigateToPage?.call('changePassword'),
                   ),
                   _ActionRow(
                     icon: Icons.logout_rounded,
@@ -289,24 +319,39 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                   children: [
                     Text(
                       data['name'] ?? '—',
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: kPrimaryBlue),
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        color: kPrimaryBlue,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       data['role'] ?? '—',
-                      style: TextStyle(fontSize: 13, color: Colors.grey.shade600, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 10),
                     Row(
                       children: [
-                        Icon(Icons.email_outlined, size: 18, color: Colors.grey.shade600),
+                        Icon(
+                          Icons.email_outlined,
+                          size: 18,
+                          color: Colors.grey.shade600,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             data['email'] ?? '—',
-                            style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade700,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -330,8 +375,13 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shadowColor: Colors.transparent,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 12,
+                ),
               ),
             ),
           );
@@ -348,11 +398,7 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              profileInfo,
-              const SizedBox(height: 16),
-              actions,
-            ],
+            children: [profileInfo, const SizedBox(height: 16), actions],
           );
         },
       ),
@@ -369,9 +415,22 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
         borderRadius: BorderRadius.circular(kCardRadius),
         border: Border.all(color: Colors.white, width: 2),
         boxShadow: [
-          BoxShadow(color: Colors.white, blurRadius: 18, offset: const Offset(-6, -6), spreadRadius: 0.5),
-          BoxShadow(color: kPrimaryBlue.withOpacity(0.12), blurRadius: 28, offset: const Offset(10, 12)),
-          BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 14, offset: const Offset(5, 8)),
+          BoxShadow(
+            color: Colors.white,
+            blurRadius: 18,
+            offset: const Offset(-6, -6),
+            spreadRadius: 0.5,
+          ),
+          BoxShadow(
+            color: kPrimaryBlue.withOpacity(0.12),
+            blurRadius: 28,
+            offset: const Offset(10, 12),
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 14,
+            offset: const Offset(5, 8),
+          ),
         ],
       ),
       child: Column(
@@ -386,10 +445,21 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: kPrimaryGreen.withOpacity(0.6), width: 2.5),
+                      border: Border.all(
+                        color: kPrimaryGreen.withOpacity(0.6),
+                        width: 2.5,
+                      ),
                       boxShadow: [
-                        BoxShadow(color: Colors.white, blurRadius: 8, offset: const Offset(-2, -2)),
-                        BoxShadow(color: kPrimaryBlue.withOpacity(0.15), blurRadius: 12, offset: const Offset(3, 3)),
+                        BoxShadow(
+                          color: Colors.white,
+                          blurRadius: 8,
+                          offset: const Offset(-2, -2),
+                        ),
+                        BoxShadow(
+                          color: kPrimaryBlue.withOpacity(0.15),
+                          blurRadius: 12,
+                          offset: const Offset(3, 3),
+                        ),
                       ],
                     ),
                     child: CircleAvatar(
@@ -427,26 +497,41 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                   children: [
                     Text(
                       data['name']!,
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: kPrimaryBlue,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       data['role']!,
-                      style: TextStyle(fontSize: 13, color: Colors.grey.shade600, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w600,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 10),
                     Row(
                       children: [
-                        Icon(Icons.email_outlined, size: 18, color: Colors.grey.shade600),
+                        Icon(
+                          Icons.email_outlined,
+                          size: 18,
+                          color: Colors.grey.shade600,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             data['email']!,
-                            style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade700,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -465,8 +550,16 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Colors.white, width: 1.5),
               boxShadow: [
-                BoxShadow(color: Colors.white, blurRadius: 8, offset: const Offset(-2, -2)),
-                BoxShadow(color: kPrimaryBlue.withOpacity(0.2), blurRadius: 12, offset: const Offset(3, 3)),
+                BoxShadow(
+                  color: Colors.white,
+                  blurRadius: 8,
+                  offset: const Offset(-2, -2),
+                ),
+                BoxShadow(
+                  color: kPrimaryBlue.withOpacity(0.2),
+                  blurRadius: 12,
+                  offset: const Offset(3, 3),
+                ),
               ],
             ),
             child: Material(
@@ -476,13 +569,23 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                 onTap: _openEditProfile,
                 borderRadius: BorderRadius.circular(16),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 20,
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.edit_rounded, size: 20, color: kPrimaryBlue),
                       const SizedBox(width: 8),
-                      Text('Edit Profile', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: kPrimaryBlue)),
+                      Text(
+                        'Edit Profile',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: kPrimaryBlue,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -496,16 +599,39 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
 
   Widget _buildSummaryCards(BuildContext context) {
     return FutureBuilder<Map<String, int>>(
-      future: _statsFuture ?? Future.value({'students': 0, 'teachers': 0, 'classes': 0}),
+      future:
+          _statsFuture ??
+          Future.value({'students': 0, 'teachers': 0, 'classes': 0}),
       builder: (context, snap) {
         final stats = snap.data ?? {'students': 0, 'teachers': 0, 'classes': 0};
         return Row(
           children: [
-            Expanded(child: _SummaryCard(label: 'STUDENTS', value: '${stats['students'] ?? 0}', icon: Icons.people_alt_rounded, color: kPrimaryBlue)),
+            Expanded(
+              child: _SummaryCard(
+                label: 'STUDENTS',
+                value: '${stats['students'] ?? 0}',
+                icon: Icons.people_alt_rounded,
+                color: kPrimaryBlue,
+              ),
+            ),
             const SizedBox(width: 12),
-            Expanded(child: _SummaryCard(label: 'TEACHERS', value: '${stats['teachers'] ?? 0}', icon: Icons.school_rounded, color: kPrimaryGreen)),
+            Expanded(
+              child: _SummaryCard(
+                label: 'TEACHERS',
+                value: '${stats['teachers'] ?? 0}',
+                icon: Icons.school_rounded,
+                color: kPrimaryGreen,
+              ),
+            ),
             const SizedBox(width: 12),
-            Expanded(child: _SummaryCard(label: 'CLASSES', value: '${stats['classes'] ?? 0}', icon: Icons.class_rounded, color: kPrimaryBlue)),
+            Expanded(
+              child: _SummaryCard(
+                label: 'CLASSES',
+                value: '${stats['classes'] ?? 0}',
+                icon: Icons.class_rounded,
+                color: kPrimaryBlue,
+              ),
+            ),
           ],
         );
       },
@@ -516,9 +642,9 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
     return _ProfileActionTile(
       icon: Icons.lock_reset_rounded,
       label: 'Reset Password',
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const ChangePasswordPage()),
-      ),
+      onTap: () => Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const ChangePasswordPage())),
     );
   }
 
@@ -535,9 +661,21 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
             borderRadius: BorderRadius.circular(kCardRadius),
             border: Border.all(color: Colors.white, width: 1.5),
             boxShadow: [
-              BoxShadow(color: Colors.white, blurRadius: 8, offset: const Offset(-2, -2)),
-              BoxShadow(color: Colors.redAccent.withOpacity(0.15), blurRadius: 14, offset: const Offset(4, 6)),
-              BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(2, 4)),
+              BoxShadow(
+                color: Colors.white,
+                blurRadius: 8,
+                offset: const Offset(-2, -2),
+              ),
+              BoxShadow(
+                color: Colors.redAccent.withOpacity(0.15),
+                blurRadius: 14,
+                offset: const Offset(4, 6),
+              ),
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 10,
+                offset: const Offset(2, 4),
+              ),
             ],
           ),
           child: Row(
@@ -545,7 +683,14 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
             children: [
               Icon(Icons.logout_rounded, color: Colors.redAccent, size: 22),
               const SizedBox(width: 10),
-              Text('Logout', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.redAccent)),
+              Text(
+                'Logout',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.redAccent,
+                ),
+              ),
             ],
           ),
         ),
@@ -567,7 +712,11 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
       appBar: AppBar(
         title: const Text(
           'My Profile',
-          style: TextStyle(color: kPrimaryBlue, fontWeight: FontWeight.bold, fontSize: 20),
+          style: TextStyle(
+            color: kPrimaryBlue,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
         ),
         backgroundColor: kBgColor,
         elevation: 0,
@@ -583,11 +732,23 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white, width: 1.5),
                 boxShadow: [
-                  BoxShadow(color: Colors.white, blurRadius: 6, offset: const Offset(-2, -2)),
-                  BoxShadow(color: kPrimaryBlue.withOpacity(0.2), blurRadius: 10, offset: const Offset(2, 2)),
+                  BoxShadow(
+                    color: Colors.white,
+                    blurRadius: 6,
+                    offset: const Offset(-2, -2),
+                  ),
+                  BoxShadow(
+                    color: kPrimaryBlue.withOpacity(0.2),
+                    blurRadius: 10,
+                    offset: const Offset(2, 2),
+                  ),
                 ],
               ),
-              child: const Icon(Icons.settings_rounded, color: kPrimaryBlue, size: 22),
+              child: const Icon(
+                Icons.settings_rounded,
+                color: kPrimaryBlue,
+                size: 22,
+              ),
             ),
             onPressed: () {},
           ),
@@ -606,10 +767,7 @@ class _ProfileSectionCard extends StatelessWidget {
   final String title;
   final List<Widget> children;
 
-  const _ProfileSectionCard({
-    required this.title,
-    required this.children,
-  });
+  const _ProfileSectionCard({required this.title, required this.children});
 
   @override
   Widget build(BuildContext context) {
@@ -632,7 +790,11 @@ class _ProfileSectionCard extends StatelessWidget {
         children: [
           Text(
             title,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kPrimaryBlue),
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: kPrimaryBlue,
+            ),
           ),
           const SizedBox(height: 16),
           ...children,
@@ -659,13 +821,21 @@ class _InfoRow extends StatelessWidget {
             width: 120,
             child: Text(
               label,
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kPrimaryBlue),
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: kPrimaryBlue,
+              ),
             ),
           ),
         ],
@@ -705,10 +875,18 @@ class _ActionRow extends StatelessWidget {
               Expanded(
                 child: Text(
                   label,
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: color),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
                 ),
               ),
-              Icon(Icons.chevron_right_rounded, size: 20, color: Colors.grey.shade400),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: Colors.grey.shade400,
+              ),
             ],
           ),
         ),
@@ -722,7 +900,11 @@ class _ProfileActionTile extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
-  const _ProfileActionTile({required this.icon, required this.label, required this.onTap});
+  const _ProfileActionTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -738,9 +920,21 @@ class _ProfileActionTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: Colors.white, width: 1.5),
             boxShadow: [
-              BoxShadow(color: Colors.white, blurRadius: 10, offset: const Offset(-3, -3)),
-              BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 16, offset: const Offset(4, 6)),
-              BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(2, 3)),
+              BoxShadow(
+                color: Colors.white,
+                blurRadius: 10,
+                offset: const Offset(-3, -3),
+              ),
+              BoxShadow(
+                color: kPrimaryBlue.withOpacity(0.08),
+                blurRadius: 16,
+                offset: const Offset(4, 6),
+              ),
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 8,
+                offset: const Offset(2, 3),
+              ),
             ],
           ),
           child: Row(
@@ -752,8 +946,16 @@ class _ProfileActionTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.white, width: 1),
                   boxShadow: [
-                    BoxShadow(color: Colors.white, blurRadius: 6, offset: const Offset(-2, -2)),
-                    BoxShadow(color: kPrimaryBlue.withOpacity(0.15), blurRadius: 8, offset: const Offset(2, 2)),
+                    BoxShadow(
+                      color: Colors.white,
+                      blurRadius: 6,
+                      offset: const Offset(-2, -2),
+                    ),
+                    BoxShadow(
+                      color: kPrimaryBlue.withOpacity(0.15),
+                      blurRadius: 8,
+                      offset: const Offset(2, 2),
+                    ),
                   ],
                 ),
                 child: Icon(icon, color: kPrimaryBlue, size: 20),
@@ -762,12 +964,20 @@ class _ProfileActionTile extends StatelessWidget {
               Expanded(
                 child: Text(
                   label,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: kPrimaryBlue),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: kPrimaryBlue,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey.shade400),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 14,
+                color: Colors.grey.shade400,
+              ),
             ],
           ),
         ),
@@ -798,9 +1008,22 @@ class _SummaryCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.white, width: 1.5),
         boxShadow: [
-          BoxShadow(color: Colors.white, blurRadius: 12, offset: const Offset(-4, -4), spreadRadius: 0.5),
-          BoxShadow(color: kPrimaryBlue.withOpacity(0.1), blurRadius: 20, offset: const Offset(6, 8)),
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(3, 5)),
+          BoxShadow(
+            color: Colors.white,
+            blurRadius: 12,
+            offset: const Offset(-4, -4),
+            spreadRadius: 0.5,
+          ),
+          BoxShadow(
+            color: kPrimaryBlue.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(6, 8),
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(3, 5),
+          ),
         ],
       ),
       child: Column(
@@ -812,16 +1035,39 @@ class _SummaryCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.white, width: 1),
               boxShadow: [
-                BoxShadow(color: Colors.white, blurRadius: 6, offset: const Offset(-2, -2)),
-                BoxShadow(color: color.withOpacity(0.2), blurRadius: 8, offset: const Offset(2, 2)),
+                BoxShadow(
+                  color: Colors.white,
+                  blurRadius: 6,
+                  offset: const Offset(-2, -2),
+                ),
+                BoxShadow(
+                  color: color.withOpacity(0.2),
+                  blurRadius: 8,
+                  offset: const Offset(2, 2),
+                ),
               ],
             ),
             child: Icon(icon, color: color, size: 22),
           ),
           const SizedBox(height: 10),
-          Text(label, style: TextStyle(fontSize: 9, color: Colors.grey.shade600, fontWeight: FontWeight.w600, letterSpacing: 0.5)),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 9,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+            ),
+          ),
           const SizedBox(height: 4),
-          Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: kPrimaryBlue,
+            ),
+          ),
         ],
       ),
     );

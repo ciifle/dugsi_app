@@ -16,7 +16,6 @@ import 'package:kobac/student/widgets/student_drawer.dart';
 import 'package:kobac/student/pages/student_notices.dart';
 import 'package:kobac/student/pages/academic_performance_page.dart';
 import 'package:kobac/services/academic_performance_service.dart';
-import 'package:kobac/messages/messages_screen.dart';
 
 // ---------- COLOR PALETTE (Only two colors) ----------
 const Color kPrimaryBlue = Color(0xFF023471); // Dark blue
@@ -155,9 +154,7 @@ class _StudentDashboardScreenState with ChangeNotifier {
   late final List<Widget> _screens = [
     _DashboardHomeContent(navigateToTab: _onNavItemTapped),
     const StudentAttendanceScreen(),
-    const MessagesScreen(
-      embedInParent: true,
-    ), // Messages - proper messages screen
+    const AcademicPerformancePage(),
     StudentProfileScreen(),
   ];
 
@@ -165,7 +162,7 @@ class _StudentDashboardScreenState with ChangeNotifier {
   final List<Map<String, dynamic>> _navItems = [
     {'icon': Icons.home_rounded, 'label': 'Home'},
     {'icon': Icons.calendar_month_rounded, 'label': 'Attendance'},
-    {'icon': Icons.notifications_rounded, 'label': 'Messages'},
+    {'icon': Icons.insights_rounded, 'label': 'Performance'},
     {'icon': Icons.person_rounded, 'label': 'Profile'},
   ];
 

@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:kobac/parent/pages/parent_children_list_screen.dart';
 import 'package:kobac/parent/pages/parent_fee_payment_screen.dart';
 import 'package:kobac/services/auth_provider.dart';
-import 'package:kobac/messages/messages_screen.dart';
 
 // ---------- COMPLETE COLOR PALETTE ----------
 const Color kPrimaryBlue = Color(0xFF023471);
@@ -169,21 +168,7 @@ class ParentDrawer extends StatelessWidget {
                         onAttendanceTap();
                       },
                     ),
-                    _buildDrawerItem(
-                      icon: Icons.message_rounded,
-                      label: 'Messages',
-                      color: kPrimaryBlue,
-                      badge: null,
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const MessagesScreen(),
-                          ),
-                        );
-                      },
-                    ),
+                    // Messaging temporarily disabled from active UI/navigation.
                     _buildDrawerItem(
                       icon: Icons.notifications_rounded,
                       label: 'Notifications',
@@ -231,7 +216,14 @@ class ParentDrawer extends StatelessWidget {
   Widget _buildDrawerHeader(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
     final name = user?.name ?? parent['name'] ?? 'Parent';
-    final initials = name.isNotEmpty ? name.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase() : 'P';
+    final initials = name.isNotEmpty
+        ? name
+              .split(' ')
+              .map((e) => e.isNotEmpty ? e[0] : '')
+              .take(2)
+              .join()
+              .toUpperCase()
+        : 'P';
     final email = user?.email ?? user?.emisNumber ?? parent['email'] ?? '—';
 
     return Container(

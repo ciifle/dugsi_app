@@ -9,29 +9,35 @@ void main() {
   late String performance;
 
   setUpAll(() {
-    shell = File('lib/student/widgets/student_web_shell.dart')
-        .readAsStringSync();
-    sidebar = File('lib/student/widgets/student_web_sidebar.dart')
-        .readAsStringSync();
-    dashboard = File('lib/student/widgets/student_web_dashboard.dart')
-        .readAsStringSync();
-    performance = File('lib/student/pages/academic_performance_page.dart')
-        .readAsStringSync();
+    shell = File(
+      'lib/student/widgets/student_web_shell.dart',
+    ).readAsStringSync();
+    sidebar = File(
+      'lib/student/widgets/student_web_sidebar.dart',
+    ).readAsStringSync();
+    dashboard = File(
+      'lib/student/widgets/student_web_dashboard.dart',
+    ).readAsStringSync();
+    performance = File(
+      'lib/student/pages/academic_performance_page.dart',
+    ).readAsStringSync();
   });
 
-  test('student desktop shell preserves existing destinations', () {
+  test('student desktop shell preserves academic destinations', () {
     for (final route in [
       'timetable',
       'marks',
       'results',
       'attendance',
       'notices',
-      'messages',
       'profile',
       'performance',
     ]) {
       expect(shell, contains("case '$route':"));
     }
+    expect(shell, isNot(contains("case 'messages':")));
+    expect(shell, isNot(contains("case 'newMessage':")));
+    expect(shell, isNot(contains("case 'chat':")));
   });
 
   test('sidebar has identity and fixed logout but no change password item', () {
@@ -51,10 +57,13 @@ void main() {
     expect(dashboard, contains("_navigate('timetable')"));
   });
 
-  test('embedded performance relies on shell header and preserves decimals', () {
-    expect(shell, contains('AcademicPerformancePage(embedBodyOnly: true)'));
-    expect(performance, contains('if (!widget.embedBodyOnly)'));
-    expect(performance, contains("'\${data.percentage}%'"));
-    expect(performance, isNot(contains('percentage.toStringAsFixed')));
-  });
+  test(
+    'embedded performance relies on shell header and preserves decimals',
+    () {
+      expect(shell, contains('AcademicPerformancePage(embedBodyOnly: true)'));
+      expect(performance, contains('if (!widget.embedBodyOnly)'));
+      expect(performance, contains("'\${data.percentage}%'"));
+      expect(performance, isNot(contains('percentage.toStringAsFixed')));
+    },
+  );
 }

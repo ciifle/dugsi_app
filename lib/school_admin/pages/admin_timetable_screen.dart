@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:kobac/school_admin/widgets/admin_responsive_layout.dart';
 import 'package:kobac/services/timetables_service.dart';
 import 'package:kobac/services/classes_service.dart';
@@ -6,6 +7,7 @@ import 'package:kobac/services/subjects_service.dart';
 import 'package:kobac/services/teachers_service.dart';
 import 'package:kobac/services/school_admin_assignments_service.dart';
 import 'package:kobac/services/api_error_helpers.dart';
+import 'package:kobac/services/academic_years_service.dart';
 import 'package:kobac/school_admin/pages/admin_assignments_screen.dart';
 import 'package:kobac/school_admin/pages/timetable_detail_page.dart';
 import 'package:kobac/school_admin/widgets/delete_confirm_dialog.dart';
@@ -60,9 +62,12 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
     final teachersResult = await TeachersService().listTeachers();
     if (!mounted) return;
     setState(() {
-      if (classesResult is ClassSuccess<List<ClassModel>>) _classes = classesResult.data;
-      if (subjectsResult is SubjectSuccess<List<SubjectModel>>) _subjects = subjectsResult.data;
-      if (teachersResult is TeacherSuccess<List<TeacherModel>>) _teachers = teachersResult.data;
+      if (classesResult is ClassSuccess<List<ClassModel>>)
+        _classes = classesResult.data;
+      if (subjectsResult is SubjectSuccess<List<SubjectModel>>)
+        _subjects = subjectsResult.data;
+      if (teachersResult is TeacherSuccess<List<TeacherModel>>)
+        _teachers = teachersResult.data;
       _refDataLoaded = true;
     });
     if (widget.openAddSlotOnLoad && mounted) {
@@ -73,7 +78,9 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
   void _loadTimetables() {
     setState(() {
       _desktopCurrentPage = 1;
-      _timetablesFuture = TimetablesService().listTimetables(classId: _selectedClassId);
+      _timetablesFuture = TimetablesService().listTimetables(
+        classId: _selectedClassId,
+      );
     });
   }
 
@@ -82,6 +89,48 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
       _selectedDay = day;
       _desktopCurrentPage = 1;
     });
+  }
+
+  Future<void> _openDeleteYearTimetablesDialog() async {
+    final yearsProvider = context.read<AcademicYearsProvider>();
+    await yearsProvider.ensureLoaded();
+    if (!mounted) return;
+    if (yearsProvider.years.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(yearsProvider.error ?? 'No academic years available.'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+      return;
+    }
+    final yearId = await showDialog<int>(
+      context: context,
+      barrierColor: Colors.black38,
+      builder: (_) => _DeleteYearTimetablesDialog(years: yearsProvider.years),
+    );
+    if (yearId == null || !mounted) return;
+    final result = await TimetablesService().deleteTimetablesForYear(yearId);
+    if (!mounted) return;
+    if (result is TimetableSuccess<int?>) {
+      final count = result.data;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            count != null
+                ? 'Deleted $count timetable ${count == 1 ? 'entry' : 'entries'} for the selected academic year.'
+                : 'Timetables for the selected academic year were deleted.',
+          ),
+          backgroundColor: kPrimaryGreen,
+        ),
+      );
+      _loadTimetables();
+    } else {
+      final message = (result as TimetableError).message;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: Colors.red.shade700),
+      );
+    }
   }
 
   List<TimetableSlotModel> _paginateSlots(List<TimetableSlotModel> slots) {
@@ -103,12 +152,14 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
     }
     return '—';
   }
+
   String _subjectName(int id) {
     for (final s in _subjects) {
       if (s.id == id) return s.name;
     }
     return '—';
   }
+
   String _teacherName(int id) {
     for (final t in _teachers) {
       if (t.id == id) return t.fullName;
@@ -117,7 +168,9 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
   }
 
   List<TimetableSlotModel> _slotsForDay(List<TimetableSlotModel> slots) {
-    final list = slots.where((s) => s.day.toUpperCase() == _selectedDay).toList();
+    final list = slots
+        .where((s) => s.day.toUpperCase() == _selectedDay)
+        .toList();
     list.sort((a, b) => a.startTime.compareTo(b.startTime));
     return list;
   }
@@ -138,17 +191,26 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
     if (created == true && mounted) {
       _loadTimetables();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Timetable slot created'), backgroundColor: kPrimaryGreen),
+        const SnackBar(
+          content: Text('Timetable slot created'),
+          backgroundColor: kPrimaryGreen,
+        ),
       );
     }
   }
 
-  Future<bool> _createSlotFromDialog(BuildContext ctx, Map<String, dynamic> payload) async {
+  Future<bool> _createSlotFromDialog(
+    BuildContext ctx,
+    Map<String, dynamic> payload,
+  ) async {
     final result = await TimetablesService().createTimetableSlot(payload);
     if (result is TimetableSuccess) return true;
     if (ctx.mounted) {
       ScaffoldMessenger.of(ctx).showSnackBar(
-        SnackBar(content: Text((result as TimetableError).message), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text((result as TimetableError).message),
+          backgroundColor: Colors.red,
+        ),
       );
     }
     return false;
@@ -173,17 +235,27 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
     if (updated == true && mounted) {
       _loadTimetables();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Timetable slot updated'), backgroundColor: kPrimaryGreen),
+        const SnackBar(
+          content: Text('Timetable slot updated'),
+          backgroundColor: kPrimaryGreen,
+        ),
       );
     }
   }
 
-  Future<bool> _updateSlotFromDialog(BuildContext ctx, int id, Map<String, dynamic> payload) async {
+  Future<bool> _updateSlotFromDialog(
+    BuildContext ctx,
+    int id,
+    Map<String, dynamic> payload,
+  ) async {
     final result = await TimetablesService().updateTimetable(id, payload);
     if (result is TimetableSuccess) return true;
     if (ctx.mounted) {
       ScaffoldMessenger.of(ctx).showSnackBar(
-        SnackBar(content: Text((result as TimetableError).message), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text((result as TimetableError).message),
+          backgroundColor: Colors.red,
+        ),
       );
     }
     return false;
@@ -194,7 +266,8 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
     final confirmed = await showDeleteConfirmDialog(
       context,
       title: 'Delete timetable slot?',
-      message: 'Delete this slot ($subjectName, ${slot.startTime}-${slot.endTime}, ${slot.day})?',
+      message:
+          'Delete this slot ($subjectName, ${slot.startTime}-${slot.endTime}, ${slot.day})?',
     );
     if (confirmed != true) return;
     final result = await TimetablesService().deleteTimetable(slot.id);
@@ -202,11 +275,17 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
     if (result is TimetableSuccess) {
       _loadTimetables();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Slot deleted'), backgroundColor: kPrimaryGreen),
+        const SnackBar(
+          content: Text('Slot deleted'),
+          backgroundColor: kPrimaryGreen,
+        ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text((result as TimetableError).message), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text((result as TimetableError).message),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -271,177 +350,269 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                 const Expanded(
                   child: Text(
                     'Timetable',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: kPrimaryBlue,
+                    ),
                   ),
                 ),
                 _AddButton(onPressed: _openAddSlot),
               ],
             ),
           ),
-              if (_refDataLoaded) ...[
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: FormCard(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<int?>(
-                        value: _selectedClassId,
-                        isExpanded: true,
-                        hint: const Text('All classes'),
-                        items: [
-                          const DropdownMenuItem<int?>(value: null, child: Text('All classes')),
-                          ..._classes.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name))),
-                        ],
-                        onChanged: (v) {
-                          setState(() {
-                            _selectedClassId = v;
-                            _loadTimetables();
-                          });
-                        },
+          if (_refDataLoaded) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: FormCard(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<int?>(
+                    value: _selectedClassId,
+                    isExpanded: true,
+                    hint: const Text('All classes'),
+                    items: [
+                      const DropdownMenuItem<int?>(
+                        value: null,
+                        child: Text('All classes'),
                       ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: kDays.map((day) {
-                      final isSelected = _selectedDay == day;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () => setState(() => _selectedDay = day),
-                            borderRadius: BorderRadius.circular(14),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: isSelected ? kPrimaryBlue : Colors.white,
-                                borderRadius: BorderRadius.circular(14),
-                                boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 2))],
-                              ),
-                              child: Text(
-                                day,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: isSelected ? Colors.white : kPrimaryBlue,
-                                ),
-                              ),
-                            ),
-                          ),
+                      ..._classes.map(
+                        (c) => DropdownMenuItem<int?>(
+                          value: c.id,
+                          child: Text(c.name),
                         ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
-              Expanded(
-                child: RefreshIndicator(
-                  onRefresh: () async => _loadTimetables(),
-                  color: kPrimaryGreen,
-                  child: FutureBuilder<TimetableResult<List<TimetableSlotModel>>>(
-                    future: _timetablesFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator(color: kPrimaryGreen));
-                      }
-                      if (snapshot.hasError) {
-                        final msg = userFriendlyMessage(snapshot.error!, null, 'AdminTimetableScreen');
-                        return Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
-                                const SizedBox(height: 12),
-                                Text(msg, textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.grey[800])),
-                                const SizedBox(height: 16),
-                                TextButton.icon(onPressed: _loadTimetables, icon: const Icon(Icons.refresh), label: const Text('Retry')),
-                              ],
-                            ),
-                          ),
-                        );
-                      }
-                      final result = snapshot.data;
-                      if (result == null) return const Center(child: Text('No data'));
-                      if (result is TimetableError) {
-                        return Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
-                                const SizedBox(height: 12),
-                                Text(result.message, textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.grey[800])),
-                                const SizedBox(height: 16),
-                                TextButton.icon(onPressed: _loadTimetables, icon: const Icon(Icons.refresh), label: const Text('Retry')),
-                              ],
-                            ),
-                          ),
-                        );
-                      }
-                      final slots = _slotsForDay((result as TimetableSuccess<List<TimetableSlotModel>>).data);
-                      if (slots.isEmpty) {
-                        return ListView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          children: [
-                            SizedBox(height: MediaQuery.of(context).size.height * 0.2),
-                            Center(
-                              child: Column(
-                                children: [
-                                  Icon(Icons.schedule_rounded, size: 60, color: Colors.grey[300]),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    'No slots for $_selectedDay yet',
-                                    style: TextStyle(color: Colors.grey[600], fontSize: 16),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  TextButton.icon(
-                                    onPressed: _openAddSlot,
-                                    icon: const Icon(Icons.add_rounded),
-                                    label: const Text('Add Slot'),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        );
-                      }
-                      return ListView.builder(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                        itemCount: slots.length,
-                        itemBuilder: (context, index) {
-                          final slot = slots[index];
-                          return _SlotCard(
-                            slot: slot,
-                            subjectName: _subjectName(slot.subjectId),
-                            teacherName: _teacherName(slot.teacherId),
-                            className: _selectedClassId == null ? _className(slot.classId) : null,
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => TimetableDetailPage(slotId: slot.id),
-                              ),
-                            ),
-                            onEdit: () => _openEditSlot(slot),
-                            onDelete: () => _deleteSlot(slot),
-                          );
-                        },
-                      );
+                      ),
+                    ],
+                    onChanged: (v) {
+                      setState(() {
+                        _selectedClassId = v;
+                        _loadTimetables();
+                      });
                     },
                   ),
                 ),
               ),
-            ],
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: OutlinedButton.icon(
+                onPressed: _openDeleteYearTimetablesDialog,
+                icon: const Icon(Icons.event_busy_rounded, size: 18),
+                label: const Text('Delete Year Timetables'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red.shade700,
+                  side: BorderSide(color: Colors.red.shade300),
+                  minimumSize: const Size(double.infinity, 44),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: kDays.map((day) {
+                  final isSelected = _selectedDay == day;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => setState(() => _selectedDay = day),
+                        borderRadius: BorderRadius.circular(14),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelected ? kPrimaryBlue : Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: kPrimaryBlue.withOpacity(0.08),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            day,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: isSelected ? Colors.white : kPrimaryBlue,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () async => _loadTimetables(),
+              color: kPrimaryGreen,
+              child: FutureBuilder<TimetableResult<List<TimetableSlotModel>>>(
+                future: _timetablesFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(color: kPrimaryGreen),
+                    );
+                  }
+                  if (snapshot.hasError) {
+                    final msg = userFriendlyMessage(
+                      snapshot.error!,
+                      null,
+                      'AdminTimetableScreen',
+                    );
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              size: 48,
+                              color: Colors.red[300],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              msg,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey[800],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            TextButton.icon(
+                              onPressed: _loadTimetables,
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+                  final result = snapshot.data;
+                  if (result == null)
+                    return const Center(child: Text('No data'));
+                  if (result is TimetableError) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              size: 48,
+                              color: Colors.red[300],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              result.message,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey[800],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            TextButton.icon(
+                              onPressed: _loadTimetables,
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+                  final slots = _slotsForDay(
+                    (result as TimetableSuccess<List<TimetableSlotModel>>).data,
+                  );
+                  if (slots.isEmpty) {
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.2,
+                        ),
+                        Center(
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.schedule_rounded,
+                                size: 60,
+                                color: Colors.grey[300],
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'No slots for $_selectedDay yet',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              TextButton.icon(
+                                onPressed: _openAddSlot,
+                                icon: const Icon(Icons.add_rounded),
+                                label: const Text('Add Slot'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+                  return ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 8,
+                    ),
+                    itemCount: slots.length,
+                    itemBuilder: (context, index) {
+                      final slot = slots[index];
+                      return _SlotCard(
+                        slot: slot,
+                        subjectName: _subjectName(slot.subjectId),
+                        teacherName: _teacherName(slot.teacherId),
+                        className: _selectedClassId == null
+                            ? _className(slot.classId)
+                            : null,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                TimetableDetailPage(slotId: slot.id),
+                          ),
+                        ),
+                        onEdit: () => _openEditSlot(slot),
+                        onDelete: () => _deleteSlot(slot),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
           ),
-        );
+        ],
+      ),
+    );
   }
 
   Widget _buildDesktopPageBody(BuildContext context) {
@@ -464,24 +635,47 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                 future: _timetablesFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator(color: kPrimaryBlue));
+                    return const Center(
+                      child: CircularProgressIndicator(color: kPrimaryBlue),
+                    );
                   }
                   if (snapshot.hasError) {
-                    final msg = userFriendlyMessage(snapshot.error!, null, 'AdminTimetableScreen');
+                    final msg = userFriendlyMessage(
+                      snapshot.error!,
+                      null,
+                      'AdminTimetableScreen',
+                    );
                     return ListView(
                       physics: const AlwaysScrollableScrollPhysics(),
                       children: [
-                        SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.2,
+                        ),
                         Center(
                           child: Padding(
                             padding: const EdgeInsets.all(24),
                             child: Column(
                               children: [
-                                Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+                                Icon(
+                                  Icons.error_outline,
+                                  size: 48,
+                                  color: Colors.red[300],
+                                ),
                                 const SizedBox(height: 12),
-                                Text(msg, textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.grey[800])),
+                                Text(
+                                  msg,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey[800],
+                                  ),
+                                ),
                                 const SizedBox(height: 16),
-                                TextButton.icon(onPressed: _loadTimetables, icon: const Icon(Icons.refresh), label: const Text('Retry')),
+                                TextButton.icon(
+                                  onPressed: _loadTimetables,
+                                  icon: const Icon(Icons.refresh),
+                                  label: const Text('Retry'),
+                                ),
                               ],
                             ),
                           ),
@@ -497,17 +691,34 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                     return ListView(
                       physics: const AlwaysScrollableScrollPhysics(),
                       children: [
-                        SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.2,
+                        ),
                         Center(
                           child: Padding(
                             padding: const EdgeInsets.all(24),
                             child: Column(
                               children: [
-                                Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+                                Icon(
+                                  Icons.error_outline,
+                                  size: 48,
+                                  color: Colors.red[300],
+                                ),
                                 const SizedBox(height: 12),
-                                Text(result.message, textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.grey[800])),
+                                Text(
+                                  result.message,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey[800],
+                                  ),
+                                ),
                                 const SizedBox(height: 16),
-                                TextButton.icon(onPressed: _loadTimetables, icon: const Icon(Icons.refresh), label: const Text('Retry')),
+                                TextButton.icon(
+                                  onPressed: _loadTimetables,
+                                  icon: const Icon(Icons.refresh),
+                                  label: const Text('Retry'),
+                                ),
                               ],
                             ),
                           ),
@@ -515,19 +726,26 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                       ],
                     );
                   }
-                  final slots = _slotsForDay((result as TimetableSuccess<List<TimetableSlotModel>>).data);
+                  final slots = _slotsForDay(
+                    (result as TimetableSuccess<List<TimetableSlotModel>>).data,
+                  );
                   if (slots.isEmpty) {
                     return ListView(
                       physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.all(24),
                       children: [
-                        SizedBox(height: MediaQuery.of(context).size.height * 0.15),
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.15,
+                        ),
                         Center(
                           child: Column(
                             children: [
                               Text(
                                 'No slots for $_selectedDay yet',
-                                style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 16,
+                                ),
                               ),
                               const SizedBox(height: 16),
                               SizedBox(
@@ -541,7 +759,9 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                                     foregroundColor: Colors.white,
                                     elevation: 0,
                                     shadowColor: Colors.transparent,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -560,7 +780,8 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                     });
                   }
                   final visibleSlots = _paginateSlots(slots);
-                  final startIndex = ((_desktopCurrentPage - 1) * _desktopPageSize) + 1;
+                  final startIndex =
+                      ((_desktopCurrentPage - 1) * _desktopPageSize) + 1;
                   final endIndex = startIndex + visibleSlots.length - 1;
 
                   return ListView(
@@ -583,35 +804,85 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                         child: Column(
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 16,
+                              ),
                               decoration: const BoxDecoration(
-                                border: Border(bottom: BorderSide(color: Color(0xFFE8ECF2), width: 1)),
+                                border: Border(
+                                  bottom: BorderSide(
+                                    color: Color(0xFFE8ECF2),
+                                    width: 1,
+                                  ),
+                                ),
                               ),
                               child: Row(
                                 children: [
                                   Expanded(
                                     flex: 2,
-                                    child: Text('Period', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
+                                    child: Text(
+                                      'Period',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
                                   ),
                                   Expanded(
                                     flex: 2,
-                                    child: Text('Subject', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
+                                    child: Text(
+                                      'Subject',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
                                   ),
                                   Expanded(
                                     flex: 3,
-                                    child: Text('Teacher', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
+                                    child: Text(
+                                      'Teacher',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
                                   ),
                                   Expanded(
                                     flex: 2,
-                                    child: Text('Class', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
+                                    child: Text(
+                                      'Class',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
                                   ),
                                   Expanded(
                                     flex: 2,
-                                    child: Text('Time', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
+                                    child: Text(
+                                      'Time',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
                                   ),
                                   Expanded(
                                     flex: 2,
-                                    child: Text('Session', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
+                                    child: Text(
+                                      'Session',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
                                   ),
                                   const SizedBox(width: 80),
                                 ],
@@ -634,7 +905,8 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                               currentPage: _desktopCurrentPage,
                               totalPages: totalPages,
                               pageSize: _desktopPageSize,
-                              onPageChanged: (page) => setState(() => _desktopCurrentPage = page),
+                              onPageChanged: (page) =>
+                                  setState(() => _desktopCurrentPage = page),
                               onPageSizeChanged: (size) => setState(() {
                                 _desktopPageSize = size;
                                 _desktopCurrentPage = 1;
@@ -681,8 +953,16 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                   value: _selectedClassId,
                   decoration: _desktopFilterDecoration('Class'),
                   items: [
-                    const DropdownMenuItem<int?>(value: null, child: Text('All classes')),
-                    ..._classes.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name))),
+                    const DropdownMenuItem<int?>(
+                      value: null,
+                      child: Text('All classes'),
+                    ),
+                    ..._classes.map(
+                      (c) => DropdownMenuItem<int?>(
+                        value: c.id,
+                        child: Text(c.name),
+                      ),
+                    ),
                   ],
                   onChanged: (value) {
                     setState(() {
@@ -703,7 +983,24 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shadowColor: Colors.transparent,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              );
+              final deleteYearButton = SizedBox(
+                height: 44,
+                child: OutlinedButton.icon(
+                  onPressed: _openDeleteYearTimetablesDialog,
+                  icon: const Icon(Icons.event_busy_rounded, size: 18),
+                  label: const Text('Delete Year Timetables'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red.shade700,
+                    side: BorderSide(color: Colors.red.shade300),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                 ),
               );
@@ -713,6 +1010,8 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                   children: [
                     classField,
                     const Spacer(),
+                    deleteYearButton,
+                    const SizedBox(width: 12),
                     addButton,
                   ],
                 );
@@ -723,7 +1022,12 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                 children: [
                   classField,
                   const SizedBox(height: 12),
-                  Align(alignment: Alignment.centerRight, child: addButton),
+                  Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: 12,
+                    runSpacing: 8,
+                    children: [deleteYearButton, addButton],
+                  ),
                 ],
               );
             },
@@ -738,11 +1042,18 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                 onTap: () => _selectDay(day),
                 borderRadius: BorderRadius.circular(10),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: isSelected ? kPrimaryBlue : Colors.white,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: isSelected ? kPrimaryBlue : const Color(0xFFE5E7EB)),
+                    border: Border.all(
+                      color: isSelected
+                          ? kPrimaryBlue
+                          : const Color(0xFFE5E7EB),
+                    ),
                   ),
                   child: Text(
                     day,
@@ -777,10 +1088,15 @@ String _formatTimetableShift(String? shift) {
 }
 
 String _teacherInitials(String name) {
-  final parts = name.trim().split(RegExp(r'\s+')).where((part) => part.isNotEmpty).toList();
+  final parts = name
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty)
+      .toList();
   if (parts.isEmpty) return '?';
   if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
-  return '${parts.first.substring(0, 1)}${parts.last.substring(0, 1)}'.toUpperCase();
+  return '${parts.first.substring(0, 1)}${parts.last.substring(0, 1)}'
+      .toUpperCase();
 }
 
 class _TimetableTableFooter extends StatelessWidget {
@@ -822,7 +1138,9 @@ class _TimetableTableFooter extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                onPressed: currentPage > 1 ? () => onPageChanged(currentPage - 1) : null,
+                onPressed: currentPage > 1
+                    ? () => onPageChanged(currentPage - 1)
+                    : null,
                 icon: const Icon(Icons.chevron_left_rounded),
                 visualDensity: VisualDensity.compact,
               ),
@@ -836,11 +1154,16 @@ class _TimetableTableFooter extends StatelessWidget {
                 ),
                 child: Text(
                   '$currentPage',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               IconButton(
-                onPressed: currentPage < totalPages ? () => onPageChanged(currentPage + 1) : null,
+                onPressed: currentPage < totalPages
+                    ? () => onPageChanged(currentPage + 1)
+                    : null,
                 icon: const Icon(Icons.chevron_right_rounded),
                 visualDensity: VisualDensity.compact,
               ),
@@ -869,13 +1192,7 @@ class _TimetableTableFooter extends StatelessWidget {
           );
 
           if (isWide) {
-            return Row(
-              children: [
-                summary,
-                const Spacer(),
-                controls,
-              ],
-            );
+            return Row(children: [summary, const Spacer(), controls]);
           }
 
           return Column(
@@ -912,11 +1229,16 @@ class _TimetableRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final periodName = slot.period != null
-        ? (slot.period!.name.isNotEmpty ? slot.period!.name : 'Period ${slot.period!.periodNumber}')
+        ? (slot.period!.name.isNotEmpty
+              ? slot.period!.name
+              : 'Period ${slot.period!.periodNumber}')
         : '-';
-    final timeStr = '${_formatTimetableTime(slot.startTime)} - ${_formatTimetableTime(slot.endTime)}';
+    final timeStr =
+        '${_formatTimetableTime(slot.startTime)} - ${_formatTimetableTime(slot.endTime)}';
     final shift = _formatTimetableShift(slot.period?.shift);
-    final displayClass = className.trim().isEmpty || className == '—' ? '-' : className;
+    final displayClass = className.trim().isEmpty || className == '—'
+        ? '-'
+        : className;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -930,7 +1252,11 @@ class _TimetableRow extends StatelessWidget {
             flex: 2,
             child: Text(
               periodName,
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey.shade800),
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey.shade800,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -990,7 +1316,11 @@ class _TimetableRow extends StatelessWidget {
             flex: 2,
             child: Text(
               timeStr,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kPrimaryGreen),
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: kPrimaryGreen,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -1000,7 +1330,10 @@ class _TimetableRow extends StatelessWidget {
             child: Align(
               alignment: Alignment.centerLeft,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: kPrimaryBlue.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(999),
@@ -1021,13 +1354,21 @@ class _TimetableRow extends StatelessWidget {
             child: Row(
               children: [
                 IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 20, color: kPrimaryGreen),
+                  icon: const Icon(
+                    Icons.edit_outlined,
+                    size: 20,
+                    color: kPrimaryGreen,
+                  ),
                   onPressed: onEdit,
                   tooltip: 'Edit',
                   visualDensity: VisualDensity.compact,
                 ),
                 IconButton(
-                  icon: Icon(Icons.delete_outline, size: 20, color: Colors.red[400]),
+                  icon: Icon(
+                    Icons.delete_outline,
+                    size: 20,
+                    color: Colors.red[400],
+                  ),
                   onPressed: onDelete,
                   tooltip: 'Delete',
                   visualDensity: VisualDensity.compact,
@@ -1070,10 +1411,15 @@ class _SlotCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final timeStr = '${_timeDisplay(slot.startTime)} - ${_timeDisplay(slot.endTime)}';
+    final timeStr =
+        '${_timeDisplay(slot.startTime)} - ${_timeDisplay(slot.endTime)}';
     final shift = _formatShift(slot.period?.shift);
     final isAfternoon = slot.period?.shift?.toLowerCase() == 'afternoon';
-    final periodName = slot.period != null ? (slot.period!.name.isNotEmpty ? slot.period!.name : 'Period ${slot.period!.periodNumber}') : null;
+    final periodName = slot.period != null
+        ? (slot.period!.name.isNotEmpty
+              ? slot.period!.name
+              : 'Period ${slot.period!.periodNumber}')
+        : null;
 
     return Material(
       color: Colors.transparent,
@@ -1086,7 +1432,11 @@ class _SlotCard extends StatelessWidget {
             color: Colors.white,
             borderRadius: BorderRadius.circular(kCardRadius),
             boxShadow: [
-              BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 6)),
+              BoxShadow(
+                color: kPrimaryBlue.withOpacity(0.06),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
             ],
             border: Border.all(color: Colors.grey.shade100),
           ),
@@ -1112,11 +1462,14 @@ class _SlotCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: (isAfternoon ? Colors.orange : kPrimaryBlue).withOpacity(0.1),
+                          color: (isAfternoon ? Colors.orange : kPrimaryBlue)
+                              .withOpacity(0.1),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: Icon(
-                          isAfternoon ? Icons.wb_twilight_rounded : Icons.wb_sunny_rounded,
+                          isAfternoon
+                              ? Icons.wb_twilight_rounded
+                              : Icons.wb_sunny_rounded,
                           color: isAfternoon ? Colors.orange : kPrimaryBlue,
                           size: 24,
                         ),
@@ -1141,15 +1494,24 @@ class _SlotCard extends StatelessWidget {
                                   ),
                                 if (shift.isNotEmpty)
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
                                     decoration: BoxDecoration(
-                                      color: (isAfternoon ? Colors.orange : kPrimaryBlue).withOpacity(0.1),
+                                      color:
+                                          (isAfternoon
+                                                  ? Colors.orange
+                                                  : kPrimaryBlue)
+                                              .withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(10),
                                     ),
                                     child: Text(
                                       shift.toUpperCase(),
                                       style: TextStyle(
-                                        color: isAfternoon ? Colors.orange : kPrimaryBlue,
+                                        color: isAfternoon
+                                            ? Colors.orange
+                                            : kPrimaryBlue,
                                         fontSize: 9,
                                         fontWeight: FontWeight.w800,
                                         letterSpacing: 0.5,
@@ -1170,12 +1532,19 @@ class _SlotCard extends StatelessWidget {
                             const SizedBox(height: 2),
                             Row(
                               children: [
-                                Icon(Icons.person_outline_rounded, size: 14, color: Colors.grey[600]),
+                                Icon(
+                                  Icons.person_outline_rounded,
+                                  size: 14,
+                                  color: Colors.grey[600],
+                                ),
                                 const SizedBox(width: 4),
                                 Expanded(
                                   child: Text(
                                     teacherName,
-                                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey[600],
+                                    ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -1187,16 +1556,30 @@ class _SlotCard extends StatelessWidget {
                                 padding: const EdgeInsets.only(top: 2),
                                 child: Row(
                                   children: [
-                                    Icon(Icons.class_outlined, size: 14, color: Colors.grey[500]),
+                                    Icon(
+                                      Icons.class_outlined,
+                                      size: 14,
+                                      color: Colors.grey[500],
+                                    ),
                                     const SizedBox(width: 4),
-                                    Text(className!, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                                    Text(
+                                      className!,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[500],
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
                             const SizedBox(height: 6),
                             Row(
                               children: [
-                                Icon(Icons.access_time_rounded, size: 14, color: kPrimaryGreen),
+                                Icon(
+                                  Icons.access_time_rounded,
+                                  size: 14,
+                                  color: kPrimaryGreen,
+                                ),
                                 const SizedBox(width: 4),
                                 Text(
                                   timeStr,
@@ -1215,13 +1598,21 @@ class _SlotCard extends StatelessWidget {
                       Column(
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.edit_outlined, size: 20, color: kPrimaryGreen),
+                            icon: const Icon(
+                              Icons.edit_outlined,
+                              size: 20,
+                              color: kPrimaryGreen,
+                            ),
                             onPressed: onEdit,
                             constraints: const BoxConstraints(),
                             padding: const EdgeInsets.all(8),
                           ),
                           IconButton(
-                            icon: Icon(Icons.delete_outline, size: 20, color: Colors.red[400]),
+                            icon: Icon(
+                              Icons.delete_outline,
+                              size: 20,
+                              color: Colors.red[400],
+                            ),
                             onPressed: onDelete,
                             constraints: const BoxConstraints(),
                             padding: const EdgeInsets.all(8),
@@ -1256,7 +1647,8 @@ class _TimetableSlotFormDialog extends StatefulWidget {
   final int? initialPeriodId;
   final int? slotId;
   final bool isCreate;
-  final Future<bool> Function(BuildContext ctx, Map<String, dynamic> payload) onSave;
+  final Future<bool> Function(BuildContext ctx, Map<String, dynamic> payload)
+  onSave;
 
   const _TimetableSlotFormDialog({
     required this.classes,
@@ -1272,7 +1664,8 @@ class _TimetableSlotFormDialog extends StatefulWidget {
   });
 
   @override
-  State<_TimetableSlotFormDialog> createState() => _TimetableSlotFormDialogState();
+  State<_TimetableSlotFormDialog> createState() =>
+      _TimetableSlotFormDialogState();
 }
 
 class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
@@ -1310,14 +1703,17 @@ class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
 
   Future<void> _loadClassSubjects(int classId) async {
     setState(() => _loadingSubjects = true);
-    final result = await SchoolAdminAssignmentsService().listClassSubjects(classId);
+    final result = await SchoolAdminAssignmentsService().listClassSubjects(
+      classId,
+    );
     if (!mounted) return;
     setState(() {
       _loadingSubjects = false;
       if (result is AssignmentSuccess<List<ClassSubjectItem>>) {
         _classSubjects = result.data;
         final currentId = _subjectId;
-        final inList = currentId != null && _classSubjects.any((s) => s.id == currentId);
+        final inList =
+            currentId != null && _classSubjects.any((s) => s.id == currentId);
         if (!inList) _subjectId = null;
       } else {
         _classSubjects = [];
@@ -1328,14 +1724,16 @@ class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
 
   Future<void> _loadTeachers(int classId, int subjectId) async {
     setState(() => _loadingTeachers = true);
-    final result = await SchoolAdminAssignmentsService().listClassSubjectTeachers(classId, subjectId);
+    final result = await SchoolAdminAssignmentsService()
+        .listClassSubjectTeachers(classId, subjectId);
     if (!mounted) return;
     setState(() {
       _loadingTeachers = false;
       if (result is AssignmentSuccess<List<TeacherModel>>) {
         _classTeachers = result.data;
         final currentId = _teacherId;
-        final inList = currentId != null && _classTeachers.any((t) => t.id == currentId);
+        final inList =
+            currentId != null && _classTeachers.any((t) => t.id == currentId);
         if (!inList) _teacherId = null;
       } else {
         _classTeachers = [];
@@ -1375,13 +1773,16 @@ class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
       DropdownMenuItem<int?>(
         value: null,
         child: Text(
-          _loadingSubjects ? 'Loading...' : (_classId == null ? 'Select class first' : 'Select subject'),
+          _loadingSubjects
+              ? 'Loading...'
+              : (_classId == null ? 'Select class first' : 'Select subject'),
         ),
       ),
     ];
     final seen = <int>{};
     for (final s in _classSubjects) {
-      if (seen.add(s.id)) items.add(DropdownMenuItem<int?>(value: s.id, child: Text(s.name)));
+      if (seen.add(s.id))
+        items.add(DropdownMenuItem<int?>(value: s.id, child: Text(s.name)));
     }
     return items;
   }
@@ -1392,7 +1793,7 @@ class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
     if (_classTeachers.any((t) => t.id == _teacherId)) return _teacherId;
     return null;
   }
-  
+
   int? get _effectivePeriodId {
     if (_periodId == null) return null;
     if (_periods.any((p) => p.id == _periodId)) return _periodId;
@@ -1402,23 +1803,32 @@ class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
   bool _canSubmit() {
     if (_submitting) return false;
     if (widget.isCreate) {
-      if (_classId == null || _subjectId == null || _teacherId == null || _periodId == null) return false;
+      if (_classId == null ||
+          _subjectId == null ||
+          _teacherId == null ||
+          _periodId == null)
+        return false;
     }
     return true;
   }
 
   Future<void> _submit() async {
-    if (widget.isCreate && (_classId == null || _subjectId == null || _teacherId == null || _periodId == null)) {
+    if (widget.isCreate &&
+        (_classId == null ||
+            _subjectId == null ||
+            _teacherId == null ||
+            _periodId == null)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select class, subject, teacher and period'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('Please select class, subject, teacher and period'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
     if (_submitting) return;
     setState(() => _submitting = true);
-    final payload = <String, dynamic>{
-      'day': _day,
-    };
+    final payload = <String, dynamic>{'day': _day};
     if (_periodId != null) {
       payload['period_id'] = _periodId!;
     }
@@ -1455,15 +1865,27 @@ class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
             children: [
               Text(
                 widget.isCreate ? 'Add Timetable Slot' : 'Edit Timetable Slot',
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: kPrimaryBlue,
+                ),
               ),
               const SizedBox(height: 20),
               Select3D<int?>(
                 value: _classId,
                 label: 'Class',
                 items: [
-                  const DropdownMenuItem<int?>(value: null, child: Text('Select class')),
-                  ...widget.classes.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name))),
+                  const DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text('Select class'),
+                  ),
+                  ...widget.classes.map(
+                    (c) => DropdownMenuItem<int?>(
+                      value: c.id,
+                      child: Text(c.name),
+                    ),
+                  ),
                 ],
                 onChanged: (v) {
                   setState(() {
@@ -1481,16 +1903,21 @@ class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
                 value: _effectiveSubjectId,
                 label: 'Subject',
                 items: _subjectDropdownItems,
-                onChanged: _loadingSubjects ? null : (v) {
-                  setState(() {
-                    _subjectId = v;
-                    _teacherId = null;
-                    _classTeachers = [];
-                  });
-                  if (v != null && _classId != null) _loadTeachers(_classId!, v);
-                },
+                onChanged: _loadingSubjects
+                    ? null
+                    : (v) {
+                        setState(() {
+                          _subjectId = v;
+                          _teacherId = null;
+                          _classTeachers = [];
+                        });
+                        if (v != null && _classId != null)
+                          _loadTeachers(_classId!, v);
+                      },
               ),
-              if (_classId != null && !_loadingSubjects && _classSubjects.isEmpty)
+              if (_classId != null &&
+                  !_loadingSubjects &&
+                  _classSubjects.isEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
@@ -1509,17 +1936,27 @@ class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
                       _loadingTeachers
                           ? 'Loading...'
                           : _subjectId == null
-                              ? 'Select subject first'
-                              : _classTeachers.isEmpty
-                                  ? 'No teacher for this class+subject'
-                                  : 'Select teacher',
+                          ? 'Select subject first'
+                          : _classTeachers.isEmpty
+                          ? 'No teacher for this class+subject'
+                          : 'Select teacher',
                     ),
                   ),
-                  ..._classTeachers.map((t) => DropdownMenuItem<int?>(value: t.id, child: Text(t.fullName ?? t.email ?? 'Teacher ${t.id}'))),
+                  ..._classTeachers.map(
+                    (t) => DropdownMenuItem<int?>(
+                      value: t.id,
+                      child: Text(t.fullName ?? t.email ?? 'Teacher ${t.id}'),
+                    ),
+                  ),
                 ],
-                onChanged: (_subjectId == null || _loadingTeachers) ? null : (v) => setState(() => _teacherId = v),
+                onChanged: (_subjectId == null || _loadingTeachers)
+                    ? null
+                    : (v) => setState(() => _teacherId = v),
               ),
-              if (_classId != null && _subjectId != null && !_loadingTeachers && _classTeachers.isEmpty)
+              if (_classId != null &&
+                  _subjectId != null &&
+                  !_loadingTeachers &&
+                  _classTeachers.isEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Column(
@@ -1527,17 +1964,26 @@ class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
                     children: [
                       Text(
                         'No teacher assigned for this class & subject yet. Assign a teacher or choose another subject.',
-                        style: TextStyle(fontSize: 13, color: Colors.orange[800]),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.orange[800],
+                        ),
                       ),
                       const SizedBox(height: 8),
                       TextButton.icon(
                         onPressed: () {
                           Navigator.of(context).pop(false);
-                          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AdminAssignmentsScreen()));
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const AdminAssignmentsScreen(),
+                            ),
+                          );
                         },
                         icon: const Icon(Icons.assignment_rounded, size: 18),
                         label: const Text('Go to Assignments'),
-                        style: TextButton.styleFrom(foregroundColor: kPrimaryBlue),
+                        style: TextButton.styleFrom(
+                          foregroundColor: kPrimaryBlue,
+                        ),
                       ),
                     ],
                   ),
@@ -1546,7 +1992,11 @@ class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
               Select3D<String>(
                 value: _day,
                 label: 'Day',
-                items: kDays.map((d) => DropdownMenuItem<String>(value: d, child: Text(d))).toList(),
+                items: kDays
+                    .map(
+                      (d) => DropdownMenuItem<String>(value: d, child: Text(d)),
+                    )
+                    .toList(),
                 onChanged: (v) => setState(() => _day = v ?? 'MON'),
               ),
               const SizedBox(height: 16),
@@ -1556,21 +2006,31 @@ class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
                 items: [
                   DropdownMenuItem<int?>(
                     value: null,
-                    child: Text(_loadingPeriods ? 'Loading periods...' : 'Select period'),
+                    child: Text(
+                      _loadingPeriods ? 'Loading periods...' : 'Select period',
+                    ),
                   ),
-                  ..._periods.map((p) => DropdownMenuItem<int?>(
-                    value: p.id,
-                    child: Text('${p.name.isNotEmpty ? p.name : 'Period ${p.periodNumber}'} (${p.shift.isNotEmpty ? p.shift : 'No Shift'}) - ${p.startTime.substring(0, 5)} to ${p.endTime.substring(0, 5)}'),
-                  )),
+                  ..._periods.map(
+                    (p) => DropdownMenuItem<int?>(
+                      value: p.id,
+                      child: Text(
+                        '${p.name.isNotEmpty ? p.name : 'Period ${p.periodNumber}'} (${p.shift.isNotEmpty ? p.shift : 'No Shift'}) - ${p.startTime.substring(0, 5)} to ${p.endTime.substring(0, 5)}',
+                      ),
+                    ),
+                  ),
                 ],
-                onChanged: _loadingPeriods ? null : (v) => setState(() => _periodId = v),
+                onChanged: _loadingPeriods
+                    ? null
+                    : (v) => setState(() => _periodId = v),
               ),
               const SizedBox(height: 24),
               Row(
                 children: [
                   Expanded(
                     child: TextButton(
-                      onPressed: _submitting ? null : () => Navigator.of(context).pop(false),
+                      onPressed: _submitting
+                          ? null
+                          : () => Navigator.of(context).pop(false),
                       child: const Text('Cancel'),
                     ),
                   ),
@@ -1606,9 +2066,19 @@ class _BackButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+          boxShadow: [
+            BoxShadow(
+              color: kPrimaryBlue.withOpacity(0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        child: const Icon(Icons.arrow_back_rounded, color: kPrimaryBlue, size: 24),
+        child: const Icon(
+          Icons.arrow_back_rounded,
+          color: kPrimaryBlue,
+          size: 24,
+        ),
       ),
     );
   }
@@ -1626,9 +2096,153 @@ class _AddButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: kPrimaryGreen.withOpacity(0.12),
           borderRadius: BorderRadius.circular(14),
-          boxShadow: [BoxShadow(color: kPrimaryGreen.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))],
+          boxShadow: [
+            BoxShadow(
+              color: kPrimaryGreen.withOpacity(0.2),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: const Icon(Icons.add_rounded, color: kPrimaryGreen, size: 24),
+      ),
+    );
+  }
+}
+
+/// Strong destructive confirmation for deleting every timetable entry in a
+/// chosen academic year. Requires the year to be picked before the delete
+/// action is enabled; pops the selected academic year id on confirm.
+class _DeleteYearTimetablesDialog extends StatefulWidget {
+  final List<AcademicYear> years;
+  const _DeleteYearTimetablesDialog({required this.years});
+
+  @override
+  State<_DeleteYearTimetablesDialog> createState() =>
+      _DeleteYearTimetablesDialogState();
+}
+
+class _DeleteYearTimetablesDialogState
+    extends State<_DeleteYearTimetablesDialog> {
+  int? _yearId;
+
+  @override
+  Widget build(BuildContext context) {
+    AcademicYear? selected;
+    for (final year in widget.years) {
+      if (year.id == _yearId) selected = year;
+    }
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.red[700],
+                    size: 26,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                const Expanded(
+                  child: Text(
+                    'Delete Academic Year Timetables?',
+                    style: TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.bold,
+                      color: kPrimaryBlue,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            DropdownButtonFormField<int>(
+              value: _yearId,
+              decoration: InputDecoration(
+                labelText: 'Academic year',
+                prefixIcon: const Icon(Icons.calendar_month_rounded),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              items: widget.years
+                  .map(
+                    (year) => DropdownMenuItem(
+                      value: year.id,
+                      child: Text(year.name),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) => setState(() => _yearId = value),
+            ),
+            if (selected != null) ...[
+              const SizedBox(height: 16),
+              Text(
+                'This will permanently delete ALL timetable entries for '
+                '"${selected.name}". Classes, students, subjects, marks, and '
+                'attendance are NOT being deleted.',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.red.shade700,
+                  height: 1.4,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 48),
+                    ),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: _yearId == null
+                        ? null
+                        : () => Navigator.pop(context, _yearId),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.red.shade700,
+                      minimumSize: const Size(0, 48),
+                    ),
+                    child: const Text('Delete Timetables'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

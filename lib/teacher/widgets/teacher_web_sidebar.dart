@@ -21,7 +21,9 @@ class TeacherWebSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
-    final name = user?.name?.trim().isNotEmpty == true ? user!.name.trim() : 'Teacher';
+    final name = user?.name?.trim().isNotEmpty == true
+        ? user!.name.trim()
+        : 'Teacher';
 
     return Container(
       width: width,
@@ -39,9 +41,7 @@ class TeacherWebSidebar extends StatelessWidget {
         children: [
           DecoratedBox(
             decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Color(0xFFE8ECF2)),
-              ),
+              border: Border(bottom: BorderSide(color: Color(0xFFE8ECF2))),
             ),
             child: SizedBox(
               width: double.infinity,
@@ -101,13 +101,7 @@ class TeacherWebSidebar extends StatelessWidget {
                   selectedPage: selectedPage,
                   onNavigate: onNavigate,
                 ),
-                _TeacherNavItem(
-                  icon: Icons.message_rounded,
-                  label: 'Messages',
-                  pageKey: 'messages',
-                  selectedPage: selectedPage,
-                  onNavigate: onNavigate,
-                ),
+                // Messaging temporarily disabled from active UI/navigation.
                 _TeacherNavItem(
                   icon: Icons.person_rounded,
                   label: 'Profile',
@@ -154,8 +148,7 @@ class _TeacherNavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selected = selectedPage == pageKey ||
-        (pageKey == 'messages' && (selectedPage == 'newMessage' || selectedPage == 'chat'));
+    final selected = selectedPage == pageKey;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),

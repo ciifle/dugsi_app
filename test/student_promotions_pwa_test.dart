@@ -7,10 +7,12 @@ void main() {
   late String shell;
 
   setUpAll(() {
-    page = File('lib/school_admin/pages/student_promotions_page.dart')
-        .readAsStringSync();
-    shell = File('lib/school_admin/widgets/web_admin_shell.dart')
-        .readAsStringSync();
+    page = File(
+      'lib/school_admin/pages/student_promotions_page.dart',
+    ).readAsStringSync();
+    shell = File(
+      'lib/school_admin/widgets/web_admin_shell.dart',
+    ).readAsStringSync();
   });
 
   test('desktop shell owns the promotions title and subtitle', () {
@@ -38,4 +40,20 @@ void main() {
     expect(page, contains("_eligibilityFilter = 'all'"));
     expect(page, contains('_previewedRequest = null'));
   });
+
+  test(
+    'mobile and PWA selection share interactive toggle and bulk actions',
+    () {
+      expect(page, contains('void _toggleStudentSelection'));
+      expect(page, contains('onTap: selectable'));
+      expect(page, contains('? (_) => _toggleStudentSelection(student)'));
+      expect(page, contains('_selectVisibleStudents(selectable)'));
+      expect(page, contains('_clearSelectedStudents'));
+      expect(page, contains('selectableVisible = visible.where(_canSelect)'));
+      expect(page, contains('passesPromotionThreshold(student.percentage)'));
+      expect(page, contains('_hasInvalidPromotedSelection'));
+      expect(page, isNot(contains('AbsorbPointer(')));
+      expect(page, isNot(contains('ModalBarrier(')));
+    },
+  );
 }

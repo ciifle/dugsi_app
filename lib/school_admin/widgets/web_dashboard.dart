@@ -17,7 +17,6 @@ import 'package:kobac/school_admin/pages/create_student_screen.dart';
 import 'package:kobac/school_admin/pages/create_teacher_screen.dart';
 import 'package:kobac/school_admin/pages/admin_attendance_screen.dart';
 import 'package:kobac/school_admin/pages/admin_fees_screen.dart';
-import 'package:kobac/school_admin/pages/mesaage_screen.dart';
 import 'package:kobac/school_admin/pages/admin_class_subjects_screen.dart';
 import 'package:kobac/school_admin/pages/admin_assignments_screen.dart';
 import 'package:kobac/school_admin/pages/admin_timetable_screen.dart';
@@ -203,8 +202,10 @@ class _WebDashboardState extends State<WebDashboard> {
                         ),
                       ),
                       if (year != null)
-                        Text(dates,
-                            style: const TextStyle(color: Color(0xFFDCEAFF))),
+                        Text(
+                          dates,
+                          style: const TextStyle(color: Color(0xFFDCEAFF)),
+                        ),
                       const SizedBox(height: 5),
                       const Text(
                         'Current term  •  Term information unavailable',
@@ -409,16 +410,7 @@ class _WebDashboardState extends State<WebDashboard> {
       description: 'Manage fees',
       onTap: () => _navigateToPage('fees', const AdminFeesScreen()),
     ),
-    QuickActionCard(
-      icon: Icons.message_rounded,
-      iconColor: const Color(0xFF023471),
-      title: 'Messages',
-      description: 'Send messages',
-      onTap: () => _navigateToPage(
-        'messages',
-        const MessageScreen(embedInParent: false),
-      ),
-    ),
+    // Messaging temporarily disabled from active UI/navigation.
     QuickActionCard(
       icon: Icons.schedule_rounded,
       iconColor: const Color(0xFF023471),
@@ -459,16 +451,14 @@ class _WebDashboardState extends State<WebDashboard> {
       iconColor: const Color(0xFF023471),
       title: 'Academic Years',
       description: 'Manage academic years',
-      onTap: () =>
-          _navigateToPage('academicYears', const AcademicYearsPage()),
+      onTap: () => _navigateToPage('academicYears', const AcademicYearsPage()),
     ),
     QuickActionCard(
       icon: Icons.trending_up_rounded,
       iconColor: const Color(0xFF5AB04B),
       title: 'Promotions',
       description: 'Promote students',
-      onTap: () =>
-          _navigateToPage('promotions', const StudentPromotionsPage()),
+      onTap: () => _navigateToPage('promotions', const StudentPromotionsPage()),
     ),
     QuickActionCard(
       icon: Icons.analytics_rounded,

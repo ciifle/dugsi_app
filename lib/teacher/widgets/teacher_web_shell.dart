@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:kobac/messages/chat_screen.dart';
-import 'package:kobac/messages/messages_screen.dart';
-import 'package:kobac/messages/new_message_screen.dart';
 import 'package:kobac/services/auth_provider.dart';
 import 'package:kobac/teacher/pages/assignments_screen.dart';
 import 'package:kobac/teacher/pages/attendance_mark.dart';
@@ -51,18 +48,6 @@ class _TeacherWebShellState extends State<TeacherWebShell> {
         return 'Timetable';
       case 'marks':
         return 'Marks';
-      case 'messages':
-        return 'Messages';
-      case 'newMessage':
-        return 'New Message';
-      case 'chat':
-        if (_selectedArguments is Map) {
-          final name = (_selectedArguments as Map)['name'];
-          if (name is String && name.trim().isNotEmpty) {
-            return name.trim();
-          }
-        }
-        return 'Chat';
       case 'profile':
         return 'Profile';
       default:
@@ -80,12 +65,6 @@ class _TeacherWebShellState extends State<TeacherWebShell> {
         return 'Mark and review attendance records.';
       case 'marks':
         return 'Enter and review student marks.';
-      case 'messages':
-        return 'Your conversations and new messages.';
-      case 'newMessage':
-        return 'Choose a recipient to start a conversation.';
-      case 'chat':
-        return 'Send and receive messages without leaving the dashboard.';
       default:
         return null;
     }
@@ -121,34 +100,7 @@ class _TeacherWebShellState extends State<TeacherWebShell> {
           embedBodyOnly: true,
           onNavigateToPage: _navigateToPage,
         );
-      case 'messages':
-        return MessagesScreen(
-          embedInParent: true,
-          onNavigateToPage: _navigateToPage,
-        );
-      case 'newMessage':
-        return NewMessageScreen(
-          embedBodyOnly: true,
-          onNavigateToPage: _navigateToPage,
-        );
-      case 'chat':
-        if (_selectedArguments is Map) {
-          final args = _selectedArguments as Map;
-          final userId = args['userId'];
-          final name = args['name']?.toString() ?? 'Chat';
-          if (userId is int) {
-            return ChatScreen(
-              userId: userId,
-              name: name,
-              embedBodyOnly: true,
-              onNavigateToPage: _navigateToPage,
-            );
-          }
-        }
-        return MessagesScreen(
-          embedInParent: true,
-          onNavigateToPage: _navigateToPage,
-        );
+      // Messaging temporarily disabled from active UI/navigation.
       case 'profile':
         return TeacherProfileScreen(
           embedBodyOnly: true,

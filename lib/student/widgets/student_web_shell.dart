@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:kobac/messages/chat_screen.dart';
-import 'package:kobac/messages/messages_screen.dart';
-import 'package:kobac/messages/new_message_screen.dart';
 import 'package:kobac/services/auth_provider.dart';
 import 'package:kobac/services/student_service.dart';
 import 'package:kobac/student/pages/student_attendance.dart';
@@ -17,6 +14,7 @@ import 'package:kobac/student/pages/student_timetable_screen.dart';
 import 'package:kobac/student/pages/student_total_page.dart';
 import 'package:kobac/student/pages/change_password_page.dart';
 import 'package:kobac/student/pages/academic_performance_page.dart';
+import 'package:kobac/student/pages/academic_history_page.dart';
 import 'package:kobac/student/widgets/student_web_dashboard.dart';
 import 'package:kobac/student/widgets/student_web_sidebar.dart';
 import 'package:kobac/student/widgets/student_web_top_bar.dart';
@@ -65,24 +63,14 @@ class _StudentWebShellState extends State<StudentWebShell> {
         return 'Attendance';
       case 'notices':
         return 'Notices';
-      case 'messages':
-        return 'Messages';
-      case 'newMessage':
-        return 'New Message';
-      case 'chat':
-        if (_selectedArguments is Map) {
-          final name = (_selectedArguments as Map)['name'];
-          if (name is String && name.trim().isNotEmpty) {
-            return name.trim();
-          }
-        }
-        return 'Chat';
       case 'profile':
         return 'Profile';
       case 'performance':
         return 'Academic Performance';
       case 'changePassword':
         return 'Change Password';
+      case 'academicHistory':
+        return 'Academic History';
       default:
         return 'Dashboard';
     }
@@ -110,18 +98,14 @@ class _StudentWebShellState extends State<StudentWebShell> {
         return 'Monthly attendance records.';
       case 'notices':
         return 'School announcements.';
-      case 'messages':
-        return 'Your conversations and new messages.';
-      case 'newMessage':
-        return 'Choose a recipient to start a conversation.';
-      case 'chat':
-        return 'Send and receive messages without leaving the portal.';
       case 'profile':
         return 'Your student account details.';
       case 'performance':
         return 'Your released academic results and class ranking.';
       case 'changePassword':
         return 'Update your student account password securely.';
+      case 'academicHistory':
+        return 'View your current and previous academic years.';
       default:
         return null;
     }
@@ -170,7 +154,9 @@ class _StudentWebShellState extends State<StudentWebShell> {
         return StudentPayFeeScreen(
           embedBodyOnly: true,
           onNavigateToPage: _navigateToPage,
-          preselectedFeeId: _selectedArguments is int ? _selectedArguments as int : null,
+          preselectedFeeId: _selectedArguments is int
+              ? _selectedArguments as int
+              : null,
         );
       case 'attendance':
         return StudentAttendanceScreen(
@@ -182,34 +168,7 @@ class _StudentWebShellState extends State<StudentWebShell> {
           embedBodyOnly: true,
           onNavigateToPage: _navigateToPage,
         );
-      case 'messages':
-        return MessagesScreen(
-          embedInParent: true,
-          onNavigateToPage: _navigateToPage,
-        );
-      case 'newMessage':
-        return NewMessageScreen(
-          embedBodyOnly: true,
-          onNavigateToPage: _navigateToPage,
-        );
-      case 'chat':
-        if (_selectedArguments is Map) {
-          final args = _selectedArguments as Map;
-          final userId = args['userId'];
-          final name = args['name']?.toString() ?? 'Chat';
-          if (userId is int) {
-            return ChatScreen(
-              userId: userId,
-              name: name,
-              embedBodyOnly: true,
-              onNavigateToPage: _navigateToPage,
-            );
-          }
-        }
-        return MessagesScreen(
-          embedInParent: true,
-          onNavigateToPage: _navigateToPage,
-        );
+      // Messaging temporarily disabled from active UI/navigation.
       case 'profile':
         return StudentProfileScreen(
           embedBodyOnly: true,
@@ -219,6 +178,8 @@ class _StudentWebShellState extends State<StudentWebShell> {
         return const AcademicPerformancePage(embedBodyOnly: true);
       case 'changePassword':
         return const ChangePasswordPage(embedBodyOnly: true);
+      case 'academicHistory':
+        return const StudentAcademicHistoryPage(embedBodyOnly: true);
       case 'dashboard':
       default:
         return StudentWebDashboard(onNavigateToPage: _navigateToPage);

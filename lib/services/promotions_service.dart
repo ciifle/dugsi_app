@@ -9,6 +9,35 @@ Map<String, dynamic>? _promotionMap(dynamic value) =>
     value is Map ? Map<String, dynamic>.from(value) : null;
 List<dynamic> _promotionList(dynamic value) => value is List ? value : const [];
 
+double? parsePromotionPercentage(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value.toDouble();
+  return double.tryParse(value.toString());
+}
+
+bool passesPromotionThreshold(num? percentage) =>
+    percentage != null && percentage.toDouble() >= 50.0;
+
+String promotionResultLabel(num? percentage) {
+  if (percentage == null) return 'No Result';
+  return passesPromotionThreshold(percentage) ? 'Pass' : 'Fail';
+}
+
+bool canPromoteByPercentageAndEligibility(
+  num? percentage,
+  bool? backendEligible,
+) => passesPromotionThreshold(percentage) && (backendEligible ?? true);
+
+bool? parseNullablePromotionBool(dynamic value) {
+  if (value == null) return null;
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  final text = value.toString().trim().toLowerCase();
+  if (text == 'true' || text == '1') return true;
+  if (text == 'false' || text == '0') return false;
+  return null;
+}
+
 List<PromotionStudent> parsePromotionStudentsResponse(dynamic raw) {
   List<dynamic> items = const [];
   if (raw is List) {
@@ -43,6 +72,7 @@ class PromotionStudent {
   final String? status;
   final String? reason;
   final bool? eligible;
+  final bool? resultAvailable;
 
   const PromotionStudent({
     required this.id,
@@ -54,20 +84,11 @@ class PromotionStudent {
     this.status,
     this.reason,
     this.eligible,
+    this.resultAvailable,
   });
 
   factory PromotionStudent.fromJson(Map<String, dynamic> json) {
     final student = _promotionMap(json['student']) ?? json;
-    double? decimal(dynamic value) =>
-        value is num ? value.toDouble() : double.tryParse('$value');
-    bool? boolean(dynamic value) {
-      if (value is bool) return value;
-      if (value == 1 || value?.toString().toLowerCase() == 'true') return true;
-      if (value == 0 || value?.toString().toLowerCase() == 'false')
-        return false;
-      return null;
-    }
-
     return PromotionStudent(
       id: _promotionId(student['id'] ?? student['student_id']),
       name:
@@ -91,13 +112,45 @@ class PromotionStudent {
                   _promotionMap(json['class'])?['name'] ??
                   student['class_name'])
               ?.toString(),
-      percentage: decimal(json['final_percentage'] ?? json['percentage']),
-      grade: (json['letter_grade'] ?? json['grade'])?.toString(),
-      status: (json['final_status'] ?? json['result_status'] ?? json['status'])
-          ?.toString(),
-      reason: (json['reason'] ?? json['message'])?.toString(),
-      eligible: boolean(
-        json['eligible'] ?? json['is_eligible'] ?? json['promotion_eligible'],
+      percentage: parsePromotionPercentage(
+        json['final_percentage'] ??
+            student['final_percentage'] ??
+            json['percentage'] ??
+            student['percentage'],
+      ),
+      grade:
+          (json['letter_grade'] ??
+                  student['letter_grade'] ??
+                  json['grade'] ??
+                  student['grade'])
+              ?.toString(),
+      status:
+          (json['final_status'] ??
+                  student['final_status'] ??
+                  json['result_status'] ??
+                  student['result_status'] ??
+                  json['status'] ??
+                  student['status'])
+              ?.toString(),
+      reason:
+          (json['reason'] ??
+                  student['reason'] ??
+                  json['message'] ??
+                  student['message'])
+              ?.toString(),
+      eligible: parseNullablePromotionBool(
+        json['promotion_eligible'] ??
+            student['promotion_eligible'] ??
+            json['is_eligible'] ??
+            student['is_eligible'] ??
+            json['eligible'] ??
+            student['eligible'],
+      ),
+      resultAvailable: parseNullablePromotionBool(
+        json['result_available'] ??
+            student['result_available'] ??
+            json['resultAvailable'] ??
+            student['resultAvailable'],
       ),
     );
   }

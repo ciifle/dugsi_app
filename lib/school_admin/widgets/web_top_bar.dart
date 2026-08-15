@@ -67,10 +67,13 @@ class _WebTopBarState extends State<WebTopBar> {
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
     final userName = user?.name ?? 'School Admin';
-    final userRole = user?.role.replaceAll('_', ' ').toUpperCase() ?? 'SCHOOL ADMIN';
+    final userRole =
+        user?.role.replaceAll('_', ' ').toUpperCase() ?? 'SCHOOL ADMIN';
     final userEmail = user?.email?.trim().isNotEmpty == true
         ? user!.email!.trim()
-        : (user?.emisNumber?.trim().isNotEmpty == true ? user!.emisNumber!.trim() : null);
+        : (user?.emisNumber?.trim().isNotEmpty == true
+              ? user!.emisNumber!.trim()
+              : null);
     final userInitials = userName.isNotEmpty
         ? userName.split(' ').map((e) => e[0]).take(2).join().toUpperCase()
         : 'SA';
@@ -79,9 +82,7 @@ class _WebTopBarState extends State<WebTopBar> {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(
-          bottom: BorderSide(color: Color(0xFFE8ECF2), width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: Color(0xFFE8ECF2), width: 1)),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -117,10 +118,7 @@ class _WebTopBarState extends State<WebTopBar> {
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(
-                width: 260,
-                child: _buildTitleBlock(),
-              ),
+              SizedBox(width: 260, child: _buildTitleBlock()),
               const SizedBox(width: 16),
               Expanded(child: _buildSearchField()),
               const SizedBox(width: 16),
@@ -128,16 +126,9 @@ class _WebTopBarState extends State<WebTopBar> {
                 icon: Icons.notifications_none_rounded,
                 tooltip: 'Notifications',
                 badge: '3',
-                onPressed: () =>
-                    widget.onNavigateToPage?.call('notifications'),
+                onPressed: () => widget.onNavigateToPage?.call('notifications'),
               ),
               const SizedBox(width: 10),
-              _topAction(
-                icon: Icons.chat_bubble_outline_rounded,
-                tooltip: 'Messages',
-                badge: '2',
-                onPressed: () => widget.onNavigateToPage?.call('messages'),
-              ),
               const SizedBox(width: 16),
               _buildUserMenu(
                 userInitials: userInitials,
@@ -218,10 +209,7 @@ class _WebTopBarState extends State<WebTopBar> {
           textAlign: TextAlign.start,
           decoration: InputDecoration(
             hintText: 'Search anything...',
-            hintStyle: TextStyle(
-              color: Colors.grey.shade500,
-              fontSize: 14,
-            ),
+            hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 14),
             prefixIcon: Icon(
               Icons.search_rounded,
               color: Colors.grey.shade500,
@@ -245,47 +233,47 @@ class _WebTopBarState extends State<WebTopBar> {
     required String badge,
     required VoidCallback onPressed,
   }) => Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Tooltip(
-            message: tooltip,
-            child: IconButton(
-              onPressed: onPressed,
-              style: IconButton.styleFrom(
-                backgroundColor: const Color(0xFFF8F9FC),
-                foregroundColor: _kPrimaryBlue,
-                side: const BorderSide(color: _kBorderGray),
-                minimumSize: const Size(44, 44),
-              ),
-              icon: Icon(icon, size: 20),
+    clipBehavior: Clip.none,
+    children: [
+      Tooltip(
+        message: tooltip,
+        child: IconButton(
+          onPressed: onPressed,
+          style: IconButton.styleFrom(
+            backgroundColor: const Color(0xFFF8F9FC),
+            foregroundColor: _kPrimaryBlue,
+            side: const BorderSide(color: _kBorderGray),
+            minimumSize: const Size(44, 44),
+          ),
+          icon: Icon(icon, size: 20),
+        ),
+      ),
+      Positioned(
+        right: -2,
+        top: -3,
+        child: Container(
+          constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          decoration: BoxDecoration(
+            color: tooltip == 'Notifications'
+                ? const Color(0xFFEF4444)
+                : const Color(0xFF1267D8),
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(color: Colors.white, width: 2),
+          ),
+          child: Text(
+            badge,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 9,
+              fontWeight: FontWeight.bold,
             ),
           ),
-          Positioned(
-            right: -2,
-            top: -3,
-            child: Container(
-              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-              alignment: Alignment.center,
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              decoration: BoxDecoration(
-                color: tooltip == 'Notifications'
-                    ? const Color(0xFFEF4444)
-                    : const Color(0xFF1267D8),
-                borderRadius: BorderRadius.circular(9),
-                border: Border.all(color: Colors.white, width: 2),
-              ),
-              child: Text(
-                badge,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-        ],
-      );
+        ),
+      ),
+    ],
+  );
 
   Widget _buildUserMenu({
     required String userInitials,
@@ -393,7 +381,11 @@ class _WebTopBarState extends State<WebTopBar> {
               width: _kUserMenuWidth,
               child: const Row(
                 children: [
-                  Icon(Icons.person_outline_rounded, size: 20, color: _kPrimaryBlue),
+                  Icon(
+                    Icons.person_outline_rounded,
+                    size: 20,
+                    color: _kPrimaryBlue,
+                  ),
                   SizedBox(width: 12),
                   Text(
                     'Profile',
@@ -415,7 +407,11 @@ class _WebTopBarState extends State<WebTopBar> {
               width: _kUserMenuWidth,
               child: Row(
                 children: [
-                  Icon(Icons.logout_rounded, size: 20, color: Colors.red.shade700),
+                  Icon(
+                    Icons.logout_rounded,
+                    size: 20,
+                    color: Colors.red.shade700,
+                  ),
                   const SizedBox(width: 12),
                   Text(
                     'Logout',
@@ -441,11 +437,15 @@ class _WebTopBarState extends State<WebTopBar> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: _userMenuHovered ? const Color(0xFFD1D5DB) : _kBorderGray,
+                color: _userMenuHovered
+                    ? const Color(0xFFD1D5DB)
+                    : _kBorderGray,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: _userMenuHovered ? 0.08 : 0.04),
+                  color: Colors.black.withValues(
+                    alpha: _userMenuHovered ? 0.08 : 0.04,
+                  ),
                   blurRadius: _userMenuHovered ? 16 : 10,
                   offset: const Offset(0, 4),
                 ),

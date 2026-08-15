@@ -35,11 +35,15 @@ class _StudentWebTopBarState extends State<StudentWebTopBar> {
     final prof = auth.studentProfile;
     final userName = prof?.studentName?.trim().isNotEmpty == true
         ? prof!.studentName!.trim()
-        : (user?.name?.trim().isNotEmpty == true ? user!.name.trim() : 'Student');
+        : (user?.name?.trim().isNotEmpty == true
+              ? user!.name.trim()
+              : 'Student');
     final userRole = user?.role.replaceAll('_', ' ').toUpperCase() ?? 'STUDENT';
     final userEmail = user?.email?.trim().isNotEmpty == true
         ? user!.email!.trim()
-        : (user?.emisNumber?.trim().isNotEmpty == true ? user!.emisNumber!.trim() : null);
+        : (user?.emisNumber?.trim().isNotEmpty == true
+              ? user!.emisNumber!.trim()
+              : null);
     final userInitials = userName.isNotEmpty
         ? userName.split(' ').map((e) => e[0]).take(2).join().toUpperCase()
         : 'S';
@@ -82,11 +86,6 @@ class _StudentWebTopBarState extends State<StudentWebTopBar> {
                 onTap: () => widget.onNavigateToPage?.call('notices'),
               ),
               const SizedBox(width: 10),
-              _shortcut(
-                tooltip: 'Messages',
-                icon: Icons.chat_bubble_outline_rounded,
-                onTap: () => widget.onNavigateToPage?.call('messages'),
-              ),
               const SizedBox(width: 14),
               _buildUserMenu(
                 userInitials: userInitials,
@@ -106,18 +105,18 @@ class _StudentWebTopBarState extends State<StudentWebTopBar> {
     required IconData icon,
     required VoidCallback onTap,
   }) => Tooltip(
-        message: tooltip,
-        child: IconButton(
-          onPressed: onTap,
-          style: IconButton.styleFrom(
-            backgroundColor: const Color(0xFFF7F9FC),
-            foregroundColor: _kPrimaryBlue,
-            side: const BorderSide(color: _kBorderGray),
-            minimumSize: const Size(44, 44),
-          ),
-          icon: Icon(icon, size: 20),
-        ),
-      );
+    message: tooltip,
+    child: IconButton(
+      onPressed: onTap,
+      style: IconButton.styleFrom(
+        backgroundColor: const Color(0xFFF7F9FC),
+        foregroundColor: _kPrimaryBlue,
+        side: const BorderSide(color: _kBorderGray),
+        minimumSize: const Size(44, 44),
+      ),
+      icon: Icon(icon, size: 20),
+    ),
+  );
 
   Widget _buildTitleBlock() {
     return Column(
@@ -250,11 +249,18 @@ class _StudentWebTopBarState extends State<StudentWebTopBar> {
             height: 48,
             child: Row(
               children: [
-                Icon(Icons.person_outline_rounded, size: 20, color: _kPrimaryBlue),
+                Icon(
+                  Icons.person_outline_rounded,
+                  size: 20,
+                  color: _kPrimaryBlue,
+                ),
                 SizedBox(width: 12),
                 Text(
                   'Profile',
-                  style: TextStyle(color: _kPrimaryBlue, fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                    color: _kPrimaryBlue,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ],
             ),
@@ -264,11 +270,18 @@ class _StudentWebTopBarState extends State<StudentWebTopBar> {
             height: 48,
             child: Row(
               children: [
-                Icon(Icons.logout_rounded, size: 20, color: Colors.red.shade700),
+                Icon(
+                  Icons.logout_rounded,
+                  size: 20,
+                  color: Colors.red.shade700,
+                ),
                 const SizedBox(width: 12),
                 Text(
                   'Logout',
-                  style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                    color: Colors.red.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ],
             ),
@@ -285,11 +298,15 @@ class _StudentWebTopBarState extends State<StudentWebTopBar> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: _userMenuHovered ? const Color(0xFFD1D5DB) : _kBorderGray,
+                color: _userMenuHovered
+                    ? const Color(0xFFD1D5DB)
+                    : _kBorderGray,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: _userMenuHovered ? 0.08 : 0.04),
+                  color: Colors.black.withValues(
+                    alpha: _userMenuHovered ? 0.08 : 0.04,
+                  ),
                   blurRadius: _userMenuHovered ? 16 : 10,
                   offset: const Offset(0, 4),
                 ),
@@ -329,12 +346,19 @@ class _StudentWebTopBarState extends State<StudentWebTopBar> {
                         userRole,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12, color: _kTextSecondary),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: _kTextSecondary,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                Icon(Icons.keyboard_arrow_down_rounded, color: Colors.grey.shade600, size: 20),
+                Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: Colors.grey.shade600,
+                  size: 20,
+                ),
               ],
             ),
           ),

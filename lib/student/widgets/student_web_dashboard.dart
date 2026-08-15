@@ -19,12 +19,22 @@ class StudentWebDashboard extends StatefulWidget {
 }
 
 class _StudentWebDashboardState extends State<StudentWebDashboard> {
-  static const List<String> _kDays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+  static const List<String> _kDays = [
+    'MON',
+    'TUE',
+    'WED',
+    'THU',
+    'FRI',
+    'SAT',
+    'SUN',
+  ];
 
-  late Future<StudentResult<List<StudentTimetableSlotModel>>> _timetableTodayFuture;
+  late Future<StudentResult<List<StudentTimetableSlotModel>>>
+  _timetableTodayFuture;
   late Future<StudentResult<List<StudentNoticeModel>>> _noticesFuture;
   late Future<StudentResult<List<StudentFeeModel>>> _feesFuture;
-  late Future<StudentResult<List<StudentAttendanceRecordModel>>> _attendanceFuture;
+  late Future<StudentResult<List<StudentAttendanceRecordModel>>>
+  _attendanceFuture;
   late Future<PerformanceResult<StudentAcademicPerformance>> _performanceFuture;
 
   @override
@@ -44,7 +54,8 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
     _noticesFuture = StudentService().listNotices();
     _feesFuture = StudentService().listFees();
     _attendanceFuture = StudentService().listAttendance(
-      from: '${monthStart.year.toString().padLeft(4, '0')}-${monthStart.month.toString().padLeft(2, '0')}-${monthStart.day.toString().padLeft(2, '0')}',
+      from:
+          '${monthStart.year.toString().padLeft(4, '0')}-${monthStart.month.toString().padLeft(2, '0')}-${monthStart.day.toString().padLeft(2, '0')}',
       to: '${monthEnd.year.toString().padLeft(4, '0')}-${monthEnd.month.toString().padLeft(2, '0')}-${monthEnd.day.toString().padLeft(2, '0')}',
     );
     _performanceFuture = AcademicPerformanceService().performance();
@@ -67,10 +78,19 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
     final prof = auth.studentProfile;
     final name = prof?.studentName?.trim().isNotEmpty == true
         ? prof!.studentName!.trim()
-        : (user?.name?.trim().isNotEmpty == true ? user!.name.trim() : 'Student');
-    final className = prof?.className?.trim().isNotEmpty == true ? prof!.className!.trim() : '—';
+        : (user?.name?.trim().isNotEmpty == true
+              ? user!.name.trim()
+              : 'Student');
+    final className = prof?.className?.trim().isNotEmpty == true
+        ? prof!.className!.trim()
+        : '—';
     final initials = name.isNotEmpty
-        ? name.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase()
+        ? name
+              .split(' ')
+              .map((e) => e.isNotEmpty ? e[0] : '')
+              .take(2)
+              .join()
+              .toUpperCase()
         : 'S';
     final emis = user?.emisNumber?.trim().isNotEmpty == true
         ? user!.emisNumber!.trim()
@@ -182,27 +202,27 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
   }
 
   Widget _buildFeatureCards() => LayoutBuilder(
-        builder: (context, constraints) {
-          final performance = _buildPerformanceFeature();
-          final nextClass = _buildNextClassFeature();
-          if (constraints.maxWidth < 760) {
-            return Column(
-              children: [performance, const SizedBox(height: 16), nextClass],
-            );
-          }
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(flex: 3, child: performance),
-              const SizedBox(width: 16),
-              Expanded(flex: 2, child: nextClass),
-            ],
-          );
-        },
+    builder: (context, constraints) {
+      final performance = _buildPerformanceFeature();
+      final nextClass = _buildNextClassFeature();
+      if (constraints.maxWidth < 760) {
+        return Column(
+          children: [performance, const SizedBox(height: 16), nextClass],
+        );
+      }
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(flex: 3, child: performance),
+          const SizedBox(width: 16),
+          Expanded(flex: 2, child: nextClass),
+        ],
       );
+    },
+  );
 
-  Widget _buildPerformanceFeature() => FutureBuilder<
-          PerformanceResult<StudentAcademicPerformance>>(
+  Widget _buildPerformanceFeature() =>
+      FutureBuilder<PerformanceResult<StudentAcademicPerformance>>(
         future: _performanceFuture,
         builder: (context, snapshot) {
           final result = snapshot.data;
@@ -235,9 +255,11 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
                         spacing: 9,
                         runSpacing: 7,
                         children: [
-                          _featurePill(data.status.isEmpty
-                              ? 'Result unavailable'
-                              : data.status),
+                          _featurePill(
+                            data.status.isEmpty
+                                ? 'Result unavailable'
+                                : data.status,
+                          ),
                           _featurePill(
                             data.position == null
                                 ? 'Position unavailable'
@@ -252,12 +274,12 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
         },
       );
 
-  Widget _buildNextClassFeature() => FutureBuilder<
-          StudentResult<List<StudentTimetableSlotModel>>>(
+  Widget _buildNextClassFeature() =>
+      FutureBuilder<StudentResult<List<StudentTimetableSlotModel>>>(
         future: _timetableTodayFuture,
         builder: (context, snapshot) {
-          final slots = snapshot.data
-                  is StudentSuccess<List<StudentTimetableSlotModel>>
+          final slots =
+              snapshot.data is StudentSuccess<List<StudentTimetableSlotModel>>
               ? List<StudentTimetableSlotModel>.from(
                   (snapshot.data
                           as StudentSuccess<List<StudentTimetableSlotModel>>)
@@ -268,9 +290,10 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
             (a, b) => (a.startTime ?? '').compareTo(b.startTime ?? ''),
           );
           final slot = slots.isEmpty ? null : slots.first;
-          final subject = slot?.subject?['name']?.toString() ??
-              'No more classes today.';
-          final teacher = slot?.teacher?['fullName']?.toString() ??
+          final subject =
+              slot?.subject?['name']?.toString() ?? 'No more classes today.';
+          final teacher =
+              slot?.teacher?['fullName']?.toString() ??
               slot?.teacher?['name']?.toString();
           return _FeatureCard(
             icon: Icons.schedule_rounded,
@@ -305,20 +328,20 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
       );
 
   Widget _featurePill(String text) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-        decoration: BoxDecoration(
-          color: _kPrimaryGreen.withValues(alpha: .1),
-          borderRadius: BorderRadius.circular(99),
-        ),
-        child: Text(
-          text,
-          style: const TextStyle(
-            color: _kPrimaryGreen,
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+    decoration: BoxDecoration(
+      color: _kPrimaryGreen.withValues(alpha: .1),
+      borderRadius: BorderRadius.circular(99),
+    ),
+    child: Text(
+      text,
+      style: const TextStyle(
+        color: _kPrimaryGreen,
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+  );
 
   Widget _heroChip(String label) {
     return Container(
@@ -359,7 +382,10 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
           future: Future.wait([
             _timetableTodayFuture,
             _noticesFuture,
-            if (feesEnabled) _feesFuture else Future.value(StudentSuccess<List<StudentFeeModel>>([])),
+            if (feesEnabled)
+              _feesFuture
+            else
+              Future.value(StudentSuccess<List<StudentFeeModel>>([])),
             _attendanceFuture,
           ]),
           builder: (context, snap) {
@@ -369,37 +395,46 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
             final unpaidFees = _countUnpaidFees(snap.data, feesEnabled);
             final attendanceRate = _attendanceRate(snap.data);
 
-            final stats = <({IconData icon, String label, String value, Color color, String pageKey})>[
-              (
-                icon: Icons.schedule_rounded,
-                label: "Today's classes",
-                value: loading ? '—' : '$todayClasses',
-                color: _kPrimaryBlue,
-                pageKey: 'timetable',
-              ),
-              (
-                icon: Icons.campaign_rounded,
-                label: 'Notices',
-                value: loading ? '—' : '$noticeCount',
-                color: _kPrimaryGreen,
-                pageKey: 'notices',
-              ),
-              (
-                icon: Icons.calendar_month_rounded,
-                label: 'Attendance',
-                value: loading ? '—' : attendanceRate,
-                color: const Color(0xFFF59E0B),
-                pageKey: 'attendance',
-              ),
-              if (feesEnabled)
-                (
-                  icon: Icons.account_balance_wallet_rounded,
-                  label: 'Unpaid fees',
-                  value: loading ? '—' : '$unpaidFees',
-                  color: _kPrimaryBlue,
-                  pageKey: 'fees',
-                ),
-            ];
+            final stats =
+                <
+                  ({
+                    IconData icon,
+                    String label,
+                    String value,
+                    Color color,
+                    String pageKey,
+                  })
+                >[
+                  (
+                    icon: Icons.schedule_rounded,
+                    label: "Today's classes",
+                    value: loading ? '—' : '$todayClasses',
+                    color: _kPrimaryBlue,
+                    pageKey: 'timetable',
+                  ),
+                  (
+                    icon: Icons.campaign_rounded,
+                    label: 'Notices',
+                    value: loading ? '—' : '$noticeCount',
+                    color: _kPrimaryGreen,
+                    pageKey: 'notices',
+                  ),
+                  (
+                    icon: Icons.calendar_month_rounded,
+                    label: 'Attendance',
+                    value: loading ? '—' : attendanceRate,
+                    color: const Color(0xFFF59E0B),
+                    pageKey: 'attendance',
+                  ),
+                  if (feesEnabled)
+                    (
+                      icon: Icons.account_balance_wallet_rounded,
+                      label: 'Unpaid fees',
+                      value: loading ? '—' : '$unpaidFees',
+                      color: _kPrimaryBlue,
+                      pageKey: 'fees',
+                    ),
+                ];
 
             return GridView.builder(
               shrinkWrap: true,
@@ -450,7 +485,9 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
     if (!feesEnabled || data == null || data.length < 3) return 0;
     final result = data[2];
     if (result is StudentSuccess<List<StudentFeeModel>>) {
-      return result.data.where((f) => f.status?.toUpperCase() == 'UNPAID').length;
+      return result.data
+          .where((f) => f.status?.toUpperCase() == 'UNPAID')
+          .length;
     }
     return 0;
   }
@@ -462,7 +499,9 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
     if (result is StudentSuccess<List<StudentAttendanceRecordModel>>) {
       final records = result.data;
       if (records.isEmpty) return '0%';
-      final present = records.where((r) => r.status?.toUpperCase() == 'PRESENT').length;
+      final present = records
+          .where((r) => r.status?.toUpperCase() == 'PRESENT')
+          .length;
       final rate = ((present / records.length) * 100).round();
       return '$rate%';
     }
@@ -470,17 +509,75 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
   }
 
   Widget _buildQuickActions(bool feesEnabled) {
-    final actions = <({String key, IconData icon, Color color, String title, String subtitle})>[
-      (key: 'attendance', icon: Icons.calendar_month_rounded, color: _kPrimaryBlue, title: 'Attendance', subtitle: 'View your records'),
-      (key: 'timetable', icon: Icons.schedule_rounded, color: _kPrimaryGreen, title: 'Timetable', subtitle: "Today's schedule"),
-      (key: 'marks', icon: Icons.grade_rounded, color: _kPrimaryBlue, title: 'Marks', subtitle: 'Grades by exam'),
-      (key: 'results', icon: Icons.stars_rounded, color: _kPrimaryGreen, title: 'Results', subtitle: 'Exam reports'),
-      if (feesEnabled) (key: 'fees', icon: Icons.account_balance_wallet_rounded, color: _kPrimaryBlue, title: 'Fees', subtitle: 'Payment status'),
-      if (feesEnabled) (key: 'payFee', icon: Icons.payment_rounded, color: _kPrimaryGreen, title: 'Pay Fee', subtitle: 'Make a payment'),
-      (key: 'notices', icon: Icons.campaign_rounded, color: _kPrimaryBlue, title: 'Notices', subtitle: 'Announcements'),
-      (key: 'messages', icon: Icons.message_rounded, color: _kPrimaryGreen, title: 'Messages', subtitle: 'Conversations'),
-      (key: 'profile', icon: Icons.person_rounded, color: _kPrimaryBlue, title: 'Profile', subtitle: 'Your account'),
-    ];
+    final actions =
+        <
+          ({
+            String key,
+            IconData icon,
+            Color color,
+            String title,
+            String subtitle,
+          })
+        >[
+          (
+            key: 'attendance',
+            icon: Icons.calendar_month_rounded,
+            color: _kPrimaryBlue,
+            title: 'Attendance',
+            subtitle: 'View your records',
+          ),
+          (
+            key: 'timetable',
+            icon: Icons.schedule_rounded,
+            color: _kPrimaryGreen,
+            title: 'Timetable',
+            subtitle: "Today's schedule",
+          ),
+          (
+            key: 'marks',
+            icon: Icons.grade_rounded,
+            color: _kPrimaryBlue,
+            title: 'Marks',
+            subtitle: 'Grades by exam',
+          ),
+          (
+            key: 'results',
+            icon: Icons.stars_rounded,
+            color: _kPrimaryGreen,
+            title: 'Results',
+            subtitle: 'Exam reports',
+          ),
+          if (feesEnabled)
+            (
+              key: 'fees',
+              icon: Icons.account_balance_wallet_rounded,
+              color: _kPrimaryBlue,
+              title: 'Fees',
+              subtitle: 'Payment status',
+            ),
+          if (feesEnabled)
+            (
+              key: 'payFee',
+              icon: Icons.payment_rounded,
+              color: _kPrimaryGreen,
+              title: 'Pay Fee',
+              subtitle: 'Make a payment',
+            ),
+          (
+            key: 'notices',
+            icon: Icons.campaign_rounded,
+            color: _kPrimaryBlue,
+            title: 'Notices',
+            subtitle: 'Announcements',
+          ),
+          (
+            key: 'profile',
+            icon: Icons.person_rounded,
+            color: _kPrimaryBlue,
+            title: 'Profile',
+            subtitle: 'Your account',
+          ),
+        ];
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -522,8 +619,10 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
             ),
           );
         }
-        final list = snap.data is StudentSuccess<List<StudentTimetableSlotModel>>
-            ? (snap.data as StudentSuccess<List<StudentTimetableSlotModel>>).data
+        final list =
+            snap.data is StudentSuccess<List<StudentTimetableSlotModel>>
+            ? (snap.data as StudentSuccess<List<StudentTimetableSlotModel>>)
+                  .data
             : <StudentTimetableSlotModel>[];
         list.sort((a, b) => (a.startTime ?? '').compareTo(b.startTime ?? ''));
         final showList = list.take(4).toList();
@@ -557,11 +656,17 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
                 ],
               ),
               if (showList.isEmpty)
-                Text('No classes today', style: TextStyle(color: _kTextSecondary.withValues(alpha: 0.9)))
+                Text(
+                  'No classes today',
+                  style: TextStyle(
+                    color: _kTextSecondary.withValues(alpha: 0.9),
+                  ),
+                )
               else
                 ...showList.map((slot) {
                   final subject = slot.subject?['name']?.toString() ?? '—';
-                  final teacher = slot.teacher?['fullName']?.toString() ??
+                  final teacher =
+                      slot.teacher?['fullName']?.toString() ??
                       slot.teacher?['name']?.toString() ??
                       '—';
                   return Padding(
@@ -569,7 +674,10 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
                     child: Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: _kPrimaryBlue.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(10),
@@ -598,7 +706,10 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
                               ),
                               Text(
                                 teacher,
-                                style: const TextStyle(fontSize: 12, color: _kTextSecondary),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: _kTextSecondary,
+                                ),
                               ),
                             ],
                           ),
@@ -652,7 +763,12 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
                 ],
               ),
               if (showList.isEmpty)
-                Text('No notices yet', style: TextStyle(color: _kTextSecondary.withValues(alpha: 0.9)))
+                Text(
+                  'No notices yet',
+                  style: TextStyle(
+                    color: _kTextSecondary.withValues(alpha: 0.9),
+                  ),
+                )
               else
                 ...showList.map((notice) {
                   return Padding(
@@ -674,7 +790,10 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
                             notice.content!.length > 120
                                 ? '${notice.content!.substring(0, 120).trim()}…'
                                 : notice.content!,
-                            style: const TextStyle(fontSize: 13, color: _kTextSecondary),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: _kTextSecondary,
+                            ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -715,70 +834,72 @@ class _FeatureCardState extends State<_FeatureCard> {
 
   @override
   Widget build(BuildContext context) => MouseRegion(
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 170),
-          transform: Matrix4.translationValues(0, _hovered ? -3 : 0, 0),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: const Color(0xFFE8ECF2)),
-            boxShadow: [
-              BoxShadow(
-                color: widget.accent.withValues(alpha: _hovered ? .14 : .07),
-                blurRadius: _hovered ? 24 : 16,
-                offset: const Offset(0, 7),
-              ),
-            ],
+    onEnter: (_) => setState(() => _hovered = true),
+    onExit: (_) => setState(() => _hovered = false),
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 170),
+      transform: Matrix4.translationValues(0, _hovered ? -3 : 0, 0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE8ECF2)),
+        boxShadow: [
+          BoxShadow(
+            color: widget.accent.withValues(alpha: _hovered ? .14 : .07),
+            blurRadius: _hovered ? 24 : 16,
+            offset: const Offset(0, 7),
           ),
-          child: Material(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(22),
-            child: InkWell(
-              onTap: widget.onTap,
-              borderRadius: BorderRadius.circular(22),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(22),
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(22),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: widget.accent.withValues(alpha: .1),
-                            borderRadius: BorderRadius.circular(13),
-                          ),
-                          child: Icon(widget.icon,
-                              color: widget.accent, size: 22),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            widget.title,
-                            style: const TextStyle(
-                              color: _kPrimaryBlue,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                        const Icon(Icons.arrow_forward_rounded,
-                            color: _kPrimaryBlue, size: 18),
-                      ],
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: widget.accent.withValues(alpha: .1),
+                        borderRadius: BorderRadius.circular(13),
+                      ),
+                      child: Icon(widget.icon, color: widget.accent, size: 22),
                     ),
-                    const SizedBox(height: 16),
-                    widget.child,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        widget.title,
+                        style: const TextStyle(
+                          color: _kPrimaryBlue,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const Icon(
+                      Icons.arrow_forward_rounded,
+                      color: _kPrimaryBlue,
+                      size: 18,
+                    ),
                   ],
                 ),
-              ),
+                const SizedBox(height: 16),
+                widget.child,
+              ],
             ),
           ),
         ),
-      );
+      ),
+    ),
+  );
 }
 
 class _StatCard extends StatelessWidget {

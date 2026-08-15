@@ -7,8 +7,8 @@ import 'package:kobac/student/pages/student_result.dart';
 import 'package:kobac/student/pages/student_attendance.dart';
 import 'package:kobac/student/pages/student_profile.dart';
 import 'package:kobac/student/pages/academic_performance_page.dart';
+import 'package:kobac/student/pages/academic_history_page.dart';
 import 'package:kobac/student/pages/student_notices.dart';
-import 'package:kobac/messages/messages_screen.dart';
 import 'package:kobac/student/widgets/student_learning_ui.dart';
 
 // ---------- COLOR PALETTE (Matching Dashboard) ----------
@@ -73,15 +73,16 @@ class AppDrawer extends StatelessWidget {
       screen: StudentAttendanceScreen(),
     ),
     DrawerItem(
+      label: "Academic History",
+      icon: Icons.history_edu_rounded,
+      screen: StudentAcademicHistoryPage(),
+    ),
+    DrawerItem(
       label: "Notices",
       icon: Icons.notifications_rounded,
       screen: AllNoticesScreen(),
     ),
-    DrawerItem(
-      label: "Messages",
-      icon: Icons.message_rounded,
-      screen: const MessagesScreen(),
-    ),
+    // Messaging temporarily disabled from active UI/navigation.
     DrawerItem(
       label: "Profile",
       icon: Icons.person_rounded,
@@ -332,10 +333,6 @@ class AppDrawer extends StatelessWidget {
           if (isDashboard) return;
           if (item.label == 'Attendance' && onSelectTab != null) {
             onSelectTab!(1);
-            return;
-          }
-          if (item.label == 'Messages' && onSelectTab != null) {
-            onSelectTab!(2);
             return;
           }
           if (item.label == 'Profile' && onSelectTab != null) {

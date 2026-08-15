@@ -16,12 +16,20 @@ int _parseId(dynamic v) {
   if (v is String) return int.tryParse(v) ?? 0;
   return 0;
 }
+
 num _parseNum(dynamic v) {
   if (v == null) return 0;
   if (v is num) return v;
   if (v is String) return num.tryParse(v) ?? 0;
   return 0;
 }
+
+num? _parseNumOpt(dynamic v) {
+  if (v is num) return v;
+  if (v is String) return num.tryParse(v.trim());
+  return null;
+}
+
 String _str(dynamic v) => v == null ? '' : v.toString().trim();
 String? _strOpt(dynamic v) => v == null ? null : v.toString().trim();
 
@@ -55,13 +63,23 @@ class StudentMeModel {
     cn ??= _strOpt(json['class_name'] ?? json['className']);
     return StudentMeModel(
       id: _parseId(json['id'] ?? json['student_id']),
-      name: _strOpt(json['name'] ?? json['student_name'] ?? json['studentName']),
+      name: _strOpt(
+        json['name'] ?? json['student_name'] ?? json['studentName'],
+      ),
       emisNumber: _strOpt(json['emis_number'] ?? json['emisNumber']),
-      classId: c is Map ? _parseId(c['id']) : _parseId(json['class_id'] ?? json['classId']),
+      classId: c is Map
+          ? _parseId(c['id'])
+          : _parseId(json['class_id'] ?? json['classId']),
       className: cn,
       class_: c is Map<String, dynamic> ? c : null,
-      user: json['user'] is Map<String, dynamic> ? json['user'] as Map<String, dynamic> : (json['User'] is Map<String, dynamic> ? json['User'] as Map<String, dynamic> : null),
-      school: json['school'] is Map<String, dynamic> ? json['school'] as Map<String, dynamic> : null,
+      user: json['user'] is Map<String, dynamic>
+          ? json['user'] as Map<String, dynamic>
+          : (json['User'] is Map<String, dynamic>
+                ? json['User'] as Map<String, dynamic>
+                : null),
+      school: json['school'] is Map<String, dynamic>
+          ? json['school'] as Map<String, dynamic>
+          : null,
     );
   }
 }
@@ -97,7 +115,11 @@ class StudentMarkModel {
   });
 
   factory StudentMarkModel.fromJson(Map<String, dynamic> json) {
-    Map<String, dynamic> parseNested(dynamic v, String nameKey, String fallbackName) {
+    Map<String, dynamic> parseNested(
+      dynamic v,
+      String nameKey,
+      String fallbackName,
+    ) {
       if (v is Map) return Map<String, dynamic>.from(v);
       if (v is String) return {'id': 0, 'name': v};
       return {'id': 0, 'name': _str(json[nameKey] ?? fallbackName)};
@@ -106,12 +128,28 @@ class StudentMarkModel {
     return StudentMarkModel(
       id: _parseId(json['id']),
       exam: parseNested(json['exam'] ?? json['Exam'], 'exam_name', 'Exam'),
-      subject: parseNested(json['subject'] ?? json['Subject'], 'subject_name', 'Subject'),
-      teacher: json['teacher'] is Map ? Map<String, dynamic>.from(json['teacher'] as Map) : (json['Teacher'] is Map ? Map<String, dynamic>.from(json['Teacher'] as Map) : null),
-      class_: json['class'] is Map ? Map<String, dynamic>.from(json['class'] as Map) : (json['Class'] is Map ? Map<String, dynamic>.from(json['Class'] as Map) : null),
-      marksObtained: _parseNum(json['marks_obtained'] ?? json['marksObtained'] ?? 0),
+      subject: parseNested(
+        json['subject'] ?? json['Subject'],
+        'subject_name',
+        'Subject',
+      ),
+      teacher: json['teacher'] is Map
+          ? Map<String, dynamic>.from(json['teacher'] as Map)
+          : (json['Teacher'] is Map
+                ? Map<String, dynamic>.from(json['Teacher'] as Map)
+                : null),
+      class_: json['class'] is Map
+          ? Map<String, dynamic>.from(json['class'] as Map)
+          : (json['Class'] is Map
+                ? Map<String, dynamic>.from(json['Class'] as Map)
+                : null),
+      marksObtained: _parseNum(
+        json['marks_obtained'] ?? json['marksObtained'] ?? 0,
+      ),
       maxMarks: _parseNum(json['max_marks'] ?? json['maxMarks'] ?? 100),
-      percentage: json['percentage'] != null ? _parseNum(json['percentage']) : null,
+      percentage: json['percentage'] != null
+          ? _parseNum(json['percentage'])
+          : null,
       grade: _strOpt(json['grade']),
       status: _strOpt(json['status']),
       releasedAt: _strOpt(json['released_at'] ?? json['releasedAt']),
@@ -135,37 +173,90 @@ class StudentResultReportModel {
   });
 
   factory StudentResultReportModel.fromJson(Map<String, dynamic> json) {
+    final envelope = json['data'] is Map
+        ? Map<String, dynamic>.from(json['data'] as Map)
+        : (json['report'] is Map
+              ? Map<String, dynamic>.from(json['report'] as Map)
+              : json);
     // Handle both 'results' and 'subjects' from API response
     List<dynamic> r = [];
-    if (json['results'] is List) {
-      r = json['results'] as List;
-    } else if (json['subjects'] is List) {
-      r = json['subjects'] as List;
+    if (envelope['results'] is List) {
+      r = envelope['results'] as List;
+    } else if (envelope['subjects'] is List) {
+      r = envelope['subjects'] as List;
+    } else if (envelope['marks'] is List) {
+      r = envelope['marks'] as List;
     }
-    
+
     // Update summary field names to match API response
-    Map<String, dynamic>? summary = json['summary'] is Map ? json['summary'] as Map<String, dynamic> : null;
+    Map<String, dynamic>? summary = envelope['summary'] is Map
+        ? Map<String, dynamic>.from(envelope['summary'] as Map)
+        : null;
     if (summary != null) {
       // Map API summary fields to expected field names
       summary = {
         // Support both old and new field names
-        'total_marks_obtained': summary['total_marks_obtained'] ?? summary['total_obtained'] ?? summary['total'] ?? 0,
-        'total_max_marks': summary['total_max_marks'] ?? summary['total_max'] ?? 0,
-        'percentage': summary['overall_percentage'] ?? summary['percentage'] ?? summary['average'] ?? 0,
-        'grade': summary['overall_grade'] ?? summary['grade'] ?? 'N/A',
-        'status': summary['status'],
+        'total_marks_obtained':
+            summary['total_marks_obtained'] ??
+            summary['total_obtained'] ??
+            summary['total'] ??
+            null,
+        'total_max_marks': summary['total_max_marks'] ?? summary['total_max'],
+        'percentage':
+            summary['overall_percentage'] ??
+            summary['percentage'] ??
+            summary['average'] ??
+            null,
+        'grade': summary['overall_grade'] ?? summary['grade'],
+        'status': summary['status'] ?? summary['result'],
         'position': summary['position'],
         // Also include new field names directly
-        'total': summary['total'] ?? summary['total_marks_obtained'] ?? summary['total_obtained'] ?? 0,
-        'total_max': summary['total_max'] ?? summary['total_max_marks'] ?? 0,
-        'average': summary['average'] ?? summary['overall_percentage'] ?? summary['percentage'] ?? 0,
+        'total':
+            summary['total'] ??
+            summary['total_marks_obtained'] ??
+            summary['total_obtained'] ??
+            null,
+        'total_max': summary['total_max'] ?? summary['total_max_marks'],
+        'average':
+            summary['average'] ??
+            summary['overall_percentage'] ??
+            summary['percentage'] ??
+            null,
       };
+      for (final key in [
+        'total_marks_obtained',
+        'total_max_marks',
+        'percentage',
+        'total',
+        'total_max',
+        'average',
+      ]) {
+        summary[key] = _parseNumOpt(summary[key]);
+      }
     }
-    
+
+    final normalizedResults = r.whereType<Map>().map((raw) {
+      final item = Map<String, dynamic>.from(raw);
+      for (final key in [
+        'marks_obtained',
+        'marksObtained',
+        'max_marks',
+        'maxMarks',
+        'percentage',
+      ]) {
+        if (item.containsKey(key)) item[key] = _parseNumOpt(item[key]);
+      }
+      return item;
+    }).toList();
+
     return StudentResultReportModel(
-      exam: json['exam'] is Map ? json['exam'] as Map<String, dynamic> : {'id': 0, 'name': ''},
-      student: json['student'] is Map ? json['student'] as Map<String, dynamic> : null,
-      results: r.map((e) => e is Map<String, dynamic> ? e : <String, dynamic>{}).toList(),
+      exam: envelope['exam'] is Map
+          ? Map<String, dynamic>.from(envelope['exam'] as Map)
+          : {'id': 0, 'name': ''},
+      student: envelope['student'] is Map
+          ? Map<String, dynamic>.from(envelope['student'] as Map)
+          : null,
+      results: normalizedResults,
       summary: summary,
     );
   }
@@ -203,7 +294,9 @@ class StudentFeeModel {
       id: _parseId(json['id']),
       amount: _parseNum(json['amount'] ?? 0),
       paidAmount: _parseNum(json['paid_amount'] ?? json['paidAmount'] ?? 0),
-      remainingAmount: _parseNum(json['remaining_amount'] ?? json['remainingAmount'] ?? 0),
+      remainingAmount: _parseNum(
+        json['remaining_amount'] ?? json['remainingAmount'] ?? 0,
+      ),
       status: _strOpt(json['status']),
       createdAt: _strOpt(json['created_at'] ?? json['createdAt']),
       studentName: _strOpt(json['studentName'] ?? json['student_name']),
@@ -295,24 +388,33 @@ class StudentTimetableSlotModel {
     }
 
     int? pid;
-    if (json['period_id'] != null) pid = int.tryParse(json['period_id'].toString());
-    if (json['periodId'] != null) pid = int.tryParse(json['periodId'].toString());
+    if (json['period_id'] != null)
+      pid = int.tryParse(json['period_id'].toString());
+    if (json['periodId'] != null)
+      pid = int.tryParse(json['periodId'].toString());
     if (pid == 0) pid = null;
-    if (pid == null && periodMod != null && periodMod.id > 0) pid = periodMod.id;
+    if (pid == null && periodMod != null && periodMod.id > 0)
+      pid = periodMod.id;
 
     String? startStr = _strOpt(json['start_time'] ?? json['startTime']);
-    if ((startStr == null || startStr.isEmpty) && periodMod != null) startStr = periodMod.startTime;
+    if ((startStr == null || startStr.isEmpty) && periodMod != null)
+      startStr = periodMod.startTime;
 
     String? endStr = _strOpt(json['end_time'] ?? json['endTime']);
-    if ((endStr == null || endStr.isEmpty) && periodMod != null) endStr = periodMod.endTime;
+    if ((endStr == null || endStr.isEmpty) && periodMod != null)
+      endStr = periodMod.endTime;
 
     return StudentTimetableSlotModel(
       id: _parseId(json['id']),
       day: _strOpt(json['day']),
       startTime: startStr,
       endTime: endStr,
-      subject: json['subject'] is Map ? json['subject'] as Map<String, dynamic> : null,
-      teacher: json['teacher'] is Map ? json['teacher'] as Map<String, dynamic> : null,
+      subject: json['subject'] is Map
+          ? json['subject'] as Map<String, dynamic>
+          : null,
+      teacher: json['teacher'] is Map
+          ? json['teacher'] as Map<String, dynamic>
+          : null,
       periodId: pid,
       period: periodMod,
     );
@@ -367,12 +469,86 @@ class StudentExamModel {
   }
 }
 
+/// GET /api/student/academic-years — years the authenticated student may
+/// browse. Parsed defensively since the exact response shape (current-year
+/// flag, historical class name, enrollment status, released-results flag)
+/// is not otherwise documented in this project.
+class StudentAcademicYearOption {
+  final int id;
+  final String name;
+  final bool isCurrent;
+  final String? historicalClassName;
+  final String? enrollmentStatus;
+  final bool? resultsReleased;
+  final bool isActive;
+  final int? historicalClassId;
+  final bool? hasReleasedMarks;
+
+  StudentAcademicYearOption({
+    required this.id,
+    required this.name,
+    this.isCurrent = false,
+    this.historicalClassName,
+    this.enrollmentStatus,
+    this.resultsReleased,
+    this.isActive = false,
+    this.historicalClassId,
+    this.hasReleasedMarks,
+  });
+
+  factory StudentAcademicYearOption.fromJson(Map<String, dynamic> json) {
+    final year = json['academic_year'] is Map
+        ? Map<String, dynamic>.from(json['academic_year'] as Map)
+        : json;
+    final classMap = json['class'] is Map
+        ? Map<String, dynamic>.from(json['class'] as Map)
+        : (json['historical_class'] is Map
+              ? Map<String, dynamic>.from(json['historical_class'] as Map)
+              : null);
+    final current = json['is_current'] ?? json['isCurrent'] ?? json['current'];
+    final active =
+        json['is_active'] ??
+        json['isActive'] ??
+        year['is_active'] ??
+        year['isActive'];
+    final released = json['results_released'] ?? json['resultsReleased'];
+    final releasedMarks =
+        json['has_released_marks'] ?? json['hasReleasedMarks'];
+    bool? boolOf(dynamic v) {
+      if (v is bool) return v;
+      if (v == null) return null;
+      final s = v.toString().toLowerCase();
+      if (s == 'true' || s == '1') return true;
+      if (s == 'false' || s == '0') return false;
+      return null;
+    }
+
+    return StudentAcademicYearOption(
+      id: _parseId(year['id'] ?? json['academic_year_id']),
+      name: _str(year['name'] ?? json['academic_year_name'] ?? ''),
+      isCurrent: boolOf(current) ?? false,
+      historicalClassName: _strOpt(
+        classMap?['name'] ?? json['class_name'] ?? json['className'],
+      ),
+      enrollmentStatus: _strOpt(
+        json['enrollment_status'] ?? json['enrollmentStatus'],
+      ),
+      resultsReleased: boolOf(released),
+      isActive: boolOf(active) ?? false,
+      historicalClassId: classMap == null ? null : _parseId(classMap['id']),
+      hasReleasedMarks: boolOf(releasedMarks),
+    );
+  }
+}
+
 // ==================== RESULT TYPES ====================
 sealed class StudentResult<T> {}
+
 class StudentSuccess<T> extends StudentResult<T> {
   final T data;
   StudentSuccess(this.data);
 }
+
 class StudentError extends StudentResult<Never> {
   final String message;
   final int? statusCode;
@@ -428,19 +604,30 @@ class StudentService {
   }
 
   /// GET /api/student/me — cached for session.
-  Future<StudentResult<StudentMeModel>> getMe({bool forceRefresh = false}) async {
+  Future<StudentResult<StudentMeModel>> getMe({
+    bool forceRefresh = false,
+  }) async {
     if (!forceRefresh && _cachedMe != null) return StudentSuccess(_cachedMe!);
     try {
       final response = await _client.get(apiUrl('$_base/me'));
-      devLogResponse('StudentService.getMe', response.statusCode, response.body);
-      if (response.statusCode == 404) return StudentError('Student profile not found.', 404);
+      devLogResponse(
+        'StudentService.getMe',
+        response.statusCode,
+        response.body,
+      );
+      if (response.statusCode == 404)
+        return StudentError('Student profile not found.', 404);
       if (response.statusCode != 200) {
-        return StudentError(_errorMessage(response) ?? 'Could not load profile.', response.statusCode);
+        return StudentError(
+          _errorMessage(response) ?? 'Could not load profile.',
+          response.statusCode,
+        );
       }
       final raw = _parseJson(response.body);
       if (raw == null || raw is! Map) return StudentError('Invalid response.');
       final student = raw['student'] ?? raw['data'] ?? raw;
-      if (student is! Map<String, dynamic>) return StudentError('Invalid response.');
+      if (student is! Map<String, dynamic>)
+        return StudentError('Invalid response.');
       final model = StudentMeModel.fromJson(student);
       _cachedMe = model;
       return StudentSuccess(model);
@@ -449,63 +636,180 @@ class StudentService {
     }
   }
 
-  /// GET /api/student/marks?exam_id=&subject_id=
-  Future<StudentResult<List<StudentMarkModel>>> listMarks({int? examId, int? subjectId}) async {
+  /// GET /api/student/marks?academic_year_id=&exam_id=&subject_id=
+  Future<StudentResult<List<StudentMarkModel>>> listMarks({
+    int? academicYearId,
+    int? examId,
+    int? subjectId,
+  }) async {
     try {
       final params = <String, String>{};
+      if (academicYearId != null && academicYearId > 0) {
+        params['academic_year_id'] = academicYearId.toString();
+      }
       if (examId != null && examId > 0) params['exam_id'] = examId.toString();
-      if (subjectId != null && subjectId > 0) params['subject_id'] = subjectId.toString();
-      final uri = params.isEmpty ? apiUrl('$_base/marks') : apiUrl('$_base/marks').replace(queryParameters: params);
+      if (subjectId != null && subjectId > 0)
+        params['subject_id'] = subjectId.toString();
+      final uri = params.isEmpty
+          ? apiUrl('$_base/marks')
+          : apiUrl('$_base/marks').replace(queryParameters: params);
       final response = await _client.get(uri);
-      devLogResponse('StudentService.listMarks', response.statusCode, response.body);
-      if (response.statusCode == 403) return StudentError(_errorMessage(response) ?? 'Exams module disabled.', 403);
+      devLogResponse(
+        'StudentService.listMarks',
+        response.statusCode,
+        response.body,
+      );
+      if (response.statusCode == 403)
+        return StudentError(
+          _errorMessage(response) ?? 'Exams module disabled.',
+          403,
+        );
       if (response.statusCode != 200) {
-        return StudentError(_errorMessage(response) ?? 'Could not load marks.', response.statusCode);
+        return StudentError(
+          _errorMessage(response) ?? 'Could not load marks.',
+          response.statusCode,
+        );
       }
       final raw = _parseJson(response.body);
       final list = _extractList(raw, ['marks', 'data', 'items']);
-      final items = list.whereType<Map<String, dynamic>>().map((e) => StudentMarkModel.fromJson(e)).toList();
+      final items = list
+          .whereType<Map<String, dynamic>>()
+          .map((e) => StudentMarkModel.fromJson(e))
+          .toList();
       return StudentSuccess(items);
     } catch (e, st) {
-      return StudentError(userFriendlyMessage(e, st, 'StudentService.listMarks'));
+      return StudentError(
+        userFriendlyMessage(e, st, 'StudentService.listMarks'),
+      );
     }
   }
 
-  /// GET /api/student/results/{exam_id}
-  Future<StudentResult<StudentResultReportModel>> getResultReport(int examId) async {
+  /// GET /api/student/results/{exam_id}. The exam itself carries year context.
+  Future<StudentResult<StudentResultReportModel>> getResultReport(
+    int examId, {
+    int? academicYearId,
+  }) async {
     try {
-      final response = await _client.get(apiUrl('$_base/results/$examId'));
-      devLogResponse('StudentService.getResultReport', response.statusCode, response.body);
-      if (response.statusCode == 403) return StudentError(_errorMessage(response) ?? 'Exams module disabled.', 403);
-      if (response.statusCode == 404) return StudentError('Exam or results not found.', 404);
+      final uri = apiUrl('$_base/results/$examId');
+      final response = await _client.get(uri);
+      devLogResponse(
+        'StudentService.getResultReport',
+        response.statusCode,
+        response.body,
+      );
+      if (response.statusCode == 403)
+        return StudentError(
+          _errorMessage(response) ?? 'Exams module disabled.',
+          403,
+        );
+      if (response.statusCode == 404) {
+        return StudentError(
+          _errorMessage(response) ?? 'No released result available.',
+          404,
+        );
+      }
       if (response.statusCode != 200) {
-        return StudentError(_errorMessage(response) ?? 'Could not load results.', response.statusCode);
+        return StudentError(
+          _errorMessage(response) ?? 'Could not load results.',
+          response.statusCode,
+        );
       }
       final raw = _parseJson(response.body);
-      if (raw == null || raw is! Map<String, dynamic>) return StudentError('Invalid response.');
-      return StudentSuccess(StudentResultReportModel.fromJson(raw));
+      if (raw == null || raw is! Map<String, dynamic>)
+        return StudentError('Invalid response.');
+      final payload = raw['result'] is Map
+          ? Map<String, dynamic>.from(raw['result'] as Map)
+          : raw;
+      return StudentSuccess(StudentResultReportModel.fromJson(payload));
     } catch (e, st) {
-      return StudentError(userFriendlyMessage(e, st, 'StudentService.getResultReport'));
+      return StudentError(
+        userFriendlyMessage(e, st, 'StudentService.getResultReport'),
+      );
     }
   }
 
-  /// GET /api/student/exams — cached for session.
-  Future<StudentResult<List<StudentExamModel>>> listExams({bool forceRefresh = false}) async {
-    if (!forceRefresh && _cachedExams != null) return StudentSuccess(_cachedExams!);
+  /// GET /api/student/exams?academic_year_id= — cached for session, but only
+  /// for the default (no year / current year) call. A specific
+  /// [academicYearId] always hits the network so historical years never read
+  /// stale cached current-year data.
+  Future<StudentResult<List<StudentExamModel>>> listExams({
+    bool forceRefresh = false,
+    int? academicYearId,
+  }) async {
+    if (academicYearId == null && !forceRefresh && _cachedExams != null) {
+      return StudentSuccess(_cachedExams!);
+    }
     try {
-      final response = await _client.get(apiUrl('$_base/exams'));
-      devLogResponse('StudentService.listExams', response.statusCode, response.body);
-      if (response.statusCode == 403) return StudentError(_errorMessage(response) ?? 'Exams module disabled.', 403);
+      final uri = academicYearId != null
+          ? apiUrl(
+              '$_base/exams',
+            ).replace(queryParameters: {'academic_year_id': '$academicYearId'})
+          : apiUrl('$_base/exams');
+      final response = await _client.get(uri);
+      devLogResponse(
+        'StudentService.listExams',
+        response.statusCode,
+        response.body,
+      );
+      if (response.statusCode == 403)
+        return StudentError(
+          _errorMessage(response) ?? 'Exams module disabled.',
+          403,
+        );
       if (response.statusCode != 200) {
-        return StudentError(_errorMessage(response) ?? 'Could not load exams.', response.statusCode);
+        return StudentError(
+          _errorMessage(response) ?? 'Could not load exams.',
+          response.statusCode,
+        );
       }
       final raw = _parseJson(response.body);
       final list = _extractList(raw, ['exams', 'data', 'items']);
-      final items = list.whereType<Map<String, dynamic>>().map((e) => StudentExamModel.fromJson(e)).toList();
-      _cachedExams = items;
+      final items = list
+          .whereType<Map<String, dynamic>>()
+          .map((e) => StudentExamModel.fromJson(e))
+          .toList();
+      if (academicYearId == null) _cachedExams = items;
       return StudentSuccess(items);
     } catch (e, st) {
-      return StudentError(userFriendlyMessage(e, st, 'StudentService.listExams'));
+      return StudentError(
+        userFriendlyMessage(e, st, 'StudentService.listExams'),
+      );
+    }
+  }
+
+  /// GET /api/student/academic-years — years the authenticated student may
+  /// access (not the school-admin academic-years list).
+  Future<StudentResult<List<StudentAcademicYearOption>>>
+  listAcademicYears() async {
+    try {
+      final response = await _client.get(apiUrl('$_base/academic-years'));
+      devLogResponse(
+        'StudentService.listAcademicYears',
+        response.statusCode,
+        response.body,
+      );
+      if (response.statusCode != 200) {
+        return StudentError(
+          _errorMessage(response) ?? 'Could not load academic years.',
+          response.statusCode,
+        );
+      }
+      final raw = _parseJson(response.body);
+      final list = _extractList(raw, [
+        'academic_years',
+        'academicYears',
+        'data',
+        'items',
+      ]);
+      final items = list
+          .whereType<Map<String, dynamic>>()
+          .map((e) => StudentAcademicYearOption.fromJson(e))
+          .toList();
+      return StudentSuccess(items);
+    } catch (e, st) {
+      return StudentError(
+        userFriendlyMessage(e, st, 'StudentService.listAcademicYears'),
+      );
     }
   }
 
@@ -513,17 +817,33 @@ class StudentService {
   Future<StudentResult<List<StudentFeeModel>>> listFees() async {
     try {
       final response = await _client.get(apiUrl('$_base/fees'));
-      devLogResponse('StudentService.listFees', response.statusCode, response.body);
-      if (response.statusCode == 403) return StudentError(_errorMessage(response) ?? 'Payments module disabled.', 403);
+      devLogResponse(
+        'StudentService.listFees',
+        response.statusCode,
+        response.body,
+      );
+      if (response.statusCode == 403)
+        return StudentError(
+          _errorMessage(response) ?? 'Payments module disabled.',
+          403,
+        );
       if (response.statusCode != 200) {
-        return StudentError(_errorMessage(response) ?? 'Could not load fees.', response.statusCode);
+        return StudentError(
+          _errorMessage(response) ?? 'Could not load fees.',
+          response.statusCode,
+        );
       }
       final raw = _parseJson(response.body);
       final list = _extractList(raw, ['fees', 'data', 'items']);
-      final items = list.whereType<Map<String, dynamic>>().map((e) => StudentFeeModel.fromJson(e)).toList();
+      final items = list
+          .whereType<Map<String, dynamic>>()
+          .map((e) => StudentFeeModel.fromJson(e))
+          .toList();
       return StudentSuccess(items);
     } catch (e, st) {
-      return StudentError(userFriendlyMessage(e, st, 'StudentService.listFees'));
+      return StudentError(
+        userFriendlyMessage(e, st, 'StudentService.listFees'),
+      );
     }
   }
 
@@ -531,17 +851,33 @@ class StudentService {
   Future<StudentResult<List<StudentPaymentModel>>> listPayments() async {
     try {
       final response = await _client.get(apiUrl('$_base/payments'));
-      devLogResponse('StudentService.listPayments', response.statusCode, response.body);
-      if (response.statusCode == 403) return StudentError(_errorMessage(response) ?? 'Payments module disabled.', 403);
+      devLogResponse(
+        'StudentService.listPayments',
+        response.statusCode,
+        response.body,
+      );
+      if (response.statusCode == 403)
+        return StudentError(
+          _errorMessage(response) ?? 'Payments module disabled.',
+          403,
+        );
       if (response.statusCode != 200) {
-        return StudentError(_errorMessage(response) ?? 'Could not load payments.', response.statusCode);
+        return StudentError(
+          _errorMessage(response) ?? 'Could not load payments.',
+          response.statusCode,
+        );
       }
       final raw = _parseJson(response.body);
       final list = _extractList(raw, ['payments', 'data', 'items']);
-      final items = list.whereType<Map<String, dynamic>>().map((e) => StudentPaymentModel.fromJson(e)).toList();
+      final items = list
+          .whereType<Map<String, dynamic>>()
+          .map((e) => StudentPaymentModel.fromJson(e))
+          .toList();
       return StudentSuccess(items);
     } catch (e, st) {
-      return StudentError(userFriendlyMessage(e, st, 'StudentService.listPayments'));
+      return StudentError(
+        userFriendlyMessage(e, st, 'StudentService.listPayments'),
+      );
     }
   }
 
@@ -553,13 +889,35 @@ class StudentService {
   }) async {
     try {
       final body = {'fee_id': feeId, 'amount': amount, 'method': method};
-      final response = await _client.post(apiUrl('$_base/payments'), body: body);
-      devLogResponse('StudentService.payFee', response.statusCode, response.body);
-      if (response.statusCode == 400) return StudentError(_errorMessage(response) ?? 'Invalid fee or amount.', 400);
-      if (response.statusCode == 403) return StudentError(_errorMessage(response) ?? 'Payments module disabled.', 403);
-      if (response.statusCode == 404) return StudentError(_errorMessage(response) ?? 'Fee or student not found.', 404);
+      final response = await _client.post(
+        apiUrl('$_base/payments'),
+        body: body,
+      );
+      devLogResponse(
+        'StudentService.payFee',
+        response.statusCode,
+        response.body,
+      );
+      if (response.statusCode == 400)
+        return StudentError(
+          _errorMessage(response) ?? 'Invalid fee or amount.',
+          400,
+        );
+      if (response.statusCode == 403)
+        return StudentError(
+          _errorMessage(response) ?? 'Payments module disabled.',
+          403,
+        );
+      if (response.statusCode == 404)
+        return StudentError(
+          _errorMessage(response) ?? 'Fee or student not found.',
+          404,
+        );
       if (response.statusCode != 200 && response.statusCode != 201) {
-        return StudentError(_errorMessage(response) ?? 'Payment failed.', response.statusCode);
+        return StudentError(
+          _errorMessage(response) ?? 'Payment failed.',
+          response.statusCode,
+        );
       }
       final raw = _parseJson(response.body);
       Map<String, dynamic>? map;
@@ -577,63 +935,107 @@ class StudentService {
   Future<StudentResult<List<StudentNoticeModel>>> listNotices() async {
     try {
       final response = await _client.get(apiUrl('$_base/notices'));
-      devLogResponse('StudentService.listNotices', response.statusCode, response.body);
+      devLogResponse(
+        'StudentService.listNotices',
+        response.statusCode,
+        response.body,
+      );
       if (response.statusCode != 200) {
-        return StudentError(_errorMessage(response) ?? 'Could not load notices.', response.statusCode);
+        return StudentError(
+          _errorMessage(response) ?? 'Could not load notices.',
+          response.statusCode,
+        );
       }
       final raw = _parseJson(response.body);
       final list = _extractList(raw, ['notices', 'data', 'items']);
-      final items = list.whereType<Map<String, dynamic>>().map((e) => StudentNoticeModel.fromJson(e)).toList();
+      final items = list
+          .whereType<Map<String, dynamic>>()
+          .map((e) => StudentNoticeModel.fromJson(e))
+          .toList();
       return StudentSuccess(items);
     } catch (e, st) {
-      return StudentError(userFriendlyMessage(e, st, 'StudentService.listNotices'));
+      return StudentError(
+        userFriendlyMessage(e, st, 'StudentService.listNotices'),
+      );
     }
   }
 
   /// GET /api/student/timetable?day=MON|TUE|...
-  Future<StudentResult<List<StudentTimetableSlotModel>>> getTimetable({String? day}) async {
+  Future<StudentResult<List<StudentTimetableSlotModel>>> getTimetable({
+    String? day,
+  }) async {
     try {
       final uri = day != null && day.isNotEmpty
           ? apiUrl('$_base/timetable').replace(queryParameters: {'day': day})
           : apiUrl('$_base/timetable');
       final response = await _client.get(uri);
-      devLogResponse('StudentService.getTimetable', response.statusCode, response.body);
-      if (response.statusCode == 404) return StudentError('Timetable or profile not found.', 404);
+      devLogResponse(
+        'StudentService.getTimetable',
+        response.statusCode,
+        response.body,
+      );
+      if (response.statusCode == 404)
+        return StudentError('Timetable or profile not found.', 404);
       if (response.statusCode != 200) {
-        return StudentError(_errorMessage(response) ?? 'Could not load timetable.', response.statusCode);
+        return StudentError(
+          _errorMessage(response) ?? 'Could not load timetable.',
+          response.statusCode,
+        );
       }
       final raw = _parseJson(response.body);
       final list = _extractList(raw, ['timetable', 'data', 'items']);
-      final items = list.whereType<Map<String, dynamic>>().map((e) => StudentTimetableSlotModel.fromJson(e)).toList();
+      final items = list
+          .whereType<Map<String, dynamic>>()
+          .map((e) => StudentTimetableSlotModel.fromJson(e))
+          .toList();
       return StudentSuccess(items);
     } catch (e, st) {
-      return StudentError(userFriendlyMessage(e, st, 'StudentService.getTimetable'));
+      return StudentError(
+        userFriendlyMessage(e, st, 'StudentService.getTimetable'),
+      );
     }
   }
 
-  /// GET /api/student/attendance?date=YYYY-MM-DD or from=&to=
+  /// GET /api/student/attendance?date=YYYY-MM-DD or from=&to=&academic_year_id=
   Future<StudentResult<List<StudentAttendanceRecordModel>>> listAttendance({
     String? date,
     String? from,
     String? to,
+    int? academicYearId,
   }) async {
     try {
       final params = <String, String>{};
       if (date != null && date.isNotEmpty) params['date'] = date;
       if (from != null && from.isNotEmpty) params['from'] = from;
       if (to != null && to.isNotEmpty) params['to'] = to;
-      final uri = params.isEmpty ? apiUrl('$_base/attendance') : apiUrl('$_base/attendance').replace(queryParameters: params);
+      if (academicYearId != null)
+        params['academic_year_id'] = '$academicYearId';
+      final uri = params.isEmpty
+          ? apiUrl('$_base/attendance')
+          : apiUrl('$_base/attendance').replace(queryParameters: params);
       final response = await _client.get(uri);
-      devLogResponse('StudentService.listAttendance', response.statusCode, response.body);
+      devLogResponse(
+        'StudentService.listAttendance',
+        response.statusCode,
+        response.body,
+      );
       if (response.statusCode != 200) {
-        return StudentError(_errorMessage(response) ?? 'Could not load attendance.', response.statusCode);
+        return StudentError(
+          _errorMessage(response) ?? 'Could not load attendance.',
+          response.statusCode,
+        );
       }
       final raw = _parseJson(response.body);
       final list = _extractList(raw, ['attendance', 'data', 'items']);
-      final items = list.whereType<Map<String, dynamic>>().map((e) => StudentAttendanceRecordModel.fromJson(e)).toList();
+      final items = list
+          .whereType<Map<String, dynamic>>()
+          .map((e) => StudentAttendanceRecordModel.fromJson(e))
+          .toList();
       return StudentSuccess(items);
     } catch (e, st) {
-      return StudentError(userFriendlyMessage(e, st, 'StudentService.listAttendance'));
+      return StudentError(
+        userFriendlyMessage(e, st, 'StudentService.listAttendance'),
+      );
     }
   }
 }

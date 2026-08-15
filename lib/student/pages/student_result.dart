@@ -35,75 +35,45 @@ class StudentResultsScreen extends StatefulWidget {
 
 class _StudentResultsScreenState extends State<StudentResultsScreen>
     with SingleTickerProviderStateMixin {
+  late Future<StudentResult<List<StudentAcademicYearOption>>> _yearsFuture;
   late Future<StudentResult<List<StudentExamModel>>> _examsFuture;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   StudentExamModel? _selectedExam;
   Future<StudentResult<StudentResultReportModel>>? _selectedExamResult;
+  StudentAcademicYearOption? _selectedYear;
 
-  // Exam weights for 4-exam system
-  static const Map<String, int> _examWeights = {
-    'M1': 10,
-    'Monthly 1': 10,
-    'M2': 10,
-    'Monthly 2': 10,
-    'Midterm': 30,
-    'Final': 50,
-  };
-
-  // Get exam weight by name
-  int _getExamWeight(String examName) {
-    final examNameLower = examName.toLowerCase();
-    
-    for (final entry in _examWeights.entries) {
-      if (examNameLower.contains(entry.key.toLowerCase())) {
-        return entry.value;
-      }
-    }
-    
-    // Additional pattern matching
-    if (examNameLower.contains('monthly 1') || examNameLower.contains('m1')) {
-      return 10;
-    }
-    if (examNameLower.contains('monthly 2') || examNameLower.contains('m2')) {
-      return 10;
-    }
-    if (examNameLower.contains('midterm') || examNameLower.contains('mid')) {
-      return 30;
-    }
-    if (examNameLower.contains('final') || examNameLower.contains('end')) {
-      return 50;
-    }
-    
-    return 10; // Default
-  }
-
-  // Calculate correct PASS/FAIL status
+  // Academic outcome is authoritative backend data; Flutter only presents it.
   String _calculateCorrectStatus(StudentResultReportModel result) {
-    // Get exam type and weight
-    final examName = result.exam['name']?.toString() ?? '';
-    final examWeight = _getExamWeight(examName);
-    
-    // Get subject count from results
-    final subjectCount = result.results.length;
-    
-    // Calculate total exam max and pass mark
-    final totalExamMax = subjectCount * examWeight;
-    final passMark = totalExamMax / 2;
-    
-    // Get student's total obtained marks
-    final studentTotal = result.summary?['total_marks_obtained'] ?? 
-                        result.summary?['total_obtained'] ?? 
-                        result.summary?['total'] ?? 0;
-    
-    // Determine status
-    return studentTotal >= passMark ? 'PASS' : 'FAIL';
+    final value = result.summary?['status'] ?? result.summary?['result'];
+    final status = value?.toString().trim();
+    return status == null || status.isEmpty ? '—' : status.toUpperCase();
   }
 
   @override
   void initState() {
     super.initState();
+    _yearsFuture = StudentService().listAcademicYears();
     _examsFuture = StudentService().listExams();
+    _yearsFuture.then((result) {
+      if (!mounted ||
+          result is! StudentSuccess<List<StudentAcademicYearOption>> ||
+          result.data.isEmpty)
+        return;
+      var year = result.data.first;
+      for (final item in result.data) {
+        if (item.isCurrent || item.isActive) {
+          year = item;
+          break;
+        }
+      }
+      setState(() {
+        _selectedYear = year;
+        _selectedExam = null;
+        _selectedExamResult = null;
+        _examsFuture = StudentService().listExams(academicYearId: year.id);
+      });
+    });
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -119,6 +89,55 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
       _selectedExam = exam;
       _selectedExamResult = StudentService().getResultReport(exam.id);
     });
+  }
+
+  void _selectYear(StudentAcademicYearOption year) {
+    setState(() {
+      _selectedYear = year;
+      _selectedExam = null;
+      _selectedExamResult = null;
+      _examsFuture = StudentService().listExams(academicYearId: year.id);
+    });
+  }
+
+  Widget _buildYearSelector() {
+    return FutureBuilder<StudentResult<List<StudentAcademicYearOption>>>(
+      future: _yearsFuture,
+      builder: (context, snapshot) {
+        final years =
+            snapshot.data is StudentSuccess<List<StudentAcademicYearOption>>
+            ? (snapshot.data as StudentSuccess<List<StudentAcademicYearOption>>)
+                  .data
+            : <StudentAcademicYearOption>[];
+        return StudentWebCard(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: StudentWebDropdown<int>(
+            value: _selectedYear?.id,
+            hint: Text(
+              snapshot.connectionState == ConnectionState.waiting
+                  ? 'Loading academic years...'
+                  : 'Academic year',
+            ),
+            items: years
+                .map(
+                  (year) => DropdownMenuItem<int>(
+                    value: year.id,
+                    child: Text(
+                      year.historicalClassName == null
+                          ? year.name
+                          : '${year.name} - ${year.historicalClassName}',
+                    ),
+                  ),
+                )
+                .toList(),
+            onChanged: (id) {
+              if (id == null) return;
+              _selectYear(years.firstWhere((year) => year.id == id));
+            },
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -144,7 +163,9 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
       future: _examsFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: kPrimaryBlue));
+          return const Center(
+            child: CircularProgressIndicator(color: kPrimaryBlue),
+          );
         }
 
         if (snapshot.data is StudentError) {
@@ -156,7 +177,9 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    err.statusCode == 403 ? Icons.info_outline_rounded : Icons.error_outline_rounded,
+                    err.statusCode == 403
+                        ? Icons.info_outline_rounded
+                        : Icons.error_outline_rounded,
                     size: 40,
                     color: err.statusCode == 403 ? kWarningColor : kErrorColor,
                   ),
@@ -164,14 +187,19 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                   Text(
                     err.message,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: kTextPrimaryColor, fontSize: 14),
+                    style: const TextStyle(
+                      color: kTextPrimaryColor,
+                      fontSize: 14,
+                    ),
                   ),
                   if (err.statusCode != 403) ...[
                     const SizedBox(height: 14),
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton.icon(
-                        onPressed: () => setState(() => _examsFuture = StudentService().listExams()),
+                        onPressed: () => setState(
+                          () => _examsFuture = StudentService().listExams(),
+                        ),
                         icon: const Icon(Icons.refresh_rounded, size: 18),
                         label: const Text('Retry'),
                       ),
@@ -188,18 +216,28 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
             : <StudentExamModel>[];
 
         if (exams.isEmpty) {
-          return const SingleChildScrollView(
-            padding: EdgeInsets.all(24),
-            child: StudentWebCard(
-              child: SizedBox(
-                height: 220,
-                child: Center(
-                  child: Text(
-                    'No results found',
-                    style: TextStyle(fontSize: 14, color: kTextSecondaryColor),
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
+                _buildYearSelector(),
+                const SizedBox(height: 18),
+                const StudentWebCard(
+                  child: SizedBox(
+                    height: 220,
+                    child: Center(
+                      child: Text(
+                        'No exams or released results for this academic year.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: kTextSecondaryColor,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
           );
         }
@@ -217,15 +255,22 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              _buildYearSelector(),
+              const SizedBox(height: 18),
               if (_selectedExam != null && _selectedExamResult != null)
                 FutureBuilder<StudentResult<StudentResultReportModel>>(
                   future: _selectedExamResult,
                   builder: (context, reportSnapshot) {
-                    if (reportSnapshot.connectionState == ConnectionState.waiting) {
+                    if (reportSnapshot.connectionState ==
+                        ConnectionState.waiting) {
                       return const SizedBox.shrink();
                     }
-                    if (reportSnapshot.data is StudentSuccess<StudentResultReportModel>) {
-                      final report = (reportSnapshot.data as StudentSuccess<StudentResultReportModel>).data;
+                    if (reportSnapshot.data
+                        is StudentSuccess<StudentResultReportModel>) {
+                      final report =
+                          (reportSnapshot.data
+                                  as StudentSuccess<StudentResultReportModel>)
+                              .data;
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -251,7 +296,10 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
     final summary = report.summary;
     final status = _calculateCorrectStatus(report);
     final bestGrade = _bestGradeFromResults(report.results);
-    final average = summary?['average'] ?? summary?['overall_percentage'] ?? summary?['percentage'];
+    final average =
+        summary?['average'] ??
+        summary?['overall_percentage'] ??
+        summary?['percentage'];
     final rank = summary?['position'];
 
     return LayoutBuilder(
@@ -260,51 +308,61 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
         final cards = <Widget>[];
 
         if (average != null) {
-          cards.add(_DesktopSummaryCard(
-            icon: Icons.percent_rounded,
-            label: 'Average Score',
-            value: '$average%',
-            color: kPrimaryGreen,
-            compact: compact,
-          ));
+          cards.add(
+            _DesktopSummaryCard(
+              icon: Icons.percent_rounded,
+              label: 'Average Score',
+              value: '$average%',
+              color: kPrimaryGreen,
+              compact: compact,
+            ),
+          );
         }
 
         if (report.results.isNotEmpty) {
-          cards.add(_DesktopSummaryCard(
-            icon: Icons.menu_book_rounded,
-            label: 'Total Subjects',
-            value: '${report.results.length}',
-            color: kPrimaryBlue,
-            compact: compact,
-          ));
+          cards.add(
+            _DesktopSummaryCard(
+              icon: Icons.menu_book_rounded,
+              label: 'Total Subjects',
+              value: '${report.results.length}',
+              color: kPrimaryBlue,
+              compact: compact,
+            ),
+          );
         }
 
-        cards.add(_DesktopSummaryCard(
-          icon: Icons.verified_rounded,
-          label: 'Status',
-          value: status,
-          color: status == 'PASS' ? kPrimaryGreen : kErrorColor,
-          compact: compact,
-        ));
+        cards.add(
+          _DesktopSummaryCard(
+            icon: Icons.verified_rounded,
+            label: 'Status',
+            value: status,
+            color: status == 'PASS' ? kPrimaryGreen : kErrorColor,
+            compact: compact,
+          ),
+        );
 
         if (bestGrade != null) {
-          cards.add(_DesktopSummaryCard(
-            icon: Icons.grade_rounded,
-            label: 'Best Grade',
-            value: bestGrade,
-            color: kPrimaryBlue,
-            compact: compact,
-          ));
+          cards.add(
+            _DesktopSummaryCard(
+              icon: Icons.grade_rounded,
+              label: 'Best Grade',
+              value: bestGrade,
+              color: kPrimaryBlue,
+              compact: compact,
+            ),
+          );
         }
 
         if (rank != null && rank.toString().trim().isNotEmpty) {
-          cards.add(_DesktopSummaryCard(
-            icon: Icons.leaderboard_rounded,
-            label: 'Rank',
-            value: rank.toString(),
-            color: kPrimaryBlue,
-            compact: compact,
-          ));
+          cards.add(
+            _DesktopSummaryCard(
+              icon: Icons.leaderboard_rounded,
+              label: 'Rank',
+              value: rank.toString(),
+              color: kPrimaryBlue,
+              compact: compact,
+            ),
+          );
         }
 
         if (cards.isEmpty) {
@@ -345,7 +403,8 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
     String? best;
     for (final row in results) {
       final grade = row['grade']?.toString().trim();
-      if (grade == null || grade.isEmpty || grade == 'N/A' || grade == '—') continue;
+      if (grade == null || grade.isEmpty || grade == 'N/A' || grade == '—')
+        continue;
       if (best == null || grade.compareTo(best) < 0) {
         best = grade;
       }
@@ -419,7 +478,9 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
           return const StudentWebCard(
             child: SizedBox(
               height: 220,
-              child: Center(child: CircularProgressIndicator(color: kPrimaryBlue)),
+              child: Center(
+                child: CircularProgressIndicator(color: kPrimaryBlue),
+              ),
             ),
           );
         }
@@ -430,9 +491,17 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.error_outline_rounded, size: 40, color: kErrorColor.withValues(alpha: 0.85)),
+                Icon(
+                  Icons.error_outline_rounded,
+                  size: 40,
+                  color: kErrorColor.withValues(alpha: 0.85),
+                ),
                 const SizedBox(height: 12),
-                Text(err.message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 14)),
+                Text(
+                  err.message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 14),
+                ),
                 const SizedBox(height: 14),
                 Align(
                   alignment: Alignment.centerRight,
@@ -454,7 +523,12 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
           return const StudentWebCard(
             child: SizedBox(
               height: 220,
-              child: Center(child: Text('No results found', style: TextStyle(color: kTextSecondaryColor))),
+              child: Center(
+                child: Text(
+                  'No results found',
+                  style: TextStyle(color: kTextSecondaryColor),
+                ),
+              ),
             ),
           );
         }
@@ -507,14 +581,24 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                     child: Center(
                       child: Text(
                         'No results found',
-                        style: TextStyle(fontSize: 14, color: kTextSecondaryColor),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: kTextSecondaryColor,
+                        ),
                       ),
                     ),
                   ),
                 )
               else ...[
                 const StudentWebTableHeader(
-                  columns: ['Subject', 'Score', 'Total', 'Percentage', 'Grade', 'Status'],
+                  columns: [
+                    'Subject',
+                    'Score',
+                    'Total',
+                    'Percentage',
+                    'Grade',
+                    'Status',
+                  ],
                   flex: [3, 1, 1, 2, 1, 2],
                 ),
                 ListView.builder(
@@ -536,23 +620,34 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                     spacing: 16,
                     runSpacing: 8,
                     children: [
-                      if (report.summary!['total'] != null || report.summary!['total_marks_obtained'] != null)
+                      if (report.summary!['total'] != null ||
+                          report.summary!['total_marks_obtained'] != null)
                         Text(
                           'Total: ${report.summary!['total'] ?? report.summary!['total_marks_obtained']}'
                           '${report.summary!['total_max'] != null ? ' / ${report.summary!['total_max']}' : ''}',
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kTextPrimaryColor),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: kTextPrimaryColor,
+                          ),
                         ),
-                      if (report.summary!['average'] != null || report.summary!['overall_percentage'] != null)
+                      if (report.summary!['average'] != null ||
+                          report.summary!['overall_percentage'] != null)
                         Text(
                           'Average: ${report.summary!['average'] ?? report.summary!['overall_percentage']}%',
-                          style: const TextStyle(fontSize: 13, color: kTextSecondaryColor),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: kTextSecondaryColor,
+                          ),
                         ),
                       Text(
                         'Status: ${_calculateCorrectStatus(report)}',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: _calculateCorrectStatus(report) == 'PASS' ? kPrimaryGreen : kErrorColor,
+                          color: _calculateCorrectStatus(report) == 'PASS'
+                              ? kPrimaryGreen
+                              : kErrorColor,
                         ),
                       ),
                     ],
@@ -574,7 +669,26 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
           future: _examsFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator(color: kPrimaryBlue));
+              return CustomScrollView(
+                slivers: [
+                  _buildResultsAppBar(),
+                  const SliverFillRemaining(
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(color: kPrimaryBlue),
+                          SizedBox(height: 14),
+                          Text(
+                            'Loading exam result...',
+                            style: TextStyle(color: kTextSecondaryColor),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              );
             }
             if (snapshot.data is StudentError) {
               final err = snapshot.data as StudentError;
@@ -594,9 +708,21 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.info_outline_rounded, color: Colors.orange.shade800, size: 28),
+                              Icon(
+                                Icons.info_outline_rounded,
+                                color: Colors.orange.shade800,
+                                size: 28,
+                              ),
                               const SizedBox(width: 12),
-                              Expanded(child: Text(err.message, style: TextStyle(fontSize: 14, color: Colors.orange.shade900))),
+                              Expanded(
+                                child: Text(
+                                  err.message,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.orange.shade900,
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -608,6 +734,10 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
               return CustomScrollView(
                 slivers: [
                   _buildResultsAppBar(),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                    sliver: SliverToBoxAdapter(child: _buildYearSelector()),
+                  ),
                   SliverFillRemaining(
                     child: Center(
                       child: Padding(
@@ -615,9 +745,17 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.error_outline, size: 48, color: kErrorColor),
+                            Icon(
+                              Icons.error_outline,
+                              size: 48,
+                              color: kErrorColor,
+                            ),
                             const SizedBox(height: 12),
-                            Text(err.message, textAlign: TextAlign.center, style: const TextStyle(color: kTextPrimaryColor)),
+                            Text(
+                              err.message,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(color: kTextPrimaryColor),
+                            ),
                           ],
                         ),
                       ),
@@ -626,7 +764,8 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                 ],
               );
             }
-            final exams = snapshot.data is StudentSuccess<List<StudentExamModel>>
+            final exams =
+                snapshot.data is StudentSuccess<List<StudentExamModel>>
                 ? (snapshot.data as StudentSuccess<List<StudentExamModel>>).data
                 : <StudentExamModel>[];
             if (exams.isEmpty) {
@@ -638,9 +777,19 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.quiz_rounded, size: 56, color: Colors.grey[400]),
+                          Icon(
+                            Icons.quiz_rounded,
+                            size: 56,
+                            color: Colors.grey[400],
+                          ),
                           const SizedBox(height: 12),
-                          Text('No exams yet', style: TextStyle(fontSize: 16, color: kTextSecondaryColor)),
+                          Text(
+                            'No exams yet',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: kTextSecondaryColor,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -653,52 +802,71 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
               slivers: [
                 _buildResultsAppBar(),
                 SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                  sliver: SliverToBoxAdapter(child: _buildYearSelector()),
+                ),
+                SliverPadding(
                   padding: const EdgeInsets.all(20),
                   sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final exam = exams[index];
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 14),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () => _selectExam(exam),
-                              borderRadius: BorderRadius.circular(24),
-                              child: Container(
-                                padding: const EdgeInsets.all(20),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(24),
-                                  boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.1), blurRadius: 14, offset: const Offset(0, 6))],
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        color: kPrimaryBlue.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                      child: const Icon(Icons.assignment_rounded, color: kPrimaryBlue, size: 28),
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final exam = exams[index];
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 14),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () => _selectExam(exam),
+                            borderRadius: BorderRadius.circular(24),
+                            child: Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(24),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: kPrimaryBlue.withOpacity(0.1),
+                                    blurRadius: 14,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: kPrimaryBlue.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(16),
                                     ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Text(
-                                        exam.name,
-                                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                                    child: const Icon(
+                                      Icons.assignment_rounded,
+                                      color: kPrimaryBlue,
+                                      size: 28,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Text(
+                                      exam.name,
+                                      style: const TextStyle(
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.bold,
+                                        color: kPrimaryBlue,
                                       ),
                                     ),
-                                    const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: kTextSecondaryColor),
-                                  ],
-                                ),
+                                  ),
+                                  const Icon(
+                                    Icons.arrow_forward_ios_rounded,
+                                    size: 14,
+                                    color: kTextSecondaryColor,
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                        );
-                      },
-                      childCount: exams.length,
-                    ),
+                        ),
+                      );
+                    }, childCount: exams.length),
                   ),
                 ),
                 // Show selected exam results
@@ -709,8 +877,13 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                       child: FutureBuilder<StudentResult<StudentResultReportModel>>(
                         future: _selectedExamResult!,
                         builder: (context, resultSnapshot) {
-                          if (resultSnapshot.connectionState == ConnectionState.waiting) {
-                            return const Center(child: CircularProgressIndicator(color: kPrimaryBlue));
+                          if (resultSnapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(
+                                color: kPrimaryBlue,
+                              ),
+                            );
                           }
                           if (resultSnapshot.data is StudentError) {
                             final err = resultSnapshot.data as StudentError;
@@ -723,16 +896,38 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                               ),
                               child: Row(
                                 children: [
-                                  Icon(Icons.error_outline, color: Colors.red.shade800, size: 24),
+                                  Icon(
+                                    Icons.error_outline,
+                                    color: Colors.red.shade800,
+                                    size: 24,
+                                  ),
                                   const SizedBox(width: 12),
-                                  Expanded(child: Text(err.message, style: TextStyle(fontSize: 14, color: Colors.red.shade900))),
+                                  Expanded(
+                                    child: Text(
+                                      err.message,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.red.shade900,
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    onPressed: () =>
+                                        _selectExam(_selectedExam!),
+                                    icon: const Icon(Icons.refresh_rounded),
+                                    tooltip: 'Retry',
+                                  ),
                                 ],
                               ),
                             );
                           }
-                          final report = resultSnapshot.data as StudentSuccess<StudentResultReportModel>?;
+                          final report =
+                              resultSnapshot.data
+                                  as StudentSuccess<StudentResultReportModel>?;
                           if (report == null) {
-                            return const Center(child: Text('No result data available'));
+                            return const Center(
+                              child: Text('No result data available'),
+                            );
                           }
                           final result = report.data;
                           return Container(
@@ -740,7 +935,13 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(20),
-                              boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 8))],
+                              boxShadow: [
+                                BoxShadow(
+                                  color: kPrimaryBlue.withOpacity(0.08),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -753,25 +954,42 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                                     borderRadius: BorderRadius.circular(16),
                                   ),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         result.exam['name'] ?? 'Exam',
-                                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                                        style: const TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                          color: kPrimaryBlue,
+                                        ),
                                       ),
                                       const SizedBox(height: 8),
                                       Row(
                                         children: [
-                                          if (result.exam['exam_type'] != null) ...[
+                                          if (result.exam['exam_type'] !=
+                                              null) ...[
                                             Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 4,
+                                                  ),
                                               decoration: BoxDecoration(
-                                                color: kPrimaryBlue.withOpacity(0.1),
-                                                borderRadius: BorderRadius.circular(8),
+                                                color: kPrimaryBlue.withOpacity(
+                                                  0.1,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
                                               ),
                                               child: Text(
                                                 result.exam['exam_type'],
-                                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kPrimaryBlue),
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: kPrimaryBlue,
+                                                ),
                                               ),
                                             ),
                                             const SizedBox(width: 8),
@@ -779,7 +997,10 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                                           Expanded(
                                             child: Text(
                                               'Date: ${result.exam['date'] ?? 'N/A'}',
-                                              style: TextStyle(fontSize: 14, color: kTextSecondaryColor),
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: kTextSecondaryColor,
+                                              ),
                                             ),
                                           ),
                                         ],
@@ -794,17 +1015,30 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                                     decoration: BoxDecoration(
                                       color: Colors.white,
                                       borderRadius: BorderRadius.circular(20),
-                                      boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 14, offset: const Offset(0, 6))],
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: kPrimaryBlue.withOpacity(0.08),
+                                          blurRadius: 14,
+                                          offset: const Offset(0, 6),
+                                        ),
+                                      ],
                                     ),
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         // Header
                                         Container(
                                           padding: const EdgeInsets.all(20),
                                           decoration: BoxDecoration(
-                                            color: kPrimaryBlue.withOpacity(0.05),
-                                            borderRadius: const BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
+                                            color: kPrimaryBlue.withOpacity(
+                                              0.05,
+                                            ),
+                                            borderRadius:
+                                                const BorderRadius.only(
+                                                  topLeft: Radius.circular(20),
+                                                  topRight: Radius.circular(20),
+                                                ),
                                           ),
                                           child: const Text(
                                             'Subject Results',
@@ -817,106 +1051,156 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                                         ),
                                         const SizedBox(height: 8),
                                         // Subject List
-                                        ...result.results.map((r) => Container(
-                                          margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                                          padding: const EdgeInsets.all(18),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                            borderRadius: BorderRadius.circular(16),
-                                            border: Border.all(color: Colors.grey.shade200),
-                                          ),
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              // Subject Name
-                                              Text(
-                                                r['subject']?['name'] ?? r['subject_name'] ?? 'Subject',
-                                                style: const TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: kPrimaryBlue,
+                                        ...result.results
+                                            .map(
+                                              (r) => Container(
+                                                margin:
+                                                    const EdgeInsets.fromLTRB(
+                                                      20,
+                                                      0,
+                                                      20,
+                                                      16,
+                                                    ),
+                                                padding: const EdgeInsets.all(
+                                                  18,
                                                 ),
-                                              ),
-                                              const SizedBox(height: 12),
-                                              
-                                              // Marks and Percentage Row
-                                              Row(
-                                                children: [
-                                                  // Marks
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                                      children: [
-                                                        const Text(
-                                                          'Marks',
-                                                          style: TextStyle(
-                                                            fontSize: 12,
-                                                            fontWeight: FontWeight.w600,
-                                                            color: kTextSecondaryColor,
-                                                          ),
-                                                        ),
-                                                        const SizedBox(height: 4),
-                                                        Text(
-                                                          '${r['marks_obtained'] ?? 0} / ${r['max_marks'] ?? 100}',
-                                                          style: const TextStyle(
-                                                            fontSize: 20,
-                                                            fontWeight: FontWeight.bold,
-                                                            color: kPrimaryGreen,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 16),
-                                                  
-                                                  // Percentage
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                                      children: [
-                                                        const Text(
-                                                          'Percentage',
-                                                          style: TextStyle(
-                                                            fontSize: 12,
-                                                            fontWeight: FontWeight.w600,
-                                                            color: kTextSecondaryColor,
-                                                          ),
-                                                        ),
-                                                        const SizedBox(height: 4),
-                                                        Text(
-                                                          '${r['percentage'] ?? 0}%',
-                                                          style: const TextStyle(
-                                                            fontSize: 20,
-                                                            fontWeight: FontWeight.bold,
-                                                            color: kPrimaryBlue,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 12),
-                                              
-                                              // Grade
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                                 decoration: BoxDecoration(
-                                                  color: kPrimaryGreen.withOpacity(0.1),
-                                                  borderRadius: BorderRadius.circular(20),
-                                                ),
-                                                child: Text(
-                                                  'Grade: ${r['grade'] ?? 'N/A'}',
-                                                  style: const TextStyle(
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: kPrimaryGreen,
+                                                  color: Colors.white,
+                                                  borderRadius:
+                                                      BorderRadius.circular(16),
+                                                  border: Border.all(
+                                                    color: Colors.grey.shade200,
                                                   ),
                                                 ),
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    // Subject Name
+                                                    Text(
+                                                      r['subject']?['name'] ??
+                                                          r['subject_name'] ??
+                                                          'Subject',
+                                                      style: const TextStyle(
+                                                        fontSize: 16,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color: kPrimaryBlue,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 12),
+
+                                                    // Marks and Percentage Row
+                                                    Row(
+                                                      children: [
+                                                        // Marks
+                                                        Expanded(
+                                                          child: Column(
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .start,
+                                                            children: [
+                                                              const Text(
+                                                                'Marks',
+                                                                style: TextStyle(
+                                                                  fontSize: 12,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                  color:
+                                                                      kTextSecondaryColor,
+                                                                ),
+                                                              ),
+                                                              const SizedBox(
+                                                                height: 4,
+                                                              ),
+                                                              Text(
+                                                                '${r['marks_obtained'] ?? 0} / ${r['max_marks'] ?? 100}',
+                                                                style: const TextStyle(
+                                                                  fontSize: 20,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                  color:
+                                                                      kPrimaryGreen,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 16,
+                                                        ),
+
+                                                        // Percentage
+                                                        Expanded(
+                                                          child: Column(
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .start,
+                                                            children: [
+                                                              const Text(
+                                                                'Percentage',
+                                                                style: TextStyle(
+                                                                  fontSize: 12,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                  color:
+                                                                      kTextSecondaryColor,
+                                                                ),
+                                                              ),
+                                                              const SizedBox(
+                                                                height: 4,
+                                                              ),
+                                                              Text(
+                                                                '${r['percentage'] ?? 0}%',
+                                                                style: const TextStyle(
+                                                                  fontSize: 20,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                  color:
+                                                                      kPrimaryBlue,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 12),
+
+                                                    // Grade
+                                                    Container(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 12,
+                                                            vertical: 6,
+                                                          ),
+                                                      decoration: BoxDecoration(
+                                                        color: kPrimaryGreen
+                                                            .withOpacity(0.1),
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              20,
+                                                            ),
+                                                      ),
+                                                      child: Text(
+                                                        'Grade: ${r['grade'] ?? 'N/A'}',
+                                                        style: const TextStyle(
+                                                          fontSize: 14,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color: kPrimaryGreen,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
                                               ),
-                                            ],
-                                          ),
-                                        )).toList(),
+                                            )
+                                            .toList(),
                                       ],
                                     ),
                                   ),
@@ -926,20 +1210,33 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                                     decoration: BoxDecoration(
                                       color: kSoftBlue.withOpacity(0.3),
                                       borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: Colors.grey.shade300),
+                                      border: Border.all(
+                                        color: Colors.grey.shade300,
+                                      ),
                                     ),
                                     child: Column(
                                       children: [
-                                        Icon(Icons.info_outline_rounded, size: 48, color: kPrimaryBlue),
+                                        Icon(
+                                          Icons.info_outline_rounded,
+                                          size: 48,
+                                          color: kPrimaryBlue,
+                                        ),
                                         const SizedBox(height: 12),
                                         Text(
                                           'No subject results available',
-                                          style: TextStyle(fontSize: 16, color: kPrimaryBlue, fontWeight: FontWeight.w600),
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            color: kPrimaryBlue,
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
                                         const SizedBox(height: 8),
                                         Text(
                                           'The exam results for individual subjects are not yet available.',
-                                          style: TextStyle(fontSize: 14, color: kTextSecondaryColor),
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: kTextSecondaryColor,
+                                          ),
                                           textAlign: TextAlign.center,
                                         ),
                                       ],
@@ -953,7 +1250,13 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                                     decoration: BoxDecoration(
                                       color: Colors.white,
                                       borderRadius: BorderRadius.circular(20),
-                                      boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.1), blurRadius: 12, offset: const Offset(0, 6))],
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: kPrimaryBlue.withOpacity(0.1),
+                                          blurRadius: 12,
+                                          offset: const Offset(0, 6),
+                                        ),
+                                      ],
                                     ),
                                     child: Column(
                                       children: [
@@ -963,10 +1266,17 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                                             Container(
                                               padding: const EdgeInsets.all(8),
                                               decoration: BoxDecoration(
-                                                color: kPrimaryBlue.withOpacity(0.1),
-                                                borderRadius: BorderRadius.circular(12),
+                                                color: kPrimaryBlue.withOpacity(
+                                                  0.1,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
                                               ),
-                                              child: const Icon(Icons.assessment_rounded, color: kPrimaryBlue, size: 24),
+                                              child: const Icon(
+                                                Icons.assessment_rounded,
+                                                color: kPrimaryBlue,
+                                                size: 24,
+                                              ),
                                             ),
                                             const SizedBox(width: 12),
                                             const Text(
@@ -980,7 +1290,7 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                                           ],
                                         ),
                                         const SizedBox(height: 20),
-                                        
+
                                         // Results Grid
                                         Column(
                                           children: [
@@ -990,46 +1300,64 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                                               padding: const EdgeInsets.all(16),
                                               decoration: BoxDecoration(
                                                 color: kSoftBlue,
-                                                borderRadius: BorderRadius.circular(16),
+                                                borderRadius:
+                                                    BorderRadius.circular(16),
                                               ),
                                               child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
                                                 children: [
                                                   const Text(
                                                     'TOTAL',
                                                     style: TextStyle(
                                                       fontSize: 12,
-                                                      fontWeight: FontWeight.w600,
-                                                      color: kTextSecondaryColor,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color:
+                                                          kTextSecondaryColor,
                                                     ),
                                                   ),
                                                   const SizedBox(height: 8),
                                                   Row(
-                                                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                                                    textBaseline: TextBaseline.alphabetic,
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .baseline,
+                                                    textBaseline:
+                                                        TextBaseline.alphabetic,
                                                     children: [
                                                       Flexible(
                                                         child: Text(
                                                           '${result.summary!['total'] ?? result.summary!['total_marks_obtained'] ?? 0}',
                                                           style: const TextStyle(
                                                             fontSize: 24,
-                                                            fontWeight: FontWeight.bold,
+                                                            fontWeight:
+                                                                FontWeight.bold,
                                                             color: kPrimaryBlue,
                                                           ),
-                                                          overflow: TextOverflow.ellipsis,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
                                                         ),
                                                       ),
-                                                      if (result.summary!['total_max'] != null) ...[
-                                                        const SizedBox(width: 4),
+                                                      if (result
+                                                              .summary!['total_max'] !=
+                                                          null) ...[
+                                                        const SizedBox(
+                                                          width: 4,
+                                                        ),
                                                         Flexible(
                                                           child: Text(
                                                             '/ ${result.summary!['total_max']}',
                                                             style: const TextStyle(
                                                               fontSize: 14,
-                                                              fontWeight: FontWeight.w500,
-                                                              color: kTextSecondaryColor,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w500,
+                                                              color:
+                                                                  kTextSecondaryColor,
                                                             ),
-                                                            overflow: TextOverflow.ellipsis,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
                                                           ),
                                                         ),
                                                       ],
@@ -1039,36 +1367,50 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                                               ),
                                             ),
                                             const SizedBox(height: 12),
-                                            
+
                                             // Second row: AVERAGE and STATUS side by side
                                             Row(
                                               children: [
                                                 // AVERAGE
                                                 Expanded(
                                                   child: Container(
-                                                    padding: const EdgeInsets.all(16),
+                                                    padding:
+                                                        const EdgeInsets.all(
+                                                          16,
+                                                        ),
                                                     decoration: BoxDecoration(
                                                       color: kSoftGreen,
-                                                      borderRadius: BorderRadius.circular(16),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            16,
+                                                          ),
                                                     ),
                                                     child: Column(
-                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
                                                       children: [
                                                         const Text(
                                                           'AVERAGE',
                                                           style: TextStyle(
                                                             fontSize: 12,
-                                                            fontWeight: FontWeight.w600,
-                                                            color: kTextSecondaryColor,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            color:
+                                                                kTextSecondaryColor,
                                                           ),
                                                         ),
-                                                        const SizedBox(height: 8),
+                                                        const SizedBox(
+                                                          height: 8,
+                                                        ),
                                                         Text(
                                                           '${result.summary!['average'] ?? result.summary!['overall_percentage'] ?? 0}%',
                                                           style: const TextStyle(
                                                             fontSize: 20,
-                                                            fontWeight: FontWeight.bold,
-                                                            color: kPrimaryGreen,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            color:
+                                                                kPrimaryGreen,
                                                           ),
                                                         ),
                                                       ],
@@ -1076,34 +1418,78 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                                                   ),
                                                 ),
                                                 const SizedBox(width: 12),
-                                               
+
                                                 // STATUS
                                                 Expanded(
                                                   child: Container(
-                                                    padding: const EdgeInsets.all(16),
+                                                    padding:
+                                                        const EdgeInsets.all(
+                                                          16,
+                                                        ),
                                                     decoration: BoxDecoration(
-                                                      color: (_calculateCorrectStatus(result) == 'PASS' ? kPrimaryGreen.withOpacity(0.1) : kErrorColor.withOpacity(0.1)),
-                                                      borderRadius: BorderRadius.circular(16),
-                                                      border: Border.all(color: (_calculateCorrectStatus(result) == 'PASS' ? kPrimaryGreen : kErrorColor).withOpacity(0.3)),
+                                                      color:
+                                                          (_calculateCorrectStatus(
+                                                                result,
+                                                              ) ==
+                                                              'PASS'
+                                                          ? kPrimaryGreen
+                                                                .withOpacity(
+                                                                  0.1,
+                                                                )
+                                                          : kErrorColor
+                                                                .withOpacity(
+                                                                  0.1,
+                                                                )),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            16,
+                                                          ),
+                                                      border: Border.all(
+                                                        color:
+                                                            (_calculateCorrectStatus(
+                                                                          result,
+                                                                        ) ==
+                                                                        'PASS'
+                                                                    ? kPrimaryGreen
+                                                                    : kErrorColor)
+                                                                .withOpacity(
+                                                                  0.3,
+                                                                ),
+                                                      ),
                                                     ),
                                                     child: Column(
-                                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .center,
                                                       children: [
                                                         const Text(
                                                           'STATUS',
                                                           style: TextStyle(
                                                             fontSize: 12,
-                                                            fontWeight: FontWeight.w600,
-                                                            color: kTextSecondaryColor,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            color:
+                                                                kTextSecondaryColor,
                                                           ),
                                                         ),
-                                                        const SizedBox(height: 8),
+                                                        const SizedBox(
+                                                          height: 8,
+                                                        ),
                                                         Text(
-                                                          _calculateCorrectStatus(result),
+                                                          _calculateCorrectStatus(
+                                                            result,
+                                                          ),
                                                           style: TextStyle(
                                                             fontSize: 20,
-                                                            fontWeight: FontWeight.bold,
-                                                            color: _calculateCorrectStatus(result) == 'PASS' ? kPrimaryGreen : kErrorColor,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            color:
+                                                                _calculateCorrectStatus(
+                                                                      result,
+                                                                    ) ==
+                                                                    'PASS'
+                                                                ? kPrimaryGreen
+                                                                : kErrorColor,
                                                           ),
                                                         ),
                                                       ],
@@ -1161,7 +1547,11 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                     ),
                     child: const Padding(
                       padding: EdgeInsets.all(8.0),
-                      child: Icon(Icons.arrow_back_rounded, color: Colors.white, size: 28),
+                      child: Icon(
+                        Icons.arrow_back_rounded,
+                        color: Colors.white,
+                        size: 28,
+                      ),
                     ),
                   ),
                 ),
@@ -1199,7 +1589,11 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                   ),
                   child: const Padding(
                     padding: EdgeInsets.all(8.0),
-                    child: Icon(Icons.stars_rounded, color: Colors.white, size: 28),
+                    child: Icon(
+                      Icons.stars_rounded,
+                      color: Colors.white,
+                      size: 28,
+                    ),
                   ),
                 ),
               ],
@@ -1315,7 +1709,11 @@ class _DesktopInfoChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kPrimaryBlue),
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: kPrimaryBlue,
+        ),
       ),
     );
   }
@@ -1325,14 +1723,14 @@ class _DesktopResultsRow extends StatelessWidget {
   final Map<String, dynamic> row;
   final bool showDivider;
 
-  const _DesktopResultsRow({
-    required this.row,
-    this.showDivider = true,
-  });
+  const _DesktopResultsRow({required this.row, this.showDivider = true});
 
   @override
   Widget build(BuildContext context) {
-    final subject = row['subject']?['name']?.toString() ?? row['subject_name']?.toString() ?? 'Subject';
+    final subject =
+        row['subject']?['name']?.toString() ??
+        row['subject_name']?.toString() ??
+        'Subject';
     final obtained = row['marks_obtained'] ?? row['marksObtained'] ?? 0;
     final maxMarks = row['max_marks'] ?? row['maxMarks'] ?? '—';
     final percentage = row['percentage'];
@@ -1341,7 +1739,9 @@ class _DesktopResultsRow extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        border: showDivider ? const Border(bottom: BorderSide(color: studentWebBorder)) : null,
+        border: showDivider
+            ? const Border(bottom: BorderSide(color: studentWebBorder))
+            : null,
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
@@ -1365,7 +1765,11 @@ class _DesktopResultsRow extends StatelessWidget {
               '$obtained',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kPrimaryGreen),
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: kPrimaryGreen,
+              ),
             ),
           ),
           Expanded(
@@ -1401,7 +1805,10 @@ class _DesktopResultsRow extends StatelessWidget {
                   ? _StatusBadge(status: status)
                   : const Text(
                       '—',
-                      style: TextStyle(fontSize: 12, color: kTextSecondaryColor),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: kTextSecondaryColor,
+                      ),
                     ),
             ),
           ),
@@ -1440,7 +1847,11 @@ class _GradeBadge extends StatelessWidget {
         grade,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color),
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
       ),
     );
   }
@@ -1466,7 +1877,11 @@ class _StatusBadge extends StatelessWidget {
         status,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color),
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
       ),
     );
   }

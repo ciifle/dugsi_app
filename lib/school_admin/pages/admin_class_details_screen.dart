@@ -10,6 +10,7 @@ import 'package:kobac/school_admin/pages/create_student_screen.dart';
 import 'package:kobac/school_admin/pages/student_detail_screen.dart';
 import 'package:kobac/school_admin/pages/class_subject_management_screen.dart';
 import 'package:kobac/school_admin/pages/rankings_pages.dart';
+import 'package:kobac/school_admin/pages/class_merge_page.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
 const Color kPrimaryGreen = Color(0xFF5AB04B);
@@ -103,6 +104,31 @@ class _AdminClassDetailsScreenState extends State<AdminClassDetailsScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _openClassMerge(BuildContext context) async {
+    final isDesktop = isDesktopWebAdminLayout(context);
+    if (isDesktop && widget.onNavigateToPage != null) {
+      widget.onNavigateToPage!(
+        'classMerge',
+        arguments: {
+          'classId': widget.classId,
+          'className': widget.className,
+          'academicYearId': _academicYearId,
+        },
+      );
+      return;
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ClassMergePage(
+          classId: widget.classId,
+          className: widget.className,
+          initialAcademicYearId: _academicYearId,
+        ),
+      ),
+    );
+    if (mounted) await _loadStudents();
   }
 
   Future<void> _loadStudents() async {
@@ -352,6 +378,21 @@ class _AdminClassDetailsScreenState extends State<AdminClassDetailsScreen> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: kPrimaryBlue,
                           foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: buttonWidth,
+                      child: OutlinedButton.icon(
+                        onPressed: _loading
+                            ? null
+                            : () => _openClassMerge(context),
+                        icon: const Icon(Icons.swap_horiz_rounded, size: 20),
+                        label: const Text('Move / Merge Students'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: kPrimaryBlue,
+                          side: const BorderSide(color: kPrimaryBlue),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                       ),
