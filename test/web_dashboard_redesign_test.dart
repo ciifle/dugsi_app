@@ -7,14 +7,17 @@ void main() {
   late String analytics;
 
   setUpAll(() {
-    dashboard = File('lib/school_admin/widgets/web_dashboard.dart')
-        .readAsStringSync();
-    analytics = File('lib/school_admin/widgets/dashboard_analytics.dart')
-        .readAsStringSync();
+    dashboard = File(
+      'lib/school_admin/widgets/web_dashboard.dart',
+    ).readAsStringSync();
+    analytics = File(
+      'lib/school_admin/widgets/dashboard_analytics.dart',
+    ).readAsStringSync();
   });
 
   test('dashboard preserves live count services and navigation callbacks', () {
-    expect(dashboard, contains('StudentsService().listStudents()'));
+    expect(dashboard, contains('StudentsService().listStudentPage()'));
+    expect(dashboard, contains('.data.total'));
     expect(dashboard, contains('TeachersService().listTeachers()'));
     expect(dashboard, contains('ClassesService().listClasses()'));
     expect(dashboard, contains("_navigateToPage('students'"));

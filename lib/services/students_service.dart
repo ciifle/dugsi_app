@@ -203,6 +203,82 @@ class StudentModel {
   }
 }
 
+class StudentPage {
+  final List<StudentModel> students;
+  final int total;
+  final int? page;
+  final int? limit;
+
+  const StudentPage({
+    required this.students,
+    required this.total,
+    this.page,
+    this.limit,
+  });
+}
+
+int? _studentPageInt(dynamic value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse(value?.toString() ?? '');
+}
+
+StudentPage? parseStudentPageResponse(dynamic raw) {
+  List<dynamic>? items;
+  Map<String, dynamic>? pagination;
+
+  if (raw is List) {
+    items = raw;
+  } else if (raw is Map) {
+    final response = Map<String, dynamic>.from(raw);
+    final data = response['data'];
+    if (response['students'] is List) {
+      items = response['students'] as List<dynamic>;
+    } else if (data is List) {
+      items = data;
+    } else if (data is Map) {
+      final dataMap = Map<String, dynamic>.from(data);
+      if (dataMap['students'] is List) {
+        items = dataMap['students'] as List<dynamic>;
+      } else if (dataMap['data'] is List) {
+        items = dataMap['data'] as List<dynamic>;
+      }
+      if (dataMap['pagination'] is Map) {
+        pagination = Map<String, dynamic>.from(dataMap['pagination'] as Map);
+      }
+    }
+    if (response['pagination'] is Map) {
+      pagination = Map<String, dynamic>.from(response['pagination'] as Map);
+    } else if (response['meta'] is Map) {
+      pagination = Map<String, dynamic>.from(response['meta'] as Map);
+    }
+  }
+
+  if (items == null) return null;
+  final students = <StudentModel>[];
+  for (final item in items) {
+    if (item is! Map) continue;
+    final map = Map<String, dynamic>.from(item);
+    final flat = map['student'] is Map
+        ? Map<String, dynamic>.from(map['student'] as Map)
+        : map;
+    try {
+      students.add(StudentModel.fromJson(flat));
+    } catch (_) {}
+  }
+
+  return StudentPage(
+    students: students,
+    total: _studentPageInt(pagination?['total']) ?? students.length,
+    page: _studentPageInt(pagination?['page'] ?? pagination?['current_page']),
+    limit: _studentPageInt(
+      pagination?['limit'] ??
+          pagination?['per_page'] ??
+          pagination?['pageSize'],
+    ),
+  );
+}
+
 typedef StudentPdfDocument = PdfFileResult;
 
 /// Payload for creating a student (POST). Exact API keys.
@@ -496,6 +572,32 @@ class StudentsService {
     int? page,
     int? limit,
   }) async {
+    final result = await listStudentPage(
+      academicYearId: academicYearId,
+      classId: classId,
+      enrollmentStatus: enrollmentStatus,
+      studentStatus: studentStatus,
+      search: search,
+      page: page,
+      limit: limit,
+    );
+    if (result is StudentSuccess<StudentPage>) {
+      return StudentSuccess(result.data.students);
+    }
+    final error = result as StudentError;
+    return StudentError(error.message, error.statusCode);
+  }
+
+  /// Lists students while preserving the backend pagination total.
+  Future<StudentResult<StudentPage>> listStudentPage({
+    int? academicYearId,
+    int? classId,
+    String? enrollmentStatus,
+    String? studentStatus,
+    String? search,
+    int? page,
+    int? limit,
+  }) async {
     try {
       var url = apiUrl(_base);
       final query = buildStudentListQuery(
@@ -521,37 +623,11 @@ class StudentsService {
           response.statusCode,
         );
       }
-      final raw = _parseJson(response.body);
-      List<dynamic> list;
-      if (raw is List) {
-        list = raw;
-      } else if (raw is Map<String, dynamic>) {
-        if (raw['data'] is List) {
-          list = raw['data'] as List<dynamic>;
-        } else if (raw['students'] is List) {
-          list = raw['students'] as List<dynamic>;
-        } else {
-          return StudentError(
-            _errorMessage(response) ??
-                'Invalid response from server. Please try again.',
-          );
-        }
-      } else {
+      final studentPage = parseStudentPageResponse(_parseJson(response.body));
+      if (studentPage == null) {
         return StudentError('Invalid response from server. Please try again.');
       }
-      final students = <StudentModel>[];
-      for (final e in list) {
-        if (e is! Map) continue;
-        final map = e as Map;
-        // API may return flat object or wrapped as { "student": { ... } }
-        final flat = map['student'] is Map
-            ? Map<String, dynamic>.from(map['student'] as Map)
-            : Map<String, dynamic>.from(map);
-        try {
-          students.add(StudentModel.fromJson(flat));
-        } catch (_) {}
-      }
-      return StudentSuccess(students);
+      return StudentSuccess(studentPage);
     } catch (e, st) {
       return StudentError(
         userFriendlyMessage(e, st, 'StudentsService.listStudents'),

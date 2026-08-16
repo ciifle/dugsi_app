@@ -73,12 +73,11 @@ class _WebDashboardState extends State<WebDashboard> {
     if (user != null && user.userRole == UserRole.schoolAdmin) {
       setState(() {
         _userName = user.name;
-        _loading = false;
       });
 
       // Load counts in parallel
       final futures = await Future.wait([
-        StudentsService().listStudents(),
+        StudentsService().listStudentPage(),
         TeachersService().listTeachers(),
         SubjectsService().listSubjects(),
         ClassesService().listClasses(),
@@ -87,9 +86,9 @@ class _WebDashboardState extends State<WebDashboard> {
       if (!mounted) return;
 
       setState(() {
-        if (futures[0] is StudentSuccess<List<StudentModel>>) {
+        if (futures[0] is StudentSuccess<StudentPage>) {
           _studentCount =
-              (futures[0] as StudentSuccess<List<StudentModel>>).data.length;
+              (futures[0] as StudentSuccess<StudentPage>).data.total;
         }
         if (futures[1] is TeacherSuccess<List<TeacherModel>>) {
           _teacherCount =

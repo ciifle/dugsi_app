@@ -84,7 +84,7 @@ class _SchoolAdminScreenState extends State<SchoolAdminScreen> {
 
     try {
       // Load data in parallel
-      final studentsResult = await StudentsService().listStudents();
+      final studentsResult = await StudentsService().listStudentPage();
       final teachersResult = await TeachersService().listTeachers();
       final subjectsResult = await SubjectsService().listSubjects();
       final classesResult = await ClassesService().listClasses();
@@ -92,8 +92,8 @@ class _SchoolAdminScreenState extends State<SchoolAdminScreen> {
       if (!mounted) return;
 
       int studentCount = 0;
-      if (studentsResult is StudentSuccess<List<StudentModel>>) {
-        studentCount = studentsResult.data.length;
+      if (studentsResult is StudentSuccess<StudentPage>) {
+        studentCount = studentsResult.data.total;
       }
 
       int teacherCount = 0;
