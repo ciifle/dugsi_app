@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:kobac/services/auth_provider.dart';
 import 'package:kobac/services/teacher_service.dart';
 import 'package:kobac/teacher/widgets/teacher_web_ui.dart';
+import 'package:kobac/teacher/pages/change_password_page.dart';
 
 // ---------- COLOR PALETTE (same as other teacher screens) ----------
 const Color kPrimaryBlue = Color(0xFF023471);
@@ -58,7 +59,9 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
         _assignmentsError = null;
       } else {
         _assignments = [];
-        _assignmentsError = (result is TeacherError) ? (result as TeacherError).message : 'Could not load assignments.';
+        _assignmentsError = (result is TeacherError)
+            ? (result as TeacherError).message
+            : 'Could not load assignments.';
       }
     });
   }
@@ -87,15 +90,33 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
     return names;
   }
 
+  void _openChangePassword(BuildContext context) {
+    if (widget.embedBodyOnly) {
+      widget.onNavigateToPage?.call('changePassword');
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const TeacherChangePasswordPage()),
+    );
+  }
+
   void _logout(BuildContext context) {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
-          title: const Text('Logout', style: TextStyle(fontWeight: FontWeight.bold, color: kPrimaryBlue)),
-          content: const Text('Are you sure you want to logout?', style: TextStyle(color: kTextSecondary)),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text(
+            'Logout',
+            style: TextStyle(fontWeight: FontWeight.bold, color: kPrimaryBlue),
+          ),
+          content: const Text(
+            'Are you sure you want to logout?',
+            style: TextStyle(color: kTextSecondary),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
@@ -107,7 +128,9 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                 showDialog(
                   context: context,
                   barrierDismissible: false,
-                  builder: (_) => const Center(child: CircularProgressIndicator(color: kPrimaryBlue)),
+                  builder: (_) => const Center(
+                    child: CircularProgressIndicator(color: kPrimaryBlue),
+                  ),
                 );
                 try {
                   await context.read<AuthProvider>().logout();
@@ -115,12 +138,22 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                   if (context.mounted) {
                     Navigator.of(context).pop();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Logout failed: $e'), backgroundColor: kErrorColor, behavior: SnackBarBehavior.floating),
+                      SnackBar(
+                        content: Text('Logout failed: $e'),
+                        backgroundColor: kErrorColor,
+                        behavior: SnackBarBehavior.floating,
+                      ),
                     );
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: kErrorColor, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kErrorColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               child: const Text('Logout'),
             ),
           ],
@@ -178,14 +211,21 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
     required dynamic prof,
   }) {
     final initials = name.isNotEmpty
-        ? name.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase()
+        ? name
+              .split(' ')
+              .map((e) => e.isNotEmpty ? e[0] : '')
+              .take(2)
+              .join()
+              .toUpperCase()
         : 'T';
     final roleBadge = role.trim().isEmpty ? 'TEACHER' : role.toUpperCase();
     final uniqueClassCount = _assignedClassNames.length;
     final assignmentCount = _assignments.length;
     final subjectsValue = _assignmentsLoading
         ? '-'
-        : (_assignedSubjectNames.isEmpty ? '-' : _assignedSubjectNames.join(', '));
+        : (_assignedSubjectNames.isEmpty
+              ? '-'
+              : _assignedSubjectNames.join(', '));
     final classesValue = _assignmentsLoading
         ? '-'
         : (_assignedClassNames.isEmpty ? '-' : _assignedClassNames.join(', '));
@@ -204,7 +244,9 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
       _desktopDetailRow('University', _displayValue(prof?.graduatedUniversity)),
       _desktopDetailRow(
         'School ID',
-        prof?.schoolId != null && prof!.schoolId! > 0 ? '${prof.schoolId}' : '-',
+        prof?.schoolId != null && prof!.schoolId! > 0
+            ? '${prof.schoolId}'
+            : '-',
       ),
       _desktopDetailRow('Total Classes', totalClassesValue),
       _desktopDetailRow('Assignments', assignmentsValue),
@@ -239,12 +281,19 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                 if (auth.profileError != null) ...[
                   Row(
                     children: [
-                      const Icon(Icons.info_outline_rounded, color: kErrorColor, size: 20),
+                      const Icon(
+                        Icons.info_outline_rounded,
+                        color: kErrorColor,
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           auth.profileError!,
-                          style: const TextStyle(fontSize: 13, color: kTextPrimary),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: kTextPrimary,
+                          ),
                         ),
                       ),
                     ],
@@ -283,9 +332,14 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                           ),
                           const SizedBox(height: 10),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(colors: [kPrimaryBlue, kPrimaryGreen]),
+                              gradient: const LinearGradient(
+                                colors: [kPrimaryBlue, kPrimaryGreen],
+                              ),
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: Text(
@@ -322,27 +376,59 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                   ),
                   const SizedBox(height: 16),
                 ],
-                Wrap(
-                  spacing: 24,
-                  runSpacing: 18,
-                  children: detailRows,
-                ),
+                Wrap(spacing: 24, runSpacing: 18, children: detailRows),
                 const SizedBox(height: 28),
                 const Divider(height: 1, color: Color(0xFFE5E7EB)),
                 const SizedBox(height: 24),
                 Align(
                   alignment: Alignment.centerRight,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _logout(context),
-                    icon: const Icon(Icons.logout_rounded, color: kErrorColor),
-                    label: const Text(
-                      'Logout',
-                      style: TextStyle(color: kErrorColor, fontWeight: FontWeight.w600),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: kErrorColor),
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                    ),
+                  child: Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () => _openChangePassword(context),
+                        icon: const Icon(
+                          Icons.lock_outline_rounded,
+                          color: kPrimaryBlue,
+                        ),
+                        label: const Text(
+                          'Change Password',
+                          style: TextStyle(
+                            color: kPrimaryBlue,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: kPrimaryBlue),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 12,
+                          ),
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () => _logout(context),
+                        icon: const Icon(
+                          Icons.logout_rounded,
+                          color: kErrorColor,
+                        ),
+                        label: const Text(
+                          'Logout',
+                          style: TextStyle(
+                            color: kErrorColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: kErrorColor),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 12,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -360,10 +446,16 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
     final prof = auth.teacherProfile;
     final name = prof?.fullName?.trim().isNotEmpty == true
         ? prof!.fullName!.trim()
-        : (user?.name?.trim().isNotEmpty == true ? user!.name.trim() : 'Teacher');
+        : (user?.name?.trim().isNotEmpty == true
+              ? user!.name.trim()
+              : 'Teacher');
     final email = prof?.email?.trim().isNotEmpty == true
         ? prof!.email!
-        : (user?.email?.trim().isNotEmpty == true ? user!.email! : (user?.emisNumber?.trim().isNotEmpty == true ? user!.emisNumber! : '—'));
+        : (user?.email?.trim().isNotEmpty == true
+              ? user!.email!
+              : (user?.emisNumber?.trim().isNotEmpty == true
+                    ? user!.emisNumber!
+                    : '—'));
     final role = user != null ? user.role.replaceAll('_', ' ') : 'Teacher';
     final employeeId = user != null ? 'ID ${user.id}' : '—';
 
@@ -393,9 +485,16 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
           backgroundColor: kPrimaryBlue,
           leading: Container(
             margin: const EdgeInsets.only(left: 12, top: 8),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(14)),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(14),
+            ),
             child: IconButton(
-              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 28),
+              icon: const Icon(
+                Icons.arrow_back_rounded,
+                color: Colors.white,
+                size: 28,
+              ),
               onPressed: () => Navigator.pop(context),
               padding: const EdgeInsets.all(10),
             ),
@@ -408,12 +507,22 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                 colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
                 stops: const [0.3, 0.7, 1.0],
               ),
-              borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(30),
+                bottomRight: Radius.circular(30),
+              ),
             ),
             child: FlexibleSpaceBar(
               titlePadding: const EdgeInsets.only(bottom: 20),
               centerTitle: true,
-              title: const Text("My Profile", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 24)),
+              title: const Text(
+                "My Profile",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 24,
+                ),
+              ),
             ),
           ),
         ),
@@ -433,9 +542,21 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.info_outline_rounded, color: kErrorColor, size: 20),
+                      Icon(
+                        Icons.info_outline_rounded,
+                        color: kErrorColor,
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
-                      Expanded(child: Text(auth.profileError!, style: const TextStyle(fontSize: 13, color: kTextPrimary))),
+                      Expanded(
+                        child: Text(
+                          auth.profileError!,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: kTextPrimary,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -447,19 +568,55 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
               icon: Icons.person_outline_rounded,
               gradientColors: [kPrimaryBlue, kPrimaryGreen],
               children: [
-                _ProfileInfoRow(icon: Icons.email_outlined, label: "Email", value: email, color: kPrimaryBlue),
+                _ProfileInfoRow(
+                  icon: Icons.email_outlined,
+                  label: "Email",
+                  value: email,
+                  color: kPrimaryBlue,
+                ),
                 if (prof?.phone != null && prof!.phone!.isNotEmpty)
-                  _ProfileInfoRow(icon: Icons.phone_outlined, label: "Phone", value: prof.phone!, color: kPrimaryGreen),
+                  _ProfileInfoRow(
+                    icon: Icons.phone_outlined,
+                    label: "Phone",
+                    value: prof.phone!,
+                    color: kPrimaryGreen,
+                  ),
                 if (prof?.gender != null && prof!.gender!.isNotEmpty)
-                  _ProfileInfoRow(icon: Icons.person_outline, label: "Gender", value: prof.gender!, color: kSoftOrange),
+                  _ProfileInfoRow(
+                    icon: Icons.person_outline,
+                    label: "Gender",
+                    value: prof.gender!,
+                    color: kSoftOrange,
+                  ),
                 if (prof?.address != null && prof!.address!.isNotEmpty)
-                  _ProfileInfoRow(icon: Icons.location_on_outlined, label: "Address", value: prof.address!, color: kDarkBlue),
+                  _ProfileInfoRow(
+                    icon: Icons.location_on_outlined,
+                    label: "Address",
+                    value: prof.address!,
+                    color: kDarkBlue,
+                  ),
                 if (prof?.motherName != null && prof!.motherName!.isNotEmpty)
-                  _ProfileInfoRow(icon: Icons.family_restroom_outlined, label: "Mother's name", value: prof.motherName!, color: kPrimaryBlue),
-                if (prof?.graduatedUniversity != null && prof!.graduatedUniversity!.isNotEmpty)
-                  _ProfileInfoRow(icon: Icons.school_outlined, label: "University", value: prof.graduatedUniversity!, color: kPrimaryGreen),
+                  _ProfileInfoRow(
+                    icon: Icons.family_restroom_outlined,
+                    label: "Mother's name",
+                    value: prof.motherName!,
+                    color: kPrimaryBlue,
+                  ),
+                if (prof?.graduatedUniversity != null &&
+                    prof!.graduatedUniversity!.isNotEmpty)
+                  _ProfileInfoRow(
+                    icon: Icons.school_outlined,
+                    label: "University",
+                    value: prof.graduatedUniversity!,
+                    color: kPrimaryGreen,
+                  ),
                 if (prof?.schoolId != null && prof!.schoolId! > 0)
-                  _ProfileInfoRow(icon: Icons.business_outlined, label: "School ID", value: '${prof.schoolId}', color: kSoftOrange),
+                  _ProfileInfoRow(
+                    icon: Icons.business_outlined,
+                    label: "School ID",
+                    value: '${prof.schoolId}',
+                    color: kSoftOrange,
+                  ),
               ],
             ),
             const SizedBox(height: 16),
@@ -469,25 +626,58 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
               gradientColors: [kPrimaryGreen, kPrimaryBlue],
               children: [
                 if (_assignmentsLoading)
-                  const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Center(child: SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: kPrimaryBlue))))
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Center(
+                      child: SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(color: kPrimaryBlue),
+                      ),
+                    ),
+                  )
                 else if (_assignmentsError != null)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     child: Row(
                       children: [
-                        Icon(Icons.error_outline_rounded, size: 20, color: kErrorColor),
+                        Icon(
+                          Icons.error_outline_rounded,
+                          size: 20,
+                          color: kErrorColor,
+                        ),
                         const SizedBox(width: 8),
-                        Expanded(child: Text(_assignmentsError!, style: const TextStyle(fontSize: 13, color: kTextSecondary))),
+                        Expanded(
+                          child: Text(
+                            _assignmentsError!,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: kTextSecondary,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   )
                 else ...[
-                  _ProfileInfoWrapRow(icon: Icons.book_outlined, label: "Subjects", items: _assignedSubjectNames, color: kPrimaryBlue),
-                  _ProfileInfoWrapRow(icon: Icons.class_outlined, label: "Classes", items: _assignedClassNames, color: kPrimaryGreen),
+                  _ProfileInfoWrapRow(
+                    icon: Icons.book_outlined,
+                    label: "Subjects",
+                    items: _assignedSubjectNames,
+                    color: kPrimaryBlue,
+                  ),
+                  _ProfileInfoWrapRow(
+                    icon: Icons.class_outlined,
+                    label: "Classes",
+                    items: _assignedClassNames,
+                    color: kPrimaryGreen,
+                  ),
                 ],
               ],
             ),
             const SizedBox(height: 16),
+            _ChangePasswordCard(onTap: () => _openChangePassword(context)),
+            const SizedBox(height: 12),
             _LogoutCard(onLogout: () => _logout(context)),
             const SizedBox(height: 24),
           ]),
@@ -508,10 +698,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
       return ColoredBox(color: kSoftBlue, child: body);
     }
 
-    return Scaffold(
-      backgroundColor: kSoftBlue,
-      body: body,
-    );
+    return Scaffold(backgroundColor: kSoftBlue, body: body);
   }
 }
 
@@ -520,19 +707,35 @@ class _ProfileHeader extends StatelessWidget {
   final String role;
   final String employeeId;
 
-  const _ProfileHeader({required this.name, required this.role, required this.employeeId});
+  const _ProfileHeader({
+    required this.name,
+    required this.role,
+    required this.employeeId,
+  });
 
   @override
   Widget build(BuildContext context) {
     final initials = name != '—' && name.isNotEmpty
-        ? name.trim().split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase()
+        ? name
+              .trim()
+              .split(' ')
+              .map((e) => e.isNotEmpty ? e[0] : '')
+              .take(2)
+              .join()
+              .toUpperCase()
         : 'T';
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 15, offset: const Offset(0, 5))],
+        boxShadow: [
+          BoxShadow(
+            color: kPrimaryBlue.withOpacity(0.08),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
         border: Border.all(color: Colors.grey.shade100, width: 1.5),
       ),
       child: Column(
@@ -541,50 +744,104 @@ class _ProfileHeader extends StatelessWidget {
           Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: const LinearGradient(colors: [kPrimaryBlue, kPrimaryGreen], begin: Alignment.topLeft, end: Alignment.bottomRight),
-              boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.3), blurRadius: 12, spreadRadius: 2)],
+              gradient: const LinearGradient(
+                colors: [kPrimaryBlue, kPrimaryGreen],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: kPrimaryBlue.withOpacity(0.3),
+                  blurRadius: 12,
+                  spreadRadius: 2,
+                ),
+              ],
             ),
             child: Padding(
               padding: const EdgeInsets.all(3),
               child: Container(
                 width: 90,
                 height: 90,
-                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
                 child: Center(
-                  child: Text(initials, style: const TextStyle(color: kPrimaryBlue, fontWeight: FontWeight.bold, fontSize: 36)),
+                  child: Text(
+                    initials,
+                    style: const TextStyle(
+                      color: kPrimaryBlue,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 36,
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
           const SizedBox(height: 16),
-          Text(name, style: const TextStyle(color: kTextPrimary, fontWeight: FontWeight.bold, fontSize: 22)),
+          Text(
+            name,
+            style: const TextStyle(
+              color: kTextPrimary,
+              fontWeight: FontWeight.bold,
+              fontSize: 22,
+            ),
+          ),
           const SizedBox(height: 4),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [kPrimaryBlue, kPrimaryGreen], begin: Alignment.centerLeft, end: Alignment.centerRight),
+              gradient: LinearGradient(
+                colors: [kPrimaryBlue, kPrimaryGreen],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
               borderRadius: BorderRadius.circular(30),
-              boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.2), blurRadius: 6, offset: const Offset(0, 2))],
+              boxShadow: [
+                BoxShadow(
+                  color: kPrimaryBlue.withOpacity(0.2),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Icon(Icons.school_rounded, size: 14, color: Colors.white),
                 const SizedBox(width: 6),
-                Text(role, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+                Text(
+                  role,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
               ],
             ),
           ),
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-            decoration: BoxDecoration(color: kSoftBlue, borderRadius: BorderRadius.circular(16)),
+            decoration: BoxDecoration(
+              color: kSoftBlue,
+              borderRadius: BorderRadius.circular(16),
+            ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.badge_rounded, size: 12, color: kPrimaryBlue),
                 const SizedBox(width: 4),
-                Text(employeeId, style: TextStyle(color: kPrimaryBlue, fontSize: 12, fontWeight: FontWeight.w500)),
+                Text(
+                  employeeId,
+                  style: TextStyle(
+                    color: kPrimaryBlue,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ],
             ),
           ),
@@ -600,7 +857,12 @@ class _InfoSectionCard extends StatelessWidget {
   final List<Color> gradientColors;
   final List<Widget> children;
 
-  const _InfoSectionCard({required this.title, required this.icon, required this.gradientColors, required this.children});
+  const _InfoSectionCard({
+    required this.title,
+    required this.icon,
+    required this.gradientColors,
+    required this.children,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -609,7 +871,13 @@ class _InfoSectionCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 3))],
+        boxShadow: [
+          BoxShadow(
+            color: kPrimaryBlue.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
         border: Border.all(color: Colors.grey.shade100, width: 1.5),
       ),
       child: Column(
@@ -621,14 +889,31 @@ class _InfoSectionCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: gradientColors, begin: Alignment.topLeft, end: Alignment.bottomRight),
+                  gradient: LinearGradient(
+                    colors: gradientColors,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                   borderRadius: BorderRadius.circular(12),
-                  boxShadow: [BoxShadow(color: gradientColors.first.withOpacity(0.3), blurRadius: 6, offset: const Offset(0, 2))],
+                  boxShadow: [
+                    BoxShadow(
+                      color: gradientColors.first.withOpacity(0.3),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: Icon(icon, color: Colors.white, size: 18),
               ),
               const SizedBox(width: 10),
-              Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kTextPrimary)),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: kTextPrimary,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -645,7 +930,12 @@ class _ProfileInfoRow extends StatelessWidget {
   final String value;
   final Color color;
 
-  const _ProfileInfoRow({required this.icon, required this.label, required this.value, required this.color});
+  const _ProfileInfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -655,7 +945,10 @@ class _ProfileInfoRow extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
             child: Icon(icon, color: color, size: 16),
           ),
           const SizedBox(width: 10),
@@ -663,10 +956,22 @@ class _ProfileInfoRow extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(label, style: TextStyle(color: kTextSecondary, fontSize: 13)),
+                Text(
+                  label,
+                  style: TextStyle(color: kTextSecondary, fontSize: 13),
+                ),
                 const SizedBox(width: 8),
                 Flexible(
-                  child: Text(value, style: TextStyle(color: kTextPrimary, fontSize: 14, fontWeight: FontWeight.w500), textAlign: TextAlign.right, overflow: TextOverflow.ellipsis),
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      color: kTextPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.right,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
@@ -683,7 +988,12 @@ class _ProfileInfoWrapRow extends StatelessWidget {
   final List<String> items;
   final Color color;
 
-  const _ProfileInfoWrapRow({required this.icon, required this.label, required this.items, required this.color});
+  const _ProfileInfoWrapRow({
+    required this.icon,
+    required this.label,
+    required this.items,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -695,7 +1005,10 @@ class _ProfileInfoWrapRow extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
             child: Icon(icon, color: color, size: 16),
           ),
           const SizedBox(width: 10),
@@ -704,7 +1017,10 @@ class _ProfileInfoWrapRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(label, style: TextStyle(color: kTextSecondary, fontSize: 13)),
+                Text(
+                  label,
+                  style: TextStyle(color: kTextSecondary, fontSize: 13),
+                ),
                 const SizedBox(height: 6),
                 Wrap(
                   spacing: 8,
@@ -712,9 +1028,22 @@ class _ProfileInfoWrapRow extends StatelessWidget {
                   children: displayItems
                       .map(
                         (item) => Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-                          child: Text(item, style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 12)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: color.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            item,
+                            style: TextStyle(
+                              color: color,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                          ),
                         ),
                       )
                       .toList(),
@@ -723,6 +1052,70 @@ class _ProfileInfoWrapRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ChangePasswordCard extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _ChangePasswordCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: kPrimaryBlue.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+        border: Border.all(color: Colors.grey.shade100, width: 1.5),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: kPrimaryBlue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.lock_outline_rounded,
+                  color: kPrimaryBlue,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  "Change Password",
+                  style: TextStyle(
+                    color: kPrimaryBlue,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: kTextSecondary.withOpacity(0.3),
+                size: 16,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -740,7 +1133,13 @@ class _LogoutCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 3))],
+        boxShadow: [
+          BoxShadow(
+            color: kPrimaryBlue.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
         border: Border.all(color: Colors.grey.shade100, width: 1.5),
       ),
       child: InkWell(
@@ -752,12 +1151,32 @@ class _LogoutCard extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: kErrorColor.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-                child: const Icon(Icons.logout_rounded, color: kErrorColor, size: 18),
+                decoration: BoxDecoration(
+                  color: kErrorColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.logout_rounded,
+                  color: kErrorColor,
+                  size: 18,
+                ),
               ),
               const SizedBox(width: 12),
-              const Expanded(child: Text("Logout", style: TextStyle(color: kErrorColor, fontWeight: FontWeight.w600, fontSize: 15))),
-              Icon(Icons.arrow_forward_ios_rounded, color: kTextSecondary.withOpacity(0.3), size: 16),
+              const Expanded(
+                child: Text(
+                  "Logout",
+                  style: TextStyle(
+                    color: kErrorColor,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: kTextSecondary.withOpacity(0.3),
+                size: 16,
+              ),
             ],
           ),
         ),

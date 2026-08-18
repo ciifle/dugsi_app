@@ -161,6 +161,18 @@ void main() {
     expect(drawer, contains('const ClassMergePage()'));
     expect(sidebar, contains("title: 'Class Merge'"));
     expect(sidebar, contains("_navigateToPage('classMerge')"));
+    expect(sidebar, contains("widget.selectedPage == 'classMerge'"));
+    expect(sidebar, contains('selected: isActive'));
+    expect(shell, contains("case 'classes':"));
+    expect(shell, contains("case 'promotions':"));
+    expect(shell, contains('StudentPromotionsPage(embedBodyOnly: true)'));
+    expect(page, contains("Tab(text: 'History')"));
+    expect(
+      RegExp(
+        "DataColumn\\(label: Text\\('Academic Year'\\)\\)",
+      ).allMatches(page),
+      hasLength(1),
+    );
   });
 
   test('promotion selection is backend-eligible and never locally rounded', () {

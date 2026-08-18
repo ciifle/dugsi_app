@@ -8,6 +8,7 @@ import 'package:kobac/teacher/pages/teacher_dashboard.dart';
 import 'package:kobac/teacher/pages/teacher_marks_screen.dart';
 import 'package:kobac/teacher/pages/teacher_profile.dart';
 import 'package:kobac/teacher/pages/teacher_students_list_screen.dart';
+import 'package:kobac/teacher/pages/change_password_page.dart';
 
 // =======================
 //  TEACHER DRAWER COLORS - MATCHING STUDENT DASHBOARD
@@ -114,6 +115,11 @@ class TeacherDrawer extends StatelessWidget {
                           icon: Icons.person_rounded,
                           label: 'Profile',
                           color: kSoftOrange,
+                        ),
+                        _MenuItem(
+                          icon: Icons.lock_outline_rounded,
+                          label: 'Change Password',
+                          color: kPrimaryBlue,
                         ),
                       ],
                       context: context,
@@ -519,6 +525,9 @@ class TeacherDrawer extends StatelessWidget {
       // Messaging temporarily disabled from active UI/navigation.
       case 'Profile':
         screen = const TeacherProfileScreen();
+        break;
+      case 'Change Password':
+        screen = const TeacherChangePasswordPage();
         break;
       default:
         return;

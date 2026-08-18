@@ -238,6 +238,17 @@ class AcademicPerformanceService {
     'confirm_password': confirmPassword,
   }, method: 'POST');
 
+  /// Teacher's own password change. POST api/teacher/change-password.
+  Future<PerformanceResult<void>> changeTeacherPassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) => _passwordRequest('api/teacher/change-password', {
+    'current_password': currentPassword,
+    'new_password': newPassword,
+    'confirm_password': confirmPassword,
+  }, method: 'POST');
+
   Future<PerformanceResult<void>> _passwordRequest(
     String path,
     Map<String, String> body, {

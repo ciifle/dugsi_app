@@ -6,6 +6,7 @@ import 'package:kobac/teacher/pages/attendance_mark.dart';
 import 'package:kobac/teacher/pages/teacher_classes_screen.dart';
 import 'package:kobac/teacher/pages/teacher_marks_screen.dart';
 import 'package:kobac/teacher/pages/teacher_profile.dart';
+import 'package:kobac/teacher/pages/change_password_page.dart';
 import 'package:kobac/teacher/pages/weakly_schedule.dart';
 import 'package:kobac/services/teacher_service.dart';
 import 'package:kobac/teacher/widgets/teacher_web_dashboard.dart';
@@ -50,6 +51,8 @@ class _TeacherWebShellState extends State<TeacherWebShell> {
         return 'Marks';
       case 'profile':
         return 'Profile';
+      case 'changePassword':
+        return 'Change Password';
       default:
         return 'Dashboard';
     }
@@ -65,6 +68,8 @@ class _TeacherWebShellState extends State<TeacherWebShell> {
         return 'Mark and review attendance records.';
       case 'marks':
         return 'Enter and review student marks.';
+      case 'changePassword':
+        return 'Update your teacher account password securely.';
       default:
         return null;
     }
@@ -106,6 +111,8 @@ class _TeacherWebShellState extends State<TeacherWebShell> {
           embedBodyOnly: true,
           onNavigateToPage: _navigateToPage,
         );
+      case 'changePassword':
+        return const TeacherChangePasswordPage(embedBodyOnly: true);
       case 'dashboard':
       default:
         return TeacherWebDashboard(onNavigateToPage: _navigateToPage);

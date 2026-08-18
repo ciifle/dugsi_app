@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -91,6 +92,25 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
   String _resultKey(PromotionStudent student) {
     if (student.percentage == null) return 'unavailable';
     return passesPromotionThreshold(student.percentage) ? 'pass' : 'fail';
+  }
+
+  /// Dev-only safety net: the visible badge always derives from
+  /// [passesPromotionThreshold] (the numeric `final_percentage`), never from
+  /// the backend's `final_status` string. This just logs disagreement so it
+  /// can be investigated without ever changing what the user sees.
+  void _logStatusMismatchIfAny(PromotionStudent student) {
+    final backendStatus = (student.status ?? '').toLowerCase();
+    if (backendStatus.isEmpty || student.percentage == null) return;
+    final numericPass = passesPromotionThreshold(student.percentage);
+    final backendSaysPass = backendStatus.contains('pass');
+    final backendSaysFail = backendStatus.contains('fail');
+    if ((backendSaysPass && !numericPass) || (backendSaysFail && numericPass)) {
+      debugPrint(
+        'Promotion status mismatch for ${student.name} (id ${student.id}): '
+        'final_percentage=${student.percentage} → '
+        '${numericPass ? 'PASS' : 'FAIL'}, backend final_status="${student.status}"',
+      );
+    }
   }
 
   bool _canSelect(PromotionStudent student) =>
@@ -234,6 +254,11 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
         _students = result.data;
         _studentsLoaded = true;
         _error = null;
+        if (kDebugMode) {
+          for (final student in _students) {
+            _logStatusMismatchIfAny(student);
+          }
+        }
       } else {
         _studentsLoaded = false;
         _error = (result as PromotionError).message;
@@ -793,7 +818,7 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
                     Text(
                       student.percentage == null
                           ? 'Percentage unavailable'
-                          : '${student.percentage}%',
+                          : formatPromotionPercentage(student.percentage),
                       style: const TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w800,
@@ -1054,9 +1079,7 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
         ),
         DataCell(Text(student.emis.trim().isEmpty ? '—' : student.emis)),
         DataCell(_badge(student.className ?? '—', _blue)),
-        DataCell(
-          Text(student.percentage == null ? '—' : '${student.percentage}%'),
-        ),
+        DataCell(Text(formatPromotionPercentage(student.percentage))),
         DataCell(_badge(student.grade ?? '—', _green)),
         DataCell(_statusBadge(_resultKey(student))),
         DataCell(_eligibilityBadge(student)),
@@ -1312,7 +1335,8 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
                         subtitle: Text(
                           [
                             s.emis,
-                            if (s.percentage != null) '${s.percentage}%',
+                            if (s.percentage != null)
+                              formatPromotionPercentage(s.percentage),
                             s.grade,
                             s.status,
                             s.reason,

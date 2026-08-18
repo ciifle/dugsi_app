@@ -528,39 +528,44 @@ class _SidebarItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-        decoration: isActive
-            ? BoxDecoration(
-                color: const Color(0xFF023471).withOpacity(0.08),
-                borderRadius: BorderRadius.circular(8),
-              )
-            : null,
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: 16,
-              color: isActive
-                  ? const Color(0xFF023471)
-                  : const Color(0xFF6B6B6B),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                title,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: isActive
-                      ? const Color(0xFF023471)
-                      : const Color(0xFF2D2D2D),
+    return Semantics(
+      button: true,
+      selected: isActive,
+      label: title,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+          decoration: isActive
+              ? BoxDecoration(
+                  color: const Color(0xFF023471).withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                )
+              : null,
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: isActive
+                    ? const Color(0xFF023471)
+                    : const Color(0xFF6B6B6B),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: isActive
+                        ? const Color(0xFF023471)
+                        : const Color(0xFF2D2D2D),
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

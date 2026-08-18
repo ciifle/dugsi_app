@@ -28,6 +28,13 @@ bool canPromoteByPercentageAndEligibility(
   bool? backendEligible,
 ) => passesPromotionThreshold(percentage) && (backendEligible ?? true);
 
+/// Display-only formatter — never used for the pass/fail comparison itself
+/// (that always uses the raw [passesPromotionThreshold] value). Fixed to two
+/// decimal places so a value like 49.99 never visually rounds up to "50.0",
+/// which would look inconsistent with a FAIL badge.
+String formatPromotionPercentage(num? percentage) =>
+    percentage == null ? '—' : '${percentage.toStringAsFixed(2)}%';
+
 bool? parseNullablePromotionBool(dynamic value) {
   if (value == null) return null;
   if (value is bool) return value;
