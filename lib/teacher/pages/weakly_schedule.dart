@@ -35,10 +35,16 @@ class TeacherWeeklyScheduleScreen extends StatefulWidget {
   final bool embedBodyOnly;
   final void Function(String pageKey, {Object? arguments})? onNavigateToPage;
 
+  /// When false, renders bare content with no Scaffold/AppBar/back arrow —
+  /// used when this screen is hosted as a root page inside the Teacher
+  /// mobile shell (which owns the single persistent header + bottom nav).
+  final bool showAppBar;
+
   const TeacherWeeklyScheduleScreen({
     Key? key,
     this.embedBodyOnly = false,
     this.onNavigateToPage,
+    this.showAppBar = true,
   }) : super(key: key);
 
   @override
@@ -133,19 +139,30 @@ class _TeacherWeeklyScheduleScreenState
 
   List<Map<String, dynamic>> _dayScheduleFor(String day) {
     final list = _scheduleByDay[day] ?? [];
-    return list.map((t) => {
-      'class': t.classDisplayName,
-      'subject': t.subjectDisplayName,
-      'time': t.timeRange,
-      'room': '—',
-      'icon': Icons.class_rounded,
-      'period_name': t.period != null ? (t.period!.name.isNotEmpty ? t.period!.name : 'Period ${t.period!.periodNumber}') : null,
-      'shift': t.period?.shift,
-      'raw': t,
-    }).toList();
+    return list
+        .map(
+          (t) => {
+            'class': t.classDisplayName,
+            'subject': t.subjectDisplayName,
+            'time': t.timeRange,
+            'room': '—',
+            'icon': Icons.class_rounded,
+            'period_name': t.period != null
+                ? (t.period!.name.isNotEmpty
+                      ? t.period!.name
+                      : 'Period ${t.period!.periodNumber}')
+                : null,
+            'shift': t.period?.shift,
+            'raw': t,
+          },
+        )
+        .toList();
   }
 
-  Widget _buildDesktopScheduleBody(String selectedDay, List<Map<String, dynamic>> daySchedule) {
+  Widget _buildDesktopScheduleBody(
+    String selectedDay,
+    List<Map<String, dynamic>> daySchedule,
+  ) {
     return Container(
       color: teacherWebBg,
       child: SingleChildScrollView(
@@ -170,7 +187,8 @@ class _TeacherWeeklyScheduleScreenState
                       return ChoiceChip(
                         label: Text(daysOfWeek[index]),
                         selected: isSelected,
-                        onSelected: (_) => setState(() => selectedDayIndex = index),
+                        onSelected: (_) =>
+                            setState(() => selectedDayIndex = index),
                         selectedColor: kPrimaryGreen,
                         labelStyle: TextStyle(
                           color: isSelected ? Colors.white : kTextPrimary,
@@ -187,7 +205,9 @@ class _TeacherWeeklyScheduleScreenState
               const TeacherWebCard(
                 child: Padding(
                   padding: EdgeInsets.all(24),
-                  child: Center(child: Text('No classes scheduled for this day.')),
+                  child: Center(
+                    child: Text('No classes scheduled for this day.'),
+                  ),
                 ),
               )
             else
@@ -195,23 +215,38 @@ class _TeacherWeeklyScheduleScreenState
                 padding: EdgeInsets.zero,
                 child: Column(
                   children: [
-                    const TeacherWebTableHeader(columns: ['Time', 'Class', 'Subject', '']),
+                    const TeacherWebTableHeader(
+                      columns: ['Time', 'Class', 'Subject', ''],
+                    ),
                     ListView.separated(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: daySchedule.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1, color: teacherWebBorder),
+                      separatorBuilder: (_, __) =>
+                          const Divider(height: 1, color: teacherWebBorder),
                       itemBuilder: (context, index) {
                         final item = daySchedule[index];
                         return TeacherWebTableRow(
                           cells: [
                             Text(
                               '${item['time']}',
-                              style: const TextStyle(fontWeight: FontWeight.w600, color: kTextPrimary),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: kTextPrimary,
+                              ),
                             ),
-                            Text('${item['class']}', style: const TextStyle(color: kTextPrimary)),
-                            Text('${item['subject']}', style: const TextStyle(color: kTextSecondary)),
-                            Icon(Icons.schedule_rounded, color: kPrimaryGreen.withValues(alpha: 0.85)),
+                            Text(
+                              '${item['class']}',
+                              style: const TextStyle(color: kTextPrimary),
+                            ),
+                            Text(
+                              '${item['subject']}',
+                              style: const TextStyle(color: kTextSecondary),
+                            ),
+                            Icon(
+                              Icons.schedule_rounded,
+                              color: kPrimaryGreen.withValues(alpha: 0.85),
+                            ),
                           ],
                         );
                       },
@@ -228,23 +263,29 @@ class _TeacherWeeklyScheduleScreenState
   @override
   Widget build(BuildContext context) {
     final selectedDay = daysOfWeek[selectedDayIndex];
-    final daySchedule = _loading || _error != null ? <Map<String, dynamic>>[] : _dayScheduleFor(selectedDay);
+    final daySchedule = _loading || _error != null
+        ? <Map<String, dynamic>>[]
+        : _dayScheduleFor(selectedDay);
 
     if (_loading) {
-      final loadingBody = const Center(child: CircularProgressIndicator(color: kPrimaryBlue));
+      final loadingBody = const Center(
+        child: CircularProgressIndicator(color: kPrimaryBlue),
+      );
       if (widget.embedBodyOnly) {
         return Container(
           color: teacherWebBg,
           padding: const EdgeInsets.all(24),
           child: const TeacherWebCard(
-            child: Center(child: CircularProgressIndicator(color: kPrimaryBlue)),
+            child: Center(
+              child: CircularProgressIndicator(color: kPrimaryBlue),
+            ),
           ),
         );
       }
-      return Scaffold(
-        backgroundColor: kSoftBlue,
-        body: loadingBody,
-      );
+      if (!widget.showAppBar) {
+        return ColoredBox(color: teacherWebBg, child: loadingBody);
+      }
+      return Scaffold(backgroundColor: teacherWebBg, body: loadingBody);
     }
     if (_error != null) {
       final errorBody = Center(
@@ -253,11 +294,24 @@ class _TeacherWeeklyScheduleScreenState
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline_rounded, size: 56, color: kTextSecondary),
+              Icon(
+                Icons.error_outline_rounded,
+                size: 56,
+                color: kTextSecondary,
+              ),
               const SizedBox(height: 16),
-              Text(_error!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, color: kTextPrimary)),
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 16, color: kTextPrimary),
+              ),
               const SizedBox(height: 24),
-              TextButton.icon(onPressed: _loadTimetable, icon: const Icon(Icons.refresh_rounded), label: const Text('Retry'), style: TextButton.styleFrom(foregroundColor: kPrimaryBlue)),
+              TextButton.icon(
+                onPressed: _loadTimetable,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Retry'),
+                style: TextButton.styleFrom(foregroundColor: kPrimaryBlue),
+              ),
             ],
           ),
         ),
@@ -269,10 +323,10 @@ class _TeacherWeeklyScheduleScreenState
           child: TeacherWebCard(child: errorBody),
         );
       }
-      return Scaffold(
-        backgroundColor: kSoftBlue,
-        body: errorBody,
-      );
+      if (!widget.showAppBar) {
+        return ColoredBox(color: teacherWebBg, child: errorBody);
+      }
+      return Scaffold(backgroundColor: teacherWebBg, body: errorBody);
     }
 
     if (widget.embedBodyOnly) {
@@ -280,48 +334,35 @@ class _TeacherWeeklyScheduleScreenState
     }
 
     final contentSlivers = <Widget>[
-      if (!widget.embedBodyOnly)
+      if (!widget.embedBodyOnly && widget.showAppBar)
         SliverAppBar(
-          expandedHeight: 120,
+          expandedHeight: 96,
           pinned: true,
           backgroundColor: kPrimaryBlue,
-          flexibleSpace: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
-                stops: const [0.3, 0.7, 1.0],
-              ),
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(30),
-                bottomRight: Radius.circular(30),
-              ),
-            ),
-            child: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.only(bottom: 20),
-              centerTitle: true,
-              title: const Text(
-                "Weekly Schedule",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 24,
-                ),
+          elevation: 0,
+          flexibleSpace: const FlexibleSpaceBar(
+            titlePadding: EdgeInsets.only(left: 56, bottom: 16),
+            centerTitle: false,
+            title: Text(
+              "Weekly Schedule",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
               ),
             ),
           ),
           leading: Container(
             margin: const EdgeInsets.only(left: 12, top: 8),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(14),
             ),
             child: IconButton(
               icon: const Icon(
                 Icons.arrow_back_rounded,
                 color: Colors.white,
-                size: 28,
+                size: 24,
               ),
               onPressed: () => Navigator.pop(context),
               padding: const EdgeInsets.all(10),
@@ -331,7 +372,7 @@ class _TeacherWeeklyScheduleScreenState
             Container(
               margin: const EdgeInsets.only(right: 12, top: 8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Stack(
@@ -407,10 +448,11 @@ class _TeacherWeeklyScheduleScreenState
       slivers: contentSlivers,
     );
 
-    return Scaffold(
-      backgroundColor: kSoftBlue,
-      body: body,
-    );
+    if (!widget.showAppBar) {
+      return ColoredBox(color: teacherWebBg, child: body);
+    }
+
+    return Scaffold(backgroundColor: teacherWebBg, body: body);
   }
 
   Widget _buildDaySelector() {
@@ -423,11 +465,7 @@ class _TeacherWeeklyScheduleScreenState
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [kPrimaryBlue, kPrimaryGreen],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: kPrimaryBlue,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(
@@ -508,11 +546,7 @@ class _TeacherWeeklyScheduleScreenState
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [kPrimaryBlue, kPrimaryGreen],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: dayColor,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -621,7 +655,8 @@ class _ClassCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shift = _formatShift(classData['shift']);
-    final isAfternoon = classData['shift']?.toString().toLowerCase() == 'afternoon';
+    final isAfternoon =
+        classData['shift']?.toString().toLowerCase() == 'afternoon';
 
     return InkWell(
       onTap: () => _showDetails(context),
@@ -663,17 +698,12 @@ class _ClassCard extends StatelessWidget {
                       width: 50,
                       height: 50,
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: isAfternoon 
-                              ? [kSoftOrange, kSoftOrange.withOpacity(0.7)]
-                              : [kPrimaryBlue, kPrimaryGreen],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
+                        color: isAfternoon ? kSoftOrange : kPrimaryBlue,
                         borderRadius: BorderRadius.circular(14),
                         boxShadow: [
                           BoxShadow(
-                            color: (isAfternoon ? kSoftOrange : kPrimaryBlue).withOpacity(0.3),
+                            color: (isAfternoon ? kSoftOrange : kPrimaryBlue)
+                                .withValues(alpha: 0.25),
                             blurRadius: 6,
                             offset: const Offset(0, 2),
                           ),
@@ -710,24 +740,37 @@ class _ClassCard extends StatelessWidget {
                               ),
                               if (shift.isNotEmpty)
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: (isAfternoon ? kSoftOrange : kPrimaryBlue).withOpacity(0.1),
+                                    color:
+                                        (isAfternoon
+                                                ? kSoftOrange
+                                                : kPrimaryBlue)
+                                            .withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(
-                                        isAfternoon ? Icons.wb_twilight_rounded : Icons.wb_sunny_rounded,
+                                        isAfternoon
+                                            ? Icons.wb_twilight_rounded
+                                            : Icons.wb_sunny_rounded,
                                         size: 10,
-                                        color: isAfternoon ? kSoftOrange : kPrimaryBlue,
+                                        color: isAfternoon
+                                            ? kSoftOrange
+                                            : kPrimaryBlue,
                                       ),
                                       const SizedBox(width: 4),
                                       Text(
                                         shift.toUpperCase(),
                                         style: TextStyle(
-                                          color: isAfternoon ? kSoftOrange : kPrimaryBlue,
+                                          color: isAfternoon
+                                              ? kSoftOrange
+                                              : kPrimaryBlue,
                                           fontSize: 9,
                                           fontWeight: FontWeight.w800,
                                           letterSpacing: 0.5,
@@ -811,7 +854,11 @@ class _TimetableDetailSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final shift = _formatShift(t.period?.shift);
     final isAfternoon = t.period?.shift.toLowerCase() == 'afternoon';
-    final periodName = t.period != null ? (t.period!.name.isNotEmpty ? t.period!.name : 'Period ${t.period!.periodNumber}') : '—';
+    final periodName = t.period != null
+        ? (t.period!.name.isNotEmpty
+              ? t.period!.name
+              : 'Period ${t.period!.periodNumber}')
+        : '—';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
@@ -842,7 +889,9 @@ class _TimetableDetailSheet extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: (isAfternoon ? kSoftOrange : kPrimaryBlue).withOpacity(0.1),
+                  color: (isAfternoon ? kSoftOrange : kPrimaryBlue).withOpacity(
+                    0.1,
+                  ),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Icon(
@@ -918,7 +967,9 @@ class _TimetableDetailSheet extends StatelessWidget {
                   child: Divider(height: 1),
                 ),
                 _DetailRow(
-                  icon: isAfternoon ? Icons.wb_twilight_rounded : Icons.wb_sunny_rounded,
+                  icon: isAfternoon
+                      ? Icons.wb_twilight_rounded
+                      : Icons.wb_sunny_rounded,
                   label: 'Shift',
                   value: shift,
                   color: kSoftOrange,
@@ -1001,7 +1052,6 @@ class _DetailRow extends StatelessWidget {
   }
 }
 
-
 // ---------------- NOTIFICATION SHEET ----------------
 class _NotificationSheet extends StatelessWidget {
   final int notificationCount;
@@ -1047,15 +1097,11 @@ class _NotificationSheet extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [kPrimaryBlue, kPrimaryGreen],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                    color: kPrimaryBlue,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: kPrimaryBlue.withOpacity(0.3),
+                        color: kPrimaryBlue.withValues(alpha: 0.25),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -1121,11 +1167,7 @@ class _NotificationSheet extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [kPrimaryBlue, kPrimaryGreen],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
+                            color: kPrimaryBlue,
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(

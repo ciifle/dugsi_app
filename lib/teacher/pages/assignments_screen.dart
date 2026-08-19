@@ -5,18 +5,9 @@ import 'package:kobac/teacher/widgets/teacher_web_ui.dart';
 // ---------- COLOR PALETTE (Matching Student Dashboard) ----------
 const Color kPrimaryBlue = Color(0xFF023471); // Dark blue
 const Color kPrimaryGreen = Color(0xFF5AB04B); // Green
-
-// Derived colors (shades/tints of the two main colors)
 const Color kSoftBlue = Color(0xFFE6F0FF); // Light tint of blue
-const Color kSoftGreen = Color(0xFFEDF7EB); // Light tint of green
-const Color kDarkGreen = Color(0xFF3A7A30); // Darker shade of green
-const Color kDarkBlue = Color(0xFF01255C); // Darker shade of blue
 const Color kTextPrimary = Color(0xFF2D3436); // Dark gray
 const Color kTextSecondary = Color(0xFF636E72); // Medium gray
-const Color kErrorColor = Color(0xFFEF4444); // Red
-const Color kSoftOrange = Color(0xFFF59E0B); // Amber
-const Color kSuccessColor = Color(0xFF5AB04B); // Green for present
-const Color kCardColor = Colors.white;
 
 // =========================
 //   MAIN SCREEN WIDGET
@@ -27,11 +18,18 @@ class TeacherAssignmentsScreen extends StatefulWidget {
   final bool embedBodyOnly;
   final void Function(String, {Object? arguments})? onNavigateToPage;
 
+  /// When false, renders bare content with no Scaffold/AppBar/back arrow —
+  /// used when this screen is hosted as a tab inside the Teacher mobile
+  /// shell (which owns the single persistent header + bottom nav). The
+  /// search field stays inline (always visible) instead of an AppBar toggle.
+  final bool showAppBar;
+
   const TeacherAssignmentsScreen({
     Key? key,
     this.initialDashboard,
     this.embedBodyOnly = false,
     this.onNavigateToPage,
+    this.showAppBar = true,
   }) : super(key: key);
 
   @override
@@ -89,130 +87,109 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
   @override
   Widget build(BuildContext context) {
     final content = FutureBuilder<TeacherResult<TeacherDashboardModel>>(
-        future: _dashboardFuture,
-        builder: (context, snap) {
-          if (snap.connectionState == ConnectionState.waiting) {
-            return _buildScaffoldWithAppBar(
-              body: const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: CircularProgressIndicator(color: kPrimaryBlue),
-                ),
+      future: _dashboardFuture,
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return _buildScaffoldWithAppBar(
+            body: const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: CircularProgressIndicator(color: kPrimaryBlue),
               ),
-            );
-          }
-          final result = snap.data;
-          if (result is TeacherError) {
-            final is403 = result.statusCode == 403;
-            return _buildScaffoldWithAppBar(
-              body: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        is403 ? Icons.person_off_rounded : Icons.error_outline_rounded,
-                        size: 56,
-                        color: kTextSecondary,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        is403
-                            ? 'Teacher profile not found. Contact school admin.'
-                            : result.message,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 16, color: kTextPrimary),
-                      ),
-                      const SizedBox(height: 24),
-                      TextButton.icon(
-                        onPressed: _refresh,
-                        icon: const Icon(Icons.refresh_rounded),
-                        label: const Text('Retry'),
-                        style: TextButton.styleFrom(foregroundColor: kPrimaryBlue),
-                      ),
-                    ],
+            ),
+          );
+        }
+        final result = snap.data;
+        if (result is TeacherError) {
+          final is403 = result.statusCode == 403;
+          return _buildScaffoldWithAppBar(
+            body: Center(
+              child: TeacherErrorState(
+                message: is403
+                    ? 'Teacher profile not found. Contact school admin.'
+                    : result.message,
+                onRetry: _refresh,
+              ),
+            ),
+          );
+        }
+        TeacherDashboardModel? dashboard;
+        if (result is TeacherSuccess<TeacherDashboardModel>) {
+          dashboard = result.data;
+        }
+        final list = dashboard?.assignments ?? <TeacherAssignmentModel>[];
+        final searchFiltered = _searchQuery.isEmpty
+            ? list
+            : list.where((a) {
+                final q = _searchQuery.toLowerCase();
+                return a.classDisplayName.toLowerCase().contains(q) ||
+                    a.subjectName.toLowerCase().contains(q);
+              }).toList();
+        if (searchFiltered.isEmpty) {
+          return _buildScaffoldWithAppBar(
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TeacherEmptyState(
+                    icon: Icons.assignment_outlined,
+                    title: list.isEmpty
+                        ? 'No assignments found'
+                        : 'No assignments match your search',
                   ),
-                ),
-              ),
-            );
-          }
-          TeacherDashboardModel? dashboard;
-          if (result is TeacherSuccess<TeacherDashboardModel>) {
-            dashboard = result.data;
-          }
-          final list = dashboard?.assignments ?? <TeacherAssignmentModel>[];
-          if (dashboard != null) {
-            debugPrint('TeacherAssignmentsScreen: dashboard assignments: ${dashboard.assignments.length}');
-          }
-          final searchFiltered = _searchQuery.isEmpty
-              ? list
-              : list.where((a) {
-                  final q = _searchQuery.toLowerCase();
-                  return a.classDisplayName.toLowerCase().contains(q) || a.subjectName.toLowerCase().contains(q);
-                }).toList();
-          if (searchFiltered.isEmpty) {
-            return _buildScaffoldWithAppBar(
-              body: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.assignment_rounded, size: 56, color: kTextSecondary),
-                      const SizedBox(height: 16),
-                      Text(
-                        list.isEmpty
-                            ? 'No assignments found.'
-                            : 'No assignments match your search.',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 16, color: kTextPrimary),
+                  if (list.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _searchController.clear();
+                          _searchQuery = '';
+                        });
+                      },
+                      child: const Text('Clear search'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: kPrimaryBlue,
                       ),
-                      if (list.isNotEmpty) ...[
-                        const SizedBox(height: 16),
-                        TextButton(
-                          onPressed: () {
-                            setState(() {
-                              _searchController.clear();
-                              _searchQuery = '';
-                            });
-                          },
-                          child: const Text('Clear search'),
-                          style: TextButton.styleFrom(foregroundColor: kPrimaryBlue),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
+                    ),
+                  ],
+                ],
               ),
-            );
-          }
-          return _buildScaffoldWithList(searchFiltered);
-        },
+            ),
+          );
+        }
+        return _buildScaffoldWithList(searchFiltered);
+      },
     );
 
-    if (widget.embedBodyOnly) {
+    if (widget.embedBodyOnly || !widget.showAppBar) {
       return ColoredBox(color: teacherWebBg, child: content);
     }
 
-    return Scaffold(
-      backgroundColor: kSoftBlue,
-      body: content,
-    );
+    return Scaffold(backgroundColor: teacherWebBg, body: content);
   }
 
-  Widget _buildDesktopAssignmentsList(List<TeacherAssignmentModel> searchFiltered) {
+  Widget _buildDesktopAssignmentsList(
+    List<TeacherAssignmentModel> searchFiltered,
+  ) {
     return TeacherWebSurface(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const TeacherWebSectionTitle(
+            title: 'Assignments',
+            subtitle: 'Subjects and classes assigned to you.',
+          ),
+          const SizedBox(height: 16),
           TeacherWebCard(
             child: TextField(
               controller: _searchController,
               onChanged: _updateSearchQuery,
               decoration: InputDecoration(
                 hintText: 'Search assignments...',
-                prefixIcon: const Icon(Icons.search_rounded, color: kPrimaryBlue),
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  color: kPrimaryBlue,
+                ),
                 filled: true,
                 fillColor: const Color(0xFFF8FAFC),
                 border: OutlineInputBorder(
@@ -234,14 +211,29 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
                 const TeacherWebTableHeader(columns: ['Subject', 'Class', '']),
                 ...List.generate(searchFiltered.length, (index) {
                   final assignment = searchFiltered[index];
-                  final subjectLabel = assignment.subjectName.isNotEmpty ? assignment.subjectName : '—';
+                  final subjectLabel = assignment.subjectName.isNotEmpty
+                      ? assignment.subjectName
+                      : '—';
                   return TeacherWebTableRow(
                     cells: [
-                      Text(subjectLabel, style: const TextStyle(fontWeight: FontWeight.w600, color: kTextPrimary)),
-                      Text(assignment.classDisplayName, style: const TextStyle(color: kTextSecondary)),
+                      Text(
+                        subjectLabel,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: kPrimaryBlue,
+                        ),
+                      ),
+                      Text(
+                        assignment.classDisplayName,
+                        style: const TextStyle(color: kTextSecondary),
+                      ),
                       const Align(
                         alignment: Alignment.centerRight,
-                        child: Icon(Icons.assignment_rounded, color: kPrimaryGreen, size: 20),
+                        child: Icon(
+                          Icons.assignment_rounded,
+                          color: kPrimaryGreen,
+                          size: 20,
+                        ),
                       ),
                     ],
                   );
@@ -249,6 +241,96 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAssignmentCard(TeacherAssignmentModel a) {
+    final subjectLabel = a.subjectName.isNotEmpty ? a.subjectName : '—';
+    final classLabel = a.classDisplayName;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: teacherWebBorder),
+        boxShadow: [
+          BoxShadow(
+            color: kPrimaryBlue.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(9),
+            decoration: BoxDecoration(
+              color: kPrimaryGreen.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.subject_rounded,
+              color: kPrimaryGreen,
+              size: 21,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              '$subjectLabel — $classLabel',
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: kTextPrimary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Always-visible search field used when this screen is hosted inside the
+  /// Teacher mobile shell (no AppBar available to host a search toggle).
+  Widget _buildInlineSearchField() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: TextField(
+        controller: _searchController,
+        onChanged: _updateSearchQuery,
+        decoration: InputDecoration(
+          hintText: 'Search assignments...',
+          prefixIcon: const Icon(Icons.search_rounded, color: kPrimaryBlue),
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: teacherWebBorder),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: teacherWebBorder),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: kPrimaryBlue),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _wrapShellBody(Widget body) {
+    return ColoredBox(
+      color: teacherWebBg,
+      child: Column(
+        children: [
+          _buildInlineSearchField(),
+          Expanded(child: body),
         ],
       ),
     );
@@ -267,119 +349,78 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
       );
     }
 
+    final list = RefreshIndicator(
+      onRefresh: () async => _refresh(),
+      color: kPrimaryBlue,
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        itemCount: searchFiltered.length,
+        itemBuilder: (context, index) =>
+            _buildAssignmentCard(searchFiltered[index]),
+      ),
+    );
+
+    if (!widget.showAppBar) {
+      return _wrapShellBody(list);
+    }
+
     final scroll = RefreshIndicator(
       onRefresh: () async => _refresh(),
       color: kPrimaryBlue,
       child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-        slivers: [
-          if (!widget.embedBodyOnly) _buildSliverAppBar(),
-          SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final a = searchFiltered[index];
-                    final subjectLabel = a.subjectName.isNotEmpty ? a.subjectName : '—';
-                    final classLabel = a.classDisplayName;
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: kPrimaryBlue.withOpacity(0.08),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: kPrimaryGreen.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(Icons.subject_rounded, color: kPrimaryGreen, size: 22),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Text(
-                              '$subjectLabel — $classLabel',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: kTextPrimary,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                  childCount: searchFiltered.length,
-                ),
-              ),
-            ),
-          ],
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
         ),
-      );
-
-    if (widget.embedBodyOnly) {
-      return ColoredBox(color: kSoftBlue, child: scroll);
-    }
-
-    return Scaffold(
-      backgroundColor: kSoftBlue,
-      body: scroll,
+        slivers: [
+          _buildSliverAppBar(),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate((context, index) {
+                return _buildAssignmentCard(searchFiltered[index]);
+              }, childCount: searchFiltered.length),
+            ),
+          ),
+        ],
+      ),
     );
+
+    return Scaffold(backgroundColor: teacherWebBg, body: scroll);
   }
 
   Widget _buildSliverAppBar() {
     return SliverAppBar(
-      expandedHeight: _isSearching ? 100 : 120,
+      expandedHeight: _isSearching ? 90 : 96,
       pinned: true,
       backgroundColor: kPrimaryBlue,
-      flexibleSpace: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
-            stops: const [0.3, 0.7, 1.0],
+      elevation: 0,
+      flexibleSpace: const FlexibleSpaceBar(
+        titlePadding: EdgeInsets.only(left: 56, bottom: 16),
+        centerTitle: false,
+        title: Text(
+          "Assignments",
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
           ),
-          borderRadius: const BorderRadius.only(
-            bottomLeft: Radius.circular(30),
-            bottomRight: Radius.circular(30),
-          ),
-        ),
-        child: FlexibleSpaceBar(
-          titlePadding: const EdgeInsets.only(bottom: 20),
-          centerTitle: true,
-          title: _isSearching
-              ? null
-              : const Text(
-                  "Assignments",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 28,
-                  ),
-                ),
         ),
       ),
       leading: Container(
         margin: const EdgeInsets.only(left: 12, top: 8),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.2),
+          color: Colors.white.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(14),
         ),
         child: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 28),
+          icon: const Icon(
+            Icons.arrow_back_rounded,
+            color: Colors.white,
+            size: 24,
+          ),
           onPressed: () => Navigator.pop(context),
           padding: const EdgeInsets.all(10),
         ),
@@ -389,7 +430,7 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
           Container(
             margin: const EdgeInsets.only(right: 12, top: 8),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(14),
             ),
             child: IconButton(
@@ -402,11 +443,15 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
           Container(
             margin: const EdgeInsets.only(right: 12, top: 8),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(14),
             ),
             child: IconButton(
-              icon: const Icon(Icons.search_rounded, color: Colors.white, size: 24),
+              icon: const Icon(
+                Icons.search_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
               onPressed: _startSearch,
               padding: const EdgeInsets.all(10),
             ),
@@ -423,7 +468,7 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -435,11 +480,22 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
                     onChanged: _updateSearchQuery,
                     decoration: InputDecoration(
                       hintText: 'Search assignments...',
-                      hintStyle: TextStyle(color: kTextSecondary, fontSize: 15),
-                      prefixIcon: Icon(Icons.search_rounded, color: kPrimaryBlue, size: 22),
+                      hintStyle: const TextStyle(
+                        color: kTextSecondary,
+                        fontSize: 15,
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.search_rounded,
+                        color: kPrimaryBlue,
+                        size: 22,
+                      ),
                       suffixIcon: _searchQuery.isNotEmpty
                           ? IconButton(
-                              icon: Icon(Icons.clear, color: kTextSecondary, size: 20),
+                              icon: const Icon(
+                                Icons.clear,
+                                color: kTextSecondary,
+                                size: 20,
+                              ),
                               onPressed: () {
                                 _searchController.clear();
                                 _updateSearchQuery('');
@@ -448,7 +504,10 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
                             )
                           : null,
                       border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
                     ),
                     style: const TextStyle(color: kTextPrimary, fontSize: 15),
                   ),
@@ -464,35 +523,19 @@ class _TeacherAssignmentsScreenState extends State<TeacherAssignmentsScreen> {
       return TeacherWebSurface(child: body);
     }
 
-    if (widget.embedBodyOnly) {
-      return ColoredBox(
-        color: kSoftBlue,
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: body,
-            ),
-          ],
-        ),
-      );
+    if (!widget.showAppBar) {
+      return _wrapShellBody(body);
     }
 
     return Scaffold(
-      backgroundColor: kSoftBlue,
+      backgroundColor: teacherWebBg,
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
           _buildSliverAppBar(),
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: body,
-          ),
+          SliverFillRemaining(hasScrollBody: false, child: body),
         ],
       ),
     );
   }
-
 }
-

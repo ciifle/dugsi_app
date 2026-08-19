@@ -9,6 +9,8 @@ import 'package:kobac/teacher/pages/teacher_marks_screen.dart';
 import 'package:kobac/teacher/pages/teacher_profile.dart';
 import 'package:kobac/teacher/pages/teacher_students_list_screen.dart';
 import 'package:kobac/teacher/pages/change_password_page.dart';
+import 'package:kobac/teacher/widgets/teacher_mobile_ui.dart';
+import 'package:kobac/teacher/widgets/teacher_web_ui.dart';
 
 // =======================
 //  TEACHER DRAWER COLORS - MATCHING STUDENT DASHBOARD
@@ -39,7 +41,58 @@ class _MenuItem {
 class TeacherDrawer extends StatelessWidget {
   final Map<String, String>? teacher;
 
-  const TeacherDrawer({Key? key, this.teacher}) : super(key: key);
+  /// The label of the currently-active root destination (e.g. 'Dashboard',
+  /// 'Classes', 'My Assignments', 'Profile'), so the matching menu row can
+  /// get a slightly stronger brand treatment. Optional — the drawer renders
+  /// fine with no item highlighted when this is omitted.
+  final String? currentLabel;
+
+  /// Switches the Teacher mobile shell's active root page for a root-level
+  /// menu label (every item except Change Password). When provided, root
+  /// items no longer push a standalone route — they route through the same
+  /// persistent shell the bottom navbar and Quick Actions use, so the
+  /// navbar/header never disappear. Falls back to pushing a route (old
+  /// behavior) if omitted, e.g. if the drawer is ever used outside the
+  /// shell.
+  final void Function(String rootLabel)? onNavigateRoot;
+
+  const TeacherDrawer({
+    Key? key,
+    this.teacher,
+    this.currentLabel,
+    this.onNavigateRoot,
+  }) : super(key: key);
+
+  static const _menuItems = [
+    _MenuItem(
+      icon: Icons.dashboard_rounded,
+      label: 'Dashboard',
+      color: kPrimaryBlue,
+    ),
+    _MenuItem(
+      icon: Icons.assignment_rounded,
+      label: 'My Assignments',
+      color: kPrimaryGreen,
+    ),
+    _MenuItem(icon: Icons.class_rounded, label: 'Classes', color: kPrimaryBlue),
+    _MenuItem(
+      icon: Icons.people_rounded,
+      label: 'My Students',
+      color: kSoftOrange,
+    ),
+    _MenuItem(
+      icon: Icons.assignment_turned_in_rounded,
+      label: 'Take Attendance',
+      color: kPrimaryBlue,
+    ),
+    _MenuItem(icon: Icons.grade_rounded, label: 'Marks', color: kSoftOrange),
+    _MenuItem(icon: Icons.person_rounded, label: 'Profile', color: kSoftOrange),
+    _MenuItem(
+      icon: Icons.lock_outline_rounded,
+      label: 'Change Password',
+      color: kPrimaryBlue,
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -48,91 +101,57 @@ class TeacherDrawer extends StatelessWidget {
       elevation: 0,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
-          topRight: Radius.circular(40),
-          bottomRight: Radius.circular(40),
+          topRight: Radius.circular(28),
+          bottomRight: Radius.circular(28),
         ),
       ),
-      width: MediaQuery.of(context).size.width * 0.78,
+      width: MediaQuery.of(context).size.width * 0.8,
       child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: const BorderRadius.only(
-            topRight: Radius.circular(40),
-            bottomRight: Radius.circular(40),
+        decoration: const BoxDecoration(
+          color: teacherWebBg,
+          borderRadius: BorderRadius.only(
+            topRight: Radius.circular(28),
+            bottomRight: Radius.circular(28),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 20,
-              offset: const Offset(3, 0),
+              color: Color(0x14000000),
+              blurRadius: 22,
+              offset: Offset(3, 0),
               spreadRadius: 1,
             ),
           ],
         ),
-        child: Column(
-          children: [
-            _buildHeader(context),
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 16),
-                    _buildMenuSection(
+        child: ClipRRect(
+          borderRadius: const BorderRadius.only(
+            topRight: Radius.circular(28),
+            bottomRight: Radius.circular(28),
+          ),
+          child: SafeArea(
+            child: Column(
+              children: [
+                _buildHeader(context),
+                const SizedBox(height: 4),
+                // The menu list is the only part that scrolls — Logout and
+                // the footer are pinned outside it, so they stay reachable
+                // without scrolling on tall phones and the list simply
+                // scrolls internally (never overflows) on short ones.
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: _buildMenuSection(
                       title: "MAIN",
-                      items: const [
-                        _MenuItem(
-                          icon: Icons.dashboard_rounded,
-                          label: 'Dashboard',
-                          color: kPrimaryBlue,
-                        ),
-                        _MenuItem(
-                          icon: Icons.assignment_rounded,
-                          label: 'My Assignments',
-                          color: kPrimaryGreen,
-                        ),
-                        _MenuItem(
-                          icon: Icons.class_rounded,
-                          label: 'Classes',
-                          color: kPrimaryBlue,
-                        ),
-                        _MenuItem(
-                          icon: Icons.people_rounded,
-                          label: 'My Students',
-                          color: kSoftOrange,
-                        ),
-                        _MenuItem(
-                          icon: Icons.assignment_turned_in_rounded,
-                          label: 'Take Attendance',
-                          color: kPrimaryBlue,
-                        ),
-                        _MenuItem(
-                          icon: Icons.grade_rounded,
-                          label: 'Marks',
-                          color: kSoftOrange,
-                        ),
-                        _MenuItem(
-                          icon: Icons.person_rounded,
-                          label: 'Profile',
-                          color: kSoftOrange,
-                        ),
-                        _MenuItem(
-                          icon: Icons.lock_outline_rounded,
-                          label: 'Change Password',
-                          color: kPrimaryBlue,
-                        ),
-                      ],
+                      items: _menuItems,
                       context: context,
                     ),
-                    const SizedBox(height: 16),
-                    _buildLogoutButton(context),
-                    const SizedBox(height: 20),
-                  ],
+                  ),
                 ),
-              ),
+                _buildLogoutSection(context),
+                _buildFooter(),
+              ],
             ),
-            _buildFooter(),
-          ],
+          ),
         ),
       ),
     );
@@ -154,132 +173,119 @@ class TeacherDrawer extends StatelessWidget {
         ? user.role.replaceAll('_', ' ')
         : (teacher?['role'] ?? 'Teacher');
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
-          stops: [0.2, 0.6, 1.0],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: teacherWebBorder),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0F000000),
+              blurRadius: 16,
+              offset: Offset(0, 7),
+            ),
+          ],
         ),
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(35),
-          bottomRight: Radius.circular(35),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: kPrimaryBlue.withOpacity(0.2),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 3),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.white.withOpacity(0.3),
-                      blurRadius: 10,
-                      spreadRadius: 1,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: kPrimaryBlue.withValues(alpha: 0.08),
+                    border: Border.all(
+                      color: kPrimaryBlue.withValues(alpha: 0.25),
+                      width: 2,
                     ),
-                  ],
-                ),
-                child: CircleAvatar(
-                  radius: 38,
-                  backgroundColor: Colors.white,
+                  ),
                   child: Text(
                     initials.isEmpty ? 'T' : initials,
                     style: const TextStyle(
                       color: kPrimaryBlue,
-                      fontSize: 24,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.school_rounded,
-                            color: Colors.white,
-                            size: 12,
-                          ),
-                          const SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              roleLabel,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        email,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        name,
                         style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w400,
+                          color: kTextPrimary,
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.bold,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 5),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2.5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: kPrimaryGreen.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          roleLabel.toUpperCase(),
+                          style: const TextStyle(
+                            color: kDarkGreen,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.6,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+            const SizedBox(height: 10),
+            Divider(height: 1, color: teacherWebBorder),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(
+                  Icons.mail_outline_rounded,
+                  size: 13,
+                  color: kTextSecondary,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    email,
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      color: kTextSecondary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -291,15 +297,16 @@ class TeacherDrawer extends StatelessWidget {
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 20, top: 12, bottom: 4),
+          padding: const EdgeInsets.only(left: 20, top: 8, bottom: 2),
           child: Text(
             title,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 10.5,
               fontWeight: FontWeight.w600,
-              color: kTextSecondary.withOpacity(0.7),
+              color: kTextSecondary.withValues(alpha: 0.7),
               letterSpacing: 0.8,
             ),
           ),
@@ -309,6 +316,7 @@ class TeacherDrawer extends StatelessWidget {
             icon: item.icon,
             label: item.label,
             color: item.color,
+            selected: item.label == currentLabel,
             onTap: () {
               Navigator.pop(context);
               _navigateToScreen(context, item.label);
@@ -324,161 +332,135 @@ class TeacherDrawer extends StatelessWidget {
     required String label,
     required Color color,
     required VoidCallback onTap,
+    bool selected = false,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
       child: Material(
-        color: Colors.transparent,
+        color: selected ? kPrimaryBlue.withValues(alpha: 0.06) : Colors.white,
+        borderRadius: BorderRadius.circular(14),
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(14),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: selected
+                    ? kPrimaryBlue.withValues(alpha: 0.35)
+                    : teacherWebBorder,
+              ),
+              boxShadow: selected
+                  ? const []
+                  : const [
+                      BoxShadow(
+                        color: Color(0x08000000),
+                        blurRadius: 6,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+            ),
             child: Row(
               children: [
                 Container(
-                  width: 36,
-                  height: 36,
+                  width: 34,
+                  height: 34,
+                  alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [color.withOpacity(0.2), color.withOpacity(0.1)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
+                    color: color.withValues(alpha: selected ? 0.18 : 0.1),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(icon, color: color, size: 20),
+                  child: Icon(icon, color: color, size: 18),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     label,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: kTextPrimary,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                      color: selected ? kPrimaryBlue : kTextPrimary,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  color: kTextSecondary.withOpacity(0.4),
-                  size: 12,
-                ),
+                if (selected)
+                  const Icon(
+                    Icons.check_circle_rounded,
+                    color: kPrimaryGreen,
+                    size: 17,
+                  )
+                else
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: kTextSecondary.withValues(alpha: 0.5),
+                    size: 19,
+                  ),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  /// Logout, visually separated from the navigation list by a divider and
+  /// pinned outside the scrollable menu area (see build()) so it never
+  /// requires scrolling to reach and can never overflow.
+  Widget _buildLogoutSection(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: Divider(height: 1, color: teacherWebBorder),
+        ),
+        const SizedBox(height: 8),
+        _buildLogoutButton(context),
+        const SizedBox(height: 6),
+      ],
     );
   }
 
   // FIXED LOGOUT BUTTON - DIRECT TO LOGIN PAGE
   Widget _buildLogoutButton(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            // First, close the drawer
-            Navigator.pop(context);
+    return TeacherDrawerLogoutCard(
+      onTap: () {
+        // First, close the drawer
+        Navigator.pop(context);
 
-            // Use a microtask to ensure the drawer is closed before navigation
-            Future.microtask(() async {
-              try {
-                await context.read<AuthProvider>().logout();
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Logout failed: $e'),
-                      backgroundColor: kErrorColor,
-                    ),
-                  );
-                }
-              }
-            });
-          },
-          borderRadius: BorderRadius.circular(14),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              gradient: LinearGradient(
-                colors: [
-                  kErrorColor.withOpacity(0.05),
-                  kErrorColor.withOpacity(0.02),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              border: Border.all(color: kErrorColor.withOpacity(0.2), width: 1),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [kErrorColor, kErrorColor.withOpacity(0.7)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: kErrorColor.withOpacity(0.2),
-                        blurRadius: 6,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.logout_rounded,
-                    color: Colors.white,
-                    size: 20,
-                  ),
+        // Use a microtask to ensure the drawer is closed before navigation
+        Future.microtask(() async {
+          try {
+            await context.read<AuthProvider>().logout();
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Logout failed: $e'),
+                  backgroundColor: kErrorColor,
                 ),
-                const SizedBox(width: 14),
-                const Expanded(
-                  child: Text(
-                    'Logout',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: kErrorColor,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+              );
+            }
+          }
+        });
+      },
     );
   }
 
   Widget _buildFooter() {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(color: Colors.grey.shade200, width: 0.5),
-        ),
-      ),
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: const BoxDecoration(color: Colors.transparent),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
             padding: const EdgeInsets.all(3),
             decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [kPrimaryBlue, kPrimaryGreen],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: kPrimaryBlue,
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -502,6 +484,14 @@ class TeacherDrawer extends StatelessWidget {
   }
 
   void _navigateToScreen(BuildContext context, String label) {
+    // Every root-level destination routes through the persistent Teacher
+    // shell (same mechanism as the bottom navbar and Quick Actions) so the
+    // navbar/header never disappear. Change Password is a true detail page
+    // and always falls through to the push below.
+    if (label != 'Change Password' && onNavigateRoot != null) {
+      onNavigateRoot!(label);
+      return;
+    }
     Widget? screen;
     switch (label) {
       case 'Dashboard':

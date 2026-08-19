@@ -108,8 +108,15 @@ void main() {
     },
   );
 
-  test('PWA sidebar is untouched by the drawer-only change', () {
-    expect(sidebar, isNot(contains('Change Password')));
-    expect(sidebar, isNot(contains("'messages'")));
-  });
+  test(
+    'PWA sidebar also exposes Change Password (redesign requirement) and never messaging',
+    () {
+      // The Teacher redesign explicitly requires Change Password in the PWA
+      // sidebar too, routed through the same existing page/pageKey as the
+      // shell and Profile — not a new implementation.
+      expect(sidebar, contains("label: 'Change Password'"));
+      expect(sidebar, contains("pageKey: 'changePassword'"));
+      expect(sidebar, isNot(contains("'messages'")));
+    },
+  );
 }

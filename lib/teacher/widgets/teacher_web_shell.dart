@@ -134,6 +134,7 @@ class _TeacherWebShellState extends State<TeacherWebShell> {
               width: sidebarWidth,
               selectedPage: _selectedPage,
               onNavigate: _navigateToPage,
+              onLogout: _handleLogout,
             ),
           ),
           Expanded(

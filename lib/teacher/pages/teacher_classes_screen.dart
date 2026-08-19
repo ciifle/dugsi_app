@@ -6,22 +6,25 @@ import 'package:kobac/teacher/widgets/teacher_web_ui.dart';
 const Color kPrimaryBlue = Color(0xFF023471);
 const Color kPrimaryGreen = Color(0xFF5AB04B);
 const Color kSoftBlue = Color(0xFFE6F0FF);
-const Color kSoftGreen = Color(0xFFEDF7EB);
-const Color kDarkBlue = Color(0xFF01255C);
 const Color kTextPrimary = Color(0xFF2D3436);
 const Color kTextSecondary = Color(0xFF636E72);
 const Color kErrorColor = Color(0xFFEF4444);
-const Color kSoftOrange = Color(0xFFF59E0B);
 
 /// Teacher Classes screen: unique classes from assignments; tap class to see students.
 class TeacherClassesScreen extends StatefulWidget {
   final bool embedBodyOnly;
   final void Function(String, {Object? arguments})? onNavigateToPage;
 
+  /// When false, renders bare content with no Scaffold/AppBar/back arrow —
+  /// used when this screen is hosted as a tab inside the Teacher mobile
+  /// shell (which owns the single persistent header + bottom nav).
+  final bool showAppBar;
+
   const TeacherClassesScreen({
     Key? key,
     this.embedBodyOnly = false,
     this.onNavigateToPage,
+    this.showAppBar = true,
   }) : super(key: key);
 
   @override
@@ -33,7 +36,8 @@ class _TeacherClassesScreenState extends State<TeacherClassesScreen> {
   bool _loading = true;
   String? _error;
 
-  List<TeacherAssignmentModel> get _assignments => _dashboard?.assignments ?? [];
+  List<TeacherAssignmentModel> get _assignments =>
+      _dashboard?.assignments ?? [];
 
   /// Unique classes: prefer dashboard.assignedClasses, else derive from assignments. Never show "class 0".
   List<({int id, String name})> get _uniqueClasses {
@@ -49,6 +53,18 @@ class _TeacherClassesScreenState extends State<TeacherClassesScreen> {
       }
     }
     return out;
+  }
+
+  /// Subjects taught in a class, joined from the already-loaded assignments —
+  /// no extra API call, no invented data.
+  String _subjectsFor(String className) {
+    final subjects = _assignments
+        .where((a) => a.classDisplayName == className)
+        .map((a) => a.subjectName)
+        .where((s) => s.isNotEmpty)
+        .toSet()
+        .join(', ');
+    return subjects.isEmpty ? '—' : subjects;
   }
 
   @override
@@ -91,11 +107,22 @@ class _TeacherClassesScreenState extends State<TeacherClassesScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.info_outline_rounded, size: 48, color: kTextSecondary),
+              const Icon(
+                Icons.info_outline_rounded,
+                size: 48,
+                color: kTextSecondary,
+              ),
               const SizedBox(height: 12),
-              const Text('No class assigned. Students are linked to assigned classes.', textAlign: TextAlign.center, style: TextStyle(fontSize: 15, color: kTextPrimary)),
+              const Text(
+                'No class assigned. Students are linked to assigned classes.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 15, color: kTextPrimary),
+              ),
               const SizedBox(height: 16),
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('OK'),
+              ),
             ],
           ),
         ),
@@ -109,7 +136,9 @@ class _TeacherClassesScreenState extends State<TeacherClassesScreen> {
         context: context,
         builder: (ctx) => Dialog(
           backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
           child: ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: 720,
@@ -141,36 +170,29 @@ class _TeacherClassesScreenState extends State<TeacherClassesScreen> {
     if (_loading) {
       return const TeacherWebSurface(
         child: TeacherWebCard(
-          child: Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator(color: kPrimaryBlue))),
+          child: Center(
+            child: Padding(
+              padding: EdgeInsets.all(32),
+              child: CircularProgressIndicator(color: kPrimaryBlue),
+            ),
+          ),
         ),
       );
     }
     if (_error != null) {
       return TeacherWebSurface(
         child: TeacherWebCard(
-          child: Column(
-            children: [
-              const Icon(Icons.error_outline_rounded, size: 48, color: kTextSecondary),
-              const SizedBox(height: 12),
-              Text(_error!, textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              TextButton.icon(onPressed: _loadDashboard, icon: const Icon(Icons.refresh_rounded), label: const Text('Retry')),
-            ],
-          ),
+          child: TeacherErrorState(message: _error!, onRetry: _loadDashboard),
         ),
       );
     }
     if (_uniqueClasses.isEmpty) {
       return TeacherWebSurface(
         child: TeacherWebCard(
-          child: Column(
-            children: [
-              const Icon(Icons.class_rounded, size: 48, color: kTextSecondary),
-              const SizedBox(height: 12),
-              const Text('No assignments yet. Contact school admin.', textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              TextButton.icon(onPressed: _loadDashboard, icon: const Icon(Icons.refresh_rounded), label: const Text('Retry')),
-            ],
+          child: TeacherEmptyState(
+            icon: Icons.class_outlined,
+            title: 'No assignments yet',
+            message: 'Contact your school admin to get classes assigned.',
           ),
         ),
       );
@@ -180,39 +202,44 @@ class _TeacherClassesScreenState extends State<TeacherClassesScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TeacherWebCard(
-            child: Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Assigned classes from your teaching dashboard.',
-                    style: TextStyle(color: teacherWebTextSecondary),
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed: _loadDashboard,
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('Refresh'),
-                ),
-              ],
-            ),
+          const TeacherWebSectionTitle(
+            title: 'My Classes',
+            subtitle: 'View and manage your assigned classes.',
           ),
           const SizedBox(height: 16),
           TeacherWebCard(
             padding: EdgeInsets.zero,
             child: Column(
               children: [
-                const TeacherWebTableHeader(columns: ['Class', 'Students', '']),
+                const TeacherWebTableHeader(
+                  columns: ['Class', 'Subject(s)', ''],
+                ),
                 ...List.generate(_uniqueClasses.length, (index) {
                   final classItem = _uniqueClasses[index];
                   return TeacherWebTableRow(
-                    onTap: () => _showStudentsForClass(classItem.id, classItem.name),
+                    onTap: () =>
+                        _showStudentsForClass(classItem.id, classItem.name),
                     cells: [
-                      Text(classItem.name, style: const TextStyle(fontWeight: FontWeight.w600, color: kTextPrimary)),
-                      const Text('View students', style: TextStyle(color: kTextSecondary)),
-                      const Align(
+                      Text(
+                        classItem.name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: kPrimaryBlue,
+                        ),
+                      ),
+                      Text(
+                        _subjectsFor(classItem.name),
+                        style: const TextStyle(color: teacherWebTextSecondary),
+                      ),
+                      Align(
                         alignment: Alignment.centerRight,
-                        child: Icon(Icons.chevron_right_rounded, color: kTextSecondary),
+                        child: TextButton(
+                          onPressed: () => _showStudentsForClass(
+                            classItem.id,
+                            classItem.name,
+                          ),
+                          child: const Text('View Students'),
+                        ),
                       ),
                     ],
                   );
@@ -231,153 +258,112 @@ class _TeacherClassesScreenState extends State<TeacherClassesScreen> {
       return _buildDesktopBody();
     }
 
+    final listSlivers = <Widget>[
+      if (_loading)
+        const SliverFillRemaining(
+          child: Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: CircularProgressIndicator(color: kPrimaryBlue),
+            ),
+          ),
+        )
+      else if (_error != null)
+        SliverFillRemaining(
+          child: Center(
+            child: TeacherErrorState(message: _error!, onRetry: _loadDashboard),
+          ),
+        )
+      else if (_uniqueClasses.isEmpty)
+        const SliverFillRemaining(
+          child: Center(
+            child: TeacherEmptyState(
+              icon: Icons.class_outlined,
+              title: 'No assignments yet',
+              message: 'Contact your school admin to get classes assigned.',
+            ),
+          ),
+        )
+      else
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate((context, index) {
+              final c = _uniqueClasses[index];
+              return _ClassCard(
+                className: c.name,
+                subjects: _subjectsFor(c.name),
+                onTap: () => _showStudentsForClass(c.id, c.name),
+              );
+            }, childCount: _uniqueClasses.length),
+          ),
+        ),
+    ];
+
+    if (!widget.showAppBar) {
+      return ColoredBox(
+        color: teacherWebBg,
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: listSlivers,
+        ),
+      );
+    }
+
     final body = CustomScrollView(
       physics: const BouncingScrollPhysics(),
       slivers: [
-        if (!widget.embedBodyOnly)
-          SliverAppBar(
-            expandedHeight: 120,
-            pinned: true,
-            backgroundColor: kPrimaryBlue,
-            leading: Container(
-              margin: const EdgeInsets.only(left: 12, top: 8),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 28),
-                onPressed: () => Navigator.pop(context),
-                padding: const EdgeInsets.all(10),
-              ),
+        SliverAppBar(
+          expandedHeight: 96,
+          pinned: true,
+          backgroundColor: kPrimaryBlue,
+          leading: Container(
+            margin: const EdgeInsets.only(left: 12, top: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(14),
             ),
-            flexibleSpace: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
-                  stops: const [0.3, 0.7, 1.0],
-                ),
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(30),
-                  bottomRight: Radius.circular(30),
-                ),
+            child: IconButton(
+              icon: const Icon(
+                Icons.arrow_back_rounded,
+                color: Colors.white,
+                size: 24,
               ),
-              child: FlexibleSpaceBar(
-                titlePadding: const EdgeInsets.only(bottom: 20),
-                centerTitle: true,
-                title: const Text(
-                  'Classes',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 28),
-                ),
+              onPressed: () => Navigator.pop(context),
+              padding: const EdgeInsets.all(10),
+            ),
+          ),
+          flexibleSpace: const FlexibleSpaceBar(
+            titlePadding: EdgeInsets.only(left: 56, bottom: 16),
+            centerTitle: false,
+            title: Text(
+              'My Classes',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
               ),
             ),
           ),
-          if (_loading)
-            const SliverFillRemaining(
-              child: Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: CircularProgressIndicator(color: kPrimaryBlue),
-                ),
-              ),
-            )
-          else if (_error != null)
-            SliverFillRemaining(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        _error!.toLowerCase().contains('profile') ? Icons.person_off_rounded : Icons.error_outline_rounded,
-                        size: 56,
-                        color: kTextSecondary,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        _error!,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 16, color: kTextPrimary),
-                      ),
-                      const SizedBox(height: 24),
-                      TextButton.icon(
-                        onPressed: _loadDashboard,
-                        icon: const Icon(Icons.refresh_rounded),
-                        label: const Text('Retry'),
-                        style: TextButton.styleFrom(foregroundColor: kPrimaryBlue),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            )
-          else if (_uniqueClasses.isEmpty)
-            SliverFillRemaining(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.class_rounded, size: 56, color: kTextSecondary),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'No assignments yet. Contact school admin.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 16, color: kTextPrimary),
-                      ),
-                      const SizedBox(height: 24),
-                      TextButton.icon(
-                        onPressed: _loadDashboard,
-                        icon: const Icon(Icons.refresh_rounded),
-                        label: const Text('Retry'),
-                        style: TextButton.styleFrom(foregroundColor: kPrimaryBlue),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            )
-          else
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final c = _uniqueClasses[index];
-                    return _ClassCard(
-                      classId: c.id,
-                      className: c.name,
-                      onTap: () => _showStudentsForClass(c.id, c.name),
-                    );
-                  },
-                  childCount: _uniqueClasses.length,
-                ),
-              ),
-            ),
-        ],
+        ),
+        ...listSlivers,
+      ],
     );
 
-    if (widget.embedBodyOnly) {
-      return ColoredBox(color: kSoftBlue, child: body);
-    }
-
-    return Scaffold(
-      backgroundColor: kSoftBlue,
-      body: body,
-    );
+    return Scaffold(backgroundColor: teacherWebBg, body: body);
   }
 }
 
 class _ClassCard extends StatelessWidget {
-  final int classId;
   final String className;
+  final String subjects;
   final VoidCallback onTap;
 
-  const _ClassCard({required this.classId, required this.className, required this.onTap});
+  const _ClassCard({
+    required this.className,
+    required this.subjects,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -389,14 +375,15 @@ class _ClassCard extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(18),
           child: Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: teacherWebBorder),
               boxShadow: [
                 BoxShadow(
-                  color: kPrimaryBlue.withOpacity(0.08),
-                  blurRadius: 16,
+                  color: kPrimaryBlue.withValues(alpha: 0.06),
+                  blurRadius: 14,
                   offset: const Offset(0, 4),
                 ),
               ],
@@ -404,25 +391,52 @@ class _ClassCard extends StatelessWidget {
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  width: 46,
+                  height: 46,
+                  alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: kPrimaryBlue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(14),
+                    color: kPrimaryBlue.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(13),
                   ),
-                  child: const Icon(Icons.class_rounded, color: kPrimaryBlue, size: 24),
+                  child: const Icon(
+                    Icons.class_rounded,
+                    color: kPrimaryBlue,
+                    size: 22,
+                  ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 14),
                 Expanded(
-                  child: Text(
-                    className,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: kTextPrimary,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        className,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: kTextPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Subjects: $subjects',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: kTextSecondary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                Icon(Icons.chevron_right_rounded, color: kTextSecondary, size: 28),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: kTextSecondary,
+                  size: 24,
+                ),
               ],
             ),
           ),
@@ -446,7 +460,9 @@ class _StudentsBottomSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.7,
+      ),
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -463,7 +479,11 @@ class _StudentsBottomSheet extends StatelessWidget {
                 Expanded(
                   child: Text(
                     'Students — $className',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kTextPrimary),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: kTextPrimary,
+                    ),
                   ),
                 ),
                 IconButton(
@@ -474,9 +494,7 @@ class _StudentsBottomSheet extends StatelessWidget {
               ],
             ),
           ),
-          Flexible(
-            child: _buildContent(context),
-          ),
+          Flexible(child: _buildContent(context)),
         ],
       ),
     );
@@ -510,17 +528,9 @@ class _StudentsBottomSheet extends StatelessWidget {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.people_outline_rounded, size: 48, color: kTextSecondary),
-              SizedBox(height: 12),
-              Text(
-                'No students found in this class.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 15, color: kTextPrimary),
-              ),
-            ],
+          child: TeacherEmptyState(
+            icon: Icons.people_outline_rounded,
+            title: 'No students found in this class',
           ),
         ),
       );
@@ -537,18 +547,22 @@ class _StudentsBottomSheet extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: kSoftBlue.withOpacity(0.5),
+            color: Colors.white,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: kPrimaryBlue.withOpacity(0.1)),
+            border: Border.all(color: teacherWebBorder),
           ),
           child: Row(
             children: [
               CircleAvatar(
                 radius: 22,
-                backgroundColor: kPrimaryBlue.withOpacity(0.15),
+                backgroundColor: kPrimaryBlue.withValues(alpha: 0.1),
                 child: Text(
                   name.isNotEmpty ? name[0].toUpperCase() : '?',
-                  style: const TextStyle(color: kPrimaryBlue, fontWeight: FontWeight.bold, fontSize: 16),
+                  style: const TextStyle(
+                    color: kPrimaryBlue,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
               ),
               const SizedBox(width: 14),
@@ -556,8 +570,21 @@ class _StudentsBottomSheet extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: kTextPrimary)),
-                    Text('EMIS: $emis', style: TextStyle(fontSize: 12, color: kTextSecondary)),
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: kTextPrimary,
+                      ),
+                    ),
+                    Text(
+                      'EMIS: $emis',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: kTextSecondary,
+                      ),
+                    ),
                   ],
                 ),
               ),

@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:kobac/services/auth_provider.dart';
+import 'package:kobac/teacher/widgets/teacher_web_ui.dart';
 
 const Color _kPrimaryBlue = Color(0xFF023471);
-const Color _kPrimaryGreen = Color(0xFF5AB04B);
-const Color _kTextSecondary = Color(0xFF6B7280);
+const Color _kInactive = Color(0xFF6B6B6B);
 
 class TeacherWebSidebar extends StatelessWidget {
   final String selectedPage;
   final void Function(String pageKey, {Object? arguments}) onNavigate;
+  final VoidCallback? onLogout;
   final double width;
 
   const TeacherWebSidebar({
     super.key,
     required this.selectedPage,
     required this.onNavigate,
+    this.onLogout,
     this.width = 260,
   });
 
@@ -109,22 +111,31 @@ class TeacherWebSidebar extends StatelessWidget {
                   selectedPage: selectedPage,
                   onNavigate: onNavigate,
                 ),
+                _TeacherNavItem(
+                  icon: Icons.lock_outline_rounded,
+                  label: 'Change Password',
+                  pageKey: 'changePassword',
+                  selectedPage: selectedPage,
+                  onNavigate: onNavigate,
+                ),
               ],
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Text(
               name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontSize: 12,
-                color: _kTextSecondary,
+                color: teacherWebTextSecondary,
                 fontWeight: FontWeight.w500,
               ),
             ),
           ),
+          const Divider(height: 1, color: teacherWebBorder),
+          if (onLogout != null) TeacherLogoutCard(onTap: onLogout!),
         ],
       ),
     );
@@ -160,12 +171,9 @@ class _TeacherNavItem extends StatelessWidget {
           child: Ink(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
-              gradient: selected
-                  ? const LinearGradient(
-                      colors: [_kPrimaryBlue, _kPrimaryGreen],
-                    )
-                  : null,
-              color: selected ? null : Colors.transparent,
+              color: selected
+                  ? _kPrimaryBlue.withValues(alpha: 0.08)
+                  : Colors.transparent,
             ),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -174,7 +182,7 @@ class _TeacherNavItem extends StatelessWidget {
                   Icon(
                     icon,
                     size: 20,
-                    color: selected ? Colors.white : _kPrimaryBlue,
+                    color: selected ? _kPrimaryBlue : _kInactive,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -184,8 +192,12 @@ class _TeacherNavItem extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: selected ? Colors.white : _kPrimaryBlue,
+                        fontWeight: selected
+                            ? FontWeight.w700
+                            : FontWeight.w600,
+                        color: selected
+                            ? _kPrimaryBlue
+                            : const Color(0xFF2D2D2D),
                       ),
                     ),
                   ),

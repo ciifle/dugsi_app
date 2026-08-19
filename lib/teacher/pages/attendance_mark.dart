@@ -23,10 +23,18 @@ class TeacherAttendanceScreen extends StatefulWidget {
   final bool embedBodyOnly;
   final void Function(String pageKey, {Object? arguments})? onNavigateToPage;
 
+  /// When false, renders bare content with no Scaffold/AppBar/back arrow —
+  /// used when this screen is hosted as a root page inside the Teacher
+  /// mobile shell (which owns the single persistent header + bottom nav).
+  /// The search field stays inline (always visible) instead of an AppBar
+  /// toggle, matching the pattern used by the shell's other root pages.
+  final bool showAppBar;
+
   const TeacherAttendanceScreen({
     Key? key,
     this.embedBodyOnly = false,
     this.onNavigateToPage,
+    this.showAppBar = true,
   }) : super(key: key);
 
   @override
@@ -40,7 +48,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   String _selectedClassName = 'Select class';
   DateTime _attendanceDate = DateTime.now();
   List<TeacherStudentModel> _students = [];
-  List<String> _statusList = []; // PRESENT | ABSENT | LATE, same order as _students
+  List<String> _statusList =
+      []; // PRESENT | ABSENT | LATE, same order as _students
   bool _studentsLoading = false;
   String? _studentsError; // e.g. 404 message
   bool _isSearching = false;
@@ -112,9 +121,9 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   void _onClassChanged(int? classId) {
     if (classId == null) return;
     final a = _assignments.cast<TeacherAssignmentModel?>().firstWhere(
-          (e) => e?.classId == classId,
-          orElse: () => null,
-        );
+      (e) => e?.classId == classId,
+      orElse: () => null,
+    );
     final name = a?.classDisplayName ?? 'Unassigned';
     setState(() {
       _selectedClassId = classId;
@@ -156,13 +165,16 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
 
   Future<void> _saveAttendance() async {
     if (_selectedClassId == null || _students.isEmpty) return;
-    final dateStr = '${_attendanceDate.year}-${_attendanceDate.month.toString().padLeft(2, '0')}-${_attendanceDate.day.toString().padLeft(2, '0')}';
+    final dateStr =
+        '${_attendanceDate.year}-${_attendanceDate.month.toString().padLeft(2, '0')}-${_attendanceDate.day.toString().padLeft(2, '0')}';
     final records = <TeacherAttendanceRecord>[];
     for (var i = 0; i < _students.length; i++) {
-      records.add(TeacherAttendanceRecord(
-        studentId: _students[i].id,
-        status: i < _statusList.length ? _statusList[i] : 'PRESENT',
-      ));
+      records.add(
+        TeacherAttendanceRecord(
+          studentId: _students[i].id,
+          status: i < _statusList.length ? _statusList[i] : 'PRESENT',
+        ),
+      );
     }
     final result = await TeacherService().takeAttendance(
       classId: _selectedClassId!,
@@ -172,14 +184,17 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     if (!mounted) return;
     if (result is TeacherSuccess<Map<String, dynamic>>) {
       final responseData = result.data;
-      final message = responseData['message'] ?? 'Attendance saved successfully';
+      final message =
+          responseData['message'] ?? 'Attendance saved successfully';
       final savedCount = responseData['saved_count'] ?? records.length;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('$message ($savedCount students)'),
           backgroundColor: kPrimaryGreen,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       );
     } else {
@@ -188,7 +203,9 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
           content: Text((result as TeacherError).message),
           backgroundColor: kErrorColor,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       );
     }
@@ -267,20 +284,25 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const TeacherWebSectionTitle(
+            title: 'Attendance',
+            subtitle: 'Mark and review attendance records.',
+          ),
+          const SizedBox(height: 16),
           TeacherWebCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                DropdownButtonFormField<int?>(
+                TeacherWebDropdown<int?>(
+                  label: 'Class',
                   value: _selectedClassId,
-                  decoration: InputDecoration(
-                    labelText: 'Class',
-                    filled: true,
-                    fillColor: const Color(0xFFF8FAFC),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
                   items: uniqueClasses
-                      .map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name)))
+                      .map(
+                        (c) => DropdownMenuItem<int?>(
+                          value: c.id,
+                          child: Text(c.name),
+                        ),
+                      )
                       .toList(),
                   onChanged: _onClassChanged,
                 ),
@@ -293,10 +315,15 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                         onChanged: _updateSearchQuery,
                         decoration: InputDecoration(
                           hintText: 'Search students...',
-                          prefixIcon: const Icon(Icons.search_rounded, color: kPrimaryBlue),
+                          prefixIcon: const Icon(
+                            Icons.search_rounded,
+                            color: kPrimaryBlue,
+                          ),
                           filled: true,
                           fillColor: const Color(0xFFF8FAFC),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                       ),
                     ),
@@ -318,29 +345,36 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const TeacherWebTableHeader(columns: ['Student', 'Roll', 'Status']),
+                  const TeacherWebTableHeader(
+                    columns: ['Student', 'Roll', 'Status'],
+                  ),
                   if (_studentsLoading)
                     const Expanded(
-                      child: Center(child: CircularProgressIndicator(color: kPrimaryBlue)),
+                      child: Center(
+                        child: CircularProgressIndicator(color: kPrimaryBlue),
+                      ),
                     )
                   else if (_studentsError != null)
                     Expanded(
                       child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text(_studentsError!, textAlign: TextAlign.center),
-                        ),
+                        child: TeacherErrorState(message: _studentsError!),
                       ),
                     )
                   else if (filtered.isEmpty)
                     const Expanded(
-                      child: Center(child: Text('No students found for this class.')),
+                      child: Center(
+                        child: TeacherEmptyState(
+                          icon: Icons.people_outline_rounded,
+                          title: 'No students found for this class',
+                        ),
+                      ),
                     )
                   else
                     Expanded(
                       child: ListView.separated(
                         itemCount: filtered.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1, color: teacherWebBorder),
+                        separatorBuilder: (_, __) =>
+                            const Divider(height: 1, color: teacherWebBorder),
                         itemBuilder: (context, index) {
                           final student = filtered[index];
                           final status = filteredStatus[index];
@@ -349,9 +383,15 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                             cells: [
                               Text(
                                 student.name ?? 'Student ${student.id}',
-                                style: const TextStyle(fontWeight: FontWeight.w600, color: kTextPrimary),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: kTextPrimary,
+                                ),
                               ),
-                              Text(student.emisNumber ?? '${student.id}', style: const TextStyle(color: kTextSecondary)),
+                              Text(
+                                student.emisNumber ?? '${student.id}',
+                                style: const TextStyle(color: kTextSecondary),
+                              ),
                               Wrap(
                                 spacing: 8,
                                 children: [
@@ -388,11 +428,16 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
           Align(
             alignment: Alignment.centerRight,
             child: ElevatedButton.icon(
-              onPressed: _students.isEmpty || _selectedClassId == null ? null : _saveAttendance,
+              onPressed: _students.isEmpty || _selectedClassId == null
+                  ? null
+                  : _saveAttendance,
               style: ElevatedButton.styleFrom(
                 backgroundColor: kPrimaryGreen,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 14,
+                ),
               ),
               icon: const Icon(Icons.save_rounded),
               label: const Text('Save attendance'),
@@ -410,58 +455,47 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     final uniqueClasses = _uniqueClasses;
 
     if (widget.embedBodyOnly) {
-      return _buildDesktopAttendanceBody(filtered, filteredStatus, uniqueClasses);
+      return _buildDesktopAttendanceBody(
+        filtered,
+        filteredStatus,
+        uniqueClasses,
+      );
     }
 
     final body = CustomScrollView(
       physics: const BouncingScrollPhysics(),
       slivers: [
-        if (!widget.embedBodyOnly)
+        if (!widget.embedBodyOnly && widget.showAppBar)
           SliverAppBar(
-            expandedHeight: _isSearching ? 100 : 120, // Kor u qaaday height
+            expandedHeight: _isSearching ? 84 : 96,
             pinned: true,
             backgroundColor: kPrimaryBlue,
-            flexibleSpace: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
-                  stops: const [0.3, 0.7, 1.0],
-                ),
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(30),
-                  bottomRight: Radius.circular(30),
-                ),
-              ),
-              child: FlexibleSpaceBar(
-                titlePadding: const EdgeInsets.only(
-                  bottom: 20,
-                ), // Kor u qaaday text-ka
-                centerTitle: true,
-                title: _isSearching
-                    ? null
-                    : const Text(
-                        "Attendance",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 28, // FONT SIZE AAD U WEYN
-                        ),
+            elevation: 0,
+            flexibleSpace: FlexibleSpaceBar(
+              titlePadding: const EdgeInsets.only(left: 56, bottom: 16),
+              centerTitle: false,
+              title: _isSearching
+                  ? null
+                  : const Text(
+                      "Attendance",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
                       ),
-              ),
+                    ),
             ),
             leading: Container(
               margin: const EdgeInsets.only(left: 12, top: 8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: IconButton(
                 icon: const Icon(
                   Icons.arrow_back_rounded,
                   color: Colors.white,
-                  size: 28, // ICON WEYN
+                  size: 24,
                 ),
                 onPressed: () => Navigator.pop(context),
                 padding: const EdgeInsets.all(10),
@@ -569,81 +603,82 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                 : null,
           ),
 
-          // ---------------- MAIN CONTENT ----------------
-          SliverPadding(
-            padding: const EdgeInsets.all(16),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                // ---------------- HEADER CARD WITH DROPDOWN ----------------
-                _HeaderCardWithDropdown(
-                  uniqueClasses: uniqueClasses,
-                  selectedClassId: _selectedClassId,
-                  selectedClassName: _selectedClassName,
-                  onClassChanged: _onClassChanged,
-                  studentCount: currentClassStudents.length,
-                  formattedDate: _formatDate(_attendanceDate),
-                  onDateTap: _onDateTapped,
-                  studentsLoading: _studentsLoading,
-                ),
+        // ---------------- MAIN CONTENT ----------------
+        SliverPadding(
+          padding: const EdgeInsets.all(16),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              // ---------------- HEADER CARD WITH DROPDOWN ----------------
+              _HeaderCardWithDropdown(
+                uniqueClasses: uniqueClasses,
+                selectedClassId: _selectedClassId,
+                selectedClassName: _selectedClassName,
+                onClassChanged: _onClassChanged,
+                studentCount: currentClassStudents.length,
+                formattedDate: _formatDate(_attendanceDate),
+                onDateTap: _onDateTapped,
+                studentsLoading: _studentsLoading,
+              ),
 
-                const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-                // ---------------- SEARCH RESULT COUNT ----------------
-                if (_searchQuery.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 4, bottom: 6),
-                    child: Text(
-                      'Found ${filtered.length} student${filtered.length != 1 ? 's' : ''}',
-                      style: TextStyle(
-                        color: kTextSecondary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
+              // ---------------- SEARCH RESULT COUNT ----------------
+              if (_searchQuery.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, bottom: 6),
+                  child: Text(
+                    'Found ${filtered.length} student${filtered.length != 1 ? 's' : ''}',
+                    style: TextStyle(
+                      color: kTextSecondary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-
-                // ---------------- STUDENTS HEADER ----------------
-                if (_searchQuery.isEmpty) _buildStudentsHeader(filtered.length),
-
-                const SizedBox(height: 12),
-
-                // ---------------- STUDENT LIST ERROR (e.g. 404) ----------------
-                if (_studentsError != null && !_studentsLoading) _buildStudentsError(),
-
-                // ---------------- STUDENT CARDS ----------------
-                if (filtered.isNotEmpty && _studentsError == null)
-                  ...List.generate(
-                    filtered.length,
-                    (index) {
-                      final student = filtered[index];
-                      final status = filteredStatus[index];
-                      final originalIndex = _students.indexOf(student);
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _StudentAttendanceCard(
-                          name: student.name ?? 'Student ${student.id}',
-                          roll: student.emisNumber ?? '${student.id}',
-                          status: status,
-                          onStatusChanged: (newStatus) => _setStatus(originalIndex, newStatus),
-                        ),
-                      );
-                    },
-                  )
-                else if (_studentsError == null && !_studentsLoading)
-                  _buildEmptyState(),
-
-                const SizedBox(height: 20),
-
-                // ---------------- SAVE BUTTON ----------------
-                _SaveButton(
-                  onPressed: _students.isEmpty || _selectedClassId == null ? null : _saveAttendance,
                 ),
 
-                const SizedBox(height: 16),
-              ]),
-            ),
+              // ---------------- STUDENTS HEADER ----------------
+              if (_searchQuery.isEmpty) _buildStudentsHeader(filtered.length),
+
+              const SizedBox(height: 12),
+
+              // ---------------- STUDENT LIST ERROR (e.g. 404) ----------------
+              if (_studentsError != null && !_studentsLoading)
+                _buildStudentsError(),
+
+              // ---------------- STUDENT CARDS ----------------
+              if (filtered.isNotEmpty && _studentsError == null)
+                ...List.generate(filtered.length, (index) {
+                  final student = filtered[index];
+                  final status = filteredStatus[index];
+                  final originalIndex = _students.indexOf(student);
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _StudentAttendanceCard(
+                      name: student.name ?? 'Student ${student.id}',
+                      roll: student.emisNumber ?? '${student.id}',
+                      status: status,
+                      onStatusChanged: (newStatus) =>
+                          _setStatus(originalIndex, newStatus),
+                    ),
+                  );
+                })
+              else if (_studentsError == null && !_studentsLoading)
+                _buildEmptyState(),
+
+              const SizedBox(height: 20),
+
+              // ---------------- SAVE BUTTON ----------------
+              _SaveButton(
+                onPressed: _students.isEmpty || _selectedClassId == null
+                    ? null
+                    : _saveAttendance,
+              ),
+
+              const SizedBox(height: 16),
+            ]),
           ),
-        ],
+        ),
+      ],
     );
 
     if (widget.embedBodyOnly) {
@@ -654,9 +689,46 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: kSoftBlue,
-      body: body,
+    if (!widget.showAppBar) {
+      return ColoredBox(
+        color: teacherWebBg,
+        child: Column(
+          children: [
+            _buildInlineSearchField(),
+            Expanded(child: body),
+          ],
+        ),
+      );
+    }
+
+    return Scaffold(backgroundColor: teacherWebBg, body: body);
+  }
+
+  Widget _buildInlineSearchField() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: TextField(
+        controller: _searchController,
+        onChanged: _updateSearchQuery,
+        decoration: InputDecoration(
+          hintText: 'Search students...',
+          prefixIcon: const Icon(Icons.search_rounded, color: kPrimaryBlue),
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: teacherWebBorder),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: teacherWebBorder),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: kPrimaryBlue),
+          ),
+        ),
+      ),
     );
   }
 
@@ -669,16 +741,12 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [kPrimaryBlue, kPrimaryGreen],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: kPrimaryBlue.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(
                 Icons.people_rounded,
-                color: Colors.white,
+                color: kPrimaryBlue,
                 size: 18,
               ),
             ),
@@ -715,76 +783,31 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   Widget _buildStudentsError() {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+        border: Border.all(color: teacherWebBorder),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.info_outline_rounded, color: kSoftOrange, size: 28),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  'Student list endpoint is missing. Ask admin to enable teacher student listing.',
-                  style: TextStyle(fontSize: 14, color: kTextPrimary),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Attendance cannot be taken until students are available for your assigned classes.',
-            style: TextStyle(fontSize: 12, color: kTextSecondary),
-          ),
-        ],
+      child: TeacherErrorState(
+        message:
+            'Student list endpoint is missing. Ask admin to enable teacher '
+            'student listing. Attendance cannot be taken until students are '
+            'available for your assigned classes.',
       ),
     );
   }
 
   Widget _buildEmptyState() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 40),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: kSoftBlue,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                _searchQuery.isNotEmpty
-                    ? Icons.search_off_rounded
-                    : Icons.people_outline_rounded,
-                color: kPrimaryBlue,
-                size: 56,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              _searchQuery.isNotEmpty ? 'No students found' : 'No students',
-              style: TextStyle(
-                color: kTextPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              _searchQuery.isNotEmpty
-                  ? 'Try different search terms'
-                  : 'Select a class to load students',
-              style: TextStyle(color: kTextSecondary, fontSize: 14),
-            ),
-          ],
-        ),
+    return Center(
+      child: TeacherEmptyState(
+        icon: _searchQuery.isNotEmpty
+            ? Icons.search_off_rounded
+            : Icons.people_outline_rounded,
+        title: _searchQuery.isNotEmpty ? 'No students found' : 'No students',
+        message: _searchQuery.isNotEmpty
+            ? 'Try different search terms'
+            : 'Select a class to load students',
       ),
     );
   }
@@ -835,15 +858,11 @@ class _HeaderCardWithDropdown extends StatelessWidget {
           // Class Dropdown
           Container(
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [kPrimaryBlue, kPrimaryGreen],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: kPrimaryBlue,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: kPrimaryBlue.withOpacity(0.3),
+                  color: kPrimaryBlue.withValues(alpha: 0.25),
                   blurRadius: 8,
                   offset: const Offset(0, 3),
                 ),
@@ -856,20 +875,43 @@ class _HeaderCardWithDropdown extends StatelessWidget {
                   value: selectedClassId,
                   items: [
                     if (uniqueClasses.isEmpty)
-                      const DropdownMenuItem<int>(value: null, child: Text('No classes assigned', style: TextStyle(color: Colors.white, fontSize: 16))),
-                    ...uniqueClasses.map((c) => DropdownMenuItem<int>(
-                          value: c.id,
-                          child: Text(
-                            c.name,
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16),
+                      const DropdownMenuItem<int>(
+                        value: null,
+                        child: Text(
+                          'No classes assigned',
+                          style: TextStyle(color: Colors.white, fontSize: 16),
+                        ),
+                      ),
+                    ...uniqueClasses.map(
+                      (c) => DropdownMenuItem<int>(
+                        value: c.id,
+                        child: Text(
+                          c.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
                           ),
-                        )),
+                        ),
+                      ),
+                    ),
                   ],
                   onChanged: uniqueClasses.isEmpty ? null : onClassChanged,
-                  icon: const Icon(Icons.arrow_drop_down_rounded, color: Colors.white, size: 28),
+                  icon: const Icon(
+                    Icons.arrow_drop_down_rounded,
+                    color: Colors.white,
+                    size: 28,
+                  ),
                   isExpanded: true,
                   dropdownColor: kPrimaryBlue,
-                  hint: Text(selectedClassName, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                  hint: Text(
+                    selectedClassName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -882,9 +924,16 @@ class _HeaderCardWithDropdown extends StatelessWidget {
                 onTap: onDateTap,
                 child: Row(
                   children: [
-                    Icon(Icons.calendar_today_rounded, size: 16, color: kTextSecondary),
+                    Icon(
+                      Icons.calendar_today_rounded,
+                      size: 16,
+                      color: kTextSecondary,
+                    ),
                     const SizedBox(width: 4),
-                    Text(formattedDate, style: TextStyle(color: kTextSecondary, fontSize: 13)),
+                    Text(
+                      formattedDate,
+                      style: TextStyle(color: kTextSecondary, fontSize: 13),
+                    ),
                   ],
                 ),
               ),
@@ -892,13 +941,24 @@ class _HeaderCardWithDropdown extends StatelessWidget {
               Container(width: 1, height: 16, color: Colors.grey.shade300),
               const SizedBox(width: 12),
               if (studentsLoading)
-                const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: kPrimaryGreen))
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: kPrimaryGreen,
+                  ),
+                )
               else
                 Icon(Icons.people_rounded, size: 16, color: kPrimaryGreen),
               const SizedBox(width: 4),
               Text(
                 "Total: $studentCount",
-                style: TextStyle(color: kPrimaryGreen, fontSize: 13, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  color: kPrimaryGreen,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
@@ -928,15 +988,26 @@ class _StudentAttendanceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isPresent = status == 'PRESENT';
     final isLate = status == 'LATE';
-    final statusColor = isPresent ? kPrimaryGreen : (isLate ? kSoftOrange : kErrorColor);
-    final statusLabel = status == 'LATE' ? 'Late' : (isPresent ? 'Present' : 'Absent');
-    final nextStatus = _statusCycle[(_statusCycle.indexOf(status) + 1) % _statusCycle.length];
+    final statusColor = isPresent
+        ? kPrimaryGreen
+        : (isLate ? kSoftOrange : kErrorColor);
+    final statusLabel = status == 'LATE'
+        ? 'Late'
+        : (isPresent ? 'Present' : 'Absent');
+    final nextStatus =
+        _statusCycle[(_statusCycle.indexOf(status) + 1) % _statusCycle.length];
 
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 3))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
         border: Border.all(color: Colors.grey.shade100, width: 1.5),
       ),
       child: Material(
@@ -952,18 +1023,24 @@ class _StudentAttendanceCard extends StatelessWidget {
                   width: 45,
                   height: 45,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [statusColor, statusColor.withOpacity(0.7)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                    color: statusColor,
                     borderRadius: BorderRadius.circular(14),
-                    boxShadow: [BoxShadow(color: statusColor.withOpacity(0.3), blurRadius: 6, offset: const Offset(0, 2))],
+                    boxShadow: [
+                      BoxShadow(
+                        color: statusColor.withValues(alpha: 0.28),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: Center(
                     child: Text(
                       roll,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
                     ),
                   ),
                 ),
@@ -975,13 +1052,20 @@ class _StudentAttendanceCard extends StatelessWidget {
                     children: [
                       Text(
                         name,
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: kTextPrimary, fontSize: 16),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: kTextPrimary,
+                          fontSize: 16,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: statusColor.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
@@ -990,12 +1074,23 @@ class _StudentAttendanceCard extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              isPresent ? Icons.check_circle_rounded : (isLate ? Icons.schedule_rounded : Icons.cancel_rounded),
+                              isPresent
+                                  ? Icons.check_circle_rounded
+                                  : (isLate
+                                        ? Icons.schedule_rounded
+                                        : Icons.cancel_rounded),
                               color: statusColor,
                               size: 15,
                             ),
                             const SizedBox(width: 4),
-                            Text(statusLabel, style: TextStyle(color: statusColor, fontWeight: FontWeight.w600, fontSize: 13)),
+                            Text(
+                              statusLabel,
+                              style: TextStyle(
+                                color: statusColor,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -1027,15 +1122,11 @@ class _SaveButton extends StatelessWidget {
         width: double.infinity,
         height: 55,
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [kPrimaryBlue, kPrimaryGreen],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ),
+          color: kPrimaryGreen,
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
-              color: kPrimaryBlue.withOpacity(0.3),
+              color: kPrimaryGreen.withValues(alpha: 0.28),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),

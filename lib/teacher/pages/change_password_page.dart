@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:kobac/services/academic_performance_service.dart';
+import 'package:kobac/teacher/widgets/teacher_web_ui.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
 const Color kPrimaryGreen = Color(0xFF5AB04B);
-const Color kBgColor = Color(0xFFE8ECF2);
+const Color kBgColor = teacherWebBg;
 const double kCardRadius = 20.0;
 
 /// Teacher's own password change. POST api/teacher/change-password via
@@ -325,23 +326,13 @@ class _TeacherChangePasswordPageState extends State<TeacherChangePasswordPage> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF0A4A8C), kPrimaryBlue],
-            ),
+            color: kPrimaryBlue,
             borderRadius: BorderRadius.circular(kCardRadius),
-            border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
             boxShadow: [
               BoxShadow(
-                color: Colors.white.withOpacity(0.25),
-                blurRadius: 8,
-                offset: const Offset(-2, -2),
-              ),
-              BoxShadow(
-                color: kPrimaryBlue.withOpacity(0.4),
+                color: kPrimaryBlue.withValues(alpha: 0.3),
                 blurRadius: 16,
-                offset: const Offset(4, 6),
+                offset: const Offset(0, 6),
               ),
             ],
           ),

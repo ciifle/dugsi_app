@@ -15,6 +15,8 @@ const Color kTextPrimary = Color(0xFF2D3436);
 const Color kTextSecondary = Color(0xFF636E72);
 const Color kErrorColor = Color(0xFFEF4444);
 const Color kSoftOrange = Color(0xFFF59E0B);
+// Matches the Admin PWA sidebar's Logout treatment (TeacherLogoutCard).
+const Color kLogoutRed = Color(0xFFC73737);
 
 // =======================
 //  TEACHER PROFILE SCREEN — data from AuthProvider + GET /api/teacher/assignments
@@ -24,10 +26,16 @@ class TeacherProfileScreen extends StatefulWidget {
   final bool embedBodyOnly;
   final void Function(String pageKey, {Object? arguments})? onNavigateToPage;
 
+  /// When false, renders bare content with no Scaffold/AppBar/back arrow —
+  /// used when this screen is hosted as the Profile tab inside the Teacher
+  /// mobile shell (which owns the single persistent header + bottom nav).
+  final bool showAppBar;
+
   const TeacherProfileScreen({
     Key? key,
     this.embedBodyOnly = false,
     this.onNavigateToPage,
+    this.showAppBar = true,
   }) : super(key: key);
 
   @override
@@ -337,9 +345,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [kPrimaryBlue, kPrimaryGreen],
-                              ),
+                              color: kPrimaryBlue,
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: Text(
@@ -411,17 +417,17 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                         onPressed: () => _logout(context),
                         icon: const Icon(
                           Icons.logout_rounded,
-                          color: kErrorColor,
+                          color: kLogoutRed,
                         ),
                         label: const Text(
                           'Logout',
                           style: TextStyle(
-                            color: kErrorColor,
+                            color: kLogoutRed,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: kErrorColor),
+                          side: const BorderSide(color: kLogoutRed),
                           padding: const EdgeInsets.symmetric(
                             horizontal: 18,
                             vertical: 12,
@@ -478,50 +484,37 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
     }
 
     final contentSlivers = <Widget>[
-      if (!widget.embedBodyOnly)
+      if (!widget.embedBodyOnly && widget.showAppBar)
         SliverAppBar(
-          expandedHeight: 120,
+          expandedHeight: 96,
           pinned: true,
           backgroundColor: kPrimaryBlue,
+          elevation: 0,
           leading: Container(
             margin: const EdgeInsets.only(left: 12, top: 8),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(14),
             ),
             child: IconButton(
               icon: const Icon(
                 Icons.arrow_back_rounded,
                 color: Colors.white,
-                size: 28,
+                size: 24,
               ),
               onPressed: () => Navigator.pop(context),
               padding: const EdgeInsets.all(10),
             ),
           ),
-          flexibleSpace: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [kPrimaryBlue, kPrimaryBlue, kPrimaryGreen],
-                stops: const [0.3, 0.7, 1.0],
-              ),
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(30),
-                bottomRight: Radius.circular(30),
-              ),
-            ),
-            child: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.only(bottom: 20),
-              centerTitle: true,
-              title: const Text(
-                "My Profile",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 24,
-                ),
+          flexibleSpace: const FlexibleSpaceBar(
+            titlePadding: EdgeInsets.only(left: 56, bottom: 16),
+            centerTitle: false,
+            title: Text(
+              "My Profile",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
               ),
             ),
           ),
@@ -678,7 +671,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
             const SizedBox(height: 16),
             _ChangePasswordCard(onTap: () => _openChangePassword(context)),
             const SizedBox(height: 12),
-            _LogoutCard(onLogout: () => _logout(context)),
+            TeacherLogoutCard(onTap: () => _logout(context)),
             const SizedBox(height: 24),
           ]),
         ),
@@ -694,11 +687,11 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
       ),
     );
 
-    if (widget.embedBodyOnly) {
-      return ColoredBox(color: kSoftBlue, child: body);
+    if (widget.embedBodyOnly || !widget.showAppBar) {
+      return ColoredBox(color: teacherWebBg, child: body);
     }
 
-    return Scaffold(backgroundColor: kSoftBlue, body: body);
+    return Scaffold(backgroundColor: teacherWebBg, body: body);
   }
 }
 
@@ -744,14 +737,10 @@ class _ProfileHeader extends StatelessWidget {
           Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                colors: [kPrimaryBlue, kPrimaryGreen],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: kPrimaryBlue,
               boxShadow: [
                 BoxShadow(
-                  color: kPrimaryBlue.withOpacity(0.3),
+                  color: kPrimaryBlue.withValues(alpha: 0.25),
                   blurRadius: 12,
                   spreadRadius: 2,
                 ),
@@ -792,15 +781,11 @@ class _ProfileHeader extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [kPrimaryBlue, kPrimaryGreen],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              ),
+              color: kPrimaryBlue,
               borderRadius: BorderRadius.circular(30),
               boxShadow: [
                 BoxShadow(
-                  color: kPrimaryBlue.withOpacity(0.2),
+                  color: kPrimaryBlue.withValues(alpha: 0.18),
                   blurRadius: 6,
                   offset: const Offset(0, 2),
                 ),
@@ -889,15 +874,11 @@ class _InfoSectionCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: gradientColors,
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: gradientColors.first,
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: gradientColors.first.withOpacity(0.3),
+                      color: gradientColors.first.withValues(alpha: 0.25),
                       blurRadius: 6,
                       offset: const Offset(0, 2),
                     ),
@@ -1103,70 +1084,6 @@ class _ChangePasswordCard extends StatelessWidget {
                   "Change Password",
                   style: TextStyle(
                     color: kPrimaryBlue,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
-                  ),
-                ),
-              ),
-              Icon(
-                Icons.arrow_forward_ios_rounded,
-                color: kTextSecondary.withOpacity(0.3),
-                size: 16,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LogoutCard extends StatelessWidget {
-  final VoidCallback onLogout;
-
-  const _LogoutCard({required this.onLogout});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: kPrimaryBlue.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-        border: Border.all(color: Colors.grey.shade100, width: 1.5),
-      ),
-      child: InkWell(
-        onTap: onLogout,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: kErrorColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.logout_rounded,
-                  color: kErrorColor,
-                  size: 18,
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  "Logout",
-                  style: TextStyle(
-                    color: kErrorColor,
                     fontWeight: FontWeight.w600,
                     fontSize: 15,
                   ),
