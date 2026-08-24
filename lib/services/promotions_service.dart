@@ -25,8 +25,45 @@ String promotionResultLabel(num? percentage) {
 
 bool canPromoteByPercentageAndEligibility(
   num? percentage,
-  bool? backendEligible,
-) => passesPromotionThreshold(percentage) && (backendEligible ?? true);
+  bool? backendEligible, {
+  bool? resultAvailable,
+}) =>
+    resultAvailable != false &&
+    passesPromotionThreshold(percentage) &&
+    (backendEligible ?? true);
+
+/// Friendly fallback text for a backend `unavailable_reason` code, used only
+/// when the backend doesn't also send a ready-to-display
+/// `unavailable_message`. New/unknown codes fall back to a generic message
+/// rather than exposing the raw machine code to the user.
+String friendlyUnavailableMessage(String? reasonCode) {
+  switch (reasonCode) {
+    case 'NO_RELEASED_MARKS':
+      return 'No released marks are available for this academic year.';
+    case 'NO_MARKS':
+      return 'No marks were recorded for this academic year.';
+    case 'MISSING_EXAM_WEIGHT':
+      return 'One or more exams are missing a valid weight.';
+    case 'NO_ENROLLMENT':
+      return 'No enrollment was found for this academic year.';
+    case 'ZERO_MAXIMUM':
+      return 'The exam maximum marks total to zero, so a result cannot be computed.';
+    case 'INCOMPLETE_RESULTS':
+      return 'Results for this academic year are incomplete.';
+    default:
+      return 'A result is not available for this student for this academic year.';
+  }
+}
+
+/// The best available human-readable explanation for why a student's
+/// result is unavailable: prefers the backend's own message, then falls
+/// back to a friendly mapping of `unavailable_reason`, then a generic
+/// message. Never exposes a raw machine-only code directly to the user.
+String promotionUnavailableMessage(PromotionStudent student) {
+  final message = student.unavailableMessage?.trim();
+  if (message != null && message.isNotEmpty) return message;
+  return friendlyUnavailableMessage(student.unavailableReason);
+}
 
 /// Display-only formatter — never used for the pass/fail comparison itself
 /// (that always uses the raw [passesPromotionThreshold] value). Fixed to two
@@ -75,11 +112,15 @@ class PromotionStudent {
   final String emis;
   final String? className;
   final double? percentage;
+  final double? finalObtained;
+  final double? finalMaximum;
   final String? grade;
   final String? status;
   final String? reason;
   final bool? eligible;
   final bool? resultAvailable;
+  final String? unavailableReason;
+  final String? unavailableMessage;
 
   const PromotionStudent({
     required this.id,
@@ -87,11 +128,15 @@ class PromotionStudent {
     required this.emis,
     this.className,
     this.percentage,
+    this.finalObtained,
+    this.finalMaximum,
     this.grade,
     this.status,
     this.reason,
     this.eligible,
     this.resultAvailable,
+    this.unavailableReason,
+    this.unavailableMessage,
   });
 
   factory PromotionStudent.fromJson(Map<String, dynamic> json) {
@@ -124,6 +169,12 @@ class PromotionStudent {
             student['final_percentage'] ??
             json['percentage'] ??
             student['percentage'],
+      ),
+      finalObtained: parsePromotionPercentage(
+        json['final_obtained'] ?? student['final_obtained'],
+      ),
+      finalMaximum: parsePromotionPercentage(
+        json['final_maximum'] ?? student['final_maximum'],
       ),
       grade:
           (json['letter_grade'] ??
@@ -159,6 +210,12 @@ class PromotionStudent {
             json['resultAvailable'] ??
             student['resultAvailable'],
       ),
+      unavailableReason:
+          (json['unavailable_reason'] ?? student['unavailable_reason'])
+              ?.toString(),
+      unavailableMessage:
+          (json['unavailable_message'] ?? student['unavailable_message'])
+              ?.toString(),
     );
   }
 }

@@ -148,7 +148,6 @@ class TeacherDrawer extends StatelessWidget {
                   ),
                 ),
                 _buildLogoutSection(context),
-                _buildFooter(),
               ],
             ),
           ),
@@ -447,39 +446,6 @@ class TeacherDrawer extends StatelessWidget {
           }
         });
       },
-    );
-  }
-
-  Widget _buildFooter() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      decoration: const BoxDecoration(color: Colors.transparent),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(3),
-            decoration: const BoxDecoration(
-              color: kPrimaryBlue,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.school_rounded,
-              color: Colors.white,
-              size: 10,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            'Kobac Teacher v1.0.0',
-            style: TextStyle(
-              color: kTextSecondary.withOpacity(0.7),
-              fontSize: 10,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-        ],
-      ),
     );
   }
 

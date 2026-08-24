@@ -14,6 +14,7 @@ class Input3D extends StatefulWidget {
   final List<TextInputFormatter>? inputFormatters;
   final void Function(String)? onSubmitted;
   final Widget? suffixIcon;
+  final bool enabled;
 
   const Input3D({
     Key? key,
@@ -27,6 +28,7 @@ class Input3D extends StatefulWidget {
     this.inputFormatters,
     this.onSubmitted,
     this.suffixIcon,
+    this.enabled = true,
   }) : super(key: key);
 
   @override
@@ -60,7 +62,8 @@ class _Input3DState extends State<Input3D> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final hasError = widget.validator?.call(widget.controller.text) != null &&
+    final hasError =
+        widget.validator?.call(widget.controller.text) != null &&
         widget.validator!(widget.controller.text) != null;
     final isFloating = _focused || _hasValue;
 
@@ -81,8 +84,8 @@ class _Input3DState extends State<Input3D> with SingleTickerProviderStateMixin {
                 color: hasError
                     ? FormTheme3D.errorRed.withOpacity(0.6)
                     : _focused
-                        ? FormTheme3D.primaryBlue.withOpacity(0.5)
-                        : Colors.transparent,
+                    ? FormTheme3D.primaryBlue.withOpacity(0.5)
+                    : Colors.transparent,
                 width: _focused || hasError ? 2 : 0,
               ),
               boxShadow: _focused
@@ -98,6 +101,7 @@ class _Input3DState extends State<Input3D> with SingleTickerProviderStateMixin {
                           focusNode: _focusNode,
                           validator: widget.validator,
                           obscureText: widget.obscureText,
+                          enabled: widget.enabled,
                           keyboardType: widget.keyboardType,
                           textCapitalization: widget.textCapitalization,
                           inputFormatters: widget.inputFormatters,
@@ -118,6 +122,7 @@ class _Input3DState extends State<Input3D> with SingleTickerProviderStateMixin {
                     focusNode: _focusNode,
                     validator: widget.validator,
                     obscureText: widget.obscureText,
+                    enabled: widget.enabled,
                     keyboardType: widget.keyboardType,
                     textCapitalization: widget.textCapitalization,
                     inputFormatters: widget.inputFormatters,
@@ -151,8 +156,8 @@ class _Input3DState extends State<Input3D> with SingleTickerProviderStateMixin {
         color: widget.validator?.call(widget.controller.text) != null
             ? FormTheme3D.errorRed
             : _focused
-                ? FormTheme3D.primaryBlue
-                : FormTheme3D.textHint,
+            ? FormTheme3D.primaryBlue
+            : FormTheme3D.textHint,
         fontWeight: FontWeight.w500,
       ),
       hintStyle: TextStyle(
@@ -161,7 +166,12 @@ class _Input3DState extends State<Input3D> with SingleTickerProviderStateMixin {
       ),
       filled: true,
       fillColor: Colors.transparent,
-      contentPadding: EdgeInsets.only(left: 18, top: 18, bottom: 18, right: rightPadding),
+      contentPadding: EdgeInsets.only(
+        left: 18,
+        top: 18,
+        bottom: 18,
+        right: rightPadding,
+      ),
       border: InputBorder.none,
       enabledBorder: InputBorder.none,
       focusedBorder: InputBorder.none,

@@ -20,6 +20,15 @@ const Color kBgColor = Color(0xFFF0F3F7);
 const double kCardRadius = 28.0;
 const int _marksPageSize = 50;
 
+/// Formats a mark/weight value without a trailing ".0" for whole numbers,
+/// while preserving decimals exactly (no rounding).
+String formatMarkValue(num? value) {
+  if (value == null) return '-';
+  final v = value.toDouble();
+  if (v % 1 == 0) return v.toStringAsFixed(0);
+  return v.toStringAsFixed(2).replaceFirst(RegExp(r'\.?0+$'), '');
+}
+
 class AdminMarksScreen extends StatefulWidget {
   final bool openCreateOnLoad;
   final bool embedBodyOnly;
@@ -382,6 +391,7 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
       builder: (ctx) => _EditMarksDialog(
         mark: mark,
         teachers: _teachers,
+        exams: _exams,
         onSave: (payload) => _updateMarkFromDialog(ctx, mark.id, payload),
       ),
     );
@@ -2007,6 +2017,16 @@ class _AddMarksDialogState extends State<_AddMarksDialog> {
     return filtered.isEmpty ? widget.students : filtered;
   }
 
+  /// The selected exam's weight (its actual maximum mark). Null when no
+  /// exam is selected, or the exam has no weight on record (legacy exam)
+  /// — in that case Max Marks stays freely editable.
+  double? get _selectedExamWeight {
+    for (final e in widget.exams) {
+      if (e.id == _examId) return e.weight;
+    }
+    return null;
+  }
+
   Future<void> _submit() async {
     if (_examId == null ||
         _studentId == null ||
@@ -2020,8 +2040,17 @@ class _AddMarksDialogState extends State<_AddMarksDialog> {
       );
       return;
     }
-    final obtained = int.tryParse(_marksObtained.text.trim()) ?? 0;
-    final max = int.tryParse(_maxMarks.text.trim()) ?? 100;
+    final obtained = double.tryParse(_marksObtained.text.trim());
+    final max = _selectedExamWeight ?? double.tryParse(_maxMarks.text.trim());
+    if (obtained == null || max == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter valid numeric marks'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
     if (obtained < 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -2042,8 +2071,10 @@ class _AddMarksDialogState extends State<_AddMarksDialog> {
     }
     if (obtained > max) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Marks obtained cannot exceed max marks'),
+        SnackBar(
+          content: Text(
+            'Marks cannot exceed ${formatMarkValue(max)} for this exam.',
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -2087,10 +2118,21 @@ class _AddMarksDialogState extends State<_AddMarksDialog> {
                 child: Text('Select exam'),
               ),
               ...widget.exams.map(
-                (e) => DropdownMenuItem<int?>(value: e.id, child: Text(e.name)),
+                (e) => DropdownMenuItem<int?>(
+                  value: e.id,
+                  child: Text(
+                    e.weight != null
+                        ? '${e.name} (Max: ${formatMarkValue(e.weight)})'
+                        : e.name,
+                  ),
+                ),
               ),
             ],
-            onChanged: (v) => setState(() => _examId = v),
+            onChanged: (v) => setState(() {
+              _examId = v;
+              final weight = _selectedExamWeight;
+              if (weight != null) _maxMarks.text = formatMarkValue(weight);
+            }),
           ),
           const SizedBox(height: 16),
           Select3D<int?>(
@@ -2168,17 +2210,26 @@ class _AddMarksDialogState extends State<_AddMarksDialog> {
           const SizedBox(height: 16),
           Input3D(
             controller: _marksObtained,
-            label: 'Marks obtained',
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            label: _selectedExamWeight != null
+                ? 'Marks obtained (Max: ${formatMarkValue(_selectedExamWeight)})'
+                : 'Marks obtained',
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+            ],
             onSubmitted: (_) => _submit(),
           ),
           const SizedBox(height: 16),
           Input3D(
             controller: _maxMarks,
-            label: 'Max marks',
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            enabled: _selectedExamWeight == null,
+            label: _selectedExamWeight != null
+                ? 'Max marks (from exam weight)'
+                : 'Max marks',
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+            ],
             onSubmitted: (_) => _submit(),
           ),
         ],
@@ -2190,11 +2241,13 @@ class _AddMarksDialogState extends State<_AddMarksDialog> {
 class _EditMarksDialog extends StatefulWidget {
   final MarkModel mark;
   final List<TeacherModel> teachers;
+  final List<ExamModel> exams;
   final Future<bool> Function(Map<String, dynamic> payload) onSave;
 
   const _EditMarksDialog({
     required this.mark,
     required this.teachers,
+    required this.exams,
     required this.onSave,
   });
 
@@ -2208,13 +2261,28 @@ class _EditMarksDialogState extends State<_EditMarksDialog> {
   int? _teacherId;
   bool _submitting = false;
 
+  /// This mark's exam weight (its actual maximum mark), looked up from the
+  /// exams list by the mark's exam id. Null when the exam has no weight on
+  /// record (legacy exam) — Max Marks then stays freely editable.
+  double? get _examWeight {
+    for (final e in widget.exams) {
+      if (e.id == widget.mark.examId) return e.weight;
+    }
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
     _marksObtained = TextEditingController(
       text: widget.mark.marksObtained.toString(),
     );
-    _maxMarks = TextEditingController(text: widget.mark.maxMarks.toString());
+    final weight = _examWeight;
+    _maxMarks = TextEditingController(
+      text: weight != null
+          ? formatMarkValue(weight)
+          : widget.mark.maxMarks.toString(),
+    );
     _teacherId = widget.mark.teacherId;
   }
 
@@ -2226,8 +2294,17 @@ class _EditMarksDialogState extends State<_EditMarksDialog> {
   }
 
   Future<void> _submit() async {
-    final obtained = int.tryParse(_marksObtained.text.trim()) ?? 0;
-    final max = int.tryParse(_maxMarks.text.trim()) ?? 100;
+    final obtained = double.tryParse(_marksObtained.text.trim());
+    final max = _examWeight ?? double.tryParse(_maxMarks.text.trim());
+    if (obtained == null || max == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter valid numeric marks'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
     if (obtained < 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -2248,8 +2325,10 @@ class _EditMarksDialogState extends State<_EditMarksDialog> {
     }
     if (obtained > max) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Marks obtained cannot exceed max marks'),
+        SnackBar(
+          content: Text(
+            'Marks cannot exceed ${formatMarkValue(max)} for this exam.',
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -2284,17 +2363,26 @@ class _EditMarksDialogState extends State<_EditMarksDialog> {
         children: [
           Input3D(
             controller: _marksObtained,
-            label: 'Marks obtained',
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            label: _examWeight != null
+                ? 'Marks obtained (Max: ${formatMarkValue(_examWeight)})'
+                : 'Marks obtained',
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+            ],
             onSubmitted: (_) => _submit(),
           ),
           const SizedBox(height: 16),
           Input3D(
             controller: _maxMarks,
-            label: 'Max marks',
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            enabled: _examWeight == null,
+            label: _examWeight != null
+                ? 'Max marks (from exam weight)'
+                : 'Max marks',
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+            ],
             onSubmitted: (_) => _submit(),
           ),
           const SizedBox(height: 16),

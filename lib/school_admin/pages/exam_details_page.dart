@@ -16,7 +16,11 @@ class _ExamDetailData {
   final ExamResult<ExamModel> examResult;
   final List<ClassModel> classes;
   final List<SubjectModel> subjects;
-  _ExamDetailData({required this.examResult, required this.classes, required this.subjects});
+  _ExamDetailData({
+    required this.examResult,
+    required this.classes,
+    required this.subjects,
+  });
 }
 
 /// Exam detail page — loads exam by id and shows name, class, subject, date.
@@ -45,21 +49,34 @@ class _ExamDetailsPageState extends State<ExamDetailsPage> {
     final classesR = await ClassesService().listClasses();
     final subjectsR = await SubjectsService().listSubjects();
     final examResult = await examFuture;
-    if (!mounted) return _ExamDetailData(examResult: examResult, classes: [], subjects: []);
-    final classes = classesR is ClassSuccess<List<ClassModel>> ? classesR.data : <ClassModel>[];
-    final subjects = subjectsR is SubjectSuccess<List<SubjectModel>> ? subjectsR.data : <SubjectModel>[];
-    return _ExamDetailData(examResult: examResult, classes: classes, subjects: subjects);
+    if (!mounted)
+      return _ExamDetailData(examResult: examResult, classes: [], subjects: []);
+    final classes = classesR is ClassSuccess<List<ClassModel>>
+        ? classesR.data
+        : <ClassModel>[];
+    final subjects = subjectsR is SubjectSuccess<List<SubjectModel>>
+        ? subjectsR.data
+        : <SubjectModel>[];
+    return _ExamDetailData(
+      examResult: examResult,
+      classes: classes,
+      subjects: subjects,
+    );
   }
 
   String _className(List<ClassModel> classes, int? id) {
     if (id == null || id <= 0) return '—';
-    for (final c in classes) { if (c.id == id) return c.name; }
+    for (final c in classes) {
+      if (c.id == id) return c.name;
+    }
     return '—';
   }
 
   String _subjectName(List<SubjectModel> subjects, int? id) {
     if (id == null || id <= 0) return '—';
-    for (final s in subjects) { if (s.id == id) return s.name; }
+    for (final s in subjects) {
+      if (s.id == id) return s.name;
+    }
     return '—';
   }
 
@@ -80,7 +97,10 @@ class _ExamDetailsPageState extends State<ExamDetailsPage> {
           if (result is ExamSuccess) return true;
           if (ctx.mounted) {
             ScaffoldMessenger.of(ctx).showSnackBar(
-              SnackBar(content: Text((result as ExamError).message), backgroundColor: Colors.red),
+              SnackBar(
+                content: Text((result as ExamError).message),
+                backgroundColor: Colors.red,
+              ),
             );
           }
           return false;
@@ -90,7 +110,10 @@ class _ExamDetailsPageState extends State<ExamDetailsPage> {
     if (updated == true && mounted) {
       setState(() => _dataFuture = _loadExamWithRefData());
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Exam updated'), backgroundColor: kPrimaryGreen),
+        const SnackBar(
+          content: Text('Exam updated'),
+          backgroundColor: kPrimaryGreen,
+        ),
       );
     }
   }
@@ -120,7 +143,11 @@ class _ExamDetailsPageState extends State<ExamDetailsPage> {
                     const Expanded(
                       child: Text(
                         'Exam Details',
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: kPrimaryBlue,
+                        ),
                       ),
                     ),
                   ],
@@ -131,26 +158,50 @@ class _ExamDetailsPageState extends State<ExamDetailsPage> {
                   future: _dataFuture,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator(color: kPrimaryGreen));
+                      return const Center(
+                        child: CircularProgressIndicator(color: kPrimaryGreen),
+                      );
                     }
                     if (snapshot.hasError) {
-                      final msg = userFriendlyMessage(snapshot.error!, null, 'ExamDetailsPage');
-                      return _ErrorState(message: msg, onRetry: () => setState(() => _dataFuture = _loadExamWithRefData()));
+                      final msg = userFriendlyMessage(
+                        snapshot.error!,
+                        null,
+                        'ExamDetailsPage',
+                      );
+                      return _ErrorState(
+                        message: msg,
+                        onRetry: () => setState(
+                          () => _dataFuture = _loadExamWithRefData(),
+                        ),
+                      );
                     }
                     final data = snapshot.data;
-                    if (data == null) return const Center(child: Text('No data'));
+                    if (data == null)
+                      return const Center(child: Text('No data'));
                     if (data.examResult is ExamError) {
-                      return _ErrorState(message: (data.examResult as ExamError).message, onRetry: () => setState(() => _dataFuture = _loadExamWithRefData()));
+                      return _ErrorState(
+                        message: (data.examResult as ExamError).message,
+                        onRetry: () => setState(
+                          () => _dataFuture = _loadExamWithRefData(),
+                        ),
+                      );
                     }
-                    final exam = (data.examResult as ExamSuccess<ExamModel>).data;
-                    final className = (exam.className != null && exam.className!.isNotEmpty)
+                    final exam =
+                        (data.examResult as ExamSuccess<ExamModel>).data;
+                    final className =
+                        (exam.className != null && exam.className!.isNotEmpty)
                         ? exam.className!
                         : 'All Classes';
-                    final subjectName = (exam.subjectName != null && exam.subjectName!.isNotEmpty)
+                    final subjectName =
+                        (exam.subjectName != null &&
+                            exam.subjectName!.isNotEmpty)
                         ? exam.subjectName!
                         : 'All Subjects';
                     return SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 8,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -181,7 +232,9 @@ class _ExamDetailsPageState extends State<ExamDetailsPage> {
                             onPressed: () {
                               Navigator.of(context).push(
                                 MaterialPageRoute(
-                                  builder: (_) => const AdminMarksScreen(openCreateOnLoad: true),
+                                  builder: (_) => const AdminMarksScreen(
+                                    openCreateOnLoad: true,
+                                  ),
                                 ),
                               );
                             },
@@ -222,8 +275,16 @@ class _OverviewCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(kCardRadius),
         boxShadow: [
-          BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 6)),
-          BoxShadow(color: kPrimaryBlue.withOpacity(0.03), blurRadius: 32, offset: const Offset(0, 12)),
+          BoxShadow(
+            color: kPrimaryBlue.withOpacity(0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+          BoxShadow(
+            color: kPrimaryBlue.withOpacity(0.03),
+            blurRadius: 32,
+            offset: const Offset(0, 12),
+          ),
         ],
       ),
       child: Column(
@@ -234,7 +295,11 @@ class _OverviewCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   exam.name,
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: kPrimaryBlue,
+                  ),
                 ),
               ),
               IconButton(
@@ -245,11 +310,19 @@ class _OverviewCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          _InfoRow(icon: Icons.menu_book_rounded, label: 'Subject', value: subjectName),
+          _InfoRow(
+            icon: Icons.menu_book_rounded,
+            label: 'Subject',
+            value: subjectName,
+          ),
           const SizedBox(height: 10),
           _InfoRow(icon: Icons.class_rounded, label: 'Class', value: className),
           const SizedBox(height: 10),
-          _InfoRow(icon: Icons.calendar_today_rounded, label: 'Date', value: exam.date ?? '—'),
+          _InfoRow(
+            icon: Icons.calendar_today_rounded,
+            label: 'Date',
+            value: exam.date ?? '—',
+          ),
         ],
       ),
     );
@@ -261,7 +334,11 @@ class _InfoRow extends StatelessWidget {
   final String label;
   final String value;
 
-  const _InfoRow({required this.icon, required this.label, required this.value});
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -270,9 +347,23 @@ class _InfoRow extends StatelessWidget {
       children: [
         Icon(icon, color: kPrimaryGreen, size: 22),
         const SizedBox(width: 12),
-        Text('$label: ', style: TextStyle(color: Colors.grey[700], fontWeight: FontWeight.w600, fontSize: 14)),
+        Text(
+          '$label: ',
+          style: TextStyle(
+            color: Colors.grey[700],
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
+        ),
         Expanded(
-          child: Text(value, style: const TextStyle(color: kPrimaryBlue, fontWeight: FontWeight.w500, fontSize: 15)),
+          child: Text(
+            value,
+            style: const TextStyle(
+              color: kPrimaryBlue,
+              fontWeight: FontWeight.w500,
+              fontSize: 15,
+            ),
+          ),
         ),
       ],
     );
@@ -290,7 +381,11 @@ class _SectionTitle extends StatelessWidget {
       alignment: Alignment.centerLeft,
       child: Text(
         title,
-        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+        style: const TextStyle(
+          fontSize: 17,
+          fontWeight: FontWeight.bold,
+          color: kPrimaryBlue,
+        ),
       ),
     );
   }
@@ -301,7 +396,11 @@ class _ActionButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onPressed;
 
-  const _ActionButton({required this.label, required this.icon, required this.onPressed});
+  const _ActionButton({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -313,10 +412,15 @@ class _ActionButton extends StatelessWidget {
           backgroundColor: kPrimaryGreen,
           foregroundColor: Colors.white,
           elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
         ),
         icon: Icon(icon, size: 22),
-        label: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+        label: Text(
+          label,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+        ),
         onPressed: onPressed,
       ),
     );
@@ -339,9 +443,17 @@ class _ErrorState extends StatelessWidget {
           children: [
             Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
             const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.grey[800])),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, color: Colors.grey[800]),
+            ),
             const SizedBox(height: 16),
-            TextButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh), label: const Text('Retry')),
+            TextButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+            ),
           ],
         ),
       ),
@@ -363,9 +475,19 @@ class _BackButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+          boxShadow: [
+            BoxShadow(
+              color: kPrimaryBlue.withOpacity(0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        child: const Icon(Icons.arrow_back_rounded, color: kPrimaryBlue, size: 24),
+        child: const Icon(
+          Icons.arrow_back_rounded,
+          color: kPrimaryBlue,
+          size: 24,
+        ),
       ),
     );
   }
@@ -410,11 +532,17 @@ class _ExamFormDialogState extends State<_ExamFormDialog> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.initialName);
-    _examTypeController = TextEditingController(text: widget.initialExamType ?? '');
-    _weightController = TextEditingController(text: widget.initialWeight?.toString() ?? '');
-    _dateController = TextEditingController(text: widget.initialDate?.isNotEmpty == true
-        ? widget.initialDate!
-        : _formatDate(DateTime.now()));
+    _examTypeController = TextEditingController(
+      text: widget.initialExamType ?? '',
+    );
+    _weightController = TextEditingController(
+      text: widget.initialWeight?.toString() ?? '',
+    );
+    _dateController = TextEditingController(
+      text: widget.initialDate?.isNotEmpty == true
+          ? widget.initialDate!
+          : _formatDate(DateTime.now()),
+    );
   }
 
   String _formatDate(DateTime d) {
@@ -438,28 +566,39 @@ class _ExamFormDialogState extends State<_ExamFormDialog> {
     final examType = _examTypeController.text.trim();
     final weightText = _weightController.text.trim();
     final weight = weightText.isNotEmpty ? double.tryParse(weightText) : null;
-    
+
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Exam name is required'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('Exam name is required'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
     if (weight == null || weight! <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid weight'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text(
+            'Please enter a valid exam weight (maximum marks) greater than 0.',
+          ),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
     if (_dateController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a date'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('Please select a date'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
     if (_submitting) return;
     setState(() => _submitting = true);
-    
+
     final data = <String, dynamic>{
       'name': name,
       'date': _dateController.text,
@@ -486,7 +625,11 @@ class _ExamFormDialogState extends State<_ExamFormDialog> {
             children: [
               Text(
                 widget.title,
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: kPrimaryBlue,
+                ),
               ),
               const SizedBox(height: 20),
               Input3D(
@@ -507,26 +650,39 @@ class _ExamFormDialogState extends State<_ExamFormDialog> {
               const SizedBox(height: 16),
               Input3D(
                 controller: _weightController,
-                label: 'Weight (optional)',
-                hint: 'e.g. 20, 50, 100',
-                keyboardType: TextInputType.number,
+                label: 'Exam Weight / Maximum Marks',
+                hint: 'e.g. 10, 30, 50',
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 onSubmitted: (_) => _submit(),
+              ),
+              const Padding(
+                padding: EdgeInsets.only(top: 6, left: 4),
+                child: Text(
+                  'Maximum mark allowed for each subject in this exam.',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                ),
               ),
               const SizedBox(height: 16),
               DatePicker3D(
                 label: 'Date',
                 value: _dateController.text,
-                initialDate: DateTime.tryParse(_dateController.text) ?? DateTime.now(),
+                initialDate:
+                    DateTime.tryParse(_dateController.text) ?? DateTime.now(),
                 firstDate: DateTime(2020),
                 lastDate: DateTime.now().add(const Duration(days: 365)),
-                onDatePicked: (d) => setState(() => _dateController.text = _formatDate(d)),
+                onDatePicked: (d) =>
+                    setState(() => _dateController.text = _formatDate(d)),
               ),
               const SizedBox(height: 24),
               Row(
                 children: [
                   Expanded(
                     child: TextButton(
-                      onPressed: _submitting ? null : () => Navigator.of(context).pop(false),
+                      onPressed: _submitting
+                          ? null
+                          : () => Navigator.of(context).pop(false),
                       child: const Text('Cancel'),
                     ),
                   ),
@@ -549,4 +705,3 @@ class _ExamFormDialogState extends State<_ExamFormDialog> {
     );
   }
 }
-

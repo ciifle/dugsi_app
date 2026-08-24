@@ -556,7 +556,17 @@ class _AddSingleMarkDialogState extends State<_AddSingleMarkDialog> {
   bool _submitting = false;
   bool _loadingStudents = false;
   List<TeacherStudentModel> _students = [];
-  List<({int id, String name})> _exams = [];
+  List<({int id, String name, num? weight})> _exams = [];
+
+  /// The selected exam's weight (its actual maximum mark). Null when no
+  /// exam is selected yet, or the exam has no weight on record (legacy
+  /// exam) — in that case the Max Marks field falls back to manual entry.
+  num? get _selectedExamWeight {
+    for (final e in _exams) {
+      if (e.id == _examId) return e.weight;
+    }
+    return null;
+  }
 
   @override
   void initState() {
@@ -572,7 +582,9 @@ class _AddSingleMarkDialogState extends State<_AddSingleMarkDialog> {
     final result = await TeacherService().listExams();
     if (result is TeacherSuccess<List<TeacherExamModel>>) {
       setState(() {
-        _exams = result.data.map((e) => (id: e.id, name: e.name)).toList();
+        _exams = result.data
+            .map((e) => (id: e.id, name: e.name, weight: e.weight))
+            .toList();
       });
     }
   }
@@ -612,7 +624,7 @@ class _AddSingleMarkDialogState extends State<_AddSingleMarkDialog> {
     }
 
     final obtained = double.tryParse(obtainedText);
-    final max = double.tryParse(maxText);
+    final max = _selectedExamWeight?.toDouble() ?? double.tryParse(maxText);
 
     if (obtained == null || max == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -621,9 +633,20 @@ class _AddSingleMarkDialogState extends State<_AddSingleMarkDialog> {
       return;
     }
 
+    if (obtained < 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Marks cannot be negative.')),
+      );
+      return;
+    }
+
     if (obtained > max) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Marks obtained cannot exceed max marks')),
+        SnackBar(
+          content: Text(
+            'Marks cannot exceed ${formatMark(max)} for this exam.',
+          ),
+        ),
       );
       return;
     }
@@ -814,13 +837,23 @@ class _AddSingleMarkDialogState extends State<_AddSingleMarkDialog> {
                             (e) => DropdownMenuItem(
                               value: e.id,
                               child: Text(
-                                e.name,
+                                e.weight != null
+                                    ? '${e.name} (Max: ${formatMark(e.weight)})'
+                                    : e.name,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           )
                           .toList(),
-                      onChanged: (v) => setState(() => _examId = v),
+                      onChanged: (v) {
+                        setState(() {
+                          _examId = v;
+                          final weight = _selectedExamWeight;
+                          if (weight != null) {
+                            _maxMarks.text = formatMark(weight);
+                          }
+                        });
+                      },
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<int>(
@@ -857,8 +890,11 @@ class _AddSingleMarkDialogState extends State<_AddSingleMarkDialog> {
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _maxMarks,
+                      readOnly: _selectedExamWeight != null,
                       decoration: InputDecoration(
-                        labelText: 'Max Marks',
+                        labelText: _selectedExamWeight != null
+                            ? 'Max Marks (from exam weight)'
+                            : 'Max Marks',
                         hintText: 'Enter max marks',
                         filled: true,
                         fillColor: Colors.grey.shade50,
@@ -870,13 +906,17 @@ class _AddSingleMarkDialogState extends State<_AddSingleMarkDialog> {
                           vertical: 12,
                         ),
                       ),
-                      keyboardType: TextInputType.number,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _marksObtained,
                       decoration: InputDecoration(
-                        labelText: 'Marks Obtained',
+                        labelText: _selectedExamWeight != null
+                            ? 'Marks Obtained (Max: ${formatMark(_selectedExamWeight)})'
+                            : 'Marks Obtained',
                         hintText: 'Enter marks obtained',
                         filled: true,
                         fillColor: Colors.grey.shade50,
@@ -888,7 +928,9 @@ class _AddSingleMarkDialogState extends State<_AddSingleMarkDialog> {
                           vertical: 12,
                         ),
                       ),
-                      keyboardType: TextInputType.number,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                     ),
                   ],
                 ),
@@ -1158,7 +1200,17 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
   bool _loading = true;
   List<TeacherStudentModel> _students = [];
   Map<int, TextEditingController> _marksControllers = {};
-  List<({int id, String name})> _exams = [];
+  List<({int id, String name, num? weight})> _exams = [];
+
+  /// The selected exam's weight (its actual maximum mark). Null when no
+  /// exam is selected yet, or the exam has no weight on record (legacy
+  /// exam) — in that case the Max Marks field falls back to manual entry.
+  num? get _selectedExamWeight {
+    for (final e in _exams) {
+      if (e.id == _examId) return e.weight;
+    }
+    return null;
+  }
 
   @override
   void initState() {
@@ -1195,7 +1247,7 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
 
         if (examsResult is TeacherSuccess<List<TeacherExamModel>>) {
           _exams = examsResult.data
-              .map((e) => (id: e.id, name: e.name))
+              .map((e) => (id: e.id, name: e.name, weight: e.weight))
               .toList();
           debugPrint('[AddMarkDialog] Loaded ${_exams.length} exams');
         }
@@ -1218,7 +1270,7 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
     }
 
     final maxMarksText = _maxMarks.text.trim();
-    if (maxMarksText.isEmpty) {
+    if (_selectedExamWeight == null && maxMarksText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please enter max marks'),
@@ -1228,7 +1280,8 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
       return;
     }
 
-    final maxMarks = double.tryParse(maxMarksText);
+    final maxMarks =
+        _selectedExamWeight?.toDouble() ?? double.tryParse(maxMarksText);
     if (maxMarks == null || maxMarks <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1259,7 +1312,9 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
-                  'Invalid marks for ${student.name ?? 'student'}. Must be between 0 and $maxMarks',
+                  marksObtained < 0
+                      ? 'Marks for ${student.name ?? 'student'} cannot be negative.'
+                      : 'Marks for ${student.name ?? 'student'} cannot exceed ${formatMark(maxMarks)} for this exam.',
                 ),
                 backgroundColor: kErrorColor,
               ),
@@ -1484,14 +1539,22 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
                                   (e) => DropdownMenuItem<int?>(
                                     value: e.id,
                                     child: Text(
-                                      e.name,
+                                      e.weight != null
+                                          ? '${e.name} (Max: ${formatMark(e.weight)})'
+                                          : e.name,
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                 )
                                 .toList(),
                             onChanged: (value) {
-                              setState(() => _examId = value);
+                              setState(() {
+                                _examId = value;
+                                final weight = _selectedExamWeight;
+                                if (weight != null) {
+                                  _maxMarks.text = formatMark(weight);
+                                }
+                              });
                             },
                           ),
 
@@ -1500,8 +1563,11 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
                           // Max Marks input
                           TextFormField(
                             controller: _maxMarks,
+                            readOnly: _selectedExamWeight != null,
                             decoration: InputDecoration(
-                              labelText: 'Max Marks',
+                              labelText: _selectedExamWeight != null
+                                  ? 'Max Marks (from exam weight)'
+                                  : 'Max Marks',
                               hintText: 'Enter max marks',
                               filled: true,
                               fillColor: Colors.grey.shade50,
@@ -1513,7 +1579,9 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
                                 vertical: 12,
                               ),
                             ),
-                            keyboardType: TextInputType.number,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
                           ),
 
                           const SizedBox(height: 24),
@@ -1566,7 +1634,9 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
                                       child: TextFormField(
                                         controller: controller,
                                         decoration: InputDecoration(
-                                          labelText: 'Marks',
+                                          labelText: _selectedExamWeight != null
+                                              ? 'Marks (/${formatMark(_selectedExamWeight)})'
+                                              : 'Marks',
                                           filled: true,
                                           fillColor: Colors.grey.shade50,
                                           border: OutlineInputBorder(
@@ -1580,7 +1650,10 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
                                                 vertical: 8,
                                               ),
                                         ),
-                                        keyboardType: TextInputType.number,
+                                        keyboardType:
+                                            const TextInputType.numberWithOptions(
+                                              decimal: true,
+                                            ),
                                         textAlign: TextAlign.center,
                                       ),
                                     ),
@@ -1680,6 +1753,12 @@ class _EditMarkDialogState extends State<_EditMarkDialog> {
   late final TextEditingController _maxMarks;
   bool _submitting = false;
 
+  /// The mark's exam weight (its actual maximum mark), looked up by the
+  /// mark's exam id once exams load. Null while loading, or when the exam
+  /// has no weight on record — in that case Max Marks stays freely
+  /// editable (legacy fallback), matching this mark's original behavior.
+  num? _examWeight;
+
   @override
   void initState() {
     super.initState();
@@ -1687,16 +1766,66 @@ class _EditMarkDialogState extends State<_EditMarkDialog> {
       text: widget.mark.marksObtained.toString(),
     );
     _maxMarks = TextEditingController(text: widget.mark.maxMarks.toString());
+    _loadExamWeight();
+  }
+
+  Future<void> _loadExamWeight() async {
+    final result = await TeacherService().listExams();
+    if (!mounted || result is! TeacherSuccess<List<TeacherExamModel>>) return;
+    for (final exam in result.data) {
+      if (exam.id == widget.mark.examId && exam.weight != null) {
+        setState(() {
+          _examWeight = exam.weight;
+          _maxMarks.text = formatMark(exam.weight);
+        });
+        return;
+      }
+    }
   }
 
   Future<void> _submit() async {
-    final marksObtained = _marksObtained.text.trim();
-    final maxMarks = _maxMarks.text.trim();
+    final marksObtainedText = _marksObtained.text.trim();
+    final maxMarksText = _maxMarks.text.trim();
 
-    if (marksObtained.isEmpty || maxMarks.isEmpty) {
+    if (marksObtainedText.isEmpty || maxMarksText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please enter both marks obtained and max marks'),
+          backgroundColor: kErrorColor,
+        ),
+      );
+      return;
+    }
+
+    final marksObtained = double.tryParse(marksObtainedText);
+    final maxMarks = _examWeight?.toDouble() ?? double.tryParse(maxMarksText);
+
+    if (marksObtained == null || maxMarks == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter valid numeric marks'),
+          backgroundColor: kErrorColor,
+        ),
+      );
+      return;
+    }
+
+    if (marksObtained < 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Marks cannot be negative.'),
+          backgroundColor: kErrorColor,
+        ),
+      );
+      return;
+    }
+
+    if (marksObtained > maxMarks) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Marks cannot exceed ${formatMark(maxMarks)} for this exam.',
+          ),
           backgroundColor: kErrorColor,
         ),
       );
@@ -1708,8 +1837,8 @@ class _EditMarkDialogState extends State<_EditMarkDialog> {
     try {
       final result = await TeacherService().updateMark(
         widget.mark.id,
-        marksObtained: double.tryParse(marksObtained) ?? 0,
-        maxMarks: double.tryParse(maxMarks) ?? 0,
+        marksObtained: marksObtained,
+        maxMarks: maxMarks,
       );
 
       if (!mounted) return;
@@ -1768,7 +1897,9 @@ class _EditMarkDialogState extends State<_EditMarkDialog> {
             TextFormField(
               controller: _marksObtained,
               decoration: InputDecoration(
-                labelText: 'Marks Obtained',
+                labelText: _examWeight != null
+                    ? 'Marks Obtained (Max: ${formatMark(_examWeight)})'
+                    : 'Marks Obtained',
                 filled: true,
                 fillColor: Colors.grey.shade50,
                 border: OutlineInputBorder(
@@ -1779,13 +1910,18 @@ class _EditMarkDialogState extends State<_EditMarkDialog> {
                   vertical: 12,
                 ),
               ),
-              keyboardType: TextInputType.number,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _maxMarks,
+              readOnly: _examWeight != null,
               decoration: InputDecoration(
-                labelText: 'Max Marks',
+                labelText: _examWeight != null
+                    ? 'Max Marks (from exam weight)'
+                    : 'Max Marks',
                 filled: true,
                 fillColor: Colors.grey.shade50,
                 border: OutlineInputBorder(
@@ -1796,7 +1932,9 @@ class _EditMarkDialogState extends State<_EditMarkDialog> {
                   vertical: 12,
                 ),
               ),
-              keyboardType: TextInputType.number,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
             ),
             const SizedBox(height: 24),
             Row(

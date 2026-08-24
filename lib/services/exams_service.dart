@@ -122,8 +122,9 @@ class ExamsService {
     try {
       int toInt(dynamic v) =>
           v == null ? 0 : (v is int ? v : int.tryParse(v.toString()) ?? 0);
-      double? toDouble(dynamic v) =>
-          v == null ? null : (v is double ? v : double.tryParse(v.toString()));
+      double? toDouble(dynamic v) => v == null
+          ? null
+          : (v is num ? v.toDouble() : double.tryParse(v.toString()));
 
       final body = <String, dynamic>{
         'name': data['name']?.toString().trim() ?? '',
@@ -267,8 +268,9 @@ class ExamsService {
     Map<String, dynamic> data,
   ) async {
     try {
-      double? toDouble(dynamic v) =>
-          v == null ? null : (v is double ? v : double.tryParse(v.toString()));
+      double? toDouble(dynamic v) => v == null
+          ? null
+          : (v is num ? v.toDouble() : double.tryParse(v.toString()));
 
       final body = <String, dynamic>{
         'name': data['name'] is String

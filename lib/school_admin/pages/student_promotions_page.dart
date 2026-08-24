@@ -65,24 +65,29 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
         .toList();
   }
 
+  /// A student's result is "unavailable" only when the backend explicitly
+  /// says so (`result_available == false`). A missing/null `percentage`
+  /// with no explicit flag is treated the same way as a safety net (we
+  /// cannot show a percentage that doesn't exist), but a valid PASS or FAIL
+  /// percentage must never be reported as unavailable.
+  bool _isUnavailable(PromotionStudent student) =>
+      student.resultAvailable == false || student.percentage == null;
+
   String _eligibilityKey(PromotionStudent student) {
-    if (student.percentage == null) return 'no_result';
+    if (_isUnavailable(student)) return 'no_result';
     if (!passesPromotionThreshold(student.percentage)) return 'issue';
     if (student.eligible != false) return 'ready';
     final value = (student.reason ?? '').toLowerCase();
-    if (value.contains('result') || value.contains('unavailable')) {
-      return 'no_result';
-    }
     if (value.contains('processed')) return 'already_processed';
     return 'issue';
   }
 
   String _ineligibilityReason(PromotionStudent student) {
-    if (_decision == 'promoted' &&
-        !passesPromotionThreshold(student.percentage)) {
-      return student.percentage == null
-          ? 'No final percentage is available for promotion.'
-          : 'Not eligible for promotion: below the 50% threshold.';
+    if (_decision == 'promoted') {
+      if (_isUnavailable(student)) return promotionUnavailableMessage(student);
+      if (!passesPromotionThreshold(student.percentage)) {
+        return 'Not eligible for promotion: below the 50% threshold.';
+      }
     }
     return student.reason?.trim().isNotEmpty == true
         ? student.reason!
@@ -90,7 +95,7 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
   }
 
   String _resultKey(PromotionStudent student) {
-    if (student.percentage == null) return 'unavailable';
+    if (_isUnavailable(student)) return 'unavailable';
     return passesPromotionThreshold(student.percentage) ? 'pass' : 'fail';
   }
 
@@ -118,14 +123,13 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
       canPromoteByPercentageAndEligibility(
         student.percentage,
         student.eligible,
+        resultAvailable: student.resultAvailable,
       );
 
   bool get _hasInvalidPromotedSelection =>
       _decision == 'promoted' &&
       _students.any(
-        (student) =>
-            _selected.contains(student.id) &&
-            !passesPromotionThreshold(student.percentage),
+        (student) => _selected.contains(student.id) && !_canSelect(student),
       );
 
   void _toggleStudentSelection(PromotionStudent student) {
@@ -816,8 +820,8 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
                     ),
                     const SizedBox(height: 7),
                     Text(
-                      student.percentage == null
-                          ? 'Percentage unavailable'
+                      _isUnavailable(student)
+                          ? 'Unavailable'
                           : formatPromotionPercentage(student.percentage),
                       style: const TextStyle(
                         fontSize: 17,
@@ -825,7 +829,16 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
                         color: _blue,
                       ),
                     ),
-                    if (!selectable)
+                    if (_isUnavailable(student))
+                      Text(
+                        promotionUnavailableMessage(student),
+                        style: const TextStyle(
+                          color: Colors.orange,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      )
+                    else if (!selectable)
                       Text(
                         _ineligibilityReason(student),
                         style: const TextStyle(
@@ -1114,6 +1127,9 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
     final fail = _students
         .where((student) => _resultKey(student) == 'fail')
         .length;
+    final unavailable = _students
+        .where((student) => _resultKey(student) == 'unavailable')
+        .length;
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = widget.embedBodyOnly
@@ -1142,6 +1158,13 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
               fail,
               Icons.cancel_rounded,
               Colors.red,
+              width,
+            ),
+            _reviewMetric(
+              'Unavailable',
+              unavailable,
+              Icons.help_outline_rounded,
+              Colors.orange,
               width,
             ),
             _reviewMetric(
@@ -1335,11 +1358,14 @@ class _StudentPromotionsPageState extends State<StudentPromotionsPage> {
                         subtitle: Text(
                           [
                             s.emis,
-                            if (s.percentage != null)
+                            if (_isUnavailable(s))
+                              promotionUnavailableMessage(s)
+                            else ...[
                               formatPromotionPercentage(s.percentage),
-                            s.grade,
-                            s.status,
-                            s.reason,
+                              s.grade,
+                              s.status,
+                              s.reason,
+                            ],
                           ].whereType<String>().join(' • '),
                         ),
                       ),

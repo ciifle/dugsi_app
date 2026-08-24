@@ -940,7 +940,9 @@ class _ExamFormDialogState extends State<_ExamFormDialog> {
     if (weight == null || weight! <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter a valid weight'),
+          content: Text(
+            'Please enter a valid exam weight (maximum marks) greater than 0.',
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -1019,10 +1021,19 @@ class _ExamFormDialogState extends State<_ExamFormDialog> {
               const SizedBox(height: 16),
               Input3D(
                 controller: _weightController,
-                label: 'Weight (optional)',
-                hint: 'e.g. 20, 50, 100',
-                keyboardType: TextInputType.number,
+                label: 'Exam Weight / Maximum Marks',
+                hint: 'e.g. 10, 30, 50',
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 onSubmitted: (_) => _submit(),
+              ),
+              const Padding(
+                padding: EdgeInsets.only(top: 6, left: 4),
+                child: Text(
+                  'Maximum mark allowed for each subject in this exam.',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                ),
               ),
               const SizedBox(height: 16),
               Consumer<AcademicYearsProvider>(
