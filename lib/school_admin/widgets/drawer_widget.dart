@@ -17,6 +17,7 @@ import 'package:kobac/school_admin/pages/admin_fees_screen.dart';
 import 'package:kobac/school_admin/pages/admin_attendance_screen.dart';
 import 'package:kobac/school_admin/pages/admin_class_subjects_screen.dart';
 import 'package:kobac/services/classes_service.dart';
+import 'package:kobac/school_admin/pages/exam_hall_management_pages.dart';
 import 'package:provider/provider.dart';
 
 import 'package:kobac/services/auth_provider.dart';
@@ -132,6 +133,39 @@ class AppDrawer extends StatelessWidget {
                             label: 'Exams',
                             onTap: () =>
                                 _navTo(context, const AdminExamsScreen()),
+                          ),
+                          const SizedBox(height: 12),
+                          _DrawerMenuCard(
+                            icon: Icons.layers_outlined,
+                            label: 'Levels',
+                            onTap: () => _navTo(context, const LevelsPage()),
+                          ),
+                          const SizedBox(height: 12),
+                          _DrawerMenuCard(
+                            icon: Icons.meeting_room_outlined,
+                            label: 'Exam Halls',
+                            onTap: () => _navTo(context, const ExamHallsPage()),
+                          ),
+                          const SizedBox(height: 12),
+                          _DrawerMenuCard(
+                            icon: Icons.event_seat_outlined,
+                            label: 'Hall Allocation',
+                            onTap: () =>
+                                _navTo(context, const HallAllocationPage()),
+                          ),
+                          const SizedBox(height: 12),
+                          _DrawerMenuCard(
+                            icon: Icons.summarize_outlined,
+                            label: 'Hall Reports',
+                            onTap: () =>
+                                _navTo(context, const HallReportsPage()),
+                          ),
+                          const SizedBox(height: 12),
+                          _DrawerMenuCard(
+                            icon: Icons.badge_outlined,
+                            label: 'Pass Cards',
+                            onTap: () =>
+                                _navTo(context, const ExamPassCardsPage()),
                           ),
                           const SizedBox(height: 12),
                           _DrawerMenuCard(

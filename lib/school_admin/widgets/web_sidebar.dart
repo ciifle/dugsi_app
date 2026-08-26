@@ -251,6 +251,53 @@ class _WebSidebarState extends State<WebSidebar> {
                   ),
                   const _SidebarDivider(),
                   _SidebarSection(
+                    title: 'Exam Management',
+                    icon: Icons.event_seat_rounded,
+                    isExpanded:
+                        _expandedSection == 'examManagement' ||
+                        {
+                          'levels',
+                          'examHalls',
+                          'hallAllocation',
+                          'hallReports',
+                          'passCards',
+                        }.contains(widget.selectedPage),
+                    onTap: () => _toggleSection('examManagement'),
+                    children: [
+                      _SidebarItem(
+                        title: 'Levels',
+                        icon: Icons.layers_outlined,
+                        isActive: widget.selectedPage == 'levels',
+                        onTap: () => _navigateToPage('levels'),
+                      ),
+                      _SidebarItem(
+                        title: 'Exam Halls',
+                        icon: Icons.meeting_room_outlined,
+                        isActive: widget.selectedPage == 'examHalls',
+                        onTap: () => _navigateToPage('examHalls'),
+                      ),
+                      _SidebarItem(
+                        title: 'Hall Allocation',
+                        icon: Icons.event_seat_outlined,
+                        isActive: widget.selectedPage == 'hallAllocation',
+                        onTap: () => _navigateToPage('hallAllocation'),
+                      ),
+                      _SidebarItem(
+                        title: 'Hall Reports',
+                        icon: Icons.summarize_outlined,
+                        isActive: widget.selectedPage == 'hallReports',
+                        onTap: () => _navigateToPage('hallReports'),
+                      ),
+                      _SidebarItem(
+                        title: 'Pass Cards',
+                        icon: Icons.badge_outlined,
+                        isActive: widget.selectedPage == 'passCards',
+                        onTap: () => _navigateToPage('passCards'),
+                      ),
+                    ],
+                  ),
+                  const _SidebarDivider(),
+                  _SidebarSection(
                     title: 'Student Promotions',
                     icon: Icons.trending_up_rounded,
                     isExpanded: _expandedSection == 'promotions',

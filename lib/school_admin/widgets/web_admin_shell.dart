@@ -35,6 +35,7 @@ import 'package:kobac/school_admin/pages/notifications_page.dart';
 import 'package:kobac/school_admin/pages/settings_page.dart';
 import 'package:kobac/school_admin/pages/class_merge_page.dart';
 import 'package:kobac/school_admin/pages/change_password_page.dart';
+import 'package:kobac/school_admin/pages/exam_hall_management_pages.dart';
 
 /// Responsive admin shell for desktop/web layout
 /// Shows sidebar + top bar + main content area
@@ -110,6 +111,16 @@ class _WebAdminShellState extends State<WebAdminShell> {
         return 'Student Promotions';
       case 'marks':
         return 'Marks';
+      case 'levels':
+        return 'Levels';
+      case 'examHalls':
+        return 'Exam Halls';
+      case 'hallAllocation':
+        return 'Hall Allocation';
+      case 'hallReports':
+        return 'Hall Reports';
+      case 'passCards':
+        return 'Exam Pass Cards';
       case 'topStudents':
         return 'Top Students';
       case 'notices':
@@ -294,6 +305,19 @@ class _WebAdminShellState extends State<WebAdminShell> {
           embedBodyOnly: true,
           onNavigateToPage: _navigateToPage,
         );
+      case 'levels':
+        return const LevelsPage(embedBodyOnly: true);
+      case 'examHalls':
+        return const ExamHallsPage(embedBodyOnly: true);
+      case 'hallAllocation':
+        return HallAllocationPage(
+          embedBodyOnly: true,
+          onNavigateToPage: _navigateToPage,
+        );
+      case 'hallReports':
+        return const HallReportsPage(embedBodyOnly: true);
+      case 'passCards':
+        return const ExamPassCardsPage(embedBodyOnly: true);
       case 'topStudents':
         return const TopStudentsPage();
       case 'notices':
