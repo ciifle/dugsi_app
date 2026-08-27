@@ -114,6 +114,7 @@ class ExamHallAllocationStudent {
   final String name;
   final String emis;
   final String className;
+  final String levelName;
   final String hallName;
   final String seat;
   final String shiftName;
@@ -125,6 +126,7 @@ class ExamHallAllocationStudent {
     required this.name,
     this.emis = '',
     this.className = '',
+    this.levelName = '',
     this.hallName = '',
     this.seat = '',
     this.shiftName = '',
@@ -153,6 +155,7 @@ class ExamHallAllocationStudent {
             student['emis_number'],
       ),
       className: safeText(json['class_name'] ?? classMap['name']),
+      levelName: safeText(json['level_name'] ?? safeMap(json['level'])['name']),
       hallName: safeText(json['hall_name'] ?? hall['name']),
       seat: safeText(json['seat_number'] ?? json['seat']),
       shiftName: safeText(
@@ -296,6 +299,7 @@ class ExamHallAllocationBatch {
   final String mode;
   final String halls;
   final int studentCount;
+  final int unallocatedCount;
   final String date;
   final String status;
   final String shift;
@@ -310,6 +314,7 @@ class ExamHallAllocationBatch {
     this.mode = '',
     this.halls = '',
     this.studentCount = 0,
+    this.unallocatedCount = 0,
     this.date = '',
     this.status = '',
     this.shift = '',
@@ -341,6 +346,9 @@ class ExamHallAllocationBatch {
       studentCount: safeInt(
         json['student_count'] ?? json['students_count'] ?? students.length,
       ),
+      unallocatedCount: safeInt(
+        json['unallocated_count'] ?? json['unallocated'],
+      ),
       date: safeText(json['created_at'] ?? json['date']),
       status: safeText(json['status'], 'active'),
       shift: safeText(json['shift']),
@@ -359,8 +367,10 @@ class ExamHallReportRow extends ExamHallAllocationStudent {
     required super.name,
     super.emis,
     super.className,
+    super.levelName,
     super.hallName,
     super.seat,
+    super.shiftName,
   });
   factory ExamHallReportRow.fromJson(Map<String, dynamic> json) {
     final r = ExamHallAllocationStudent.fromJson(json);
@@ -370,8 +380,10 @@ class ExamHallReportRow extends ExamHallAllocationStudent {
       name: r.name,
       emis: r.emis,
       className: r.className,
+      levelName: r.levelName,
       hallName: r.hallName,
       seat: r.seat,
+      shiftName: r.shiftName,
     );
   }
 }

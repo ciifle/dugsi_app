@@ -11,6 +11,7 @@ import 'package:kobac/services/shifts_service.dart';
 import 'package:kobac/utils/student_pdf_handler.dart';
 import 'package:kobac/utils/pdf_save_feedback.dart';
 import 'package:kobac/school_admin/widgets/admin_feature_dialog.dart';
+import 'package:kobac/school_admin/widgets/admin_desktop_kit.dart';
 
 const _navy = Color(0xFF023471),
     _green = Color(0xFF5AB04B),
@@ -22,8 +23,11 @@ Widget _page(
   BuildContext context, {
   required bool embedded,
   required String title,
+  String? subtitle,
   required Widget child,
   Widget? action,
+  Widget? headerAction,
+  List<Widget>? headerSecondaryActions,
 }) {
   final pageContent = ColoredBox(
     color: _bg,
@@ -35,7 +39,18 @@ Widget _page(
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [Expanded(child: child)],
+          children: [
+            if (embedded) ...[
+              AdminPageHeader(
+                title: title,
+                subtitle: subtitle,
+                primaryAction: headerAction ?? action,
+                secondaryActions: headerSecondaryActions,
+              ),
+              const SizedBox(height: 20),
+            ],
+            Expanded(child: child),
+          ],
         ),
       ),
     ),
@@ -54,14 +69,7 @@ Widget _page(
     ),
     child: pageContent,
   );
-  final body = embedded && action != null
-      ? Stack(
-          children: [
-            Positioned.fill(child: brandedContent),
-            Positioned(right: 24, bottom: 20, child: action),
-          ],
-        )
-      : brandedContent;
+  final body = brandedContent;
   return embedded
       ? body
       : Scaffold(
@@ -734,6 +742,7 @@ class _LevelsPageState extends State<LevelsPage> {
       context,
       embedded: widget.embedBodyOnly,
       title: 'Levels',
+      subtitle: 'Organize classes into academic levels',
       child: content,
       action: FloatingActionButton.extended(
         onPressed: () => _edit(),
@@ -1200,6 +1209,7 @@ class _ShiftsPageState extends State<ShiftsPage> {
       context,
       embedded: widget.embedBodyOnly,
       title: 'Shifts',
+      subtitle: 'Manage school shifts and assign classes',
       child: content,
       action: FloatingActionButton.extended(
         onPressed: () => _edit(),
@@ -1224,11 +1234,25 @@ class _ExamHallsPageState extends State<ExamHallsPage> {
   List<ExamHall> _items = [];
   bool _loading = true;
   String? _error;
+  String _search = '';
+  String _statusFilter = 'all';
   @override
   void initState() {
     super.initState();
     _load();
   }
+
+  List<ExamHall> get _filtered => _items.where((h) {
+    final matchesSearch =
+        _search.trim().isEmpty ||
+        h.name.toLowerCase().contains(_search.trim().toLowerCase());
+    final matchesStatus = _statusFilter == 'all'
+        ? true
+        : _statusFilter == 'active'
+        ? h.isActive
+        : !h.isActive;
+    return matchesSearch && matchesStatus;
+  }).toList();
 
   Future<void> _load() async {
     setState(() => _loading = true);
@@ -1345,9 +1369,10 @@ class _ExamHallsPageState extends State<ExamHallsPage> {
   Future<void> _delete(ExamHall h) async {
     final ok = await showAdminFeatureConfirmation(
       context,
-      title: 'Delete Exam Hall?',
+      title: 'Delete Hall?',
       message:
-          'Delete ${h.name}? This cannot be done when the hall has allocations.',
+          '${h.name} will be removed. This cannot be done when the hall has allocations. '
+          'This action cannot be undone.',
       confirmLabel: 'Delete Hall',
       icon: Icons.delete_outline_rounded,
       confirmColor: Colors.red,
@@ -1363,6 +1388,149 @@ class _ExamHallsPageState extends State<ExamHallsPage> {
     }
   }
 
+  Widget _desktopBody() {
+    final filtered = _filtered;
+    final totalCapacity = _items.fold<int>(0, (sum, h) => sum + h.capacity);
+    final activeCount = _items.where((h) => h.isActive).length;
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AdminStatRow(
+            tiles: [
+              AdminStatTile(
+                icon: Icons.meeting_room_rounded,
+                color: kAdminNavy,
+                value: '${_items.length}',
+                label: 'Total Halls',
+              ),
+              AdminStatTile(
+                icon: Icons.groups_rounded,
+                color: kAdminGreen,
+                value: '$totalCapacity',
+                label: 'Total Capacity',
+              ),
+              AdminStatTile(
+                icon: Icons.check_circle_rounded,
+                color: kAdminGreen,
+                value: '$activeCount',
+                label: 'Active Halls',
+              ),
+              AdminStatTile(
+                icon: Icons.pause_circle_outline_rounded,
+                color: Colors.grey.shade600,
+                value: '${_items.length - activeCount}',
+                label: 'Inactive Halls',
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          AdminFilterBar(
+            filters: [
+              TextField(
+                onChanged: (v) => setState(() => _search = v),
+                decoration: InputDecoration(
+                  isDense: true,
+                  prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                  hintText: 'Search halls...',
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: kAdminBorder),
+                  ),
+                ),
+              ),
+              AdminFilterDropdown<String>(
+                label: 'Status',
+                value: _statusFilter,
+                items: const [
+                  DropdownMenuItem(value: 'all', child: Text('All')),
+                  DropdownMenuItem(value: 'active', child: Text('Active')),
+                  DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
+                ],
+                onChanged: (v) => setState(() => _statusFilter = v ?? 'all'),
+              ),
+            ],
+            actions: [
+              AdminSecondaryButton(
+                label: 'Refresh',
+                icon: Icons.refresh_rounded,
+                onPressed: _load,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (filtered.isEmpty)
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: kAdminBorder),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: const AdminEmptyState(
+                icon: Icons.search_off_rounded,
+                title: 'No halls match your search',
+                message: 'Try a different name or clear the status filter.',
+              ),
+            )
+          else
+            AdminTableCard(
+              columns: const [
+                AdminTableColumn('Hall', flex: 3),
+                AdminTableColumn('Capacity', flex: 2),
+                AdminTableColumn('Status', flex: 2),
+                AdminTableColumn('Actions', flex: 2, align: TextAlign.right),
+              ],
+              rows: filtered
+                  .map(
+                    (h) => AdminTableRow(
+                      flexes: const [3, 2, 2, 2],
+                      cells: [
+                        Text(
+                          h.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: kAdminNavy,
+                          ),
+                        ),
+                        Text('${h.capacity}'),
+                        AdminStatusPill.active(h.isActive),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Tooltip(
+                              message: 'Edit Hall',
+                              child: IconButton(
+                                onPressed: () => _edit(h),
+                                icon: const Icon(Icons.edit_outlined, size: 20),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            ),
+                            Tooltip(
+                              message: 'Delete Hall',
+                              child: IconButton(
+                                onPressed: () => _delete(h),
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  size: 20,
+                                  color: Colors.red,
+                                ),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  )
+                  .toList(),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     Widget content;
@@ -1371,55 +1539,22 @@ class _ExamHallsPageState extends State<ExamHallsPage> {
     else if (_error != null)
       content = _errorState('Unable to load exam halls', _error!, _load);
     else if (_items.isEmpty)
-      content = _empty(
-        Icons.meeting_room_outlined,
-        'No halls yet',
-        'Add an exam hall before allocating students.',
+      content = AdminEmptyState(
+        icon: Icons.meeting_room_outlined,
+        title: 'No examination halls yet',
+        message:
+            'Create halls before allocating students to examination rooms.',
+        action: widget.embedBodyOnly
+            ? AdminPrimaryButton(
+                label: '+ Add First Hall',
+                onPressed: () => _edit(),
+              )
+            : null,
       );
     else
       content = LayoutBuilder(
         builder: (c, x) => x.maxWidth >= 700
-            ? SingleChildScrollView(
-                child: Container(
-                  decoration: _card,
-                  child: DataTable(
-                    columns: const [
-                      DataColumn(label: Text('Hall')),
-                      DataColumn(label: Text('Capacity')),
-                      DataColumn(label: Text('Status')),
-                      DataColumn(label: Text('Actions')),
-                    ],
-                    rows: _items
-                        .map(
-                          (h) => DataRow(
-                            cells: [
-                              DataCell(Text(h.name)),
-                              DataCell(Text('${h.capacity}')),
-                              DataCell(_StatusBadge(h.isActive)),
-                              DataCell(
-                                Row(
-                                  children: [
-                                    IconButton(
-                                      onPressed: () => _edit(h),
-                                      icon: const Icon(Icons.edit_outlined),
-                                    ),
-                                    IconButton(
-                                      onPressed: () => _delete(h),
-                                      icon: const Icon(
-                                        Icons.delete_outline,
-                                        color: Colors.red,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ),
-              )
+            ? _desktopBody()
             : ListView.separated(
                 padding: const EdgeInsets.only(bottom: 104),
                 itemCount: _items.length,
@@ -1496,6 +1631,7 @@ class _ExamHallsPageState extends State<ExamHallsPage> {
       context,
       embedded: widget.embedBodyOnly,
       title: 'Exam Halls',
+      subtitle: 'Manage examination rooms and seating capacity',
       child: content,
       action: FloatingActionButton.extended(
         onPressed: () => _edit(),
@@ -1503,6 +1639,10 @@ class _ExamHallsPageState extends State<ExamHallsPage> {
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add_rounded),
         label: const Text('Add Hall'),
+      ),
+      headerAction: AdminPrimaryButton(
+        label: '+ Add Hall',
+        onPressed: () => _edit(),
       ),
     );
   }
@@ -1822,6 +1962,31 @@ class _HallAllocationPageState extends State<HallAllocationPage>
     });
   }
 
+  Future<void> _cancelHistoryBatch(ExamHallAllocationBatch batch) async {
+    final confirmed = await showAdminFeatureConfirmation(
+      context,
+      title: 'Cancel Allocation Batch?',
+      message: 'Batch #${batch.id} will be cancelled.',
+      confirmLabel: 'Cancel Batch',
+      icon: Icons.cancel_outlined,
+      confirmColor: Colors.red,
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => busy = true);
+    try {
+      final result = await s.cancelBatch(batch.id);
+      if (!mounted) return;
+      if (result is HallError) {
+        _snack(context, result.message, error: true);
+      } else {
+        _snack(context, 'Allocation batch cancelled.');
+        await _refreshAllocationData();
+      }
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
   Future<void> _showAllocationSuccess({
     required int allocated,
     required int unallocated,
@@ -2016,6 +2181,24 @@ class _HallAllocationPageState extends State<HallAllocationPage>
     items: items,
     onChanged: busy ? null : change,
   );
+  Widget _summaryRow(String label, String value, {Color? valueColor}) => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Text(label, style: const TextStyle(color: Colors.black54, fontSize: 13)),
+      Flexible(
+        child: Text(
+          value,
+          textAlign: TextAlign.right,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            color: valueColor ?? _navy,
+          ),
+        ),
+      ),
+    ],
+  );
+
   Widget _form(bool random) {
     final shifts = context.watch<ShiftsProvider>().shifts;
     final selectedHallObjects = halls
@@ -2281,20 +2464,19 @@ class _HallAllocationPageState extends State<HallAllocationPage>
                   );
                 }),
                 const Divider(),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Selected Halls: ${selectedHallObjects.length}',
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
+                AdminStatRow(
+                  tiles: [
+                    AdminStatTile(
+                      icon: Icons.meeting_room_rounded,
+                      color: _navy,
+                      value: '${selectedHallObjects.length}',
+                      label: 'Selected Halls',
                     ),
-                    Text(
-                      'Total Capacity: $selectedCapacity',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        color: _green,
-                      ),
+                    AdminStatTile(
+                      icon: Icons.groups_rounded,
+                      color: _green,
+                      value: '$selectedCapacity',
+                      label: 'Selected Capacity',
                     ),
                   ],
                 ),
@@ -2367,6 +2549,47 @@ class _HallAllocationPageState extends State<HallAllocationPage>
                     'No students found',
                     'Choose the setup fields to load students.',
                   )
+                else if (kIsWeb || MediaQuery.sizeOf(context).width >= 760)
+                  AdminTableCard(
+                    columns: const [
+                      AdminTableColumn('', flex: 1),
+                      AdminTableColumn('Student Name', flex: 4),
+                      AdminTableColumn('EMIS', flex: 2),
+                      AdminTableColumn('Class', flex: 2),
+                      AdminTableColumn('Shift', flex: 2),
+                    ],
+                    rows: visibleStudents
+                        .map(
+                          (student) => AdminTableRow(
+                            flexes: const [1, 4, 2, 2, 2],
+                            cells: [
+                              Checkbox(
+                                activeColor: _green,
+                                value: selectedStudentIds.contains(
+                                  student.studentId,
+                                ),
+                                onChanged: student.studentId <= 0
+                                    ? null
+                                    : (checked) => setState(() {
+                                        checked == true
+                                            ? selectedStudentIds.add(
+                                                student.studentId,
+                                              )
+                                            : selectedStudentIds.remove(
+                                                student.studentId,
+                                              );
+                                        invalidate();
+                                      }),
+                              ),
+                              Text(student.name),
+                              Text(student.emis),
+                              Text(student.className),
+                              Text(student.shiftName),
+                            ],
+                          ),
+                        )
+                        .toList(),
+                  )
                 else
                   ...visibleStudents.map(
                     (student) => Container(
@@ -2401,18 +2624,94 @@ class _HallAllocationPageState extends State<HallAllocationPage>
               ],
             ),
           );
-    return Stack(
-      children: [
-        ListView(
+    final mainContent = LayoutBuilder(
+      builder: (context, constraints) {
+        final twoColumn = !random && constraints.maxWidth >= 900;
+        if (!twoColumn) {
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(0, 0, 0, 88),
+            children: [
+              setup,
+              const SizedBox(height: 12),
+              selection,
+              const SizedBox(height: 12),
+              _previewCard(random),
+            ],
+          );
+        }
+        final matches = halls.where((h) => h.id == hallId).toList();
+        final hall = matches.isEmpty ? null : matches.first;
+        final selectedCount = selectedStudentIds.length;
+        final remaining = hall == null ? null : hall.capacity - selectedCount;
+        return ListView(
           padding: const EdgeInsets.fromLTRB(0, 0, 0, 88),
           children: [
             setup,
             const SizedBox(height: 12),
-            selection,
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 62, child: selection),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 320,
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: _card,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              _AdminIconBox(icon: Icons.event_seat_rounded),
+                              SizedBox(width: 10),
+                              Text(
+                                'Allocation Setup',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w800,
+                                  color: _navy,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 18),
+                          _summaryRow(
+                            'Selected Hall',
+                            hall?.name ?? 'Not selected',
+                          ),
+                          const Divider(height: 26),
+                          _summaryRow(
+                            'Capacity',
+                            hall == null ? '—' : '${hall.capacity}',
+                          ),
+                          const SizedBox(height: 12),
+                          _summaryRow('Selected', '$selectedCount'),
+                          const SizedBox(height: 12),
+                          _summaryRow(
+                            'Remaining',
+                            remaining == null ? '—' : '$remaining',
+                            valueColor: remaining != null && remaining < 0
+                                ? Colors.red
+                                : _green,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 12),
             _previewCard(random),
           ],
-        ),
+        );
+      },
+    );
+    return Stack(
+      children: [
+        mainContent,
         Positioned(
           left: 0,
           right: 0,
@@ -2557,6 +2856,68 @@ class _HallAllocationPageState extends State<HallAllocationPage>
         'No allocation history',
         'Processed allocations will appear here.',
       );
+    if (kIsWeb || MediaQuery.sizeOf(context).width >= 760) {
+      const flexes = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2];
+      return AdminTableCard(
+        columns: const [
+          AdminTableColumn('Batch', flex: 2),
+          AdminTableColumn('Academic Year', flex: 2),
+          AdminTableColumn('Exam', flex: 2),
+          AdminTableColumn('Level', flex: 2),
+          AdminTableColumn('Shift', flex: 2),
+          AdminTableColumn('Allocated', flex: 2),
+          AdminTableColumn('Unallocated', flex: 2),
+          AdminTableColumn('Status', flex: 2),
+          AdminTableColumn('Created', flex: 2),
+          AdminTableColumn('Actions', flex: 2, align: TextAlign.right),
+        ],
+        rows: history
+            .map(
+              (batch) => AdminTableRow(
+                flexes: flexes,
+                cells: [
+                  Text('#${batch.id}'),
+                  Text(batch.academicYear),
+                  Text(batch.exam),
+                  Text(batch.level),
+                  Text(batch.shift),
+                  Text('${batch.studentCount}'),
+                  Text('${batch.unallocatedCount}'),
+                  AdminStatusPill(
+                    label: batch.status.toUpperCase(),
+                    color: batch.status.toLowerCase() == 'active'
+                        ? _green
+                        : Colors.grey.shade600,
+                  ),
+                  Text(batch.date),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                AllocationDetailPage(batchId: batch.id),
+                          ),
+                        ),
+                        child: const Text('View'),
+                      ),
+                      if (batch.status.toLowerCase() == 'active')
+                        TextButton(
+                          onPressed: busy
+                              ? null
+                              : () => _cancelHistoryBatch(batch),
+                          child: const Text('Cancel'),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            )
+            .toList(),
+      );
+    }
     return ListView.separated(
       itemCount: history.length,
       separatorBuilder: (_, __) => const SizedBox(height: 10),
@@ -2590,6 +2951,7 @@ class _HallAllocationPageState extends State<HallAllocationPage>
     context,
     embedded: widget.embedBodyOnly,
     title: 'Hall Allocation',
+    subtitle: 'Assign students to examination halls and seats',
     child: loading
         ? const Center(child: CircularProgressIndicator())
         : Column(
@@ -2635,6 +2997,19 @@ class _ExamPassCardsPageState extends State<ExamPassCardsPage> {
   int? yearId, examId, hallId, levelId, classId, shiftId;
   bool loadingFilters = true, loadingPasses = false, pdfBusy = false;
   String? loadError;
+  String _search = '';
+
+  List<AdminExamPassCard> get _visiblePasses {
+    final q = _search.trim().toLowerCase();
+    if (q.isEmpty) return passes;
+    return passes
+        .where(
+          (p) =>
+              p.studentName.toLowerCase().contains(q) ||
+              p.emis.toLowerCase().contains(q),
+        )
+        .toList();
+  }
 
   @override
   void initState() {
@@ -2821,144 +3196,106 @@ class _ExamPassCardsPageState extends State<ExamPassCardsPage> {
     onChanged: loadingPasses || pdfBusy ? null : change,
   );
 
-  Widget _filtersCard() => Container(
-    padding: const EdgeInsets.all(16),
-    decoration: _card,
-    child: LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth >= 760
-            ? (constraints.maxWidth - 24) / 3
-            : constraints.maxWidth >= 480
-            ? (constraints.maxWidth - 12) / 2
-            : constraints.maxWidth;
-        return Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            SizedBox(
-              width: width,
-              child: _drop(
-                'Academic Year',
-                yearId,
-                years
-                    .map(
-                      (e) => DropdownMenuItem(value: e.id, child: Text(e.name)),
-                    )
-                    .toList(),
-                (value) => setState(() {
-                  yearId = value;
-                  examId = null;
-                  _filtersChanged();
-                }),
-              ),
-            ),
-            SizedBox(
-              width: width,
-              child: _drop(
-                'Exam',
-                examId,
-                exams
-                    .map(
-                      (e) => DropdownMenuItem(value: e.id, child: Text(e.name)),
-                    )
-                    .toList(),
-                (value) => setState(() {
-                  examId = value;
-                  _filtersChanged();
-                }),
-              ),
-            ),
-            SizedBox(
-              width: width,
-              child: _drop(
-                'Hall (optional)',
-                hallId,
-                halls
-                    .map(
-                      (e) => DropdownMenuItem(value: e.id, child: Text(e.name)),
-                    )
-                    .toList(),
-                (value) => setState(() {
-                  hallId = value;
-                  _filtersChanged();
-                }),
-              ),
-            ),
-            SizedBox(
-              width: width,
-              child: _drop(
-                'Level (optional)',
-                levelId,
-                levels
-                    .map(
-                      (e) => DropdownMenuItem(value: e.id, child: Text(e.name)),
-                    )
-                    .toList(),
-                (value) {
-                  setState(() {
-                    levelId = value;
-                    classId = null;
-                    classes = [];
-                    _filtersChanged();
-                  });
-                  _loadClasses();
-                },
-              ),
-            ),
-            SizedBox(
-              width: width,
-              child: _drop(
-                'Class (optional)',
-                classId,
-                classes
-                    .map(
-                      (e) => DropdownMenuItem(value: e.id, child: Text(e.name)),
-                    )
-                    .toList(),
-                (value) => setState(() {
-                  classId = value;
-                  _filtersChanged();
-                }),
-              ),
-            ),
-            SizedBox(
-              width: width,
-              child: DropdownButtonFormField<int?>(
-                initialValue: shiftId,
-                isExpanded: true,
-                decoration: const InputDecoration(
-                  labelText: 'Shift (optional)',
-                  border: OutlineInputBorder(),
-                ),
-                items: [
-                  const DropdownMenuItem<int?>(
-                    value: null,
-                    child: Text('All Shifts'),
-                  ),
-                  ...context.watch<ShiftsProvider>().shifts.map(
-                    (e) => DropdownMenuItem<int?>(
-                      value: e.id,
-                      child: Text(e.name),
-                    ),
-                  ),
-                ],
-                onChanged: loadingPasses || pdfBusy
-                    ? null
-                    : (value) => setState(() {
-                        shiftId = value;
-                        _filtersChanged();
-                      }),
-              ),
-            ),
-            FilledButton.icon(
-              style: FilledButton.styleFrom(backgroundColor: _green),
-              onPressed: loadingPasses || pdfBusy ? null : _loadPasses,
-              icon: const Icon(Icons.search_rounded),
-              label: const Text('Load Pass Cards'),
-            ),
-          ],
-        );
-      },
+  Widget _filtersCard() => AdminFilterBar(
+    filters: [
+      _drop(
+        'Academic Year',
+        yearId,
+        years
+            .map((e) => DropdownMenuItem(value: e.id, child: Text(e.name)))
+            .toList(),
+        (value) => setState(() {
+          yearId = value;
+          examId = null;
+          _filtersChanged();
+        }),
+      ),
+      _drop(
+        'Exam',
+        examId,
+        exams
+            .map((e) => DropdownMenuItem(value: e.id, child: Text(e.name)))
+            .toList(),
+        (value) => setState(() {
+          examId = value;
+          _filtersChanged();
+        }),
+      ),
+      _drop(
+        'Hall (optional)',
+        hallId,
+        halls
+            .map((e) => DropdownMenuItem(value: e.id, child: Text(e.name)))
+            .toList(),
+        (value) => setState(() {
+          hallId = value;
+          _filtersChanged();
+        }),
+      ),
+      _drop(
+        'Level (optional)',
+        levelId,
+        levels
+            .map((e) => DropdownMenuItem(value: e.id, child: Text(e.name)))
+            .toList(),
+        (value) {
+          setState(() {
+            levelId = value;
+            classId = null;
+            classes = [];
+            _filtersChanged();
+          });
+          _loadClasses();
+        },
+      ),
+      _drop(
+        'Class (optional)',
+        classId,
+        classes
+            .map((e) => DropdownMenuItem(value: e.id, child: Text(e.name)))
+            .toList(),
+        (value) => setState(() {
+          classId = value;
+          _filtersChanged();
+        }),
+      ),
+      AdminFilterDropdown<int?>(
+        label: 'Shift (optional)',
+        value: shiftId,
+        items: [
+          const DropdownMenuItem<int?>(value: null, child: Text('All Shifts')),
+          ...context.watch<ShiftsProvider>().shifts.map(
+            (e) => DropdownMenuItem<int?>(value: e.id, child: Text(e.name)),
+          ),
+        ],
+        onChanged: loadingPasses || pdfBusy
+            ? null
+            : (value) => setState(() {
+                shiftId = value;
+                _filtersChanged();
+              }),
+      ),
+    ],
+    actions: [
+      AdminPrimaryButton(
+        label: 'Load Pass Cards',
+        icon: Icons.search_rounded,
+        onPressed: loadingPasses || pdfBusy ? null : _loadPasses,
+      ),
+    ],
+  );
+
+  Widget _searchField() => TextField(
+    onChanged: (v) => setState(() => _search = v),
+    decoration: InputDecoration(
+      isDense: true,
+      prefixIcon: const Icon(Icons.search_rounded, size: 20),
+      hintText: 'Search students...',
+      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: kAdminBorder),
+      ),
     ),
   );
 
@@ -2968,16 +3305,16 @@ class _ExamPassCardsPageState extends State<ExamPassCardsPage> {
     crossAxisAlignment: WrapCrossAlignment.center,
     children: [
       Text(
-        '${passes.length} students  ·  ${selectedAllocationIds.length} selected',
+        '${_visiblePasses.length} students  ·  ${selectedAllocationIds.length} selected',
         style: const TextStyle(color: _navy, fontWeight: FontWeight.w700),
       ),
       TextButton(
-        onPressed: passes.isEmpty
+        onPressed: _visiblePasses.isEmpty
             ? null
             : () => setState(() {
                 selectedAllocationIds
                   ..clear()
-                  ..addAll(selectLoadedPassAllocationIds(passes));
+                  ..addAll(selectLoadedPassAllocationIds(_visiblePasses));
               }),
         child: const Text('Select All'),
       ),
@@ -3079,69 +3416,60 @@ class _ExamPassCardsPageState extends State<ExamPassCardsPage> {
     ),
   );
 
-  Widget _desktopTable() => Container(
-    decoration: _card,
-    child: SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        columns: const [
-          DataColumn(label: Text('')),
-          DataColumn(label: Text('Student')),
-          DataColumn(label: Text('EMIS')),
-          DataColumn(label: Text('Class')),
-          DataColumn(label: Text('Level')),
-          DataColumn(label: Text('Hall')),
-          DataColumn(label: Text('Seat')),
-          DataColumn(label: Text('Shift')),
-          DataColumn(label: Text('Actions')),
-        ],
-        rows: passes
-            .map(
-              (pass) => DataRow(
-                cells: [
-                  DataCell(
-                    Checkbox(
-                      activeColor: _green,
-                      value: selectedAllocationIds.contains(pass.allocationId),
-                      onChanged: (checked) => setState(() {
-                        checked == true
-                            ? selectedAllocationIds.add(pass.allocationId)
-                            : selectedAllocationIds.remove(pass.allocationId);
-                      }),
-                    ),
+  Widget _desktopTable() => AdminTableCard(
+    columns: const [
+      AdminTableColumn('', flex: 1),
+      AdminTableColumn('Student', flex: 3),
+      AdminTableColumn('EMIS', flex: 2),
+      AdminTableColumn('Class', flex: 2),
+      AdminTableColumn('Level', flex: 2),
+      AdminTableColumn('Hall', flex: 2),
+      AdminTableColumn('Seat', flex: 1),
+      AdminTableColumn('Shift', flex: 2),
+      AdminTableColumn('Actions', flex: 3, align: TextAlign.right),
+    ],
+    rows: _visiblePasses
+        .map(
+          (pass) => AdminTableRow(
+            flexes: const [1, 3, 2, 2, 2, 2, 1, 2, 3],
+            cells: [
+              Checkbox(
+                activeColor: _green,
+                value: selectedAllocationIds.contains(pass.allocationId),
+                onChanged: (checked) => setState(() {
+                  checked == true
+                      ? selectedAllocationIds.add(pass.allocationId)
+                      : selectedAllocationIds.remove(pass.allocationId);
+                }),
+              ),
+              Text(pass.studentName),
+              Text(pass.emis),
+              Text(pass.className),
+              Text(pass.levelName),
+              Text(pass.hallName),
+              Text(pass.seat),
+              Text(pass.shift),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: pdfBusy
+                        ? null
+                        : () => _individual(pass, download: false),
+                    child: const Text('Preview'),
                   ),
-                  DataCell(Text(pass.studentName)),
-                  DataCell(Text(pass.emis)),
-                  DataCell(Text(pass.className)),
-                  DataCell(Text(pass.levelName)),
-                  DataCell(Text(pass.hallName)),
-                  DataCell(Text(pass.seat)),
-                  DataCell(Text(pass.shift)),
-                  DataCell(
-                    Wrap(
-                      spacing: 4,
-                      children: [
-                        TextButton(
-                          onPressed: pdfBusy
-                              ? null
-                              : () => _individual(pass, download: false),
-                          child: const Text('Preview Pass'),
-                        ),
-                        TextButton(
-                          onPressed: pdfBusy
-                              ? null
-                              : () => _individual(pass, download: true),
-                          child: const Text('Download Pass'),
-                        ),
-                      ],
-                    ),
+                  TextButton(
+                    onPressed: pdfBusy
+                        ? null
+                        : () => _individual(pass, download: true),
+                    child: const Text('Print'),
                   ),
                 ],
               ),
-            )
-            .toList(),
-      ),
-    ),
+            ],
+          ),
+        )
+        .toList(),
   );
 
   @override
@@ -3149,12 +3477,22 @@ class _ExamPassCardsPageState extends State<ExamPassCardsPage> {
     context,
     embedded: widget.embedBodyOnly,
     title: 'Exam Pass Cards',
+    subtitle: 'Find, preview and print student examination passes',
+    headerAction: AdminPrimaryButton(
+      label: 'Print Filtered',
+      icon: Icons.print_outlined,
+      onPressed: passes.isEmpty || pdfBusy
+          ? null
+          : () => _bulk(allFiltered: true),
+    ),
     child: loadingFilters
         ? _loadingState('Loading pass card filters...')
         : ListView(
             padding: const EdgeInsets.only(bottom: 24),
             children: [
               _filtersCard(),
+              const SizedBox(height: 16),
+              _searchField(),
               const SizedBox(height: 12),
               _selectionBar(),
               const SizedBox(height: 10),
@@ -3180,7 +3518,9 @@ class _ExamPassCardsPageState extends State<ExamPassCardsPage> {
                   builder: (context, constraints) =>
                       kIsWeb || constraints.maxWidth >= 760
                       ? _desktopTable()
-                      : Column(children: passes.map(_mobileCard).toList()),
+                      : Column(
+                          children: _visiblePasses.map(_mobileCard).toList(),
+                        ),
                 ),
             ],
           ),
@@ -3480,24 +3820,61 @@ class _HallReportsPageState extends State<HallReportsPage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) => _page(
-    context,
-    embedded: widget.embedBodyOnly,
-    title: 'Exam Hall Reports',
-    child: ListView(
+  Widget _summaryTile(String label, String value, {Color? color}) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 4),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            SizedBox(
-              width: 250,
-              child: DropdownButtonFormField<int>(
-                decoration: const InputDecoration(
-                  labelText: 'Academic Year',
-                  border: OutlineInputBorder(),
-                ),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.black54, fontSize: 12),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: 16,
+            color: color ?? _navy,
+          ),
+        ),
+      ],
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final hallMatches = hallId == null
+        ? const <ExamHall>[]
+        : halls.where((h) => h.id == hallId).toList();
+    final selectedHallObj = hallMatches.isEmpty ? null : hallMatches.first;
+    final shiftMatches = shiftId == null
+        ? const <Shift>[]
+        : context
+              .watch<ShiftsProvider>()
+              .shifts
+              .where((s) => s.id == shiftId)
+              .toList();
+    final selectedShiftName = shiftMatches.isEmpty
+        ? null
+        : shiftMatches.first.name;
+    return _page(
+      context,
+      embedded: widget.embedBodyOnly,
+      title: 'Exam Hall Reports',
+      subtitle: 'View and print examination hall assignments',
+      headerAction: AdminPrimaryButton(
+        label: 'Print Report',
+        icon: Icons.print_outlined,
+        onPressed: busy ? null : () => _pdf(false),
+      ),
+      child: ListView(
+        children: [
+          AdminFilterBar(
+            filters: [
+              AdminFilterDropdown<int>(
+                label: 'Academic Year',
+                value: yearId,
                 items: years
                     .map(
                       (e) => DropdownMenuItem(value: e.id, child: Text(e.name)),
@@ -3505,14 +3882,9 @@ class _HallReportsPageState extends State<HallReportsPage> {
                     .toList(),
                 onChanged: (v) => setState(() => yearId = v),
               ),
-            ),
-            SizedBox(
-              width: 250,
-              child: DropdownButtonFormField<int>(
-                decoration: const InputDecoration(
-                  labelText: 'Exam',
-                  border: OutlineInputBorder(),
-                ),
+              AdminFilterDropdown<int>(
+                label: 'Exam',
+                value: examId,
                 items: exams
                     .map(
                       (e) => DropdownMenuItem(value: e.id, child: Text(e.name)),
@@ -3520,14 +3892,9 @@ class _HallReportsPageState extends State<HallReportsPage> {
                     .toList(),
                 onChanged: (v) => setState(() => examId = v),
               ),
-            ),
-            SizedBox(
-              width: 250,
-              child: DropdownButtonFormField<int>(
-                decoration: const InputDecoration(
-                  labelText: 'Hall',
-                  border: OutlineInputBorder(),
-                ),
+              AdminFilterDropdown<int>(
+                label: 'Hall',
+                value: hallId,
                 items: halls
                     .map(
                       (e) => DropdownMenuItem(value: e.id, child: Text(e.name)),
@@ -3535,15 +3902,9 @@ class _HallReportsPageState extends State<HallReportsPage> {
                     .toList(),
                 onChanged: (v) => setState(() => hallId = v),
               ),
-            ),
-            SizedBox(
-              width: 250,
-              child: DropdownButtonFormField<int?>(
-                initialValue: shiftId,
-                decoration: const InputDecoration(
-                  labelText: 'Shift',
-                  border: OutlineInputBorder(),
-                ),
+              AdminFilterDropdown<int?>(
+                label: 'Shift',
+                value: shiftId,
                 items: [
                   const DropdownMenuItem<int?>(
                     value: null,
@@ -3558,56 +3919,121 @@ class _HallReportsPageState extends State<HallReportsPage> {
                 ],
                 onChanged: (v) => setState(() => shiftId = v),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          children: [
-            FilledButton.icon(
-              onPressed: busy ? null : _load,
-              icon: const Icon(Icons.search),
-              label: const Text('View Report'),
-            ),
-            OutlinedButton.icon(
-              onPressed: busy ? null : () => _pdf(false),
-              icon: const Icon(Icons.picture_as_pdf_outlined),
-              label: const Text('Preview PDF'),
-            ),
-            OutlinedButton.icon(
-              onPressed: busy ? null : () => _pdf(true),
-              icon: const Icon(Icons.download),
-              label: const Text('Download PDF'),
-            ),
-            OutlinedButton.icon(
-              onPressed: busy ? null : _passCards,
-              icon: const Icon(Icons.badge_outlined),
-              label: const Text('Print Pass Cards'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 18),
-        if (busy) const LinearProgressIndicator(),
-        if (!busy && rows.isEmpty)
-          _empty(
-            Icons.summarize_outlined,
-            'No hall report',
-            'Choose filters and view the report.',
+            ],
+            actions: [
+              AdminPrimaryButton(
+                label: 'Generate Report',
+                icon: Icons.search,
+                onPressed: busy ? null : _load,
+              ),
+              AdminSecondaryButton(
+                label: 'Preview PDF',
+                icon: Icons.picture_as_pdf_outlined,
+                onPressed: busy ? null : () => _pdf(false),
+              ),
+              AdminSecondaryButton(
+                label: 'Download PDF',
+                icon: Icons.download,
+                onPressed: busy ? null : () => _pdf(true),
+              ),
+              AdminSecondaryButton(
+                label: 'Print Pass Cards',
+                icon: Icons.badge_outlined,
+                onPressed: busy ? null : _passCards,
+              ),
+            ],
           ),
-        ...rows.map(
-          (r) => Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            decoration: _card,
-            child: ListTile(
-              leading: CircleAvatar(child: Text(r.seat)),
-              title: Text(r.name),
-              subtitle: Text('${r.emis} · ${r.className}'),
-              trailing: Text(r.hallName),
+          const SizedBox(height: 18),
+          if (busy) const LinearProgressIndicator(),
+          if (!busy && rows.isEmpty)
+            AdminEmptyState(
+              icon: Icons.summarize_outlined,
+              title: 'No hall report yet',
+              message: 'Choose filters above and generate the report.',
             ),
-          ),
-        ),
-      ],
-    ),
-  );
+          if (rows.isNotEmpty) ...[
+            if (selectedHallObj != null)
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: kAdminBorder),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        selectedHallObj.name,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: _navy,
+                        ),
+                      ),
+                    ),
+                    _summaryTile('Capacity', '${selectedHallObj.capacity}'),
+                    const SizedBox(width: 20),
+                    _summaryTile('Allocated', '${rows.length}', color: _green),
+                    const SizedBox(width: 20),
+                    _summaryTile(
+                      'Available',
+                      '${(selectedHallObj.capacity - rows.length).clamp(0, selectedHallObj.capacity)}',
+                    ),
+                    if (selectedShiftName != null) ...[
+                      const SizedBox(width: 20),
+                      _summaryTile('Shift', selectedShiftName),
+                    ],
+                  ],
+                ),
+              ),
+            if (kIsWeb || MediaQuery.sizeOf(context).width >= 760)
+              AdminTableCard(
+                columns: const [
+                  AdminTableColumn('No.', flex: 1),
+                  AdminTableColumn('Seat', flex: 1),
+                  AdminTableColumn('Student Name', flex: 4),
+                  AdminTableColumn('EMIS', flex: 2),
+                  AdminTableColumn('Class', flex: 2),
+                  AdminTableColumn('Level', flex: 2),
+                  AdminTableColumn('Shift', flex: 2),
+                  AdminTableColumn('Hall', flex: 2),
+                ],
+                rows: rows.indexed
+                    .map(
+                      (entry) => AdminTableRow(
+                        flexes: const [1, 1, 4, 2, 2, 2, 2, 2],
+                        cells: [
+                          Text('${entry.$1 + 1}'),
+                          Text(entry.$2.seat),
+                          Text(entry.$2.name),
+                          Text(entry.$2.emis),
+                          Text(entry.$2.className),
+                          Text(entry.$2.levelName),
+                          Text(entry.$2.shiftName),
+                          Text(entry.$2.hallName),
+                        ],
+                      ),
+                    )
+                    .toList(),
+              )
+            else
+              ...rows.map(
+                (r) => Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: _card,
+                  child: ListTile(
+                    leading: CircleAvatar(child: Text(r.seat)),
+                    title: Text(r.name),
+                    subtitle: Text('${r.emis} · ${r.className}'),
+                    trailing: Text(r.hallName),
+                  ),
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
 }

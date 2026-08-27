@@ -25,6 +25,7 @@ class _WebSidebarState extends State<WebSidebar> {
 
   @override
   Widget build(BuildContext context) {
+    final examsEnabled = context.watch<AuthProvider>().examsEnabled;
     final school = context.watch<AuthProvider>().school;
     final schoolName = school?.name?.trim();
     return Container(
@@ -156,7 +157,9 @@ class _WebSidebarState extends State<WebSidebar> {
                         widget.selectedPage == 'editClass' ||
                         widget.selectedPage == 'classDetail' ||
                         widget.selectedPage == 'classDetails' ||
-                        widget.selectedPage == 'classMerge',
+                        widget.selectedPage == 'classMerge' ||
+                        widget.selectedPage == 'levels' ||
+                        widget.selectedPage == 'shifts',
                     onTap: () => _toggleSection('classes'),
                     children: [
                       _SidebarItem(
@@ -176,6 +179,18 @@ class _WebSidebarState extends State<WebSidebar> {
                         icon: Icons.swap_horiz_rounded,
                         isActive: widget.selectedPage == 'classMerge',
                         onTap: () => _navigateToPage('classMerge'),
+                      ),
+                      _SidebarItem(
+                        title: 'Levels',
+                        icon: Icons.layers_outlined,
+                        isActive: widget.selectedPage == 'levels',
+                        onTap: () => _navigateToPage('levels'),
+                      ),
+                      _SidebarItem(
+                        title: 'Shifts',
+                        icon: Icons.schedule_rounded,
+                        isActive: widget.selectedPage == 'shifts',
+                        onTap: () => _navigateToPage('shifts'),
                       ),
                     ],
                   ),
@@ -264,64 +279,58 @@ class _WebSidebarState extends State<WebSidebar> {
                   ),
                   const _SidebarDivider(),
                   _SidebarSection(
-                    title: 'Exams',
-                    icon: Icons.quiz_outlined,
-                    isExpanded: _expandedSection == 'exams',
-                    onTap: () => _navigateToPage('exams'),
-                    children: [],
-                  ),
-                  const _SidebarDivider(),
-                  _SidebarSection(
-                    title: 'Exam Management',
+                    title: 'Examinations',
                     icon: Icons.event_seat_rounded,
                     isExpanded:
-                        _expandedSection == 'examManagement' ||
+                        _expandedSection == 'examinations' ||
                         {
-                          'levels',
-                          'shifts',
+                          'exams',
+                          'marks',
                           'examHalls',
                           'hallAllocation',
                           'hallReports',
                           'passCards',
                         }.contains(widget.selectedPage),
-                    onTap: () => _toggleSection('examManagement'),
+                    onTap: () => _toggleSection('examinations'),
                     children: [
                       _SidebarItem(
-                        title: 'Levels',
-                        icon: Icons.layers_outlined,
-                        isActive: widget.selectedPage == 'levels',
-                        onTap: () => _navigateToPage('levels'),
+                        title: 'Exams',
+                        icon: Icons.quiz_outlined,
+                        isActive: widget.selectedPage == 'exams',
+                        onTap: () => _navigateToPage('exams'),
                       ),
                       _SidebarItem(
-                        title: 'Shifts',
-                        icon: Icons.schedule_rounded,
-                        isActive: widget.selectedPage == 'shifts',
-                        onTap: () => _navigateToPage('shifts'),
+                        title: 'Marks',
+                        icon: Icons.grade_outlined,
+                        isActive: widget.selectedPage == 'marks',
+                        onTap: () => _navigateToPage('marks'),
                       ),
-                      _SidebarItem(
-                        title: 'Exam Halls',
-                        icon: Icons.meeting_room_outlined,
-                        isActive: widget.selectedPage == 'examHalls',
-                        onTap: () => _navigateToPage('examHalls'),
-                      ),
-                      _SidebarItem(
-                        title: 'Hall Allocation',
-                        icon: Icons.event_seat_outlined,
-                        isActive: widget.selectedPage == 'hallAllocation',
-                        onTap: () => _navigateToPage('hallAllocation'),
-                      ),
-                      _SidebarItem(
-                        title: 'Hall Reports',
-                        icon: Icons.summarize_outlined,
-                        isActive: widget.selectedPage == 'hallReports',
-                        onTap: () => _navigateToPage('hallReports'),
-                      ),
-                      _SidebarItem(
-                        title: 'Pass Cards',
-                        icon: Icons.badge_outlined,
-                        isActive: widget.selectedPage == 'passCards',
-                        onTap: () => _navigateToPage('passCards'),
-                      ),
+                      if (examsEnabled) ...[
+                        _SidebarItem(
+                          title: 'Exam Halls',
+                          icon: Icons.meeting_room_outlined,
+                          isActive: widget.selectedPage == 'examHalls',
+                          onTap: () => _navigateToPage('examHalls'),
+                        ),
+                        _SidebarItem(
+                          title: 'Hall Allocation',
+                          icon: Icons.event_seat_outlined,
+                          isActive: widget.selectedPage == 'hallAllocation',
+                          onTap: () => _navigateToPage('hallAllocation'),
+                        ),
+                        _SidebarItem(
+                          title: 'Hall Report',
+                          icon: Icons.summarize_outlined,
+                          isActive: widget.selectedPage == 'hallReports',
+                          onTap: () => _navigateToPage('hallReports'),
+                        ),
+                        _SidebarItem(
+                          title: 'Exam Pass Cards',
+                          icon: Icons.badge_outlined,
+                          isActive: widget.selectedPage == 'passCards',
+                          onTap: () => _navigateToPage('passCards'),
+                        ),
+                      ],
                     ],
                   ),
                   const _SidebarDivider(),
@@ -330,14 +339,6 @@ class _WebSidebarState extends State<WebSidebar> {
                     icon: Icons.trending_up_rounded,
                     isExpanded: _expandedSection == 'promotions',
                     onTap: () => _navigateToPage('promotions'),
-                    children: [],
-                  ),
-                  const _SidebarDivider(),
-                  _SidebarSection(
-                    title: 'Marks',
-                    icon: Icons.grade_outlined,
-                    isExpanded: _expandedSection == 'marks',
-                    onTap: () => _navigateToPage('marks'),
                     children: [],
                   ),
                   const _SidebarDivider(),
@@ -609,38 +610,58 @@ class _SidebarItem extends StatelessWidget {
       label: title,
       child: InkWell(
         onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-          decoration: isActive
-              ? BoxDecoration(
-                  color: const Color(0xFF023471).withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8),
-                )
-              : null,
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                size: 16,
-                color: isActive
-                    ? const Color(0xFF023471)
-                    : const Color(0xFF6B6B6B),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+              decoration: isActive
+                  ? BoxDecoration(
+                      color: const Color(0xFF023471).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    )
+                  : null,
+              child: Row(
+                children: [
+                  Icon(
+                    icon,
+                    size: 16,
                     color: isActive
                         ? const Color(0xFF023471)
-                        : const Color(0xFF2D2D2D),
+                        : const Color(0xFF6B6B6B),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: isActive
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        color: isActive
+                            ? const Color(0xFF023471)
+                            : const Color(0xFF2D2D2D),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isActive)
+              Positioned(
+                left: 12,
+                top: 8,
+                bottom: 8,
+                child: Container(
+                  width: 3,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF023471),
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
-            ],
-          ),
+          ],
         ),
       ),
     );

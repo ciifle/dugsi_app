@@ -162,6 +162,16 @@ class _WebAdminShellState extends State<WebAdminShell> {
   }
 
   Widget _buildBody() {
+    final examsEnabled = context.watch<AuthProvider>().examsEnabled;
+    if (!examsEnabled &&
+        const {
+          'examHalls',
+          'hallAllocation',
+          'hallReports',
+          'passCards',
+        }.contains(_selectedPage)) {
+      return WebDashboard(onNavigateToPage: _navigateToPage);
+    }
     switch (_selectedPage) {
       case 'dashboard':
         return WebDashboard(onNavigateToPage: _navigateToPage);

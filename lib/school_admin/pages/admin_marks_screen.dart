@@ -13,6 +13,7 @@ import 'package:kobac/school_admin/widgets/delete_confirm_dialog.dart';
 import 'package:kobac/school_admin/widgets/class_marks_print_dialog.dart';
 import 'package:kobac/school_admin/pages/mark_details_page.dart';
 import 'package:kobac/widgets/form_3d/form_3d.dart';
+import 'package:kobac/school_admin/widgets/admin_desktop_kit.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
 const Color kPrimaryGreen = Color(0xFF5AB04B);
@@ -47,6 +48,7 @@ class AdminMarksScreen extends StatefulWidget {
 
 class _AdminMarksScreenState extends State<AdminMarksScreen> {
   int? _filterExamId;
+  int? _filterLevelId;
   int? _filterClassId;
   int? _filterSubjectId;
   int? _filterStudentId;
@@ -158,6 +160,7 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
   void _clearFilters() {
     setState(() {
       _filterExamId = null;
+      _filterLevelId = null;
       _filterClassId = null;
       _filterSubjectId = null;
       _filterStudentId = null;
@@ -165,6 +168,38 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
       _marksVisibleCount = _marksPageSize;
     });
     _loadMarks();
+  }
+
+  /// Distinct levels derived from the already-loaded class list (no new
+  /// API call) — purely a client-side narrowing of the Class dropdown.
+  List<MapEntry<int, String>> get _levelOptions {
+    final seen = <int, String>{};
+    for (final c in _classes) {
+      if (c.levelId != null && c.levelName != null) {
+        seen[c.levelId!] = c.levelName!;
+      }
+    }
+    final entries = seen.entries.toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
+    return entries;
+  }
+
+  List<ClassModel> get _classesForLevelFilter => _filterLevelId == null
+      ? _classes
+      : _classes.where((c) => c.levelId == _filterLevelId).toList();
+
+  void _onFilterLevelChanged(int? levelId) {
+    final stillValid = _filterClassId == null
+        ? true
+        : _classes.any(
+            (c) =>
+                c.id == _filterClassId &&
+                (levelId == null || c.levelId == levelId),
+          );
+    setState(() => _filterLevelId = levelId);
+    if (!stillValid) {
+      _onFilterClassChanged(null);
+    }
   }
 
   Future<void> _onFilterClassChanged(int? classId) async {
@@ -679,7 +714,7 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
     }
 
     final listPadding = isDesktop
-        ? const EdgeInsets.all(24)
+        ? const EdgeInsets.symmetric(vertical: 12)
         : const EdgeInsets.symmetric(horizontal: 20, vertical: 8);
 
     return ListView.builder(
@@ -700,7 +735,7 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                     ),
                   ),
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
                   child: Text(
                     'Showing 1 to $visibleCount of $totalCount marks',
                     style: TextStyle(color: Colors.grey[600], fontSize: 13),
@@ -963,20 +998,59 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
   }
 
   Widget _buildDesktopPageBody(BuildContext context) {
+    final summary = _buildMarksSummary(_filteredSortedMarks(_loadedMarks));
     return Container(
-      color: const Color(0xFFF8F9FC),
+      color: kAdminBg,
+      padding: const EdgeInsets.all(24),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_refDataLoaded)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-              child: _buildDesktopToolbarCard(),
-            ),
+          const AdminPageHeader(
+            title: 'Marks',
+            subtitle: 'Enter and manage student examination results',
+          ),
+          const SizedBox(height: 20),
+          if (summary != null) ...[
+            _MarksSummaryCards(summary: summary),
+            const SizedBox(height: 16),
+          ],
+          if (_refDataLoaded) _buildDesktopToolbarCard(),
+          const SizedBox(height: 16),
           Expanded(
-            child: RefreshIndicator(
-              onRefresh: _loadMarks,
-              color: kPrimaryGreen,
-              child: _buildMarksContent(context, isDesktop: true),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: kAdminBorder),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  const AdminTableHeader(
+                    columns: [
+                      AdminTableColumn('Student', flex: 3),
+                      AdminTableColumn('Subject', flex: 2),
+                      AdminTableColumn('Exam', flex: 2),
+                      AdminTableColumn('Marks', flex: 2),
+                      AdminTableColumn('%', flex: 1),
+                      AdminTableColumn('Grade', flex: 1),
+                      AdminTableColumn('Status', flex: 2),
+                      AdminTableColumn(
+                        'Actions',
+                        flex: 2,
+                        align: TextAlign.right,
+                      ),
+                    ],
+                  ),
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: _loadMarks,
+                      color: kPrimaryGreen,
+                      child: _buildMarksContent(context, isDesktop: true),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -1123,6 +1197,25 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                   ),
                   filterField(
                     DropdownButtonFormField<int?>(
+                      value: _filterLevelId,
+                      decoration: _desktopFilterDecoration('Level'),
+                      items: [
+                        const DropdownMenuItem<int?>(
+                          value: null,
+                          child: Text('All'),
+                        ),
+                        ..._levelOptions.map(
+                          (e) => DropdownMenuItem<int?>(
+                            value: e.key,
+                            child: Text(e.value),
+                          ),
+                        ),
+                      ],
+                      onChanged: _onFilterLevelChanged,
+                    ),
+                  ),
+                  filterField(
+                    DropdownButtonFormField<int?>(
                       value: _filterClassId,
                       decoration: _desktopFilterDecoration('Class'),
                       items: [
@@ -1130,7 +1223,7 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
                           value: null,
                           child: Text('All'),
                         ),
-                        ..._classes.map(
+                        ..._classesForLevelFilter.map(
                           (c) => DropdownMenuItem<int?>(
                             value: c.id,
                             child: Text(c.name),
@@ -1341,130 +1434,108 @@ class _MarkRow extends StatelessWidget {
         ? studentName.trim().substring(0, 1).toUpperCase()
         : '?';
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE8ECF2), width: 1)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 3,
-            child: Row(
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Text(
-                    initial,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade700,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    studentName,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: kPrimaryBlue,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              subjectName,
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade800),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              examName,
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              '${mark.marksObtained} / ${mark.maxMarks}',
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade800),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Expanded(
-            flex: 1,
-            child: Text(
-              percentage == '—' ? '-' : '$percentage%',
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: kPrimaryGreen,
+    return AdminTableRow(
+      flexes: const [3, 2, 2, 2, 1, 1, 2, 2],
+      cells: [
+        Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade200,
+                shape: BoxShape.circle,
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Expanded(flex: 1, child: _MarkGradeBadge(grade: mark.grade)),
-          Expanded(
-            flex: 2,
-            child: Text(
-              _displayValue(mark.status),
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          SizedBox(
-            width: 80,
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(
-                    Icons.edit_outlined,
-                    size: 20,
-                    color: kPrimaryGreen,
-                  ),
-                  onPressed: onEdit,
-                  tooltip: 'Edit',
-                  visualDensity: VisualDensity.compact,
+              child: Text(
+                initial,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade700,
                 ),
-                IconButton(
-                  icon: Icon(
-                    Icons.delete_outline,
-                    size: 20,
-                    color: Colors.red[400],
-                  ),
-                  onPressed: onDelete,
-                  tooltip: 'Delete',
-                  visualDensity: VisualDensity.compact,
-                ),
-              ],
+              ),
             ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                studentName,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: kPrimaryBlue,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        Text(
+          subjectName,
+          style: TextStyle(fontSize: 14, color: Colors.grey.shade800),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        Text(
+          examName,
+          style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        Text(
+          '${formatMarkValue(mark.marksObtained)} / ${formatMarkValue(mark.maxMarks)}',
+          style: TextStyle(fontSize: 14, color: Colors.grey.shade800),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        Text(
+          percentage == '—' ? '-' : '$percentage%',
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: kPrimaryGreen,
           ),
-        ],
-      ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        _MarkGradeBadge(grade: mark.grade),
+        Text(
+          _displayValue(mark.status),
+          style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Tooltip(
+              message: 'Edit Mark',
+              child: IconButton(
+                icon: const Icon(
+                  Icons.edit_outlined,
+                  size: 20,
+                  color: kPrimaryGreen,
+                ),
+                onPressed: onEdit,
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+            Tooltip(
+              message: 'Delete Mark',
+              child: IconButton(
+                icon: Icon(
+                  Icons.delete_outline,
+                  size: 20,
+                  color: Colors.red[400],
+                ),
+                onPressed: onDelete,
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
