@@ -48,6 +48,7 @@ Map<String, dynamic> buildRandomAllocationPayload({
   required int examId,
   required Set<int> selectedHallIds,
   int? classId,
+  int? shiftId,
 }) {
   final hallIds = selectedHallIds.where((id) => id > 0).toList()..sort();
   if (hallIds.length != selectedHallIds.length || hallIds.isEmpty) {
@@ -59,6 +60,7 @@ Map<String, dynamic> buildRandomAllocationPayload({
     'exam_id': examId,
     'hall_ids': hallIds,
     if (classId != null) 'class_ids': <int>[classId],
+    if (shiftId != null) 'shift_id': shiftId,
   };
 }
 
@@ -105,14 +107,14 @@ Map<String, String> buildExamPassFilters({
   int? hallId,
   int? levelId,
   int? classId,
-  String? shift,
+  int? shiftId,
 }) => <String, String>{
   'academic_year_id': '$academicYearId',
   'exam_id': '$examId',
   if (hallId != null) 'hall_id': '$hallId',
   if (levelId != null) 'level_id': '$levelId',
   if (classId != null) 'class_id': '$classId',
-  if (shift != null && shift.trim().isNotEmpty) 'shift': shift.trim(),
+  if (shiftId != null) 'shift_id': '$shiftId',
 };
 
 Map<String, dynamic> buildSelectedPassPrintPayload(Set<int> allocationIds) {
@@ -256,11 +258,13 @@ class ExamHallService {
     required int academicYearId,
     required int levelId,
     int? classId,
+    int? shiftId,
   }) {
     final query = <String, String>{
       'academic_year_id': '$academicYearId',
       'level_id': '$levelId',
       if (classId != null) 'class_id': '$classId',
+      if (shiftId != null) 'shift_id': '$shiftId',
     };
     return _getListUri(
       apiUrl('$_admin/students').replace(queryParameters: query),

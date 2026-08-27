@@ -32,26 +32,24 @@ class LoginFailure extends LoginResult {
 }
 
 /// Builds login request body by role: student -> emis_number+password; others -> email+password.
-Map<String, String> buildLoginBody(UserRole role, {
+Map<String, String> buildLoginBody(
+  UserRole role, {
   String? emisNumber,
   String? email,
   required String password,
 }) {
   if (role == UserRole.student) {
-    return {
-      'emis_number': emisNumber ?? '',
-      'password': password,
-    };
+    return {'emis_number': emisNumber ?? '', 'password': password};
   }
-  return {
-    'email': email ?? '',
-    'password': password,
-  };
+  return {'email': email ?? '', 'password': password};
 }
 
 /// Builds login body from a single identifier: if it contains '@' use email+password, else emis_number+password.
 /// Backend accepts only one identifier (either email or emis_number), not both.
-Map<String, String> buildLoginBodyFromIdentifier(String identifier, String password) {
+Map<String, String> buildLoginBodyFromIdentifier(
+  String identifier,
+  String password,
+) {
   final trimmed = identifier.trim();
   if (trimmed.contains('@')) {
     return {'email': trimmed, 'password': password};
@@ -60,7 +58,10 @@ Map<String, String> buildLoginBodyFromIdentifier(String identifier, String passw
 }
 
 /// Login with a single identifier (email or EMIS number) and password. No role selection needed.
-Future<LoginResult> loginWithIdentifier(String identifier, String password) async {
+Future<LoginResult> loginWithIdentifier(
+  String identifier,
+  String password,
+) async {
   final body = buildLoginBodyFromIdentifier(identifier, password);
   final uri = apiUrl('api/auth/login');
   if (kDebugMode) {
@@ -73,9 +74,12 @@ Future<LoginResult> loginWithIdentifier(String identifier, String password) asyn
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode(body),
         )
-        .timeout(_kLoginTimeout, onTimeout: () {
-      throw TimeoutException('Login timeout');
-    });
+        .timeout(
+          _kLoginTimeout,
+          onTimeout: () {
+            throw TimeoutException('Login timeout');
+          },
+        );
 
     if (response.statusCode == 200) {
       final data = _parseJson(response.body ?? '');
@@ -140,9 +144,12 @@ Future<LoginResult> loginWithCredentials(
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode(body),
         )
-        .timeout(_kLoginTimeout, onTimeout: () {
-      throw TimeoutException('Login timeout');
-    });
+        .timeout(
+          _kLoginTimeout,
+          onTimeout: () {
+            throw TimeoutException('Login timeout');
+          },
+        );
 
     if (response.statusCode == 200) {
       final data = _parseJson(response.body ?? '');
@@ -272,8 +279,24 @@ Future<GetMeResult> getMe() async {
     final user = AuthUser.fromJson(userJson);
     final profileJson = data['profile'];
     final profile = parseProfileByRole(user.role, profileJson);
+    final schoolJson = data['school'];
+    final school = schoolJson is Map
+        ? SchoolBranding.fromJson(Map<String, dynamic>.from(schoolJson))
+        : null;
+    final featuresJson = data['schoolFeatures'];
+    final schoolFeatures = featuresJson is Map
+        ? SchoolFeatures.fromJson(Map<String, dynamic>.from(featuresJson))
+        : null;
     final feesEnabled = _parseFeesEnabled(data);
-    return GetMeSuccess(AuthMeResponse(user: user, profile: profile, feesEnabled: feesEnabled));
+    return GetMeSuccess(
+      AuthMeResponse(
+        user: user,
+        profile: profile,
+        school: school,
+        schoolFeatures: schoolFeatures,
+        feesEnabled: feesEnabled ?? schoolFeatures?.feesEnabled,
+      ),
+    );
   } catch (_) {
     return GetMeFailure(message: _kGenericErrorMessage);
   }

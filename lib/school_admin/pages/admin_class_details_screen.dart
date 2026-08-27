@@ -45,6 +45,7 @@ class _AdminClassDetailsScreenState extends State<AdminClassDetailsScreen> {
   String? _error;
   int? _academicYearId;
   int _studentCount = 0;
+  String? _classShiftName;
 
   @override
   void initState() {
@@ -159,6 +160,7 @@ class _AdminClassDetailsScreenState extends State<AdminClassDetailsScreen> {
     setState(() {
       _students = list;
       _studentCount = details.studentCount;
+      _classShiftName = details.shiftName;
       _loading = false;
       _error = null;
     });
@@ -211,6 +213,19 @@ class _AdminClassDetailsScreenState extends State<AdminClassDetailsScreen> {
                             color: kPrimaryBlue,
                           ),
                         ),
+                        if (_classShiftName != null &&
+                            _classShiftName!.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              'Shift: $_classShiftName',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: kPrimaryGreen.withOpacity(0.9),
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),

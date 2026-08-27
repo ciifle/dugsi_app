@@ -10,6 +10,8 @@ const String _keyUser = 'auth_user';
 const String _keyProfile = 'auth_profile';
 const String _keyProfileRole = 'auth_profile_role';
 const String _keyFeesEnabled = 'auth_fees_enabled';
+const String _keySchool = 'auth_school';
+const String _keySchoolFeatures = 'auth_school_features';
 
 /// Secure storage for auth session (token + user + profile).
 class AuthStorage {
@@ -28,6 +30,8 @@ class AuthStorage {
     dynamic profile,
     String? profileRole,
     bool? feesEnabled,
+    SchoolBranding? school,
+    SchoolFeatures? schoolFeatures,
   }) async {
     await _storage.write(key: _keyToken, value: token);
     if (user != null) {
@@ -51,9 +55,25 @@ class AuthStorage {
       await _storage.delete(key: _keyProfileRole);
     }
     if (feesEnabled != null) {
-      await _storage.write(key: _keyFeesEnabled, value: feesEnabled ? '1' : '0');
+      await _storage.write(
+        key: _keyFeesEnabled,
+        value: feesEnabled ? '1' : '0',
+      );
     } else {
       await _storage.delete(key: _keyFeesEnabled);
+    }
+    if (school != null) {
+      await _storage.write(key: _keySchool, value: jsonEncode(school.toJson()));
+    } else {
+      await _storage.delete(key: _keySchool);
+    }
+    if (schoolFeatures != null) {
+      await _storage.write(
+        key: _keySchoolFeatures,
+        value: jsonEncode(schoolFeatures.toJson()),
+      );
+    } else {
+      await _storage.delete(key: _keySchoolFeatures);
     }
   }
 
@@ -108,11 +128,26 @@ class AuthStorage {
         'name': profile.name,
         'email': profile.email,
         'phone': profile.phone,
-        'linked_students': profile.linkedStudents.map((s) => {'id': s.id, 'name': s.name, 'emis_number': s.emisNumber, 'class_name': s.className}).toList(),
+        'linked_students': profile.linkedStudents
+            .map(
+              (s) => {
+                'id': s.id,
+                'name': s.name,
+                'emis_number': s.emisNumber,
+                'class_name': s.className,
+              },
+            )
+            .toList(),
       };
     }
     if (profile is SchoolAdminProfile) {
-      return {'id': profile.id, 'user_id': profile.userId, 'school_id': profile.schoolId, 'name': profile.name, 'email': profile.email};
+      return {
+        'id': profile.id,
+        'user_id': profile.userId,
+        'school_id': profile.schoolId,
+        'name': profile.name,
+        'email': profile.email,
+      };
     }
     return null;
   }
@@ -150,7 +185,31 @@ class AuthStorage {
     if (feesEnabledStr == '1') feesEnabled = true;
     if (feesEnabledStr == '0') feesEnabled = false;
 
-    return AuthSession(token: token, user: user, profile: profile, feesEnabled: feesEnabled);
+    SchoolBranding? school;
+    SchoolFeatures? schoolFeatures;
+    try {
+      final raw = await _storage.read(key: _keySchool);
+      if (raw != null) {
+        school = SchoolBranding.fromJson(
+          jsonDecode(raw) as Map<String, dynamic>,
+        );
+      }
+      final featuresRaw = await _storage.read(key: _keySchoolFeatures);
+      if (featuresRaw != null) {
+        schoolFeatures = SchoolFeatures.fromJson(
+          jsonDecode(featuresRaw) as Map<String, dynamic>,
+        );
+      }
+    } catch (_) {}
+
+    return AuthSession(
+      token: token,
+      user: user,
+      profile: profile,
+      feesEnabled: feesEnabled,
+      school: school,
+      schoolFeatures: schoolFeatures,
+    );
   }
 
   Future<void> clearSession() async {
@@ -160,6 +219,8 @@ class AuthStorage {
       await _storage.delete(key: _keyProfile);
       await _storage.delete(key: _keyProfileRole);
       await _storage.delete(key: _keyFeesEnabled);
+      await _storage.delete(key: _keySchool);
+      await _storage.delete(key: _keySchoolFeatures);
       await _storage.deleteAll();
     } catch (_) {}
   }
@@ -170,6 +231,15 @@ class AuthSession {
   final AuthUser? user;
   final dynamic profile;
   final bool? feesEnabled;
+  final SchoolBranding? school;
+  final SchoolFeatures? schoolFeatures;
 
-  AuthSession({required this.token, this.user, this.profile, this.feesEnabled});
+  AuthSession({
+    required this.token,
+    this.user,
+    this.profile,
+    this.feesEnabled,
+    this.school,
+    this.schoolFeatures,
+  });
 }

@@ -4,11 +4,11 @@ import 'package:kobac/models/auth_me_models.dart';
 import 'package:kobac/models/auth_user.dart';
 import 'package:kobac/services/auth_provider.dart';
 import 'package:kobac/services/classes_service.dart';
-import 'package:kobac/services/dummy_school_service.dart';
 import 'package:kobac/services/teachers_service.dart';
 import 'package:kobac/services/students_service.dart';
 import 'package:kobac/school_admin/pages/change_password_page.dart';
 import 'package:kobac/school_admin/widgets/admin_responsive_layout.dart';
+import 'package:kobac/shared/widgets/school_brand_logo.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
 const Color kPrimaryGreen = Color(0xFF5AB04B);
@@ -42,7 +42,11 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
     if (!_adminDataLoaded) {
       _adminDataLoaded = true;
       final auth = context.read<AuthProvider>();
-      _adminDataFuture = _loadAdminData(auth.user, auth.schoolAdminProfile);
+      _adminDataFuture = _loadAdminData(
+        auth.user,
+        auth.schoolAdminProfile,
+        auth.school,
+      );
       _statsFuture = _loadStats();
     }
   }
@@ -54,7 +58,11 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
     if (mounted) {
       setState(() {
         _adminDataLoaded = false;
-        _adminDataFuture = _loadAdminData(auth.user, auth.schoolAdminProfile);
+        _adminDataFuture = _loadAdminData(
+          auth.user,
+          auth.schoolAdminProfile,
+          auth.school,
+        );
         _statsFuture = _loadStats();
       });
     }
@@ -63,23 +71,9 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
   Future<Map<String, String>?> _loadAdminData(
     AuthUser? user,
     dynamic profile,
+    SchoolBranding? school,
   ) async {
     if (user == null) return null;
-
-    String schoolName = '';
-    final schoolId = profile is SchoolAdminProfile && profile.schoolId != null
-        ? profile.schoolId
-        : user.schoolId;
-    if (schoolId != null) {
-      try {
-        final school = await DummySchoolService().getSchoolById(
-          schoolId.toString(),
-        );
-        if (school != null) schoolName = school.name ?? '';
-      } catch (e) {
-        debugPrint('Error loading school: $e');
-      }
-    }
 
     final name =
         (profile is SchoolAdminProfile &&
@@ -100,7 +94,10 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
       'role': roleStr,
       'email': email,
       'phone': '',
-      'school': schoolName,
+      'school': school?.name ?? '',
+      'schoolAddress': school?.address ?? '',
+      'schoolLocation': school?.location ?? '',
+      'schoolLogoUrl': school?.logoUrl ?? '',
       'username': name.replaceAll(' ', '_').toLowerCase(),
     };
   }
@@ -170,6 +167,10 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildProfileCard(context, data),
+          if ((data['school'] ?? '').isNotEmpty) ...[
+            const SizedBox(height: 20),
+            _buildSchoolIdentity(data),
+          ],
           const SizedBox(height: 20),
           _buildSummaryCards(context),
           const SizedBox(height: 12),
@@ -195,6 +196,10 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildDesktopHeroCard(context, data),
+          if (school.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            _buildSchoolIdentity(data),
+          ],
           const SizedBox(height: 20),
           LayoutBuilder(
             builder: (context, constraints) {
@@ -205,8 +210,6 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                   _InfoRow(label: 'Role', value: data['role'] ?? '—'),
                   _InfoRow(label: 'Email', value: data['email'] ?? '—'),
                   if (phone.isNotEmpty) _InfoRow(label: 'Phone', value: phone),
-                  if (school.isNotEmpty)
-                    _InfoRow(label: 'School', value: school),
                 ],
               );
 
@@ -253,6 +256,60 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                 ],
               );
             },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSchoolIdentity(Map<String, String> data) {
+    final address = data['schoolAddress']?.trim() ?? '';
+    final location = data['schoolLocation']?.trim() ?? '';
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(kCardRadius),
+        border: Border.all(color: const Color(0xFFE8ECF2)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SchoolBrandLogo(logoUrl: data['schoolLogoUrl'], size: 72),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'School',
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  data['school'] ?? '',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: kPrimaryBlue,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (address.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text('Address: $address'),
+                ],
+                if (location.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text('Location: $location'),
+                ],
+              ],
+            ),
           ),
         ],
       ),

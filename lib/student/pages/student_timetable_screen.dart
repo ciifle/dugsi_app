@@ -11,7 +11,15 @@ const Color kTextPrimary = Color(0xFF1A1E1F);
 const Color kTextSecondary = Color(0xFF4F5A5E);
 
 const List<String> kDays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-const List<String> kDayFullNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const List<String> kDayFullNames = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+];
 
 /// Subject accent colors for better visual hierarchy
 final List<Color> kSlotAccentColors = [
@@ -56,7 +64,7 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen>
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
-    
+
     final now = DateTime.now();
     int wd = now.weekday;
     if (wd == DateTime.sunday) wd = 7;
@@ -76,17 +84,6 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen>
     int wd = now.weekday;
     if (wd == DateTime.sunday) wd = 7;
     return (wd - 1).clamp(0, 6) == _dayIndex;
-  }
-
-  String _getShiftDisplay() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) {
-      return '🌅 Morning Shift';
-    } else if (hour < 17) {
-      return '☀️ Afternoon Shift';
-    } else {
-      return '🌆 Evening Shift';
-    }
   }
 
   @override
@@ -150,9 +147,7 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen>
                 height: 44,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  color: isSelected
-                      ? kPrimaryBlue
-                      : const Color(0xFFF7F9FC),
+                  color: isSelected ? kPrimaryBlue : const Color(0xFFF7F9FC),
                   border: Border.all(
                     color: isSelected ? Colors.transparent : studentWebBorder,
                   ),
@@ -212,7 +207,11 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.error_outline_rounded, size: 40, color: kErrorColor.withValues(alpha: 0.85)),
+                Icon(
+                  Icons.error_outline_rounded,
+                  size: 40,
+                  color: kErrorColor.withValues(alpha: 0.85),
+                ),
                 const SizedBox(height: 12),
                 Text(
                   msg,
@@ -233,7 +232,9 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen>
           );
         }
 
-        final slots = (snapshot.data as StudentSuccess<List<StudentTimetableSlotModel>>).data;
+        final slots =
+            (snapshot.data as StudentSuccess<List<StudentTimetableSlotModel>>)
+                .data;
         slots.sort((a, b) => (a.startTime ?? '').compareTo(b.startTime ?? ''));
 
         if (slots.isEmpty) {
@@ -258,13 +259,20 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen>
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const StudentWebTableHeader(
-                    columns: ['Period', 'Time', 'Subject', 'Teacher', 'Session'],
+                    columns: [
+                      'Period',
+                      'Time',
+                      'Subject',
+                      'Teacher',
+                      'Session',
+                    ],
                     flex: [1, 2, 3, 3, 2],
                   ),
                   ...List.generate(slots.length, (index) {
                     return _DesktopTimetableRow(
                       slot: slots[index],
-                      accentColor: kSlotAccentColors[index % kSlotAccentColors.length],
+                      accentColor:
+                          kSlotAccentColors[index % kSlotAccentColors.length],
                       showDivider: index < slots.length - 1,
                     );
                   }),
@@ -313,7 +321,10 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen>
                       ],
                     ),
                     child: IconButton(
-                      icon: const Icon(Icons.arrow_back_rounded, color: kPrimaryBlue),
+                      icon: const Icon(
+                        Icons.arrow_back_rounded,
+                        color: kPrimaryBlue,
+                      ),
                       onPressed: () => Navigator.pop(context),
                       tooltip: 'Back',
                     ),
@@ -325,12 +336,20 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen>
                       children: [
                         const Text(
                           'Timetable',
-                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: kPrimaryBlue,
+                          ),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${kDayFullNames[_dayIndex]} • ${_getShiftDisplay()}',
-                          style: TextStyle(fontSize: 14, color: kTextSecondary, fontWeight: FontWeight.w500),
+                          kDayFullNames[_dayIndex],
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: kTextSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ],
                     ),
@@ -339,170 +358,208 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen>
               ),
             ),
 
-              // ---------- 2) DAY SELECTOR ----------
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.8),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: kPrimaryBlue.withOpacity(0.08),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: List.generate(kDays.length, (i) {
-                      final isToday = _isToday && i == _dayIndex;
-                      final isSelected = i == _dayIndex;
-                      return Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            _dayIndex = i;
-                            _loadTimetable();
-                            _animationController.reset();
-                            _animationController.forward();
-                          },
-                          child: Container(
-                            margin: const EdgeInsets.all(2),
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            decoration: BoxDecoration(
-                              color: isSelected ? kPrimaryBlue : Colors.transparent,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: isSelected
-                                  ? [
-                                      BoxShadow(
-                                        color: kPrimaryBlue.withOpacity(0.2),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ]
-                                  : null,
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  kDays[i],
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: isSelected ? Colors.white : kTextSecondary,
-                                  ),
-                                ),
-                                if (isToday) ...[
-                                  const SizedBox(height: 2),
-                                  Container(
-                                    width: 4,
-                                    height: 4,
-                                    decoration: const BoxDecoration(
-                                      color: kPrimaryGreen,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
+            // ---------- 2) DAY SELECTOR ----------
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.8),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: kPrimaryBlue.withOpacity(0.08),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-              ),
-
-              // ---------- 3) TIMETABLE LIST ----------
-              Expanded(
-                child: FutureBuilder<StudentResult<List<StudentTimetableSlotModel>>>(
-                  future: _timetableFuture,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(
-                        child: CircularProgressIndicator(color: kPrimaryBlue),
-                      );
-                    }
-                    if (snapshot.hasError || snapshot.data is StudentError) {
-                      final msg = snapshot.data is StudentError
-                          ? (snapshot.data as StudentError).message
-                          : 'Could not load timetable.';
-                      return Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.error_outline_rounded, size: 56, color: kErrorColor.withOpacity(0.8)),
-                            const SizedBox(height: 16),
-                            Text(
-                              msg,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(color: kTextPrimary, fontSize: 15),
-                            ),
-                            const SizedBox(height: 16),
-                            ElevatedButton.icon(
-                              onPressed: _loadTimetable,
-                              icon: const Icon(Icons.refresh_rounded, size: 18),
-                              label: const Text('Retry'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: kPrimaryBlue,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                child: Row(
+                  children: List.generate(kDays.length, (i) {
+                    final isToday = _isToday && i == _dayIndex;
+                    final isSelected = i == _dayIndex;
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          _dayIndex = i;
+                          _loadTimetable();
+                          _animationController.reset();
+                          _animationController.forward();
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.all(2),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? kPrimaryBlue
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: isSelected
+                                ? [
+                                    BoxShadow(
+                                      color: kPrimaryBlue.withOpacity(0.2),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                kDays[i],
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : kTextSecondary,
                                 ),
                               ),
-                            ),
-                          ],
+                              if (isToday) ...[
+                                const SizedBox(height: 2),
+                                Container(
+                                  width: 4,
+                                  height: 4,
+                                  decoration: const BoxDecoration(
+                                    color: kPrimaryGreen,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
-                      );
-                    }
-                    final slots = (snapshot.data as StudentSuccess<List<StudentTimetableSlotModel>>).data;
-                    if (slots.isEmpty) {
-                      return Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.schedule_rounded, size: 56, color: kTextSecondary.withOpacity(0.5)),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No classes on ${kDayFullNames[_dayIndex]}',
-                              style: TextStyle(fontSize: 16, color: kTextSecondary),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Enjoy your day!',
-                              style: TextStyle(fontSize: 14, color: kTextSecondary.withOpacity(0.7)),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-                    slots.sort((a, b) => (a.startTime ?? '').compareTo(b.startTime ?? ''));
-                    return FadeTransition(
-                      opacity: _fadeAnimation,
-                      child: ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                        itemCount: slots.length,
-                        itemBuilder: (context, index) {
-                          final slot = slots[index];
-                          final accentColor = kSlotAccentColors[index % kSlotAccentColors.length];
-                          return _TimetableSlotCard(
-                            slot: slot,
-                            accentColor: accentColor,
-                            index: index,
-                          );
-                        },
                       ),
                     );
-                  },
+                  }),
                 ),
               ),
-            ],
-          ),
+            ),
+
+            // ---------- 3) TIMETABLE LIST ----------
+            Expanded(
+              child:
+                  FutureBuilder<StudentResult<List<StudentTimetableSlotModel>>>(
+                    future: _timetableFuture,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(
+                          child: CircularProgressIndicator(color: kPrimaryBlue),
+                        );
+                      }
+                      if (snapshot.hasError || snapshot.data is StudentError) {
+                        final msg = snapshot.data is StudentError
+                            ? (snapshot.data as StudentError).message
+                            : 'Could not load timetable.';
+                        return Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.error_outline_rounded,
+                                size: 56,
+                                color: kErrorColor.withOpacity(0.8),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                msg,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: kTextPrimary,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton.icon(
+                                onPressed: _loadTimetable,
+                                icon: const Icon(
+                                  Icons.refresh_rounded,
+                                  size: 18,
+                                ),
+                                label: const Text('Retry'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: kPrimaryBlue,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 10,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      final slots =
+                          (snapshot.data
+                                  as StudentSuccess<
+                                    List<StudentTimetableSlotModel>
+                                  >)
+                              .data;
+                      if (slots.isEmpty) {
+                        return Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.schedule_rounded,
+                                size: 56,
+                                color: kTextSecondary.withOpacity(0.5),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No classes on ${kDayFullNames[_dayIndex]}',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: kTextSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Enjoy your day!',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: kTextSecondary.withOpacity(0.7),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      slots.sort(
+                        (a, b) =>
+                            (a.startTime ?? '').compareTo(b.startTime ?? ''),
+                      );
+                      return FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                          itemCount: slots.length,
+                          itemBuilder: (context, index) {
+                            final slot = slots[index];
+                            final accentColor =
+                                kSlotAccentColors[index %
+                                    kSlotAccentColors.length];
+                            return _TimetableSlotCard(
+                              slot: slot,
+                              accentColor: accentColor,
+                              index: index,
+                            );
+                          },
+                        ),
+                      );
+                    },
+                  ),
+            ),
+          ],
         ),
-      );
+      ),
+    );
   }
 }
 
@@ -521,7 +578,9 @@ class _DesktopTimetableRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final subjectName = slot.subject?['name']?.toString() ?? '—';
     final teacherName =
-        slot.teacher?['fullName']?.toString() ?? slot.teacher?['name']?.toString() ?? '—';
+        slot.teacher?['fullName']?.toString() ??
+        slot.teacher?['name']?.toString() ??
+        '—';
     final startTime = slot.startTime ?? '—';
     final endTime = slot.endTime ?? '—';
     final periodNumber = slot.period?.periodNumber ?? 0;
@@ -533,7 +592,9 @@ class _DesktopTimetableRow extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        border: showDivider ? const Border(bottom: BorderSide(color: studentWebBorder)) : null,
+        border: showDivider
+            ? const Border(bottom: BorderSide(color: studentWebBorder))
+            : null,
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
@@ -543,7 +604,10 @@ class _DesktopTimetableRow extends StatelessWidget {
             child: Align(
               alignment: Alignment.centerLeft,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: accentColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
@@ -591,7 +655,11 @@ class _DesktopTimetableRow extends StatelessWidget {
             flex: 3,
             child: Row(
               children: [
-                Icon(Icons.person_outline_rounded, size: 14, color: kTextSecondary.withValues(alpha: 0.8)),
+                Icon(
+                  Icons.person_outline_rounded,
+                  size: 14,
+                  color: kTextSecondary.withValues(alpha: 0.8),
+                ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
@@ -609,7 +677,10 @@ class _DesktopTimetableRow extends StatelessWidget {
             child: Align(
               alignment: Alignment.centerRight,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
                   color: kPrimaryBlue.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(999),
@@ -634,18 +705,7 @@ class _DesktopTimetableRow extends StatelessWidget {
 
   String _sessionLabel(StudentTimetableSlotModel slot) {
     final shift = slot.period?.shift.trim();
-    if (shift != null && shift.isNotEmpty && shift != '—') {
-      return shift;
-    }
-    return _shiftFromStartTime(slot.startTime);
-  }
-
-  String _shiftFromStartTime(String? startTime) {
-    if (startTime == null || startTime.isEmpty) return '—';
-    final hour = int.tryParse(startTime.split(':').first) ?? 0;
-    if (hour < 12) return 'Morning';
-    if (hour < 17) return 'Afternoon';
-    return 'Evening';
+    return shift != null && shift.isNotEmpty ? shift : '—';
   }
 }
 
@@ -665,14 +725,19 @@ class _TimetableSlotCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final subjectName = slot.subject?['name']?.toString() ?? '—';
-    final teacherName = slot.teacher?['fullName']?.toString() ?? slot.teacher?['name']?.toString() ?? '—';
+    final teacherName =
+        slot.teacher?['fullName']?.toString() ??
+        slot.teacher?['name']?.toString() ??
+        '—';
     final startTime = slot.startTime ?? '—';
     final endTime = slot.endTime ?? '—';
-    
+
     // Extract period information
-    final periodName = slot.period?.name ?? 
-                      (slot.period?.periodNumber != null ? 'Period ${slot.period?.periodNumber}' : 
-                      '—');
+    final periodName =
+        slot.period?.name ??
+        (slot.period?.periodNumber != null
+            ? 'Period ${slot.period?.periodNumber}'
+            : '—');
     final periodNumber = slot.period?.periodNumber ?? 0;
     final periodShift = slot.period?.shift ?? '—';
 
@@ -715,7 +780,9 @@ class _TimetableSlotCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  periodName.length > 8 ? periodName.substring(0, 8) + '...' : periodName,
+                  periodName.length > 8
+                      ? periodName.substring(0, 8) + '...'
+                      : periodName,
                   style: const TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
@@ -738,7 +805,10 @@ class _TimetableSlotCard extends StatelessWidget {
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: accentColor.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
@@ -746,7 +816,11 @@ class _TimetableSlotCard extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.access_time_rounded, size: 14, color: accentColor),
+                            Icon(
+                              Icons.access_time_rounded,
+                              size: 14,
+                              color: accentColor,
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               '$startTime - $endTime',
@@ -759,23 +833,28 @@ class _TimetableSlotCard extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const Spacer(),
-                      // Shift indicator
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: _getShiftColor(startTime).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          _getShiftLabel(startTime),
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: _getShiftColor(startTime),
+                      if (periodShift != '—') ...[
+                        const Spacer(),
+                        // Shift indicator
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: accentColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            periodShift,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: accentColor,
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -792,7 +871,11 @@ class _TimetableSlotCard extends StatelessWidget {
                   // Teacher name
                   Row(
                     children: [
-                      Icon(Icons.person_rounded, size: 16, color: kTextSecondary.withOpacity(0.7)),
+                      Icon(
+                        Icons.person_rounded,
+                        size: 16,
+                        color: kTextSecondary.withOpacity(0.7),
+                      ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
@@ -810,7 +893,11 @@ class _TimetableSlotCard extends StatelessWidget {
                   // Additional info row
                   Row(
                     children: [
-                      Icon(Icons.class_rounded, size: 16, color: kTextSecondary.withOpacity(0.7)),
+                      Icon(
+                        Icons.class_rounded,
+                        size: 16,
+                        color: kTextSecondary.withOpacity(0.7),
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         '$periodName • $periodShift',
@@ -828,31 +915,5 @@ class _TimetableSlotCard extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  Color _getShiftColor(String? startTime) {
-    if (startTime == null) return kPrimaryBlue;
-    
-    final hour = int.tryParse(startTime.split(':')[0]) ?? 0;
-    if (hour < 12) {
-      return const Color(0xFFF59E0B); // Morning - amber
-    } else if (hour < 17) {
-      return kPrimaryBlue; // Afternoon - blue
-    } else {
-      return kPrimaryBlue;
-    }
-  }
-
-  String _getShiftLabel(String? startTime) {
-    if (startTime == null) return '—';
-    
-    final hour = int.tryParse(startTime.split(':')[0]) ?? 0;
-    if (hour < 12) {
-      return 'Morning';
-    } else if (hour < 17) {
-      return 'Afternoon';
-    } else {
-      return 'Evening';
-    }
   }
 }

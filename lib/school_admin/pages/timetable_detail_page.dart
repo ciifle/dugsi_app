@@ -46,23 +46,38 @@ class _TimetableDetailPageState extends State<TimetableDetailPage> {
     if (!mounted) return;
     setState(() {
       if (classesR is ClassSuccess<List<ClassModel>>) _classes = classesR.data;
-      if (subjectsR is SubjectSuccess<List<SubjectModel>>) _subjects = subjectsR.data;
-      if (teachersR is TeacherSuccess<List<TeacherModel>>) _teachers = teachersR.data;
+      if (subjectsR is SubjectSuccess<List<SubjectModel>>)
+        _subjects = subjectsR.data;
+      if (teachersR is TeacherSuccess<List<TeacherModel>>)
+        _teachers = teachersR.data;
     });
   }
 
   String _className(int id) {
-    for (final c in _classes) { if (c.id == id) return c.name; }
+    for (final c in _classes) {
+      if (c.id == id) return c.name;
+    }
     return '—';
   }
 
+  String _classShiftName(int id) {
+    for (final c in _classes) {
+      if (c.id == id) return c.shiftName ?? '';
+    }
+    return '';
+  }
+
   String _subjectName(int id) {
-    for (final s in _subjects) { if (s.id == id) return s.name; }
+    for (final s in _subjects) {
+      if (s.id == id) return s.name;
+    }
     return '—';
   }
 
   String _teacherName(int id) {
-    for (final t in _teachers) { if (t.id == id) return t.fullName; }
+    for (final t in _teachers) {
+      if (t.id == id) return t.fullName;
+    }
     return '—';
   }
 
@@ -91,7 +106,11 @@ class _TimetableDetailPageState extends State<TimetableDetailPage> {
                     const Expanded(
                       child: Text(
                         'Timetable Slot',
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: kPrimaryBlue,
+                        ),
                       ),
                     ),
                   ],
@@ -102,32 +121,52 @@ class _TimetableDetailPageState extends State<TimetableDetailPage> {
                   future: _slotFuture,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator(color: kPrimaryGreen));
+                      return const Center(
+                        child: CircularProgressIndicator(color: kPrimaryGreen),
+                      );
                     }
                     if (snapshot.hasError) {
-                      final msg = userFriendlyMessage(snapshot.error!, null, 'TimetableDetailPage');
+                      final msg = userFriendlyMessage(
+                        snapshot.error!,
+                        null,
+                        'TimetableDetailPage',
+                      );
                       return _ErrorState(
                         message: msg,
-                        onRetry: () => setState(() => _slotFuture = TimetablesService().getTimetable(widget.slotId)),
+                        onRetry: () => setState(
+                          () => _slotFuture = TimetablesService().getTimetable(
+                            widget.slotId,
+                          ),
+                        ),
                       );
                     }
                     final result = snapshot.data;
-                    if (result == null) return const Center(child: Text('No data'));
+                    if (result == null)
+                      return const Center(child: Text('No data'));
                     if (result is TimetableError) {
                       return _ErrorState(
                         message: result.message,
-                        onRetry: () => setState(() => _slotFuture = TimetablesService().getTimetable(widget.slotId)),
+                        onRetry: () => setState(
+                          () => _slotFuture = TimetablesService().getTimetable(
+                            widget.slotId,
+                          ),
+                        ),
                       );
                     }
-                    final slot = (result as TimetableSuccess<TimetableSlotModel>).data;
+                    final slot =
+                        (result as TimetableSuccess<TimetableSlotModel>).data;
                     return SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 8,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           _OverviewCard(
                             slot: slot,
                             className: _className(slot.classId),
+                            classShiftName: _classShiftName(slot.classId),
                             subjectName: _subjectName(slot.subjectId),
                             teacherName: _teacherName(slot.teacherId),
                           ),
@@ -149,27 +188,38 @@ class _TimetableDetailPageState extends State<TimetableDetailPage> {
 class _OverviewCard extends StatelessWidget {
   final TimetableSlotModel slot;
   final String className;
+  final String classShiftName;
   final String subjectName;
   final String teacherName;
 
   const _OverviewCard({
     required this.slot,
     required this.className,
+    this.classShiftName = '',
     required this.subjectName,
     required this.teacherName,
   });
 
   @override
   Widget build(BuildContext context) {
-    final timeStr = '${_timeDisplay(slot.startTime)} - ${_timeDisplay(slot.endTime)}';
+    final timeStr =
+        '${_timeDisplay(slot.startTime)} - ${_timeDisplay(slot.endTime)}';
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(kCardRadius),
         boxShadow: [
-          BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 6)),
-          BoxShadow(color: kPrimaryBlue.withOpacity(0.03), blurRadius: 32, offset: const Offset(0, 12)),
+          BoxShadow(
+            color: kPrimaryBlue.withOpacity(0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+          BoxShadow(
+            color: kPrimaryBlue.withOpacity(0.03),
+            blurRadius: 32,
+            offset: const Offset(0, 12),
+          ),
         ],
       ),
       child: Column(
@@ -177,33 +227,63 @@ class _OverviewCard extends StatelessWidget {
         children: [
           if (slot.period != null) ...[
             Text(
-              slot.period!.name.isNotEmpty ? slot.period!.name : 'Period ${slot.period!.periodNumber}',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+              slot.period!.name.isNotEmpty
+                  ? slot.period!.name
+                  : 'Period ${slot.period!.periodNumber}',
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: kPrimaryBlue,
+              ),
             ),
             const SizedBox(height: 4),
           ],
           Text(
             timeStr,
             style: TextStyle(
-              fontSize: slot.period != null ? 16 : 20, 
-              fontWeight: slot.period != null ? FontWeight.normal : FontWeight.bold, 
-              color: slot.period != null ? Colors.grey[700] : kPrimaryBlue
+              fontSize: slot.period != null ? 16 : 20,
+              fontWeight: slot.period != null
+                  ? FontWeight.normal
+                  : FontWeight.bold,
+              color: slot.period != null ? Colors.grey[700] : kPrimaryBlue,
             ),
           ),
           const SizedBox(height: 16),
-          _InfoRow(icon: Icons.menu_book_rounded, label: 'Subject', value: subjectName),
+          _InfoRow(
+            icon: Icons.menu_book_rounded,
+            label: 'Subject',
+            value: subjectName,
+          ),
           const SizedBox(height: 10),
           _InfoRow(icon: Icons.class_rounded, label: 'Class', value: className),
+          if (classShiftName.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _InfoRow(
+              icon: Icons.schedule_rounded,
+              label: 'Class Shift',
+              value: classShiftName,
+            ),
+          ],
           const SizedBox(height: 10),
-          _InfoRow(icon: Icons.person_rounded, label: 'Teacher', value: teacherName),
+          _InfoRow(
+            icon: Icons.person_rounded,
+            label: 'Teacher',
+            value: teacherName,
+          ),
           const SizedBox(height: 10),
-          _InfoRow(icon: Icons.calendar_view_week_rounded, label: 'Day', value: slot.day),
+          _InfoRow(
+            icon: Icons.calendar_view_week_rounded,
+            label: 'Day',
+            value: slot.day,
+          ),
           if (slot.period?.shift != null && slot.period!.shift.isNotEmpty) ...[
             const SizedBox(height: 10),
             _InfoRow(
-              icon: slot.period!.shift.toLowerCase() == 'afternoon' ? Icons.wb_twilight_rounded : Icons.wb_sunny_rounded, 
-              label: 'Shift', 
-              value: slot.period!.shift.toLowerCase() == 'afternoon' ? 'Afternoon' : 'Morning'
+              icon: slot.period!.shift.toLowerCase() == 'afternoon'
+                  ? Icons.wb_twilight_rounded
+                  : Icons.wb_sunny_rounded,
+              label: 'Period Shift',
+              value: slot.period!.shift,
             ),
           ],
         ],
@@ -217,7 +297,11 @@ class _InfoRow extends StatelessWidget {
   final String label;
   final String value;
 
-  const _InfoRow({required this.icon, required this.label, required this.value});
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -226,9 +310,23 @@ class _InfoRow extends StatelessWidget {
       children: [
         Icon(icon, color: kPrimaryGreen, size: 22),
         const SizedBox(width: 12),
-        Text('$label: ', style: TextStyle(color: Colors.grey[700], fontWeight: FontWeight.w600, fontSize: 14)),
+        Text(
+          '$label: ',
+          style: TextStyle(
+            color: Colors.grey[700],
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
+        ),
         Expanded(
-          child: Text(value, style: const TextStyle(color: kPrimaryBlue, fontWeight: FontWeight.w500, fontSize: 15)),
+          child: Text(
+            value,
+            style: const TextStyle(
+              color: kPrimaryBlue,
+              fontWeight: FontWeight.w500,
+              fontSize: 15,
+            ),
+          ),
         ),
       ],
     );
@@ -251,9 +349,17 @@ class _ErrorState extends StatelessWidget {
           children: [
             Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
             const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.grey[800])),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, color: Colors.grey[800]),
+            ),
             const SizedBox(height: 16),
-            TextButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh), label: const Text('Retry')),
+            TextButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+            ),
           ],
         ),
       ),
@@ -275,9 +381,19 @@ class _BackButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+          boxShadow: [
+            BoxShadow(
+              color: kPrimaryBlue.withOpacity(0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        child: const Icon(Icons.arrow_back_rounded, color: kPrimaryBlue, size: 24),
+        child: const Icon(
+          Icons.arrow_back_rounded,
+          color: kPrimaryBlue,
+          size: 24,
+        ),
       ),
     );
   }

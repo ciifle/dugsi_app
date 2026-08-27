@@ -116,6 +116,7 @@ class ExamHallAllocationStudent {
   final String className;
   final String hallName;
   final String seat;
+  final String shiftName;
   final bool valid;
   final String? reason;
   const ExamHallAllocationStudent({
@@ -126,12 +127,15 @@ class ExamHallAllocationStudent {
     this.className = '',
     this.hallName = '',
     this.seat = '',
+    this.shiftName = '',
     this.valid = true,
     this.reason,
   });
   factory ExamHallAllocationStudent.fromJson(Map<String, dynamic> json) {
     final student = safeMap(json['student']);
     final hall = safeMap(json['hall']);
+    final classMap = safeMap(json['class']);
+    final shiftMap = safeMap(json['shift'] ?? classMap['shift']);
     return ExamHallAllocationStudent(
       id: safeInt(json['allocation_id'] ?? json['id']),
       studentId: safeInt(json['student_id'] ?? json['id'] ?? student['id']),
@@ -148,9 +152,15 @@ class ExamHallAllocationStudent {
             student['emisNumber'] ??
             student['emis_number'],
       ),
-      className: safeText(json['class_name'] ?? safeMap(json['class'])['name']),
+      className: safeText(json['class_name'] ?? classMap['name']),
       hallName: safeText(json['hall_name'] ?? hall['name']),
       seat: safeText(json['seat_number'] ?? json['seat']),
+      shiftName: safeText(
+        json['shift_name'] ??
+            shiftMap['name'] ??
+            (json['shift'] is String ? json['shift'] : null) ??
+            (classMap['shift'] is String ? classMap['shift'] : null),
+      ),
       valid: safeBool(json['valid'] ?? json['is_valid']),
       reason: safeText(json['reason']).isEmpty
           ? null

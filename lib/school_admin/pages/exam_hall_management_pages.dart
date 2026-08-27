@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, setEquals;
+import 'package:provider/provider.dart';
 import 'package:kobac/models/exam_hall_models.dart';
 import 'package:kobac/services/academic_years_service.dart';
+import 'package:kobac/services/classes_service.dart';
 import 'package:kobac/services/exam_hall_service.dart';
 import 'package:kobac/services/exams_service.dart';
 import 'package:kobac/services/pdf_file_result.dart';
+import 'package:kobac/services/shifts_service.dart';
 import 'package:kobac/utils/student_pdf_handler.dart';
 import 'package:kobac/utils/pdf_save_feedback.dart';
 import 'package:kobac/school_admin/widgets/admin_feature_dialog.dart';
@@ -743,6 +746,472 @@ class _LevelsPageState extends State<LevelsPage> {
   }
 }
 
+class ShiftsPage extends StatefulWidget {
+  final bool embedBodyOnly;
+  const ShiftsPage({super.key, this.embedBodyOnly = false});
+  @override
+  State<ShiftsPage> createState() => _ShiftsPageState();
+}
+
+class _ShiftsPageState extends State<ShiftsPage> {
+  final _service = ShiftsService();
+  List<Shift> _items = [];
+  bool _loading = true;
+  String? _error;
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    final r = await _service.list();
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      if (r is ShiftSuccess<List<Shift>>)
+        _items = r.data;
+      else
+        _error = (r as ShiftError).message;
+    });
+    if (r is ShiftSuccess<List<Shift>> && mounted) {
+      context.read<ShiftsProvider>().refresh();
+    }
+  }
+
+  Future<void> _edit([Shift? shift]) async {
+    final name = TextEditingController(text: shift?.name);
+    bool active = shift?.isActive ?? true;
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AdminFeatureDialog(
+          title: shift == null ? 'Add Shift' : 'Edit Shift',
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: name,
+                decoration: const InputDecoration(
+                  labelText: 'Shift Name',
+                  hintText: 'e.g. Morning',
+                ),
+              ),
+              const SizedBox(height: 6),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                activeThumbColor: _green,
+                title: const Text(
+                  'Active status',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: const Text('Available for class assignment'),
+                value: active,
+                onChanged: (v) => setLocal(() => active = v),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, 48),
+                      ),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _green,
+                        minimumSize: const Size(0, 48),
+                      ),
+                      onPressed: () async {
+                        if (name.text.trim().isEmpty) {
+                          _snack(
+                            context,
+                            'Shift name is required.',
+                            error: true,
+                          );
+                          return;
+                        }
+                        final r = shift == null
+                            ? await _service.create(
+                                name: name.text,
+                                isActive: active,
+                              )
+                            : await _service.update(
+                                shift.id,
+                                name: name.text,
+                                isActive: active,
+                              );
+                        if (!ctx.mounted) return;
+                        if (r is ShiftError) {
+                          _snack(context, r.message, error: true);
+                          return;
+                        }
+                        Navigator.pop(ctx, true);
+                      },
+                      child: Text(
+                        shift == null ? 'Create Shift' : 'Save Changes',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (saved == true) {
+      _snack(context, 'Shift saved.');
+      _load();
+    }
+  }
+
+  Future<void> _assign(Shift shift) async {
+    final result = await ClassesService().listClasses();
+    if (!mounted) return;
+    if (result is ClassError) {
+      _snack(context, result.message, error: true);
+      return;
+    }
+    final classes = (result as ClassSuccess<List<ClassModel>>).data;
+    final selected = <int>{
+      ...classes.where((e) => e.shiftId == shift.id).map((e) => e.id),
+    };
+    final search = TextEditingController();
+    var query = '';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) {
+          final visible = classes
+              .where((item) => item.name.toLowerCase().contains(query))
+              .toList();
+          return AdminFeatureDialog(
+            title: 'Assign Classes · ${shift.name}',
+            maxWidth: 560,
+            child: SizedBox(
+              height: MediaQuery.sizeOf(ctx).height.clamp(480, 620) * .68,
+              child: Column(
+                children: [
+                  TextField(
+                    controller: search,
+                    onChanged: (value) =>
+                        setLocal(() => query = value.trim().toLowerCase()),
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.search_rounded),
+                      labelText: 'Search Classes',
+                      hintText: 'Search by class name',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: () => setLocal(
+                          () => selected.addAll(classes.map((e) => e.id)),
+                        ),
+                        child: const Text('Select All'),
+                      ),
+                      TextButton(
+                        onPressed: () => setLocal(selected.clear),
+                        child: const Text('Clear'),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${selected.length} selected',
+                        style: const TextStyle(
+                          color: Colors.black54,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Expanded(
+                    child: classes.isEmpty
+                        ? _empty(
+                            Icons.class_outlined,
+                            'No classes found',
+                            'Create classes before assigning a shift.',
+                          )
+                        : ListView.separated(
+                            itemCount: visible.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 6),
+                            itemBuilder: (_, i) {
+                              final c = visible[i];
+                              final details = [
+                                if (c.levelName != null) c.levelName!,
+                                c.shiftName == null
+                                    ? 'No current shift'
+                                    : 'Current: ${c.shiftName}',
+                              ].join(' · ');
+                              return Container(
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: const Color(0xFFE2E8F0),
+                                  ),
+                                ),
+                                child: CheckboxListTile(
+                                  activeColor: _green,
+                                  value: selected.contains(c.id),
+                                  onChanged: (v) => setLocal(
+                                    () => v == true
+                                        ? selected.add(c.id)
+                                        : selected.remove(c.id),
+                                  ),
+                                  title: Text(c.name),
+                                  subtitle: Text(details),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(0, 48),
+                          ),
+                          child: const Text('Cancel'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: _green,
+                            minimumSize: const Size(0, 48),
+                          ),
+                          onPressed: () async {
+                            final r = await _service.assignClasses(
+                              shift.id,
+                              selected.toList(),
+                            );
+                            if (!ctx.mounted) return;
+                            if (r is ShiftError) {
+                              _snack(context, r.message, error: true);
+                              return;
+                            }
+                            Navigator.pop(ctx, true);
+                          },
+                          child: const Text('Assign Classes'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+    if (ok == true) {
+      _snack(context, 'Classes assigned.');
+      _load();
+    }
+  }
+
+  Future<void> _delete(Shift s) async {
+    final ok = await showAdminFeatureConfirmation(
+      context,
+      title: 'Delete Shift?',
+      message:
+          'Delete ${s.name}? This shift is assigned to one or more classes. '
+          'Reassign those classes before deleting it.',
+      confirmLabel: 'Delete Shift',
+      icon: Icons.delete_outline_rounded,
+      confirmColor: Colors.red,
+    );
+    if (ok != true) return;
+    final r = await _service.delete(s.id);
+    if (!mounted) return;
+    if (r is ShiftError)
+      _snack(context, r.message, error: true);
+    else {
+      _snack(context, 'Shift deleted.');
+      _load();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final content = _loading
+        ? _loadingState('Loading shifts…')
+        : _error != null
+        ? _errorState('Unable to load shifts', _error!, _load)
+        : _items.isEmpty
+        ? _empty(
+            Icons.schedule_rounded,
+            'No shifts yet',
+            'Add a shift such as Morning or Afternoon to organize classes.',
+          )
+        : LayoutBuilder(
+            builder: (c, x) {
+              final desktop = x.maxWidth >= 760;
+              if (desktop)
+                return SingleChildScrollView(
+                  child: Container(
+                    decoration: _card,
+                    child: DataTable(
+                      columns: const [
+                        DataColumn(label: Text('Shift')),
+                        DataColumn(label: Text('Classes')),
+                        DataColumn(label: Text('Status')),
+                        DataColumn(label: Text('Actions')),
+                      ],
+                      rows: _items
+                          .map(
+                            (s) => DataRow(
+                              cells: [
+                                DataCell(Text(s.name)),
+                                DataCell(Text('${s.classCount}')),
+                                DataCell(_StatusBadge(s.isActive)),
+                                DataCell(
+                                  Wrap(
+                                    children: [
+                                      IconButton(
+                                        tooltip: 'Edit',
+                                        onPressed: () => _edit(s),
+                                        icon: const Icon(Icons.edit_outlined),
+                                      ),
+                                      IconButton(
+                                        tooltip: 'Assign Classes',
+                                        onPressed: () => _assign(s),
+                                        icon: const Icon(Icons.class_outlined),
+                                      ),
+                                      IconButton(
+                                        tooltip: 'Delete',
+                                        onPressed: () => _delete(s),
+                                        icon: const Icon(
+                                          Icons.delete_outline,
+                                          color: Colors.red,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ),
+                );
+              return ListView.separated(
+                padding: const EdgeInsets.only(bottom: 104),
+                itemCount: _items.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (_, i) {
+                  final s = _items[i];
+                  return Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: _card,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const _AdminIconBox(icon: Icons.schedule_rounded),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                s.name,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: _navy,
+                                ),
+                              ),
+                            ),
+                            _StatusBadge(s.isActive),
+                          ],
+                        ),
+                        Text(
+                          '${s.classCount} Classes',
+                          style: const TextStyle(color: Colors.black54),
+                        ),
+                        const SizedBox(height: 10),
+                        const Divider(height: 1),
+                        const SizedBox(height: 4),
+                        Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          runSpacing: 2,
+                          children: [
+                            TextButton.icon(
+                              style: TextButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                ),
+                              ),
+                              onPressed: () => _edit(s),
+                              icon: const Icon(Icons.edit_outlined),
+                              label: const Text('Edit'),
+                            ),
+                            TextButton.icon(
+                              style: TextButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                ),
+                              ),
+                              onPressed: () => _assign(s),
+                              icon: const Icon(Icons.class_outlined),
+                              label: const Text('Assign Classes'),
+                            ),
+                            TextButton.icon(
+                              onPressed: () => _delete(s),
+                              style: TextButton.styleFrom(
+                                foregroundColor: Colors.red.shade700,
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                ),
+                              ),
+                              icon: const Icon(Icons.delete_outline),
+                              label: const Text('Delete'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
+          );
+    return _page(
+      context,
+      embedded: widget.embedBodyOnly,
+      title: 'Shifts',
+      child: content,
+      action: FloatingActionButton.extended(
+        onPressed: () => _edit(),
+        backgroundColor: _green,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Add Shift'),
+      ),
+    );
+  }
+}
+
 class ExamHallsPage extends StatefulWidget {
   final bool embedBodyOnly;
   const ExamHallsPage({super.key, this.embedBodyOnly = false});
@@ -1062,7 +1531,7 @@ class _HallAllocationPageState extends State<HallAllocationPage>
   List<LevelClass> classes = [];
   List<ExamHallAllocationStudent> students = [];
   List<ExamHallAllocationBatch> history = [];
-  int? yearId, levelId, classId, examId, hallId;
+  int? yearId, levelId, classId, examId, hallId, shiftId;
   final selectedStudentIds = <int>{}, selectedHalls = <int>{};
   Set<int> previewedStudentIds = <int>{};
   Set<int> previewedHallIds = <int>{};
@@ -1083,6 +1552,7 @@ class _HallAllocationPageState extends State<HallAllocationPage>
     super.initState();
     tabs = TabController(length: 3, vsync: this);
     _load();
+    Future.microtask(() => context.read<ShiftsProvider>().ensureLoaded());
   }
 
   @override
@@ -1131,6 +1601,7 @@ class _HallAllocationPageState extends State<HallAllocationPage>
       academicYearId: yearId!,
       levelId: levelId!,
       classId: classId,
+      shiftId: shiftId,
     );
     if (!mounted) return;
     setState(() {
@@ -1153,6 +1624,7 @@ class _HallAllocationPageState extends State<HallAllocationPage>
         examId: examId!,
         selectedHallIds: selectedHalls,
         classId: classId,
+        shiftId: shiftId,
       );
     }
     if (classId == null || hallId == null || selectedStudentIds.isEmpty)
@@ -1545,6 +2017,7 @@ class _HallAllocationPageState extends State<HallAllocationPage>
     onChanged: busy ? null : change,
   );
   Widget _form(bool random) {
+    final shifts = context.watch<ShiftsProvider>().shifts;
     final selectedHallObjects = halls
         .where((hall) => selectedHalls.contains(hall.id))
         .toList();
@@ -1675,6 +2148,33 @@ class _HallAllocationPageState extends State<HallAllocationPage>
                       (v) {
                         setState(() {
                           classId = v;
+                          selectedStudentIds.clear();
+                          invalidate();
+                        });
+                        if (!random) _loadStudents();
+                      },
+                    ),
+                  ),
+                  SizedBox(
+                    width: width,
+                    child: _drop<int?>(
+                      'Shift',
+                      shiftId,
+                      [
+                        const DropdownMenuItem<int?>(
+                          value: null,
+                          child: Text('All Shifts'),
+                        ),
+                        ...shifts.map(
+                          (e) => DropdownMenuItem<int?>(
+                            value: e.id,
+                            child: Text(e.name),
+                          ),
+                        ),
+                      ],
+                      (v) {
+                        setState(() {
+                          shiftId = v;
                           selectedStudentIds.clear();
                           invalidate();
                         });
@@ -1892,7 +2392,8 @@ class _HallAllocationPageState extends State<HallAllocationPage>
                               }),
                         title: Text(student.name),
                         subtitle: Text(
-                          '${student.emis} · ${student.className}',
+                          '${student.emis} · ${student.className}'
+                          '${student.shiftName.isNotEmpty ? ' • ${student.shiftName}' : ''}',
                         ),
                       ),
                     ),
@@ -2131,8 +2632,7 @@ class _ExamPassCardsPageState extends State<ExamPassCardsPage> {
   List<SchoolLevel> levels = [];
   List<LevelClass> classes = [];
   List<AdminExamPassCard> passes = [];
-  int? yearId, examId, hallId, levelId, classId;
-  String? shift;
+  int? yearId, examId, hallId, levelId, classId, shiftId;
   bool loadingFilters = true, loadingPasses = false, pdfBusy = false;
   String? loadError;
 
@@ -2140,6 +2640,7 @@ class _ExamPassCardsPageState extends State<ExamPassCardsPage> {
   void initState() {
     super.initState();
     _init();
+    Future.microtask(() => context.read<ShiftsProvider>().ensureLoaded());
   }
 
   Future<void> _init() async {
@@ -2175,7 +2676,7 @@ class _ExamPassCardsPageState extends State<ExamPassCardsPage> {
           hallId: hallId,
           levelId: levelId,
           classId: classId,
-          shift: shift,
+          shiftId: shiftId,
         );
 
   void _filtersChanged() {
@@ -2422,23 +2923,31 @@ class _ExamPassCardsPageState extends State<ExamPassCardsPage> {
             ),
             SizedBox(
               width: width,
-              child: DropdownButtonFormField<String>(
-                initialValue: shift,
+              child: DropdownButtonFormField<int?>(
+                initialValue: shiftId,
+                isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'Shift (optional)',
                   border: OutlineInputBorder(),
                 ),
-                items: const [
-                  DropdownMenuItem(value: 'morning', child: Text('Morning')),
-                  DropdownMenuItem(
-                    value: 'afternoon',
-                    child: Text('Afternoon'),
+                items: [
+                  const DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text('All Shifts'),
+                  ),
+                  ...context.watch<ShiftsProvider>().shifts.map(
+                    (e) => DropdownMenuItem<int?>(
+                      value: e.id,
+                      child: Text(e.name),
+                    ),
                   ),
                 ],
-                onChanged: (value) => setState(() {
-                  shift = value;
-                  _filtersChanged();
-                }),
+                onChanged: loadingPasses || pdfBusy
+                    ? null
+                    : (value) => setState(() {
+                        shiftId = value;
+                        _filtersChanged();
+                      }),
               ),
             ),
             FilledButton.icon(
@@ -2884,12 +3393,13 @@ class _HallReportsPageState extends State<HallReportsPage> {
   List<AcademicYear> years = [];
   List<ExamModel> exams = [];
   List<ExamHallReportRow> rows = [];
-  int? yearId, examId, hallId;
+  int? yearId, examId, hallId, shiftId;
   bool busy = false;
   @override
   void initState() {
     super.initState();
     _init();
+    Future.microtask(() => context.read<ShiftsProvider>().ensureLoaded());
   }
 
   Future<void> _init() async {
@@ -2913,6 +3423,7 @@ class _HallReportsPageState extends State<HallReportsPage> {
     if (yearId != null) 'academic_year_id': '$yearId',
     if (examId != null) 'exam_id': '$examId',
     if (hallId != null) 'hall_id': '$hallId',
+    if (shiftId != null) 'shift_id': '$shiftId',
   };
   Future<void> _load() async {
     setState(() => busy = true);
@@ -3023,6 +3534,29 @@ class _HallReportsPageState extends State<HallReportsPage> {
                     )
                     .toList(),
                 onChanged: (v) => setState(() => hallId = v),
+              ),
+            ),
+            SizedBox(
+              width: 250,
+              child: DropdownButtonFormField<int?>(
+                initialValue: shiftId,
+                decoration: const InputDecoration(
+                  labelText: 'Shift',
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  const DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text('All Shifts'),
+                  ),
+                  ...context.watch<ShiftsProvider>().shifts.map(
+                    (e) => DropdownMenuItem<int?>(
+                      value: e.id,
+                      child: Text(e.name),
+                    ),
+                  ),
+                ],
+                onChanged: (v) => setState(() => shiftId = v),
               ),
             ),
           ],

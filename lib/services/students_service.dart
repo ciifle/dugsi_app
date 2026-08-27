@@ -87,6 +87,16 @@ class StudentModel {
     return className ?? '—';
   }
 
+  /// Class shift resolved from the nested class object, if the backend
+  /// includes it — either a flat string (`shift: "Afternoon"`) or a nested
+  /// object (`shift: {"id":2,"name":"Afternoon"}`). Empty when unavailable.
+  String get classShiftName {
+    final shift = class_?['shift'];
+    if (shift is Map) return (shift['name'] ?? '').toString().trim();
+    if (shift is String) return shift.trim();
+    return '';
+  }
+
   factory StudentModel.fromJson(Map<String, dynamic> json) {
     int parseId(dynamic v) {
       if (v == null) return 0;

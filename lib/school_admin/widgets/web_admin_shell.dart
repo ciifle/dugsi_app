@@ -113,6 +113,8 @@ class _WebAdminShellState extends State<WebAdminShell> {
         return 'Marks';
       case 'levels':
         return 'Levels';
+      case 'shifts':
+        return 'Shifts';
       case 'examHalls':
         return 'Exam Halls';
       case 'hallAllocation':
@@ -307,6 +309,8 @@ class _WebAdminShellState extends State<WebAdminShell> {
         );
       case 'levels':
         return const LevelsPage(embedBodyOnly: true);
+      case 'shifts':
+        return const ShiftsPage(embedBodyOnly: true);
       case 'examHalls':
         return const ExamHallsPage(embedBodyOnly: true);
       case 'hallAllocation':

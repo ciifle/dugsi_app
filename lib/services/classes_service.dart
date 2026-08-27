@@ -6,6 +6,7 @@ import 'package:kobac/services/api_client.dart';
 import 'package:kobac/services/api_error_helpers.dart';
 import 'package:kobac/services/academic_years_service.dart';
 import 'package:kobac/services/pdf_file_result.dart';
+import 'package:kobac/services/shifts_service.dart';
 import 'package:kobac/services/students_service.dart';
 
 /// Class model (school-admin scope). API returns id and name.
@@ -16,6 +17,10 @@ class ClassModel {
   final AcademicYear? academicYear;
   final int studentCount;
   final List<StudentModel> students;
+  final int? levelId;
+  final String? levelName;
+  final int? shiftId;
+  final Shift? shift;
 
   const ClassModel({
     required this.id,
@@ -24,7 +29,13 @@ class ClassModel {
     this.academicYear,
     this.studentCount = 0,
     this.students = const [],
+    this.levelId,
+    this.levelName,
+    this.shiftId,
+    this.shift,
   });
+
+  String? get shiftName => shift?.name;
 
   factory ClassModel.fromJson(Map<String, dynamic> json) {
     int parseId(dynamic v) {
@@ -46,6 +57,15 @@ class ClassModel {
               .toList()
         : <StudentModel>[];
     final academicYearMap = json['academicYear'];
+    final levelMap = json['level'] is Map
+        ? Map<String, dynamic>.from(json['level'])
+        : <String, dynamic>{};
+    final rawLevelId = json['level_id'] ?? levelMap['id'];
+    final levelName = str(json['level_name'] ?? levelMap['name']);
+    final shiftMap = json['shift'] is Map
+        ? Map<String, dynamic>.from(json['shift'])
+        : <String, dynamic>{};
+    final rawShiftId = json['shift_id'] ?? shiftMap['id'];
     return ClassModel(
       id: parseId(json['id'] ?? json['class_id']),
       schoolId: json['schoolId'] != null || json['school_id'] != null
@@ -57,6 +77,10 @@ class ClassModel {
           : null,
       studentCount: parseId(json['studentCount'] ?? students.length),
       students: students,
+      levelId: rawLevelId == null ? null : parseId(rawLevelId),
+      levelName: levelName.isEmpty ? null : levelName,
+      shiftId: rawShiftId == null ? null : parseId(rawShiftId),
+      shift: shiftMap.isNotEmpty ? Shift.fromJson(shiftMap) : null,
     );
   }
 }

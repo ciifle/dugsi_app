@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'package:kobac/services/auth_provider.dart';
 import 'package:kobac/services/academic_years_service.dart';
+import 'package:kobac/services/shifts_service.dart';
 import 'package:kobac/shared/pages/login_screen.dart';
 import 'package:kobac/shared/pages/splash_screen.dart';
 
@@ -24,6 +25,7 @@ class AppRoot extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => AcademicYearsProvider()),
+        ChangeNotifierProvider(create: (_) => ShiftsProvider()),
       ],
       child: MaterialApp(
         title: 'Dugsi',

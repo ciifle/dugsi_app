@@ -115,12 +115,13 @@ String? _errorMessage(http.Response response) {
   return null;
 }
 
-Uri _listUrl(int? classId) {
+Uri _listUrl(int? classId, [int? shiftId]) {
   final uri = apiUrl(_base);
-  if (classId != null && classId > 0) {
-    return uri.replace(queryParameters: {'class_id': classId.toString()});
-  }
-  return uri;
+  final query = <String, String>{
+    if (classId != null && classId > 0) 'class_id': classId.toString(),
+    if (shiftId != null && shiftId > 0) 'shift_id': shiftId.toString(),
+  };
+  return query.isEmpty ? uri : uri.replace(queryParameters: query);
 }
 
 class TimetablesService {
@@ -131,9 +132,10 @@ class TimetablesService {
   /// GET /api/school-admin/timetables?class_id=<id optional>
   Future<TimetableResult<List<TimetableSlotModel>>> listTimetables({
     int? classId,
+    int? shiftId,
   }) async {
     try {
-      final response = await _client.get(_listUrl(classId));
+      final response = await _client.get(_listUrl(classId, shiftId));
       devLogResponse(
         'TimetablesService.listTimetables',
         response.statusCode,

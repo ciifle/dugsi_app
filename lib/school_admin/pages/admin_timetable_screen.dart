@@ -13,6 +13,7 @@ import 'package:kobac/school_admin/pages/timetable_detail_page.dart';
 import 'package:kobac/school_admin/widgets/delete_confirm_dialog.dart';
 import 'package:kobac/widgets/form_3d/form_3d.dart';
 import 'package:kobac/services/periods_service.dart';
+import 'package:kobac/services/shifts_service.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
 const Color kPrimaryGreen = Color(0xFF5AB04B);
@@ -40,6 +41,7 @@ class AdminTimetableScreen extends StatefulWidget {
 
 class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
   int? _selectedClassId; // null = All classes
+  int? _selectedShiftId; // null = All shifts
   String _selectedDay = 'MON';
   late Future<TimetableResult<List<TimetableSlotModel>>> _timetablesFuture;
   List<ClassModel> _classes = [];
@@ -54,6 +56,15 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
     super.initState();
     _loadRefData();
     _loadTimetables();
+    Future.microtask(() => context.read<ShiftsProvider>().ensureLoaded());
+  }
+
+  String _classShiftName(int? classId) {
+    if (classId == null) return '';
+    for (final c in _classes) {
+      if (c.id == classId) return c.shiftName ?? '';
+    }
+    return '';
   }
 
   Future<void> _loadRefData() async {
@@ -80,6 +91,7 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
       _desktopCurrentPage = 1;
       _timetablesFuture = TimetablesService().listTimetables(
         classId: _selectedClassId,
+        shiftId: _selectedShiftId,
       );
     });
   }
@@ -399,6 +411,41 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
             const SizedBox(height: 12),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: FormCard(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<int?>(
+                    value: _selectedShiftId,
+                    isExpanded: true,
+                    hint: const Text('All shifts'),
+                    items: [
+                      const DropdownMenuItem<int?>(
+                        value: null,
+                        child: Text('All shifts'),
+                      ),
+                      ...context.watch<ShiftsProvider>().shifts.map(
+                        (s) => DropdownMenuItem<int?>(
+                          value: s.id,
+                          child: Text(s.name),
+                        ),
+                      ),
+                    ],
+                    onChanged: (v) {
+                      setState(() {
+                        _selectedShiftId = v;
+                        _loadTimetables();
+                      });
+                    },
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: OutlinedButton.icon(
                 onPressed: _openDeleteYearTimetablesDialog,
                 icon: const Icon(Icons.event_busy_rounded, size: 18),
@@ -595,6 +642,7 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                         className: _selectedClassId == null
                             ? _className(slot.classId)
                             : null,
+                        classShiftName: _classShiftName(slot.classId),
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (_) =>
@@ -894,6 +942,7 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                                 subjectName: _subjectName(slot.subjectId),
                                 teacherName: _teacherName(slot.teacherId),
                                 className: _className(slot.classId),
+                                classShiftName: _classShiftName(slot.classId),
                                 onEdit: () => _openEditSlot(slot),
                                 onDelete: () => _deleteSlot(slot),
                               );
@@ -972,6 +1021,31 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                   },
                 ),
               );
+              final shiftField = SizedBox(
+                width: isWide ? 220 : double.infinity,
+                child: DropdownButtonFormField<int?>(
+                  value: _selectedShiftId,
+                  decoration: _desktopFilterDecoration('Shift'),
+                  items: [
+                    const DropdownMenuItem<int?>(
+                      value: null,
+                      child: Text('All shifts'),
+                    ),
+                    ...context.watch<ShiftsProvider>().shifts.map(
+                      (s) => DropdownMenuItem<int?>(
+                        value: s.id,
+                        child: Text(s.name),
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedShiftId = value;
+                      _loadTimetables();
+                    });
+                  },
+                ),
+              );
               final addButton = SizedBox(
                 height: 44,
                 child: ElevatedButton.icon(
@@ -1009,6 +1083,8 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                 return Row(
                   children: [
                     classField,
+                    const SizedBox(width: 12),
+                    shiftField,
                     const Spacer(),
                     deleteYearButton,
                     const SizedBox(width: 12),
@@ -1021,6 +1097,8 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   classField,
+                  const SizedBox(height: 12),
+                  shiftField,
                   const SizedBox(height: 12),
                   Wrap(
                     alignment: WrapAlignment.end,
@@ -1214,6 +1292,7 @@ class _TimetableRow extends StatelessWidget {
   final String subjectName;
   final String teacherName;
   final String className;
+  final String? classShiftName;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -1222,6 +1301,7 @@ class _TimetableRow extends StatelessWidget {
     required this.subjectName,
     required this.teacherName,
     required this.className,
+    this.classShiftName,
     required this.onEdit,
     required this.onDelete,
   });
@@ -1305,11 +1385,28 @@ class _TimetableRow extends StatelessWidget {
           ),
           Expanded(
             flex: 2,
-            child: Text(
-              displayClass,
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  displayClass,
+                  style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (classShiftName != null && classShiftName!.isNotEmpty)
+                  Text(
+                    classShiftName!,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: kPrimaryGreen.withOpacity(0.85),
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
             ),
           ),
           Expanded(
@@ -1387,6 +1484,7 @@ class _SlotCard extends StatelessWidget {
   final String subjectName;
   final String teacherName;
   final String? className;
+  final String? classShiftName;
   final VoidCallback? onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -1396,6 +1494,7 @@ class _SlotCard extends StatelessWidget {
     required this.subjectName,
     required this.teacherName,
     this.className,
+    this.classShiftName,
     this.onTap,
     required this.onEdit,
     required this.onDelete,
@@ -1563,7 +1662,10 @@ class _SlotCard extends StatelessWidget {
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      className!,
+                                      classShiftName != null &&
+                                              classShiftName!.isNotEmpty
+                                          ? '${className!} • $classShiftName'
+                                          : className!,
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: Colors.grey[500],

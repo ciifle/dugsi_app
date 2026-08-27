@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:kobac/services/auth_provider.dart';
+import 'package:kobac/shared/widgets/school_brand_logo.dart';
 
 /// Desktop sidebar navigation
 class WebSidebar extends StatefulWidget {
@@ -24,6 +25,8 @@ class _WebSidebarState extends State<WebSidebar> {
 
   @override
   Widget build(BuildContext context) {
+    final school = context.watch<AuthProvider>().school;
+    final schoolName = school?.name?.trim();
     return Container(
       width: widget.width - 16,
       margin: const EdgeInsets.all(8),
@@ -50,12 +53,30 @@ class _WebSidebarState extends State<WebSidebar> {
             ),
             child: SizedBox(
               width: double.infinity,
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Image.asset(
-                  'assets/dugsi logo-04.png',
-                  width: 200,
-                  fit: BoxFit.contain,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 7,
+                ),
+                child: Row(
+                  children: [
+                    SchoolBrandLogo(logoUrl: school?.logoUrl, size: 34),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        schoolName == null || schoolName.isEmpty
+                            ? 'Dugsi'
+                            : schoolName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF023471),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -257,6 +278,7 @@ class _WebSidebarState extends State<WebSidebar> {
                         _expandedSection == 'examManagement' ||
                         {
                           'levels',
+                          'shifts',
                           'examHalls',
                           'hallAllocation',
                           'hallReports',
@@ -269,6 +291,12 @@ class _WebSidebarState extends State<WebSidebar> {
                         icon: Icons.layers_outlined,
                         isActive: widget.selectedPage == 'levels',
                         onTap: () => _navigateToPage('levels'),
+                      ),
+                      _SidebarItem(
+                        title: 'Shifts',
+                        icon: Icons.schedule_rounded,
+                        isActive: widget.selectedPage == 'shifts',
+                        onTap: () => _navigateToPage('shifts'),
                       ),
                       _SidebarItem(
                         title: 'Exam Halls',

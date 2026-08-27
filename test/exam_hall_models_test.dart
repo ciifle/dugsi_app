@@ -339,7 +339,7 @@ void main() {
           hallId: 3,
           levelId: 4,
           classId: 5,
-          shift: 'morning',
+          shiftId: 6,
         ),
         {
           'academic_year_id': '1',
@@ -347,7 +347,7 @@ void main() {
           'hall_id': '3',
           'level_id': '4',
           'class_id': '5',
-          'shift': 'morning',
+          'shift_id': '6',
         },
       );
     });

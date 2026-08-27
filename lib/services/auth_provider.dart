@@ -21,23 +21,36 @@ class AuthProvider extends ChangeNotifier {
   bool _isAuthenticated = false;
   String? _token;
   AuthUser? _user;
-  dynamic _profile; // TeacherProfile | StudentProfile | ParentProfile | SchoolAdminProfile | null
-  String? _profileError; // e.g. "Your account is missing profile data. Contact your admin."
-  bool? _feesEnabled; // from GET /api/auth/me (school-level feature flag); null = not set, treat as true
+  dynamic
+  _profile; // TeacherProfile | StudentProfile | ParentProfile | SchoolAdminProfile | null
+  SchoolBranding? _school;
+  SchoolFeatures? _schoolFeatures;
+  String?
+  _profileError; // e.g. "Your account is missing profile data. Contact your admin."
+  bool?
+  _feesEnabled; // from GET /api/auth/me (school-level feature flag); null = not set, treat as true
 
   bool get isLoading => _isLoading;
   bool get isAuthenticated => _isAuthenticated;
   String? get token => _token;
   AuthUser? get user => _user;
   dynamic get profile => _profile;
+  SchoolBranding? get school => _school;
+  SchoolFeatures? get schoolFeatures => _schoolFeatures;
   String? get profileError => _profileError;
+
   /// True when the school has fees/payment feature enabled. When null (e.g. backend not yet updated), treated as true.
   bool get feesEnabled => _feesEnabled ?? true;
+  bool get examsEnabled => _schoolFeatures?.examsEnabled ?? true;
 
-  TeacherProfile? get teacherProfile => _profile is TeacherProfile ? _profile as TeacherProfile : null;
-  StudentProfile? get studentProfile => _profile is StudentProfile ? _profile as StudentProfile : null;
-  ParentProfile? get parentProfile => _profile is ParentProfile ? _profile as ParentProfile : null;
-  SchoolAdminProfile? get schoolAdminProfile => _profile is SchoolAdminProfile ? _profile as SchoolAdminProfile : null;
+  TeacherProfile? get teacherProfile =>
+      _profile is TeacherProfile ? _profile as TeacherProfile : null;
+  StudentProfile? get studentProfile =>
+      _profile is StudentProfile ? _profile as StudentProfile : null;
+  ParentProfile? get parentProfile =>
+      _profile is ParentProfile ? _profile as ParentProfile : null;
+  SchoolAdminProfile? get schoolAdminProfile =>
+      _profile is SchoolAdminProfile ? _profile as SchoolAdminProfile : null;
 
   /// Call on app start: load session, set token, then call GET /api/auth/me to refresh user+profile.
   Future<void> initializeAuth() async {
@@ -50,6 +63,8 @@ class AuthProvider extends ChangeNotifier {
       _token = null;
       _user = null;
       _profile = null;
+      _school = null;
+      _schoolFeatures = null;
       _feesEnabled = null;
       _isAuthenticated = false;
       ApiClient().setToken(null);
@@ -62,6 +77,8 @@ class AuthProvider extends ChangeNotifier {
     ApiClient().setToken(_token);
     _user = session.user;
     _profile = session.profile;
+    _school = session.school;
+    _schoolFeatures = session.schoolFeatures;
     _feesEnabled = session.feesEnabled;
     _isAuthenticated = true;
 
@@ -69,6 +86,8 @@ class AuthProvider extends ChangeNotifier {
     if (meResult is auth_svc.GetMeSuccess) {
       _user = meResult.data.user;
       _profile = meResult.data.profile;
+      _school = meResult.data.school;
+      _schoolFeatures = meResult.data.schoolFeatures;
       _feesEnabled = meResult.data.feesEnabled;
       _profileError = null;
       await AuthStorage().saveSession(
@@ -77,6 +96,8 @@ class AuthProvider extends ChangeNotifier {
         profile: _profile,
         profileRole: _user?.role,
         feesEnabled: _feesEnabled,
+        school: _school,
+        schoolFeatures: _schoolFeatures,
       );
     } else if (meResult is auth_svc.GetMeFailure) {
       if (meResult.statusCode == 401) {
@@ -84,6 +105,8 @@ class AuthProvider extends ChangeNotifier {
         _token = null;
         _user = null;
         _profile = null;
+        _school = null;
+        _schoolFeatures = null;
         _isAuthenticated = false;
         ApiClient().setToken(null);
       } else {
@@ -117,6 +140,8 @@ class AuthProvider extends ChangeNotifier {
       if (meResult is auth_svc.GetMeSuccess) {
         _user = meResult.data.user;
         _profile = meResult.data.profile;
+        _school = meResult.data.school;
+        _schoolFeatures = meResult.data.schoolFeatures;
         _feesEnabled = meResult.data.feesEnabled;
         _profileError = null;
         await AuthStorage().saveSession(
@@ -125,12 +150,18 @@ class AuthProvider extends ChangeNotifier {
           profile: _profile,
           profileRole: _user?.role,
           feesEnabled: _feesEnabled,
+          school: _school,
+          schoolFeatures: _schoolFeatures,
         );
       } else {
         _user = result.user;
         _profile = null;
+        _school = null;
+        _schoolFeatures = null;
         _feesEnabled = null;
-        _profileError = (meResult is auth_svc.GetMeFailure) ? meResult.message : null;
+        _profileError = (meResult is auth_svc.GetMeFailure)
+            ? meResult.message
+            : null;
         await AuthStorage().saveSession(token: _token!, user: _user);
       }
       _isAuthenticated = true;
@@ -145,7 +176,10 @@ class AuthProvider extends ChangeNotifier {
   }
 
   /// Login with identifier; on success calls GET /api/auth/me and stores user + profile.
-  Future<String?> loginWithIdentifier(String identifier, String password) async {
+  Future<String?> loginWithIdentifier(
+    String identifier,
+    String password,
+  ) async {
     final result = await auth_svc.loginWithIdentifier(identifier, password);
 
     if (result is auth_svc.LoginSuccess) {
@@ -155,6 +189,8 @@ class AuthProvider extends ChangeNotifier {
       if (meResult is auth_svc.GetMeSuccess) {
         _user = meResult.data.user;
         _profile = meResult.data.profile;
+        _school = meResult.data.school;
+        _schoolFeatures = meResult.data.schoolFeatures;
         _feesEnabled = meResult.data.feesEnabled;
         _profileError = null;
         await AuthStorage().saveSession(
@@ -163,12 +199,18 @@ class AuthProvider extends ChangeNotifier {
           profile: _profile,
           profileRole: _user?.role,
           feesEnabled: _feesEnabled,
+          school: _school,
+          schoolFeatures: _schoolFeatures,
         );
       } else {
         _user = result.user;
         _profile = null;
+        _school = null;
+        _schoolFeatures = null;
         _feesEnabled = null;
-        _profileError = (meResult is auth_svc.GetMeFailure) ? meResult.message : null;
+        _profileError = (meResult is auth_svc.GetMeFailure)
+            ? meResult.message
+            : null;
         await AuthStorage().saveSession(token: _token!, user: _user);
       }
       _isAuthenticated = true;
@@ -189,6 +231,8 @@ class AuthProvider extends ChangeNotifier {
     if (meResult is auth_svc.GetMeSuccess) {
       _user = meResult.data.user;
       _profile = meResult.data.profile;
+      _school = meResult.data.school;
+      _schoolFeatures = meResult.data.schoolFeatures;
       _feesEnabled = meResult.data.feesEnabled;
       _profileError = null;
       await AuthStorage().saveSession(
@@ -197,6 +241,8 @@ class AuthProvider extends ChangeNotifier {
         profile: _profile,
         profileRole: _user?.role,
         feesEnabled: _feesEnabled,
+        school: _school,
+        schoolFeatures: _schoolFeatures,
       );
       notifyListeners();
       return null;
@@ -218,6 +264,8 @@ class AuthProvider extends ChangeNotifier {
     _token = null;
     _user = null;
     _profile = null;
+    _school = null;
+    _schoolFeatures = null;
     _feesEnabled = null;
     _profileError = null;
     _isAuthenticated = false;
@@ -229,7 +277,9 @@ class AuthProvider extends ChangeNotifier {
 
     final navContext = authNavigatorKey.currentContext;
     if (navContext != null && navContext.mounted) {
-      Navigator.of(navContext).pushNamedAndRemoveUntil('/login', (route) => false);
+      Navigator.of(
+        navContext,
+      ).pushNamedAndRemoveUntil('/login', (route) => false);
     }
   }
 
@@ -238,6 +288,8 @@ class AuthProvider extends ChangeNotifier {
       _token = null;
       _user = null;
       _profile = null;
+      _school = null;
+      _schoolFeatures = null;
       _feesEnabled = null;
       _profileError = null;
       _isAuthenticated = false;
@@ -245,7 +297,9 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       final navContext = authNavigatorKey.currentContext;
       if (navContext != null && navContext.mounted) {
-        Navigator.of(navContext).pushNamedAndRemoveUntil('/login', (route) => false);
+        Navigator.of(
+          navContext,
+        ).pushNamedAndRemoveUntil('/login', (route) => false);
       }
     });
   }

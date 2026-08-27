@@ -21,6 +21,7 @@ import 'package:kobac/school_admin/pages/exam_hall_management_pages.dart';
 import 'package:provider/provider.dart';
 
 import 'package:kobac/services/auth_provider.dart';
+import 'package:kobac/shared/widgets/school_brand_logo.dart';
 
 const Color kDrawerBlue = Color(0xFF023471);
 const Color kDrawerBlueDark = Color(0xFF012752);
@@ -139,6 +140,12 @@ class AppDrawer extends StatelessWidget {
                             icon: Icons.layers_outlined,
                             label: 'Levels',
                             onTap: () => _navTo(context, const LevelsPage()),
+                          ),
+                          const SizedBox(height: 12),
+                          _DrawerMenuCard(
+                            icon: Icons.schedule_outlined,
+                            label: 'Shifts',
+                            onTap: () => _navTo(context, const ShiftsPage()),
                           ),
                           const SizedBox(height: 12),
                           _DrawerMenuCard(
@@ -287,9 +294,12 @@ class _DrawerProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<AuthProvider>().user;
+    final auth = context.watch<AuthProvider>();
+    final user = auth.user;
+    final school = auth.school;
     final name = user?.name ?? 'School Admin';
     final email = user?.email ?? user?.emisNumber ?? 'admin@school.com';
+    final schoolName = school?.name?.trim();
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -323,17 +333,10 @@ class _DrawerProfileHeader extends StatelessWidget {
                         width: 1.5,
                       ),
                     ),
-                    child: CircleAvatar(
-                      radius: 28,
-                      backgroundColor: kDrawerIconBlue.withOpacity(0.2),
-                      child: Text(
-                        name.isNotEmpty ? name[0].toUpperCase() : 'A',
-                        style: const TextStyle(
-                          color: kDrawerBlue,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                    child: SchoolBrandLogo(
+                      logoUrl: school?.logoUrl,
+                      size: 56,
+                      borderRadius: BorderRadius.circular(28),
                     ),
                   ),
                   Positioned(
@@ -363,6 +366,19 @@ class _DrawerProfileHeader extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    if (schoolName != null && schoolName.isNotEmpty) ...[
+                      Text(
+                        schoolName,
+                        style: const TextStyle(
+                          color: kDrawerBlue,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 3),
+                    ],
                     Text(
                       name,
                       style: const TextStyle(

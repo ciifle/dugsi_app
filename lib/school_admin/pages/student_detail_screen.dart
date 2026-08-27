@@ -659,6 +659,8 @@ class _SchoolSection extends StatelessWidget {
         children: [
           _InfoRow(label: 'School', value: schoolLabel),
           _InfoRow(label: 'Class', value: _className),
+          if (student.classShiftName.isNotEmpty)
+            _InfoRow(label: 'Shift', value: student.classShiftName),
           _InfoRow(
             label: 'Absenteeism',
             value: student.absenteeismStatus ?? '—',
@@ -677,6 +679,8 @@ class _SchoolSection extends StatelessWidget {
           children: [
             _InfoRow(label: 'School', value: schoolName),
             _InfoRow(label: 'Class', value: _className),
+            if (student.classShiftName.isNotEmpty)
+              _InfoRow(label: 'Shift', value: student.classShiftName),
             _InfoRow(
               label: 'Absenteeism',
               value: student.absenteeismStatus ?? '—',
@@ -759,6 +763,14 @@ class _ProfileCard extends StatelessWidget {
                       style: TextStyle(
                         color: kDarkBlue.withOpacity(0.8),
                         fontSize: 14,
+                      ),
+                    ),
+                  if (student.classShiftName.isNotEmpty)
+                    Text(
+                      student.classShiftName,
+                      style: TextStyle(
+                        color: kDarkBlue.withOpacity(0.65),
+                        fontSize: 13,
                       ),
                     ),
                 ],
