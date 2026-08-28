@@ -14,6 +14,7 @@ import 'package:kobac/school_admin/widgets/delete_confirm_dialog.dart';
 import 'package:kobac/widgets/form_3d/form_3d.dart';
 import 'package:kobac/services/periods_service.dart';
 import 'package:kobac/services/shifts_service.dart';
+import 'package:kobac/services/teacher_day_off_service.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
 const Color kPrimaryGreen = Color(0xFF5AB04B);
@@ -47,6 +48,7 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
   List<ClassModel> _classes = [];
   List<SubjectModel> _subjects = [];
   List<TeacherModel> _teachers = [];
+  List<TeacherDayOff> _teacherDaysOff = [];
   bool _refDataLoaded = false;
   int _desktopPageSize = 10;
   int _desktopCurrentPage = 1;
@@ -71,6 +73,7 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
     final classesResult = await ClassesService().listClasses();
     final subjectsResult = await SubjectsService().listSubjects();
     final teachersResult = await TeachersService().listTeachers();
+    final daysOffResult = await TeacherDayOffService().list();
     if (!mounted) return;
     setState(() {
       if (classesResult is ClassSuccess<List<ClassModel>>)
@@ -79,6 +82,9 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
         _subjects = subjectsResult.data;
       if (teachersResult is TeacherSuccess<List<TeacherModel>>)
         _teachers = teachersResult.data;
+      if (daysOffResult is TeacherDayOffSuccess<List<TeacherDayOff>>) {
+        _teacherDaysOff = daysOffResult.data;
+      }
       _refDataLoaded = true;
     });
     if (widget.openAddSlotOnLoad && mounted) {
@@ -196,6 +202,7 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
         subjects: _subjects,
         initialClassId: _selectedClassId,
         initialDay: _selectedDay,
+        teacherDaysOff: _teacherDaysOff,
         isCreate: true,
         onSave: _createSlotFromDialog,
       ),
@@ -238,6 +245,7 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
         initialSubjectId: slot.subjectId,
         initialTeacherId: slot.teacherId,
         initialDay: slot.day,
+        teacherDaysOff: _teacherDaysOff,
         initialPeriodId: slot.periodId,
         slotId: slot.id,
         isCreate: false,
@@ -1749,6 +1757,7 @@ class _TimetableSlotFormDialog extends StatefulWidget {
   final int? initialPeriodId;
   final int? slotId;
   final bool isCreate;
+  final List<TeacherDayOff> teacherDaysOff;
   final Future<bool> Function(BuildContext ctx, Map<String, dynamic> payload)
   onSave;
 
@@ -1762,6 +1771,7 @@ class _TimetableSlotFormDialog extends StatefulWidget {
     this.initialPeriodId,
     this.slotId,
     required this.isCreate,
+    this.teacherDaysOff = const [],
     required this.onSave,
   });
 
@@ -1890,9 +1900,21 @@ class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
   }
 
   /// Teacher value for dropdown: only set if it exists in _classTeachers.
+  List<TeacherModel> get _availableTeachers => _classTeachers
+      .where(
+        (teacher) => !widget.teacherDaysOff.any(
+          (off) =>
+              off.isActive && off.teacherId == teacher.id && off.day == _day,
+        ),
+      )
+      .toList();
+
+  int get _unavailableTeacherCount =>
+      _classTeachers.length - _availableTeachers.length;
+
   int? get _effectiveTeacherId {
     if (_teacherId == null) return null;
-    if (_classTeachers.any((t) => t.id == _teacherId)) return _teacherId;
+    if (_availableTeachers.any((t) => t.id == _teacherId)) return _teacherId;
     return null;
   }
 
@@ -2039,12 +2061,12 @@ class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
                           ? 'Loading...'
                           : _subjectId == null
                           ? 'Select subject first'
-                          : _classTeachers.isEmpty
+                          : _availableTeachers.isEmpty
                           ? 'No teacher for this class+subject'
                           : 'Select teacher',
                     ),
                   ),
-                  ..._classTeachers.map(
+                  ..._availableTeachers.map(
                     (t) => DropdownMenuItem<int?>(
                       value: t.id,
                       child: Text(t.fullName ?? t.email ?? 'Teacher ${t.id}'),
@@ -2055,6 +2077,14 @@ class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
                     ? null
                     : (v) => setState(() => _teacherId = v),
               ),
+              if (_unavailableTeacherCount > 0)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    '$_unavailableTeacherCount assigned teacher${_unavailableTeacherCount == 1 ? '' : 's'} unavailable on ${teacherDayLabels[_day] ?? _day}.',
+                    style: TextStyle(fontSize: 13, color: Colors.orange[800]),
+                  ),
+                ),
               if (_classId != null &&
                   _subjectId != null &&
                   !_loadingTeachers &&
@@ -2099,7 +2129,13 @@ class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
                       (d) => DropdownMenuItem<String>(value: d, child: Text(d)),
                     )
                     .toList(),
-                onChanged: (v) => setState(() => _day = v ?? 'MON'),
+                onChanged: (v) => setState(() {
+                  _day = v ?? 'MON';
+                  if (_teacherId != null &&
+                      !_availableTeachers.any((t) => t.id == _teacherId)) {
+                    _teacherId = null;
+                  }
+                }),
               ),
               const SizedBox(height: 16),
               Select3D<int?>(

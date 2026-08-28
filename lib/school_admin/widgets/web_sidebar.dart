@@ -263,11 +263,27 @@ class _WebSidebarState extends State<WebSidebar> {
                   ],
                   const _SidebarDivider(),
                   _SidebarSection(
-                    title: 'Timetable',
+                    title: 'Time Table Module',
                     icon: Icons.schedule_rounded,
                     isExpanded: _expandedSection == 'timetable',
-                    onTap: () => _navigateToPage('timetable'),
-                    children: [],
+                    onTap: () => _toggleSection('timetable'),
+                    children: [
+                      _SidebarItem(
+                        title: 'Course Assign Teacher',
+                        icon: Icons.assignment_ind_outlined,
+                        onTap: () => _navigateToPage('courseAssignments'),
+                      ),
+                      _SidebarItem(
+                        title: 'Teacher Day Off',
+                        icon: Icons.event_busy_outlined,
+                        onTap: () => _navigateToPage('teacherDayOff'),
+                      ),
+                      _SidebarItem(
+                        title: 'Time Table',
+                        icon: Icons.calendar_view_week_outlined,
+                        onTap: () => _navigateToPage('timetable'),
+                      ),
+                    ],
                   ),
                   const _SidebarDivider(),
                   _SidebarSection(

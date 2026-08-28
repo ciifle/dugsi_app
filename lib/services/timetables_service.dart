@@ -285,7 +285,8 @@ class TimetablesService {
       }
       if (response.statusCode == 409)
         return TimetableError(
-          'This teacher or class already has a timetable in that period.',
+          _errorMessage(response) ??
+              'This teacher or class already has a timetable in that period.',
           409,
         );
       if (response.statusCode == 400)
@@ -342,7 +343,8 @@ class TimetablesService {
         return TimetableError('Timetable slot not found.', 404);
       if (response.statusCode == 409)
         return TimetableError(
-          'This teacher or class already has a timetable in that period.',
+          _errorMessage(response) ??
+              'This teacher or class already has a timetable in that period.',
           409,
         );
       if (response.statusCode != 200) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:kobac/school_admin/pages/admin_assignments_screen.dart';
 import 'package:kobac/school_admin/pages/admin_profile.dart';
 import 'package:kobac/school_admin/pages/admin_timetable_screen.dart';
+import 'package:kobac/school_admin/pages/teacher_day_off_page.dart';
 import 'package:kobac/school_admin/pages/admin_periods_screen.dart';
 import 'package:kobac/school_admin/pages/admin_exams_screen.dart';
 import 'package:kobac/school_admin/pages/academic_years_page.dart';
@@ -92,9 +93,34 @@ class AppDrawer extends StatelessWidget {
                       child: ListView(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         children: [
+                          const Padding(
+                            padding: EdgeInsets.fromLTRB(8, 0, 8, 10),
+                            child: Text(
+                              'TIME TABLE MODULE',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: kDrawerBlue,
+                              ),
+                            ),
+                          ),
+                          _DrawerMenuCard(
+                            icon: Icons.assignment_ind_outlined,
+                            label: 'Course Assign Teacher',
+                            onTap: () =>
+                                _navTo(context, const AdminAssignmentsScreen()),
+                          ),
+                          const SizedBox(height: 12),
+                          _DrawerMenuCard(
+                            icon: Icons.event_busy_outlined,
+                            label: 'Teacher Day Off',
+                            onTap: () =>
+                                _navTo(context, const TeacherDayOffPage()),
+                          ),
+                          const SizedBox(height: 12),
                           _DrawerMenuCard(
                             icon: Icons.schedule_rounded,
-                            label: 'Timetable',
+                            label: 'Time Table',
                             onTap: () =>
                                 _navTo(context, const AdminTimetableScreen()),
                           ),
@@ -104,13 +130,6 @@ class AppDrawer extends StatelessWidget {
                             label: 'Periods',
                             onTap: () =>
                                 _navTo(context, const AdminPeriodsScreen()),
-                          ),
-                          const SizedBox(height: 12),
-                          _DrawerMenuCard(
-                            icon: Icons.assignment_rounded,
-                            label: 'Assignments',
-                            onTap: () =>
-                                _navTo(context, const AdminAssignmentsScreen()),
                           ),
                           const SizedBox(height: 12),
                           _DrawerMenuCard(

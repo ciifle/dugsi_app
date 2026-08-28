@@ -23,6 +23,8 @@ import 'package:kobac/school_admin/pages/class_subject_management_screen.dart';
 import 'package:kobac/school_admin/pages/admin_class_subjects_screen.dart';
 
 import 'package:kobac/school_admin/pages/admin_timetable_screen.dart';
+import 'package:kobac/school_admin/pages/admin_assignments_screen.dart';
+import 'package:kobac/school_admin/pages/teacher_day_off_page.dart';
 import 'package:kobac/school_admin/pages/admin_exams_screen.dart';
 import 'package:kobac/school_admin/pages/academic_years_page.dart';
 import 'package:kobac/school_admin/pages/student_promotions_page.dart';
@@ -102,7 +104,11 @@ class _WebAdminShellState extends State<WebAdminShell> {
         return 'Payments';
 
       case 'timetable':
-        return 'Timetable';
+        return 'Time Table';
+      case 'courseAssignments':
+        return 'Course Assign Teacher';
+      case 'teacherDayOff':
+        return 'Teacher Day Off';
       case 'exams':
         return 'Exams';
       case 'academicYears':
@@ -302,6 +308,10 @@ class _WebAdminShellState extends State<WebAdminShell> {
           embedBodyOnly: true,
           onNavigateToPage: _navigateToPage,
         );
+      case 'courseAssignments':
+        return const AdminAssignmentsScreen(embedBodyOnly: true);
+      case 'teacherDayOff':
+        return const TeacherDayOffPage(embedBodyOnly: true);
 
       case 'exams':
         return AdminExamsScreen(

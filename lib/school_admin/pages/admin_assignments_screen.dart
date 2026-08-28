@@ -3,7 +3,8 @@ import 'package:kobac/services/classes_service.dart';
 import 'package:kobac/services/school_admin_assignments_service.dart';
 import 'package:kobac/services/subjects_service.dart';
 import 'package:kobac/services/teachers_service.dart';
-import 'package:kobac/school_admin/widgets/delete_confirm_dialog.dart' show showDeleteConfirmDialog;
+import 'package:kobac/school_admin/widgets/delete_confirm_dialog.dart'
+    show showDeleteConfirmDialog;
 import 'package:kobac/widgets/form_3d/form_3d.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
@@ -14,8 +15,13 @@ const double kCardRadius = 28.0;
 
 class AdminAssignmentsScreen extends StatefulWidget {
   final bool openCreateOnLoad;
+  final bool embedBodyOnly;
 
-  const AdminAssignmentsScreen({Key? key, this.openCreateOnLoad = false}) : super(key: key);
+  const AdminAssignmentsScreen({
+    Key? key,
+    this.openCreateOnLoad = false,
+    this.embedBodyOnly = false,
+  }) : super(key: key);
 
   @override
   State<AdminAssignmentsScreen> createState() => _AdminAssignmentsScreenState();
@@ -86,7 +92,9 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
     });
     if (classId != null) {
       setState(() => _filterSubjectsLoading = true);
-      final result = await SchoolAdminAssignmentsService().listClassSubjects(classId);
+      final result = await SchoolAdminAssignmentsService().listClassSubjects(
+        classId,
+      );
       if (!mounted) return;
       setState(() {
         _filterSubjectsLoading = false;
@@ -98,11 +106,14 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
           // Show user-friendly error message
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(error.statusCode == 404 ? 
-                'No subjects assigned to this class.' : 
-                'Failed to load subjects: ${error.message}'
+              content: Text(
+                error.statusCode == 404
+                    ? 'No subjects assigned to this class.'
+                    : 'Failed to load subjects: ${error.message}',
               ),
-              backgroundColor: error.statusCode == 404 ? Colors.orange : Colors.red,
+              backgroundColor: error.statusCode == 404
+                  ? Colors.orange
+                  : Colors.red,
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -120,7 +131,8 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
     });
     if (subjectId != null && _filterClassId != null) {
       setState(() => _filterTeachersLoading = true);
-      final result = await SchoolAdminAssignmentsService().listClassSubjectTeachers(_filterClassId!, subjectId);
+      final result = await SchoolAdminAssignmentsService()
+          .listClassSubjectTeachers(_filterClassId!, subjectId);
       if (!mounted) return;
       setState(() {
         _filterTeachersLoading = false;
@@ -132,11 +144,14 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
           // Show user-friendly error message
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(error.statusCode == 404 ? 
-                'No teachers assigned to this class-subject.' : 
-                'Failed to load teachers: ${error.message}'
+              content: Text(
+                error.statusCode == 404
+                    ? 'No teachers assigned to this class-subject.'
+                    : 'Failed to load teachers: ${error.message}',
               ),
-              backgroundColor: error.statusCode == 404 ? Colors.orange : Colors.red,
+              backgroundColor: error.statusCode == 404
+                  ? Colors.orange
+                  : Colors.red,
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -173,7 +188,11 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
     if (created == true && mounted) {
       _loadAssignments();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Assignment created'), backgroundColor: kPrimaryGreen, behavior: SnackBarBehavior.floating),
+        const SnackBar(
+          content: Text('Assignment created'),
+          backgroundColor: kPrimaryGreen,
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     }
   }
@@ -190,7 +209,11 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
     if (updated == true && mounted) {
       _loadAssignments();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Assignment updated'), backgroundColor: kPrimaryGreen, behavior: SnackBarBehavior.floating),
+        const SnackBar(
+          content: Text('Assignment updated'),
+          backgroundColor: kPrimaryGreen,
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     }
   }
@@ -199,7 +222,8 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
     final confirmed = await showDeleteConfirmDialog(
       context,
       title: 'Remove teacher assignment?',
-      message: '${a.teacherName} will no longer be assigned to ${a.className} - ${a.subjectName}.',
+      message:
+          '${a.teacherName} will no longer be assigned to ${a.className} - ${a.subjectName}.',
     );
     if (confirmed != true || !mounted) return;
     final result = await SchoolAdminAssignmentsService().deleteAssignment(a.id);
@@ -207,18 +231,26 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
     if (result is AssignmentSuccess) {
       _loadAssignments();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Assignment removed'), backgroundColor: kPrimaryGreen, behavior: SnackBarBehavior.floating),
+        const SnackBar(
+          content: Text('Assignment removed'),
+          backgroundColor: kPrimaryGreen,
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text((result as AssignmentError).message), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+        SnackBar(
+          content: Text((result as AssignmentError).message),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    final scaffold = Scaffold(
       backgroundColor: kBgColor,
       body: Container(
         decoration: const BoxDecoration(
@@ -240,8 +272,12 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
                     const SizedBox(width: 16),
                     const Expanded(
                       child: Text(
-                        'Teacher Assignments',
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                        'Course Assign Teacher',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: kPrimaryBlue,
+                        ),
                       ),
                     ),
                     _AddButton(onPressed: _loading ? null : _openCreate),
@@ -265,8 +301,18 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
                         const SizedBox(height: 20),
                         if (_error != null) _buildErrorCard(),
                         if (_loading) _buildSkeleton(),
-                        if (!_loading && _error == null && _assignments.isEmpty) _buildEmpty(),
-                        if (!_loading && _error == null && _assignments.isNotEmpty) ..._assignments.map((a) => _AssignmentCard(assignment: a, onEdit: () => _openEdit(a), onDelete: () => _deleteAssignment(a))),
+                        if (!_loading && _error == null && _assignments.isEmpty)
+                          _buildEmpty(),
+                        if (!_loading &&
+                            _error == null &&
+                            _assignments.isNotEmpty)
+                          ..._assignments.map(
+                            (a) => _AssignmentCard(
+                              assignment: a,
+                              onEdit: () => _openEdit(a),
+                              onDelete: () => _deleteAssignment(a),
+                            ),
+                          ),
                         const SizedBox(height: 24),
                       ],
                     ),
@@ -284,6 +330,7 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
         label: const Text('Create Assignment'),
       ),
     );
+    return widget.embedBodyOnly ? scaffold.body! : scaffold;
   }
 
   Widget _buildFiltersCard() {
@@ -294,11 +341,25 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
         children: [
           Row(
             children: [
-              const Expanded(child: Text('Filters', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimaryBlue))),
-              if (_filterClassId != null || _filterSubjectId != null || _filterTeacherId != null)
+              const Expanded(
+                child: Text(
+                  'Filters',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: kPrimaryBlue,
+                  ),
+                ),
+              ),
+              if (_filterClassId != null ||
+                  _filterSubjectId != null ||
+                  _filterTeacherId != null)
                 TextButton(
                   onPressed: _loading ? null : _clearFilters,
-                  child: const Text('Clear', style: TextStyle(color: kPrimaryBlue)),
+                  child: const Text(
+                    'Clear',
+                    style: TextStyle(color: kPrimaryBlue),
+                  ),
                 ),
             ],
           ),
@@ -307,8 +368,13 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
             value: _filterClassId,
             label: 'Class',
             items: [
-              const DropdownMenuItem<int?>(value: null, child: Text('All classes')),
-              ..._classes.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name))),
+              const DropdownMenuItem<int?>(
+                value: null,
+                child: Text('All classes'),
+              ),
+              ..._classes.map(
+                (c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name)),
+              ),
             ],
             onChanged: _onFilterClassChanged,
           ),
@@ -317,8 +383,13 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
             value: _filterSubjectId,
             label: 'Subject',
             items: [
-              const DropdownMenuItem<int?>(value: null, child: Text('All subjects')),
-              ..._classSubjects.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text(s.name))),
+              const DropdownMenuItem<int?>(
+                value: null,
+                child: Text('All subjects'),
+              ),
+              ..._classSubjects.map(
+                (s) => DropdownMenuItem<int?>(value: s.id, child: Text(s.name)),
+              ),
             ],
             onChanged: _filterSubjectsLoading ? null : _onFilterSubjectChanged,
           ),
@@ -327,8 +398,16 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
             value: _filterTeacherId,
             label: 'Teacher',
             items: [
-              const DropdownMenuItem<int?>(value: null, child: Text('All teachers')),
-              ..._classSubjectTeachers.map((t) => DropdownMenuItem<int?>(value: t.id, child: Text(t.fullName))),
+              const DropdownMenuItem<int?>(
+                value: null,
+                child: Text('All teachers'),
+              ),
+              ..._classSubjectTeachers.map(
+                (t) => DropdownMenuItem<int?>(
+                  value: t.id,
+                  child: Text(t.fullName),
+                ),
+              ),
             ],
             onChanged: _filterTeachersLoading ? null : _onFilterTeacherChanged,
           ),
@@ -344,7 +423,12 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
         children: [
           const Icon(Icons.error_outline_rounded, color: Colors.red, size: 28),
           const SizedBox(width: 12),
-          Expanded(child: Text(_error ?? '', style: const TextStyle(color: Colors.black87))),
+          Expanded(
+            child: Text(
+              _error ?? '',
+              style: const TextStyle(color: Colors.black87),
+            ),
+          ),
           TextButton(onPressed: _loadAssignments, child: const Text('Retry')),
         ],
       ),
@@ -355,11 +439,17 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
     return FormCard(
       padding: const EdgeInsets.all(24),
       child: Column(
-        children: List.generate(4, (_) => Container(
-          height: 56,
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(12)),
-        )),
+        children: List.generate(
+          4,
+          (_) => Container(
+            height: 56,
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade200,
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -369,7 +459,11 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
       padding: const EdgeInsets.symmetric(vertical: 48),
       child: Column(
         children: [
-          Icon(Icons.assignment_outlined, size: 56, color: Colors.grey.shade400),
+          Icon(
+            Icons.assignment_outlined,
+            size: 56,
+            color: Colors.grey.shade400,
+          ),
           const SizedBox(height: 16),
           const Text(
             'No assignments yet. Create one to enable timetables & teacher features.',
@@ -387,7 +481,11 @@ class _AssignmentCard extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
-  const _AssignmentCard({required this.assignment, required this.onEdit, required this.onDelete});
+  const _AssignmentCard({
+    required this.assignment,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -398,7 +496,11 @@ class _AssignmentCard extends StatelessWidget {
         color: kCardColor,
         borderRadius: BorderRadius.circular(kCardRadius),
         boxShadow: [
-          BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 6)),
+          BoxShadow(
+            color: kPrimaryBlue.withOpacity(0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
         ],
       ),
       child: Row(
@@ -407,12 +509,29 @@ class _AssignmentCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(assignment.className, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
+                Text(
+                  assignment.className,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: kPrimaryBlue,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text(assignment.subjectName, style: TextStyle(fontSize: 14, color: Colors.grey[800])),
-                Text(assignment.teacherName, style: TextStyle(fontSize: 14, color: Colors.grey[700])),
-                if (assignment.teacherEmail != null && assignment.teacherEmail!.isNotEmpty)
-                  Text(assignment.teacherEmail!, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                Text(
+                  assignment.subjectName,
+                  style: TextStyle(fontSize: 14, color: Colors.grey[800]),
+                ),
+                Text(
+                  assignment.teacherName,
+                  style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                ),
+                if (assignment.teacherEmail != null &&
+                    assignment.teacherEmail!.isNotEmpty)
+                  Text(
+                    assignment.teacherEmail!,
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
               ],
             ),
           ),
@@ -422,7 +541,11 @@ class _AssignmentCard extends StatelessWidget {
             tooltip: 'Edit assignment',
           ),
           IconButton(
-            icon: Icon(Icons.delete_outline_rounded, color: Colors.red[400], size: 24),
+            icon: Icon(
+              Icons.delete_outline_rounded,
+              color: Colors.red[400],
+              size: 24,
+            ),
             onPressed: onDelete,
             tooltip: 'Remove assignment',
           ),
@@ -437,13 +560,11 @@ class _CreateAssignmentDialog extends StatefulWidget {
   final List<ClassModel> classes;
   final VoidCallback onSaved;
 
-  const _CreateAssignmentDialog({
-    required this.classes,
-    required this.onSaved,
-  });
+  const _CreateAssignmentDialog({required this.classes, required this.onSaved});
 
   @override
-  State<_CreateAssignmentDialog> createState() => _CreateAssignmentDialogState();
+  State<_CreateAssignmentDialog> createState() =>
+      _CreateAssignmentDialogState();
 }
 
 class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
@@ -479,7 +600,8 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
     if (!mounted) return;
     setState(() {
       _teachersLoading = false;
-      if (result is TeacherSuccess<List<TeacherModel>>) _allTeachers = result.data;
+      if (result is TeacherSuccess<List<TeacherModel>>)
+        _allTeachers = result.data;
     });
   }
 
@@ -494,7 +616,11 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
   Future<void> _submit() async {
     if (_classId == null || _subjectId == null || _teacherId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select class, subject and teacher'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+        const SnackBar(
+          content: Text('Select class, subject and teacher'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
       );
       return;
     }
@@ -513,15 +639,27 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
       final err = result as AssignmentError;
       if (err.statusCode == 409) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Assignment already exists.'), backgroundColor: Colors.orange, behavior: SnackBarBehavior.floating),
+          const SnackBar(
+            content: Text('Assignment already exists.'),
+            backgroundColor: Colors.orange,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       } else if (err.statusCode == 404) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(err.message), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+          SnackBar(
+            content: Text(err.message),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(err.message), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+          SnackBar(
+            content: Text(err.message),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     }
@@ -532,13 +670,13 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
     final subjectHint = _subjectsLoading
         ? 'Loading...'
         : _subjects.isEmpty
-            ? 'No subjects in school. Add subjects first.'
-            : null;
+        ? 'No subjects in school. Add subjects first.'
+        : null;
     final teacherHint = _teachersLoading
         ? null
         : _allTeachers.isEmpty
-            ? 'No teachers available. Create teachers first.'
-            : null;
+        ? 'No teachers available. Create teachers first.'
+        : null;
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -550,57 +688,106 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Create Assignment', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
+              const Text(
+                'Create Assignment',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: kPrimaryBlue,
+                ),
+              ),
               const SizedBox(height: 20),
               Select3D<int?>(
                 value: _classId,
                 label: 'Class',
                 items: [
-                  const DropdownMenuItem<int?>(value: null, child: Text('Select class')),
-                  ...widget.classes.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name))),
+                  const DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text('Select class'),
+                  ),
+                  ...widget.classes.map(
+                    (c) => DropdownMenuItem<int?>(
+                      value: c.id,
+                      child: Text(c.name),
+                    ),
+                  ),
                 ],
                 onChanged: _onClassChanged,
               ),
               const SizedBox(height: 16),
-              if (subjectHint != null) Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(subjectHint, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-              ),
+              if (subjectHint != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    subjectHint,
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                ),
               Select3D<int?>(
                 value: _subjectId,
                 label: 'Subject',
                 items: [
                   DropdownMenuItem<int?>(
                     value: null,
-                    child: Text(_subjectsLoading ? 'Loading...' : _subjects.isEmpty ? 'No subjects in school' : 'Select subject'),
+                    child: Text(
+                      _subjectsLoading
+                          ? 'Loading...'
+                          : _subjects.isEmpty
+                          ? 'No subjects in school'
+                          : 'Select subject',
+                    ),
                   ),
-                  ..._subjects.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text(s.name))),
+                  ..._subjects.map(
+                    (s) => DropdownMenuItem<int?>(
+                      value: s.id,
+                      child: Text(s.name),
+                    ),
+                  ),
                 ],
                 onChanged: _subjectsLoading ? null : _onSubjectChanged,
               ),
               const SizedBox(height: 16),
-              if (teacherHint != null) Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(teacherHint, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-              ),
+              if (teacherHint != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    teacherHint,
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                ),
               Select3D<int?>(
                 value: _teacherId,
                 label: 'Teacher',
                 items: [
                   DropdownMenuItem<int?>(
                     value: null,
-                    child: Text(_teachersLoading ? 'Loading...' : _allTeachers.isEmpty ? 'No teachers in school' : 'Select teacher'),
+                    child: Text(
+                      _teachersLoading
+                          ? 'Loading...'
+                          : _allTeachers.isEmpty
+                          ? 'No teachers in school'
+                          : 'Select teacher',
+                    ),
                   ),
-                  ..._allTeachers.map((t) => DropdownMenuItem<int?>(value: t.id, child: Text(t.fullName))),
+                  ..._allTeachers.map(
+                    (t) => DropdownMenuItem<int?>(
+                      value: t.id,
+                      child: Text(t.fullName),
+                    ),
+                  ),
                 ],
-                onChanged: _teachersLoading ? null : (v) => setState(() => _teacherId = v),
+                onChanged: _teachersLoading
+                    ? null
+                    : (v) => setState(() => _teacherId = v),
               ),
               const SizedBox(height: 24),
               Row(
                 children: [
                   Expanded(
                     child: TextButton(
-                      onPressed: _saving ? null : () => Navigator.pop(context, false),
+                      onPressed: _saving
+                          ? null
+                          : () => Navigator.pop(context, false),
                       child: const Text('Cancel'),
                     ),
                   ),
@@ -654,8 +841,12 @@ class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
   void initState() {
     super.initState();
     _classId = widget.assignment.classId > 0 ? widget.assignment.classId : null;
-    _subjectId = widget.assignment.subjectId > 0 ? widget.assignment.subjectId : null;
-    _teacherId = widget.assignment.teacherId > 0 ? widget.assignment.teacherId : null;
+    _subjectId = widget.assignment.subjectId > 0
+        ? widget.assignment.subjectId
+        : null;
+    _teacherId = widget.assignment.teacherId > 0
+        ? widget.assignment.teacherId
+        : null;
     _loadAllSubjects();
     _loadAllTeachers();
   }
@@ -676,7 +867,8 @@ class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
     if (!mounted) return;
     setState(() {
       _teachersLoading = false;
-      if (result is TeacherSuccess<List<TeacherModel>>) _allTeachers = result.data;
+      if (result is TeacherSuccess<List<TeacherModel>>)
+        _allTeachers = result.data;
     });
   }
 
@@ -691,7 +883,11 @@ class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
   Future<void> _submit() async {
     if (_classId == null || _subjectId == null || _teacherId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select class, subject and teacher'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+        const SnackBar(
+          content: Text('Select class, subject and teacher'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
       );
       return;
     }
@@ -712,7 +908,9 @@ class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
       if (err.statusCode == 409) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Duplicate assignment. That teacher/class/subject combination already exists.'),
+            content: Text(
+              'Duplicate assignment. That teacher/class/subject combination already exists.',
+            ),
             backgroundColor: Colors.orange,
             behavior: SnackBarBehavior.floating,
           ),
@@ -727,7 +925,11 @@ class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(err.message), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+          SnackBar(
+            content: Text(err.message),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     }
@@ -738,13 +940,13 @@ class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
     final subjectHint = _subjectsLoading
         ? 'Loading...'
         : _subjects.isEmpty
-            ? 'No subjects in school.'
-            : null;
+        ? 'No subjects in school.'
+        : null;
     final teacherHint = _teachersLoading
         ? null
         : _allTeachers.isEmpty
-            ? 'No teachers available.'
-            : null;
+        ? 'No teachers available.'
+        : null;
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -756,7 +958,14 @@ class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Edit Assignment', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
+              const Text(
+                'Edit Assignment',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: kPrimaryBlue,
+                ),
+              ),
               const SizedBox(height: 8),
               Text(
                 'ID: ${widget.assignment.id}',
@@ -767,51 +976,93 @@ class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
                 value: _classId,
                 label: 'Class',
                 items: [
-                  const DropdownMenuItem<int?>(value: null, child: Text('Select class')),
-                  ...widget.classes.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name))),
+                  const DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text('Select class'),
+                  ),
+                  ...widget.classes.map(
+                    (c) => DropdownMenuItem<int?>(
+                      value: c.id,
+                      child: Text(c.name),
+                    ),
+                  ),
                 ],
                 onChanged: _onClassChanged,
               ),
               const SizedBox(height: 16),
-              if (subjectHint != null) Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(subjectHint, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-              ),
+              if (subjectHint != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    subjectHint,
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                ),
               Select3D<int?>(
                 value: _subjectId,
                 label: 'Subject',
                 items: [
                   DropdownMenuItem<int?>(
                     value: null,
-                    child: Text(_subjectsLoading ? 'Loading...' : _subjects.isEmpty ? 'No subjects in school' : 'Select subject'),
+                    child: Text(
+                      _subjectsLoading
+                          ? 'Loading...'
+                          : _subjects.isEmpty
+                          ? 'No subjects in school'
+                          : 'Select subject',
+                    ),
                   ),
-                  ..._subjects.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text(s.name))),
+                  ..._subjects.map(
+                    (s) => DropdownMenuItem<int?>(
+                      value: s.id,
+                      child: Text(s.name),
+                    ),
+                  ),
                 ],
                 onChanged: _subjectsLoading ? null : _onSubjectChanged,
               ),
               const SizedBox(height: 16),
-              if (teacherHint != null) Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(teacherHint, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-              ),
+              if (teacherHint != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    teacherHint,
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                ),
               Select3D<int?>(
                 value: _teacherId,
                 label: 'Teacher',
                 items: [
                   DropdownMenuItem<int?>(
                     value: null,
-                    child: Text(_teachersLoading ? 'Loading...' : _allTeachers.isEmpty ? 'No teachers in school' : 'Select teacher'),
+                    child: Text(
+                      _teachersLoading
+                          ? 'Loading...'
+                          : _allTeachers.isEmpty
+                          ? 'No teachers in school'
+                          : 'Select teacher',
+                    ),
                   ),
-                  ..._allTeachers.map((t) => DropdownMenuItem<int?>(value: t.id, child: Text(t.fullName))),
+                  ..._allTeachers.map(
+                    (t) => DropdownMenuItem<int?>(
+                      value: t.id,
+                      child: Text(t.fullName),
+                    ),
+                  ),
                 ],
-                onChanged: _teachersLoading ? null : (v) => setState(() => _teacherId = v),
+                onChanged: _teachersLoading
+                    ? null
+                    : (v) => setState(() => _teacherId = v),
               ),
               const SizedBox(height: 24),
               Row(
                 children: [
                   Expanded(
                     child: TextButton(
-                      onPressed: _saving ? null : () => Navigator.pop(context, false),
+                      onPressed: _saving
+                          ? null
+                          : () => Navigator.pop(context, false),
                       child: const Text('Cancel'),
                     ),
                   ),
@@ -849,9 +1100,19 @@ class _BackButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+          boxShadow: [
+            BoxShadow(
+              color: kPrimaryBlue.withOpacity(0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        child: const Icon(Icons.arrow_back_rounded, color: kPrimaryBlue, size: 24),
+        child: const Icon(
+          Icons.arrow_back_rounded,
+          color: kPrimaryBlue,
+          size: 24,
+        ),
       ),
     );
   }
@@ -869,11 +1130,24 @@ class _AddButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: (onPressed != null ? kPrimaryGreen : Colors.grey).withOpacity(0.12),
+          color: (onPressed != null ? kPrimaryGreen : Colors.grey).withOpacity(
+            0.12,
+          ),
           borderRadius: BorderRadius.circular(14),
-          boxShadow: [BoxShadow(color: (onPressed != null ? kPrimaryGreen : Colors.grey).withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))],
+          boxShadow: [
+            BoxShadow(
+              color: (onPressed != null ? kPrimaryGreen : Colors.grey)
+                  .withOpacity(0.2),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        child: Icon(Icons.add_rounded, color: onPressed != null ? kPrimaryGreen : Colors.grey, size: 24),
+        child: Icon(
+          Icons.add_rounded,
+          color: onPressed != null ? kPrimaryGreen : Colors.grey,
+          size: 24,
+        ),
       ),
     );
   }
