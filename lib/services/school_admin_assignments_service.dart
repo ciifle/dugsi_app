@@ -15,6 +15,7 @@ int _parseId(dynamic v) {
   if (v is String) return int.tryParse(v) ?? 0;
   return 0;
 }
+
 String _str(dynamic v) => v == null ? '' : v.toString().trim();
 String? _strOpt(dynamic v) => v == null ? null : v.toString().trim();
 
@@ -57,7 +58,9 @@ List<dynamic> _extractList(dynamic raw, List<String> keys) {
 }
 
 void devLogResponse(String context, int statusCode, String body) {
-  print('[$context] API response: status=$statusCode body=${body.length > 500 ? "${body.substring(0, 500)}..." : body}');
+  print(
+    '[$context] API response: status=$statusCode body=${body.length > 500 ? "${body.substring(0, 500)}..." : body}',
+  );
 }
 
 // ==================== MODELS ====================
@@ -77,7 +80,8 @@ class AssignmentModel {
   });
 
   int get teacherId => _parseId(teacher['id']);
-  String get teacherName => _str(teacher['fullName'] ?? teacher['full_name'] ?? teacher['name']);
+  String get teacherName =>
+      _str(teacher['fullName'] ?? teacher['full_name'] ?? teacher['name']);
   String? get teacherEmail => _strOpt(teacher['email']);
   int get classId => _parseId(class_['id']);
   String get className => _str(class_['name']);
@@ -90,7 +94,9 @@ class AssignmentModel {
     final s = json['subject'] ?? json['Subject'] ?? json['subject_'];
     return AssignmentModel(
       id: _parseId(json['id']),
-      teacher: t is Map<String, dynamic> ? t : {'id': 0, 'fullName': '', 'email': ''},
+      teacher: t is Map<String, dynamic>
+          ? t
+          : {'id': 0, 'fullName': '', 'email': ''},
       class_: c is Map<String, dynamic> ? c : {'id': 0, 'name': ''},
       subject: s is Map<String, dynamic> ? s : {'id': 0, 'name': ''},
     );
@@ -117,14 +123,25 @@ class ClassSubjectItem {
 
 // ==================== RESULT TYPES ====================
 sealed class AssignmentResult<T> {}
+
 class AssignmentSuccess<T> extends AssignmentResult<T> {
   final T data;
   AssignmentSuccess(this.data);
 }
+
 class AssignmentError extends AssignmentResult<Never> {
   final String message;
   final int? statusCode;
   AssignmentError(this.message, [this.statusCode]);
+}
+
+class BulkAssignmentResponse {
+  final int createdCount;
+  final List<AssignmentModel> assignments;
+  const BulkAssignmentResponse({
+    required this.createdCount,
+    required this.assignments,
+  });
 }
 
 // ==================== SERVICE ====================
@@ -132,7 +149,8 @@ final _client = ApiClient();
 
 class SchoolAdminAssignmentsService {
   SchoolAdminAssignmentsService._();
-  static final SchoolAdminAssignmentsService _instance = SchoolAdminAssignmentsService._();
+  static final SchoolAdminAssignmentsService _instance =
+      SchoolAdminAssignmentsService._();
   factory SchoolAdminAssignmentsService() => _instance;
 
   /// GET /api/school-admin/assignments?teacher_id=&class_id=&subject_id=
@@ -143,23 +161,42 @@ class SchoolAdminAssignmentsService {
   }) async {
     try {
       final params = <String, String>{};
-      if (teacherId != null && teacherId > 0) params['teacher_id'] = teacherId.toString();
-      if (classId != null && classId > 0) params['class_id'] = classId.toString();
-      if (subjectId != null && subjectId > 0) params['subject_id'] = subjectId.toString();
+      if (teacherId != null && teacherId > 0)
+        params['teacher_id'] = teacherId.toString();
+      if (classId != null && classId > 0)
+        params['class_id'] = classId.toString();
+      if (subjectId != null && subjectId > 0)
+        params['subject_id'] = subjectId.toString();
       final uri = params.isEmpty
           ? apiUrl('$_base/assignments')
           : apiUrl('$_base/assignments').replace(queryParameters: params);
       final response = await _client.get(uri);
-      devLogResponse('SchoolAdminAssignmentsService.listAssignments', response.statusCode, response.body);
+      devLogResponse(
+        'SchoolAdminAssignmentsService.listAssignments',
+        response.statusCode,
+        response.body,
+      );
       if (response.statusCode != 200) {
-        return AssignmentError(_errorMessage(response) ?? 'Could not load assignments.', response.statusCode);
+        return AssignmentError(
+          _errorMessage(response) ?? 'Could not load assignments.',
+          response.statusCode,
+        );
       }
       final raw = _parseJson(response.body);
       final list = _extractList(raw, ['assignments', 'data', 'items']);
-      final items = list.whereType<Map<String, dynamic>>().map((e) => AssignmentModel.fromJson(e)).toList();
+      final items = list
+          .whereType<Map<String, dynamic>>()
+          .map((e) => AssignmentModel.fromJson(e))
+          .toList();
       return AssignmentSuccess(items);
     } catch (e, st) {
-      return AssignmentError(userFriendlyMessage(e, st, 'SchoolAdminAssignmentsService.listAssignments'));
+      return AssignmentError(
+        userFriendlyMessage(
+          e,
+          st,
+          'SchoolAdminAssignmentsService.listAssignments',
+        ),
+      );
     }
   }
 
@@ -167,17 +204,32 @@ class SchoolAdminAssignmentsService {
   Future<AssignmentResult<AssignmentModel>> getAssignment(int id) async {
     try {
       final response = await _client.get(apiUrl('$_base/assignments/$id'));
-      devLogResponse('SchoolAdminAssignmentsService.getAssignment', response.statusCode, response.body);
-      if (response.statusCode == 404) return AssignmentError('Assignment not found.', 404);
+      devLogResponse(
+        'SchoolAdminAssignmentsService.getAssignment',
+        response.statusCode,
+        response.body,
+      );
+      if (response.statusCode == 404)
+        return AssignmentError('Assignment not found.', 404);
       if (response.statusCode != 200) {
-        return AssignmentError(_errorMessage(response) ?? 'Could not load assignment.', response.statusCode);
+        return AssignmentError(
+          _errorMessage(response) ?? 'Could not load assignment.',
+          response.statusCode,
+        );
       }
       final raw = _parseJson(response.body);
       final map = raw is Map ? (raw['assignment'] ?? raw['data'] ?? raw) : null;
-      if (map is! Map<String, dynamic>) return AssignmentError('Invalid response.');
+      if (map is! Map<String, dynamic>)
+        return AssignmentError('Invalid response.');
       return AssignmentSuccess(AssignmentModel.fromJson(map));
     } catch (e, st) {
-      return AssignmentError(userFriendlyMessage(e, st, 'SchoolAdminAssignmentsService.getAssignment'));
+      return AssignmentError(
+        userFriendlyMessage(
+          e,
+          st,
+          'SchoolAdminAssignmentsService.getAssignment',
+        ),
+      );
     }
   }
 
@@ -193,23 +245,88 @@ class SchoolAdminAssignmentsService {
         'class_id': classId,
         'subject_id': subjectId,
       };
-      final response = await _client.post(apiUrl('$_base/assignments'), body: body);
-      devLogResponse('SchoolAdminAssignmentsService.createAssignment', response.statusCode, response.body);
+      final response = await _client.post(
+        apiUrl('$_base/assignments'),
+        body: body,
+      );
+      devLogResponse(
+        'SchoolAdminAssignmentsService.createAssignment',
+        response.statusCode,
+        response.body,
+      );
       if (response.statusCode == 409) {
-        return AssignmentError(_errorMessage(response) ?? 'Assignment already exists.', 409);
+        return AssignmentError(
+          _errorMessage(response) ?? 'Assignment already exists.',
+          409,
+        );
       }
       if (response.statusCode == 404) {
-        return AssignmentError(_errorMessage(response) ?? 'Teacher, class or subject not found.', 404);
+        return AssignmentError(
+          _errorMessage(response) ?? 'Teacher, class or subject not found.',
+          404,
+        );
       }
       if (response.statusCode != 200 && response.statusCode != 201) {
-        return AssignmentError(_errorMessage(response) ?? 'Could not create assignment.', response.statusCode);
+        return AssignmentError(
+          _errorMessage(response) ?? 'Could not create assignment.',
+          response.statusCode,
+        );
       }
       final raw = _parseJson(response.body);
       final map = raw is Map ? (raw['assignment'] ?? raw['data'] ?? raw) : null;
-      if (map is! Map<String, dynamic>) return AssignmentError('Invalid response.');
+      if (map is! Map<String, dynamic>)
+        return AssignmentError('Invalid response.');
       return AssignmentSuccess(AssignmentModel.fromJson(map));
     } catch (e, st) {
-      return AssignmentError(userFriendlyMessage(e, st, 'SchoolAdminAssignmentsService.createAssignment'));
+      return AssignmentError(
+        userFriendlyMessage(
+          e,
+          st,
+          'SchoolAdminAssignmentsService.createAssignment',
+        ),
+      );
+    }
+  }
+
+  /// POST /api/school-admin/course-assignments/bulk
+  Future<AssignmentResult<BulkAssignmentResponse>> createBulkAssignments({
+    required int teacherId,
+    required List<Map<String, int>> assignments,
+  }) async {
+    try {
+      final response = await _client.post(
+        apiUrl('$_base/course-assignments/bulk'),
+        body: {'teacher_id': teacherId, 'assignments': assignments},
+      );
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        return AssignmentError(
+          _errorMessage(response) ?? 'Could not create teacher assignments.',
+          response.statusCode,
+        );
+      }
+      final raw = _parseJson(response.body);
+      final list = _extractList(raw, ['assignments', 'data', 'items']);
+      final values = list
+          .whereType<Map>()
+          .map(
+            (item) => AssignmentModel.fromJson(Map<String, dynamic>.from(item)),
+          )
+          .toList();
+      final map = raw is Map ? raw : const {};
+      final count = _parseId(
+        map['created_count'] ?? map['createdCount'] ?? values.length,
+      );
+      return AssignmentSuccess(
+        BulkAssignmentResponse(createdCount: count, assignments: values),
+      );
+    } catch (error, stack) {
+      return AssignmentError(
+        userFriendlyMessage(
+          error,
+          stack,
+          'SchoolAdminAssignmentsService.createBulkAssignments',
+        ),
+      );
     }
   }
 
@@ -227,23 +344,46 @@ class SchoolAdminAssignmentsService {
       if (teacherId != null && teacherId > 0) body['teacher_id'] = teacherId;
       if (classId != null && classId > 0) body['class_id'] = classId;
       if (subjectId != null && subjectId > 0) body['subject_id'] = subjectId;
-      final response = await _client.patch(apiUrl('$_base/assignments/$id'), body: body);
-      devLogResponse('SchoolAdminAssignmentsService.updateAssignment', response.statusCode, response.body);
+      final response = await _client.patch(
+        apiUrl('$_base/assignments/$id'),
+        body: body,
+      );
+      devLogResponse(
+        'SchoolAdminAssignmentsService.updateAssignment',
+        response.statusCode,
+        response.body,
+      );
       if (response.statusCode == 404) {
-        return AssignmentError(_errorMessage(response) ?? 'Assignment not found.', 404);
+        return AssignmentError(
+          _errorMessage(response) ?? 'Assignment not found.',
+          404,
+        );
       }
       if (response.statusCode == 409) {
-        return AssignmentError(_errorMessage(response) ?? 'Duplicate assignment.', 409);
+        return AssignmentError(
+          _errorMessage(response) ?? 'Duplicate assignment.',
+          409,
+        );
       }
       if (response.statusCode != 200) {
-        return AssignmentError(_errorMessage(response) ?? 'Could not update assignment.', response.statusCode);
+        return AssignmentError(
+          _errorMessage(response) ?? 'Could not update assignment.',
+          response.statusCode,
+        );
       }
       final raw = _parseJson(response.body);
       final map = raw is Map ? (raw['assignment'] ?? raw['data'] ?? raw) : null;
-      if (map is! Map<String, dynamic>) return AssignmentError('Invalid response.');
+      if (map is! Map<String, dynamic>)
+        return AssignmentError('Invalid response.');
       return AssignmentSuccess(AssignmentModel.fromJson(map));
     } catch (e, st) {
-      return AssignmentError(userFriendlyMessage(e, st, 'SchoolAdminAssignmentsService.updateAssignment'));
+      return AssignmentError(
+        userFriendlyMessage(
+          e,
+          st,
+          'SchoolAdminAssignmentsService.updateAssignment',
+        ),
+      );
     }
   }
 
@@ -251,26 +391,52 @@ class SchoolAdminAssignmentsService {
   Future<AssignmentResult<void>> deleteAssignment(int id) async {
     try {
       final response = await _client.delete(apiUrl('$_base/assignments/$id'));
-      devLogResponse('SchoolAdminAssignmentsService.deleteAssignment', response.statusCode, response.body);
-      if (response.statusCode == 404) return AssignmentError('Assignment not found.', 404);
+      devLogResponse(
+        'SchoolAdminAssignmentsService.deleteAssignment',
+        response.statusCode,
+        response.body,
+      );
+      if (response.statusCode == 404)
+        return AssignmentError('Assignment not found.', 404);
       if (response.statusCode != 200 && response.statusCode != 204) {
-        return AssignmentError(_errorMessage(response) ?? 'Could not delete assignment.', response.statusCode);
+        return AssignmentError(
+          _errorMessage(response) ?? 'Could not delete assignment.',
+          response.statusCode,
+        );
       }
       return AssignmentSuccess(null);
     } catch (e, st) {
-      return AssignmentError(userFriendlyMessage(e, st, 'SchoolAdminAssignmentsService.deleteAssignment'));
+      return AssignmentError(
+        userFriendlyMessage(
+          e,
+          st,
+          'SchoolAdminAssignmentsService.deleteAssignment',
+        ),
+      );
     }
   }
 
   /// GET /api/school-admin/classes/{class_id}/subjects
   /// Response: { "subjects": [ { "id", "name" } ] } or { "subjects": [] }. Handle empty arrays safely.
-  Future<AssignmentResult<List<ClassSubjectItem>>> listClassSubjects(int classId) async {
+  Future<AssignmentResult<List<ClassSubjectItem>>> listClassSubjects(
+    int classId,
+  ) async {
     try {
-      final response = await _client.get(apiUrl('$_base/classes/$classId/subjects'));
-      devLogResponse('SchoolAdminAssignmentsService.listClassSubjects', response.statusCode, response.body);
-      if (response.statusCode == 404) return AssignmentError('Class not found.', 404);
+      final response = await _client.get(
+        apiUrl('$_base/classes/$classId/subjects'),
+      );
+      devLogResponse(
+        'SchoolAdminAssignmentsService.listClassSubjects',
+        response.statusCode,
+        response.body,
+      );
+      if (response.statusCode == 404)
+        return AssignmentError('Class not found.', 404);
       if (response.statusCode != 200) {
-        return AssignmentError(_errorMessage(response) ?? 'Could not load subjects for class.', response.statusCode);
+        return AssignmentError(
+          _errorMessage(response) ?? 'Could not load subjects for class.',
+          response.statusCode,
+        );
       }
       final raw = _parseJson(response.body);
       List<dynamic> list = [];
@@ -295,25 +461,54 @@ class SchoolAdminAssignmentsService {
       }
       return AssignmentSuccess(items);
     } catch (e, st) {
-      return AssignmentError(userFriendlyMessage(e, st, 'SchoolAdminAssignmentsService.listClassSubjects'));
+      return AssignmentError(
+        userFriendlyMessage(
+          e,
+          st,
+          'SchoolAdminAssignmentsService.listClassSubjects',
+        ),
+      );
     }
   }
 
   /// GET /api/school-admin/classes/{class_id}/subjects/{subject_id}/teachers
-  Future<AssignmentResult<List<TeacherModel>>> listClassSubjectTeachers(int classId, int subjectId) async {
+  Future<AssignmentResult<List<TeacherModel>>> listClassSubjectTeachers(
+    int classId,
+    int subjectId,
+  ) async {
     try {
-      final response = await _client.get(apiUrl('$_base/classes/$classId/subjects/$subjectId/teachers'));
-      devLogResponse('SchoolAdminAssignmentsService.listClassSubjectTeachers', response.statusCode, response.body);
-      if (response.statusCode == 404) return AssignmentError('Class or subject not found.', 404);
+      final response = await _client.get(
+        apiUrl('$_base/classes/$classId/subjects/$subjectId/teachers'),
+      );
+      devLogResponse(
+        'SchoolAdminAssignmentsService.listClassSubjectTeachers',
+        response.statusCode,
+        response.body,
+      );
+      if (response.statusCode == 404)
+        return AssignmentError('Class or subject not found.', 404);
       if (response.statusCode != 200) {
-        return AssignmentError(_errorMessage(response) ?? 'Could not load teachers for class/subject.', response.statusCode);
+        return AssignmentError(
+          _errorMessage(response) ??
+              'Could not load teachers for class/subject.',
+          response.statusCode,
+        );
       }
       final raw = _parseJson(response.body);
       final list = _extractList(raw, ['teachers', 'data', 'items']);
-      final items = list.whereType<Map<String, dynamic>>().map((e) => TeacherModel.fromJson(e)).toList();
+      final items = list
+          .whereType<Map<String, dynamic>>()
+          .map((e) => TeacherModel.fromJson(e))
+          .toList();
       return AssignmentSuccess(items);
     } catch (e, st) {
-      return AssignmentError(userFriendlyMessage(e, st, 'SchoolAdminAssignmentsService.listClassSubjectTeachers'));
+      return AssignmentError(
+        userFriendlyMessage(
+          e,
+          st,
+          'SchoolAdminAssignmentsService.listClassSubjectTeachers',
+        ),
+      );
     }
   }
 }

@@ -7,6 +7,11 @@ int _int(dynamic value) =>
     value is int ? value : int.tryParse(value?.toString() ?? '') ?? 0;
 double _double(dynamic value) =>
     value is num ? value.toDouble() : double.tryParse('$value') ?? 0;
+double? _doubleOrNull(dynamic value) => value == null
+    ? null
+    : value is num
+    ? value.toDouble()
+    : double.tryParse('$value');
 Map<String, dynamic> _map(dynamic value) =>
     value is Map ? Map<String, dynamic>.from(value) : const {};
 List<dynamic> _list(dynamic value) => value is List ? value : const [];
@@ -57,9 +62,9 @@ class RankedStudent {
       name: (json['student_name'] ?? '').toString(),
       emis: (json['emis_number'] ?? '').toString(),
       className: (classMap['name'] ?? json['class_name'] ?? '').toString(),
-      percentage: _double(json['percentage']),
-      grade: (json['letter_grade'] ?? '').toString(),
-      status: (json['result_status'] ?? '').toString(),
+      percentage: _double(json['final_percentage'] ?? json['percentage']),
+      grade: (json['grade'] ?? json['letter_grade'] ?? '').toString(),
+      status: (json['status'] ?? json['result_status'] ?? '').toString(),
     );
   }
 }
@@ -106,6 +111,12 @@ class StudentAcademicPerformance {
   final int? position;
   final int totalStudents;
   final List<SubjectPerformance> subjects;
+  final int? subjectsIncluded;
+  final double? grandTotalMarks;
+  final double? grandMaximumMarks;
+
+  double get finalPercentage => percentage;
+  double get overallPercentage => percentage;
 
   const StudentAcademicPerformance({
     required this.studentName,
@@ -119,6 +130,9 @@ class StudentAcademicPerformance {
     required this.position,
     required this.totalStudents,
     required this.subjects,
+    this.subjectsIncluded,
+    this.grandTotalMarks,
+    this.grandMaximumMarks,
   });
 
   factory StudentAcademicPerformance.fromJson(Map<String, dynamic> json) {
@@ -127,22 +141,43 @@ class StudentAcademicPerformance {
     final year = _map(data['academic_year']);
     final classMap = _map(data['class']);
     final performance = _map(data['performance']);
-    final rawPosition = performance['class_position'];
+    final rawPosition =
+        performance['position'] ?? performance['class_position'];
+    final grandTotal = _doubleOrNull(
+      performance['grand_total_marks'] ?? performance['total_marks'],
+    );
+    final grandMaximum = _doubleOrNull(
+      performance['grand_maximum_marks'] ??
+          performance['maximum_marks'] ??
+          performance['total_max_marks'],
+    );
     return StudentAcademicPerformance(
       studentName: (student['name'] ?? '').toString(),
       yearName: (year['name'] ?? '').toString(),
       className: (classMap['name'] ?? '').toString(),
-      totalMarks: _double(performance['total_marks']),
-      maximumMarks: _double(performance['maximum_marks']),
-      percentage: _double(performance['percentage']),
-      grade: (performance['letter_grade'] ?? '').toString(),
+      totalMarks: grandTotal ?? 0,
+      maximumMarks: grandMaximum ?? 0,
+      percentage: _double(
+        performance['overall_percentage'] ??
+            performance['final_percentage'] ??
+            performance['percentage'],
+      ),
+      grade: (performance['grade'] ?? performance['letter_grade'] ?? '')
+          .toString(),
       status: (performance['result_status'] ?? '').toString(),
       position: rawPosition == null ? null : _int(rawPosition),
-      totalStudents: _int(performance['total_students_in_class']),
+      totalStudents: _int(
+        performance['class_size'] ?? performance['total_students_in_class'],
+      ),
       subjects: _list(data['subjects'])
           .whereType<Map>()
           .map((e) => SubjectPerformance.fromJson(Map<String, dynamic>.from(e)))
           .toList(),
+      subjectsIncluded: performance['subjects_included'] == null
+          ? null
+          : _int(performance['subjects_included']),
+      grandTotalMarks: grandTotal,
+      grandMaximumMarks: grandMaximum,
     );
   }
 }

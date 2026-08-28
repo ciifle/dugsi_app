@@ -576,6 +576,9 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
   bool _saving = false;
   List<TeacherModel> _allTeachers = [];
   bool _teachersLoading = true;
+  bool _multi = false;
+  final List<_BulkAssignmentRow> _bulkRows = [_BulkAssignmentRow()];
+  String? _formError;
 
   @override
   void initState() {
@@ -614,6 +617,10 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
   void _onSubjectChanged(int? v) => setState(() => _subjectId = v);
 
   Future<void> _submit() async {
+    if (_multi) {
+      await _submitBulk();
+      return;
+    }
     if (_classId == null || _subjectId == null || _teacherId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -665,6 +672,55 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
     }
   }
 
+  Future<void> _submitBulk() async {
+    if (_teacherId == null ||
+        _bulkRows.any((row) => row.classId == null || row.subjectId == null)) {
+      setState(
+        () => _formError = 'Select a teacher, class and subject for every row.',
+      );
+      return;
+    }
+    final keys = <String>{};
+    for (final row in _bulkRows) {
+      if (!keys.add('${row.classId}:${row.subjectId}')) {
+        setState(
+          () => _formError = 'This class and subject are already included.',
+        );
+        return;
+      }
+    }
+    setState(() {
+      _saving = true;
+      _formError = null;
+    });
+    final result = await SchoolAdminAssignmentsService().createBulkAssignments(
+      teacherId: _teacherId!,
+      assignments: _bulkRows
+          .map(
+            (row) => {'class_id': row.classId!, 'subject_id': row.subjectId!},
+          )
+          .toList(),
+    );
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (result is AssignmentError) {
+      setState(() => _formError = result.message);
+      return;
+    }
+    final created =
+        (result as AssignmentSuccess<BulkAssignmentResponse>).data.createdCount;
+    widget.onSaved();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '$created teacher assignment${created == 1 ? '' : 's'} created.',
+        ),
+        backgroundColor: kPrimaryGreen,
+      ),
+    );
+    Navigator.pop(context, true);
+  }
+
   @override
   Widget build(BuildContext context) {
     final subjectHint = _subjectsLoading
@@ -689,7 +745,7 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text(
-                'Create Assignment',
+                'Assign Teacher',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -697,89 +753,216 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
                 ),
               ),
               const SizedBox(height: 20),
-              Select3D<int?>(
-                value: _classId,
-                label: 'Class',
-                items: [
-                  const DropdownMenuItem<int?>(
-                    value: null,
-                    child: Text('Select class'),
-                  ),
-                  ...widget.classes.map(
-                    (c) => DropdownMenuItem<int?>(
-                      value: c.id,
-                      child: Text(c.name),
-                    ),
-                  ),
+              SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment(value: false, label: Text('Single Assignment')),
+                  ButtonSegment(value: true, label: Text('Multi Assignment')),
                 ],
-                onChanged: _onClassChanged,
-              ),
-              const SizedBox(height: 16),
-              if (subjectHint != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(
-                    subjectHint,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  ),
-                ),
-              Select3D<int?>(
-                value: _subjectId,
-                label: 'Subject',
-                items: [
-                  DropdownMenuItem<int?>(
-                    value: null,
-                    child: Text(
-                      _subjectsLoading
-                          ? 'Loading...'
-                          : _subjects.isEmpty
-                          ? 'No subjects in school'
-                          : 'Select subject',
-                    ),
-                  ),
-                  ..._subjects.map(
-                    (s) => DropdownMenuItem<int?>(
-                      value: s.id,
-                      child: Text(s.name),
-                    ),
-                  ),
-                ],
-                onChanged: _subjectsLoading ? null : _onSubjectChanged,
-              ),
-              const SizedBox(height: 16),
-              if (teacherHint != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(
-                    teacherHint,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  ),
-                ),
-              Select3D<int?>(
-                value: _teacherId,
-                label: 'Teacher',
-                items: [
-                  DropdownMenuItem<int?>(
-                    value: null,
-                    child: Text(
-                      _teachersLoading
-                          ? 'Loading...'
-                          : _allTeachers.isEmpty
-                          ? 'No teachers in school'
-                          : 'Select teacher',
-                    ),
-                  ),
-                  ..._allTeachers.map(
-                    (t) => DropdownMenuItem<int?>(
-                      value: t.id,
-                      child: Text(t.fullName),
-                    ),
-                  ),
-                ],
-                onChanged: _teachersLoading
+                selected: {_multi},
+                onSelectionChanged: _saving
                     ? null
-                    : (v) => setState(() => _teacherId = v),
+                    : (value) => setState(() {
+                        _multi = value.first;
+                        _formError = null;
+                      }),
               ),
+              const SizedBox(height: 20),
+              if (_multi) ...[
+                Select3D<int?>(
+                  value: _teacherId,
+                  label: 'Teacher',
+                  items: [
+                    const DropdownMenuItem(
+                      value: null,
+                      child: Text('Select teacher'),
+                    ),
+                    ..._allTeachers.map(
+                      (teacher) => DropdownMenuItem(
+                        value: teacher.id,
+                        child: Text(
+                          teacher.fullName,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
+                  onChanged: _teachersLoading
+                      ? null
+                      : (value) => setState(() => _teacherId = value),
+                ),
+                const SizedBox(height: 16),
+                ...List.generate(_bulkRows.length, (index) {
+                  final row = _bulkRows[index];
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF6F8FB),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              'Assignment ${index + 1}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: kPrimaryBlue,
+                              ),
+                            ),
+                            const Spacer(),
+                            if (_bulkRows.length > 1)
+                              IconButton(
+                                tooltip: 'Remove',
+                                onPressed: () =>
+                                    setState(() => _bulkRows.removeAt(index)),
+                                icon: const Icon(
+                                  Icons.remove_circle_outline,
+                                  color: Colors.red,
+                                ),
+                              ),
+                          ],
+                        ),
+                        Select3D<int?>(
+                          value: row.classId,
+                          label: 'Class',
+                          items: [
+                            const DropdownMenuItem(
+                              value: null,
+                              child: Text('Select class'),
+                            ),
+                            ...widget.classes.map(
+                              (item) => DropdownMenuItem(
+                                value: item.id,
+                                child: Text(item.name),
+                              ),
+                            ),
+                          ],
+                          onChanged: (value) =>
+                              setState(() => row.classId = value),
+                        ),
+                        const SizedBox(height: 12),
+                        Select3D<int?>(
+                          value: row.subjectId,
+                          label: 'Subject',
+                          items: [
+                            const DropdownMenuItem(
+                              value: null,
+                              child: Text('Select subject'),
+                            ),
+                            ..._subjects.map(
+                              (item) => DropdownMenuItem(
+                                value: item.id,
+                                child: Text(item.name),
+                              ),
+                            ),
+                          ],
+                          onChanged: _subjectsLoading
+                              ? null
+                              : (value) =>
+                                    setState(() => row.subjectId = value),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+                OutlinedButton.icon(
+                  onPressed: () =>
+                      setState(() => _bulkRows.add(_BulkAssignmentRow())),
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('Add Assignment'),
+                ),
+                const SizedBox(height: 12),
+              ] else ...[
+                Select3D<int?>(
+                  value: _classId,
+                  label: 'Class',
+                  items: [
+                    const DropdownMenuItem<int?>(
+                      value: null,
+                      child: Text('Select class'),
+                    ),
+                    ...widget.classes.map(
+                      (c) => DropdownMenuItem<int?>(
+                        value: c.id,
+                        child: Text(c.name),
+                      ),
+                    ),
+                  ],
+                  onChanged: _onClassChanged,
+                ),
+                const SizedBox(height: 16),
+                if (subjectHint != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      subjectHint,
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                  ),
+                Select3D<int?>(
+                  value: _subjectId,
+                  label: 'Subject',
+                  items: [
+                    DropdownMenuItem<int?>(
+                      value: null,
+                      child: Text(
+                        _subjectsLoading
+                            ? 'Loading...'
+                            : _subjects.isEmpty
+                            ? 'No subjects in school'
+                            : 'Select subject',
+                      ),
+                    ),
+                    ..._subjects.map(
+                      (s) => DropdownMenuItem<int?>(
+                        value: s.id,
+                        child: Text(s.name),
+                      ),
+                    ),
+                  ],
+                  onChanged: _subjectsLoading ? null : _onSubjectChanged,
+                ),
+                const SizedBox(height: 16),
+                if (teacherHint != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      teacherHint,
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                  ),
+                Select3D<int?>(
+                  value: _teacherId,
+                  label: 'Teacher',
+                  items: [
+                    DropdownMenuItem<int?>(
+                      value: null,
+                      child: Text(
+                        _teachersLoading
+                            ? 'Loading...'
+                            : _allTeachers.isEmpty
+                            ? 'No teachers in school'
+                            : 'Select teacher',
+                      ),
+                    ),
+                    ..._allTeachers.map(
+                      (t) => DropdownMenuItem<int?>(
+                        value: t.id,
+                        child: Text(t.fullName),
+                      ),
+                    ),
+                  ],
+                  onChanged: _teachersLoading
+                      ? null
+                      : (v) => setState(() => _teacherId = v),
+                ),
+              ],
+              if (_formError != null) ...[
+                const SizedBox(height: 12),
+                Text(_formError!, style: const TextStyle(color: Colors.red)),
+              ],
               const SizedBox(height: 24),
               Row(
                 children: [
@@ -795,7 +978,7 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
                   Expanded(
                     flex: 2,
                     child: PrimaryButton3D(
-                      label: 'Create',
+                      label: _multi ? 'Save All Assignments' : 'Create',
                       onPressed: _submit,
                       loading: _saving,
                       height: 48,
@@ -809,6 +992,11 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
       ),
     );
   }
+}
+
+class _BulkAssignmentRow {
+  int? classId;
+  int? subjectId;
 }
 
 /// Edit assignment: prefilled with current teacher, class, subject. PATCH /api/school-admin/assignments/:id.

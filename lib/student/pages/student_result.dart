@@ -293,26 +293,22 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
   }
 
   Widget _buildDesktopSummaryCards(StudentResultReportModel report) {
-    final summary = report.summary;
     final status = _calculateCorrectStatus(report);
-    final bestGrade = _bestGradeFromResults(report.results);
-    final average =
-        summary?['average'] ??
-        summary?['overall_percentage'] ??
-        summary?['percentage'];
-    final rank = summary?['position'];
+    final finalPercentage = report.finalPercentage;
+    final grade = report.grade;
+    final rank = report.position;
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 1200;
         final cards = <Widget>[];
 
-        if (average != null) {
+        if (finalPercentage != null) {
           cards.add(
             _DesktopSummaryCard(
               icon: Icons.percent_rounded,
-              label: 'Average Score',
-              value: '$average%',
+              label: 'Final Score',
+              value: '$finalPercentage / 100',
               color: kPrimaryGreen,
               compact: compact,
             ),
@@ -341,12 +337,12 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
           ),
         );
 
-        if (bestGrade != null) {
+        if (grade != null && grade.isNotEmpty) {
           cards.add(
             _DesktopSummaryCard(
               icon: Icons.grade_rounded,
-              label: 'Best Grade',
-              value: bestGrade,
+              label: 'Grade',
+              value: grade,
               color: kPrimaryBlue,
               compact: compact,
             ),
@@ -357,8 +353,10 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
           cards.add(
             _DesktopSummaryCard(
               icon: Icons.leaderboard_rounded,
-              label: 'Rank',
-              value: rank.toString(),
+              label: 'Position',
+              value: report.classSize != null
+                  ? '$rank / ${report.classSize}'
+                  : rank.toString(),
               color: kPrimaryBlue,
               compact: compact,
             ),
@@ -397,19 +395,6 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
         );
       },
     );
-  }
-
-  String? _bestGradeFromResults(List<Map<String, dynamic>> results) {
-    String? best;
-    for (final row in results) {
-      final grade = row['grade']?.toString().trim();
-      if (grade == null || grade.isEmpty || grade == 'N/A' || grade == '—')
-        continue;
-      if (best == null || grade.compareTo(best) < 0) {
-        best = grade;
-      }
-    }
-    return best;
   }
 
   Widget _buildDesktopExamFilter(List<StudentExamModel> exams) {
@@ -620,21 +605,18 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                     spacing: 16,
                     runSpacing: 8,
                     children: [
-                      if (report.summary!['total'] != null ||
-                          report.summary!['total_marks_obtained'] != null)
+                      if (report.finalPercentage != null)
                         Text(
-                          'Total: ${report.summary!['total'] ?? report.summary!['total_marks_obtained']}'
-                          '${report.summary!['total_max'] != null ? ' / ${report.summary!['total_max']}' : ''}',
+                          'Final Score: ${report.finalPercentage} / 100',
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                             color: kTextPrimaryColor,
                           ),
                         ),
-                      if (report.summary!['average'] != null ||
-                          report.summary!['overall_percentage'] != null)
+                      if (report.grade != null)
                         Text(
-                          'Average: ${report.summary!['average'] ?? report.summary!['overall_percentage']}%',
+                          'Grade: ${report.grade}',
                           style: const TextStyle(
                             fontSize: 13,
                             color: kTextSecondaryColor,
@@ -1308,7 +1290,7 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                                                     CrossAxisAlignment.start,
                                                 children: [
                                                   const Text(
-                                                    'TOTAL',
+                                                    'FINAL SCORE',
                                                     style: TextStyle(
                                                       fontSize: 12,
                                                       fontWeight:
@@ -1327,7 +1309,7 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                                                     children: [
                                                       Flexible(
                                                         child: Text(
-                                                          '${result.summary!['total'] ?? result.summary!['total_marks_obtained'] ?? 0}',
+                                                          '${result.finalPercentage ?? '—'}',
                                                           style: const TextStyle(
                                                             fontSize: 24,
                                                             fontWeight:
@@ -1339,14 +1321,14 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                                                         ),
                                                       ),
                                                       if (result
-                                                              .summary!['total_max'] !=
+                                                              .finalPercentage !=
                                                           null) ...[
                                                         const SizedBox(
                                                           width: 4,
                                                         ),
                                                         Flexible(
                                                           child: Text(
-                                                            '/ ${result.summary!['total_max']}',
+                                                            '/ 100',
                                                             style: const TextStyle(
                                                               fontSize: 14,
                                                               fontWeight:
@@ -1391,7 +1373,7 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                                                               .start,
                                                       children: [
                                                         const Text(
-                                                          'AVERAGE',
+                                                          'GRADE',
                                                           style: TextStyle(
                                                             fontSize: 12,
                                                             fontWeight:
@@ -1404,7 +1386,7 @@ class _StudentResultsScreenState extends State<StudentResultsScreen>
                                                           height: 8,
                                                         ),
                                                         Text(
-                                                          '${result.summary!['average'] ?? result.summary!['overall_percentage'] ?? 0}%',
+                                                          result.grade ?? '—',
                                                           style: const TextStyle(
                                                             fontSize: 20,
                                                             fontWeight:

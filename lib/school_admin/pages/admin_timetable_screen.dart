@@ -2129,13 +2129,30 @@ class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
                       (d) => DropdownMenuItem<String>(value: d, child: Text(d)),
                     )
                     .toList(),
-                onChanged: (v) => setState(() {
-                  _day = v ?? 'MON';
-                  if (_teacherId != null &&
-                      !_availableTeachers.any((t) => t.id == _teacherId)) {
-                    _teacherId = null;
+                onChanged: (v) {
+                  final selected = _classTeachers
+                      .where((teacher) => teacher.id == _teacherId)
+                      .firstOrNull;
+                  var cleared = false;
+                  setState(() {
+                    _day = v ?? 'MON';
+                    if (_teacherId != null &&
+                        !_availableTeachers.any((t) => t.id == _teacherId)) {
+                      _teacherId = null;
+                      cleared = true;
+                    }
+                  });
+                  if (cleared) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          '${selected?.fullName ?? 'Selected teacher'} is off on ${dayCodeToLabel(_day)}.',
+                        ),
+                        backgroundColor: Colors.orange.shade800,
+                      ),
+                    );
                   }
-                }),
+                },
               ),
               const SizedBox(height: 16),
               Select3D<int?>(

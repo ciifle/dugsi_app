@@ -13,6 +13,17 @@ const teacherDayLabels = <String, String>{
   'SUN': 'Sunday',
 };
 
+String dayCodeToLabel(String code) =>
+    teacherDayLabels[code.toUpperCase()] ?? code.toUpperCase();
+
+String? dayLabelToCode(String label) {
+  final normalized = label.trim().toLowerCase();
+  for (final entry in teacherDayLabels.entries) {
+    if (entry.value.toLowerCase() == normalized) return entry.key;
+  }
+  return null;
+}
+
 class TeacherDayOffTeacher {
   final int id;
   final String fullName;
@@ -70,6 +81,15 @@ class TeacherDayOffError extends TeacherDayOffResult<Never> {
   final String message;
   final int? statusCode;
   TeacherDayOffError(this.message, [this.statusCode]);
+}
+
+class TeacherDayOffBulkResponse {
+  final int createdCount;
+  final List<TeacherDayOff> records;
+  const TeacherDayOffBulkResponse({
+    required this.createdCount,
+    required this.records,
+  });
 }
 
 class TeacherDayOffService {
@@ -140,6 +160,53 @@ class TeacherDayOffService {
     'is_active': isActive,
   });
 
+  Future<TeacherDayOffResult<TeacherDayOffBulkResponse>> createBulk({
+    required int teacherId,
+    required List<String> days,
+  }) async {
+    final normalized = days.map((day) => day.toUpperCase()).toSet().toList();
+    if (normalized.isEmpty) {
+      return TeacherDayOffError('Select at least one day off.', 400);
+    }
+    try {
+      final response = await _client.post(
+        apiUrl('$_base/bulk'),
+        body: {'teacher_id': teacherId, 'days': normalized},
+      );
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return _error(response);
+      }
+      final raw = _json(response.body);
+      final map = raw is Map ? raw : const {};
+      final rawRecords =
+          map['teacher_day_offs'] ?? map['day_offs'] ?? map['data'];
+      final records = rawRecords is List
+          ? rawRecords
+                .whereType<Map>()
+                .map(
+                  (item) =>
+                      TeacherDayOff.fromJson(Map<String, dynamic>.from(item)),
+                )
+                .toList()
+          : <TeacherDayOff>[];
+      final createdCount = _id(
+        map['created_count'] ?? map['createdCount'] ?? records.length,
+      );
+      await list();
+      return TeacherDayOffSuccess(
+        TeacherDayOffBulkResponse(createdCount: createdCount, records: records),
+      );
+    } catch (error, stackTrace) {
+      return TeacherDayOffError(
+        userFriendlyMessage(
+          error,
+          stackTrace,
+          'TeacherDayOffService.createBulk',
+        ),
+      );
+    }
+  }
+
   Future<TeacherDayOffResult<TeacherDayOff>> update(
     int id, {
     required int teacherId,
@@ -193,12 +260,27 @@ class TeacherDayOffService {
 
   TeacherDayOffError _error(dynamic response) {
     final raw = _json(response.body);
-    final message = raw is Map ? _text(raw['message'] ?? raw['error']) : '';
+    var message = raw is Map ? _text(raw['message'] ?? raw['error']) : '';
+    if (raw is Map && raw['conflicting_days'] is List) {
+      final labels = (raw['conflicting_days'] as List)
+          .map((day) => dayCodeToLabel('$day'))
+          .toList();
+      if (labels.isNotEmpty && message.isEmpty) {
+        message =
+            'Timetable lessons conflict on ${_joinLabels(labels)}. Reschedule them before marking these days off.';
+      }
+    }
     return TeacherDayOffError(
       message.isEmpty ? 'Could not update teacher day off.' : message,
       response.statusCode as int?,
     );
   }
+}
+
+String _joinLabels(List<String> labels) {
+  if (labels.length == 1) return labels.first;
+  if (labels.length == 2) return '${labels.first} and ${labels.last}';
+  return '${labels.take(labels.length - 1).join(', ')}, and ${labels.last}';
 }
 
 dynamic _json(String body) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:kobac/services/academic_performance_service.dart';
 import 'package:kobac/student/widgets/student_web_ui.dart';
 import 'package:kobac/student/widgets/student_learning_ui.dart';
+import 'package:kobac/utils/number_format.dart';
 
 class AcademicPerformancePage extends StatefulWidget {
   final bool embedBodyOnly;
@@ -40,10 +41,7 @@ class _AcademicPerformancePageState extends State<AcademicPerformancePage> {
           }
           final result = snapshot.data!;
           if (result is PerformanceError) {
-            return _PerformanceState(
-              message: result.message,
-              onRetry: _load,
-            );
+            return _PerformanceState(message: result.message, onRetry: _load);
           }
           final data =
               (result as PerformanceSuccess<StudentAcademicPerformance>).data;
@@ -68,66 +66,63 @@ class _AcademicPerformancePageState extends State<AcademicPerformancePage> {
                 _PerformanceSummaryCard(data: data),
                 if (false)
                   _PerformanceCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        data.studentName,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: studentWebBlue,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          data.studentName,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: studentWebBlue,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text('${data.yearName} • ${data.className}'),
-                      const SizedBox(height: 18),
-                      Wrap(
-                        spacing: 20,
-                        runSpacing: 12,
-                        children: [
-                          _metric('Percentage', '${data.percentage}%'),
-                          _metric('Grade', data.grade),
-                          _metric(
-                            'Result',
-                            data.status.isEmpty ? 'Unavailable' : data.status,
-                          ),
-                          _metric(
-                            'Marks',
-                            '${data.totalMarks}/${data.maximumMarks}',
-                          ),
-                        ],
-                      ),
-                    ],
+                        const SizedBox(height: 10),
+                        Text('${data.yearName} • ${data.className}'),
+                        const SizedBox(height: 18),
+                        Wrap(
+                          spacing: 20,
+                          runSpacing: 12,
+                          children: [
+                            _metric('Percentage', '${data.percentage}%'),
+                            _metric('Grade', data.grade),
+                            _metric(
+                              'Result',
+                              data.status.isEmpty ? 'Unavailable' : data.status,
+                            ),
+                            _metric('Marks', '${data.finalPercentage} / 100'),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
                 const SizedBox(height: 14),
                 _PositionCard(data: data),
                 if (false)
                   _PerformanceCard(
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.emoji_events_rounded,
-                        color: studentWebGreen,
-                        size: 34,
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Text(
-                          data.position == null
-                              ? 'Class position unavailable'
-                              : 'Position ${data.position} of ${data.totalStudents}',
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                            color: studentWebBlue,
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.emoji_events_rounded,
+                          color: studentWebGreen,
+                          size: 34,
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Text(
+                            data.position == null
+                                ? 'Class position unavailable'
+                                : 'Position ${data.position} of ${data.totalStudents}',
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: studentWebBlue,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
                 const SizedBox(height: 18),
                 const Text(
                   'Subject Results',
@@ -176,21 +171,19 @@ class _AcademicPerformancePageState extends State<AcademicPerformancePage> {
                                       color: studentWebBlue,
                                     ),
                                   ),
-                                  Text(
-                                    '${subject.marks}/${subject.maximum}',
-                                  ),
+                                  Text('${subject.marks}/${subject.maximum}'),
                                   const SizedBox(height: 10),
                                   ClipRRect(
                                     borderRadius: BorderRadius.circular(999),
                                     child: LinearProgressIndicator(
-                                      value: (subject.percentage / 100)
-                                          .clamp(0.0, 1.0),
+                                      value: (subject.percentage / 100).clamp(
+                                        0.0,
+                                        1.0,
+                                      ),
                                       minHeight: 7,
                                       backgroundColor: studentWebBorder,
-                                      valueColor:
-                                          AlwaysStoppedAnimation<Color>(
-                                        subject.status.toLowerCase() ==
-                                                'fail'
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        subject.status.toLowerCase() == 'fail'
                                             ? Colors.red
                                             : studentWebGreen,
                                       ),
@@ -205,13 +198,14 @@ class _AcademicPerformancePageState extends State<AcademicPerformancePage> {
                                         vertical: 4,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: subject.status
-                                                    .toLowerCase() ==
+                                        color:
+                                            subject.status.toLowerCase() ==
                                                 'fail'
                                             ? Colors.red
                                             : studentWebGreen,
-                                        borderRadius:
-                                            BorderRadius.circular(999),
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
                                       ),
                                       child: Text(
                                         subject.grade,
@@ -293,9 +287,7 @@ class _PerformanceSummaryCard extends StatelessWidget {
             padding: const EdgeInsets.all(18),
             decoration: const BoxDecoration(
               color: studentWebBlue,
-              borderRadius: BorderRadius.vertical(
-                top: Radius.circular(25),
-              ),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
             ),
             child: Row(
               children: [
@@ -381,17 +373,14 @@ class _PerformanceSummaryCard extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: _SummaryValue(
-                        label: 'Grade',
-                        value: data.grade,
-                      ),
+                      child: _SummaryValue(label: 'Grade', value: data.grade),
                     ),
                     Container(width: 1, height: 38, color: studentWebBorder),
                     Expanded(
                       child: _SummaryValue(
                         label: 'Marks',
                         value:
-                            '${data.totalMarks}/${data.maximumMarks}',
+                            '${formatDecimal(data.grandTotalMarks)} / ${formatDecimal(data.grandMaximumMarks)}',
                       ),
                     ),
                   ],
@@ -413,27 +402,24 @@ class _SummaryValue extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: studentWebTextSecondary,
-              fontSize: 11,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: studentWebTextPrimary,
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      );
+    children: [
+      Text(
+        label,
+        style: const TextStyle(color: studentWebTextSecondary, fontSize: 11),
+      ),
+      const SizedBox(height: 4),
+      Text(
+        value,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: studentWebTextPrimary,
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    ],
+  );
 }
 
 class _PositionCard extends StatelessWidget {
@@ -443,72 +429,72 @@ class _PositionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(17),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: studentWebBorder),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x18023471),
-              blurRadius: 18,
-              offset: Offset(0, 7),
-            ),
-          ],
+    padding: const EdgeInsets.all(17),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(22),
+      border: Border.all(color: studentWebBorder),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x18023471),
+          blurRadius: 18,
+          offset: Offset(0, 7),
         ),
-        child: Row(
-          children: [
-            Container(
-              width: 54,
-              height: 54,
-              decoration: BoxDecoration(
-                color: studentWebGreen,
-                borderRadius: BorderRadius.circular(17),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x285AB04B),
-                    blurRadius: 10,
-                    offset: Offset(0, 5),
-                  ),
-                ],
+      ],
+    ),
+    child: Row(
+      children: [
+        Container(
+          width: 54,
+          height: 54,
+          decoration: BoxDecoration(
+            color: studentWebGreen,
+            borderRadius: BorderRadius.circular(17),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x285AB04B),
+                blurRadius: 10,
+                offset: Offset(0, 5),
               ),
-              child: const Icon(
-                Icons.emoji_events_rounded,
-                color: Colors.white,
-                size: 29,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    data.position == null
-                        ? 'Position unavailable'
-                        : 'Position ${data.position}',
-                    style: const TextStyle(
-                      color: studentWebBlue,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    data.position == null
-                        ? 'Ranking will appear after results are released'
-                        : 'Out of ${data.totalStudents} students in class',
-                    style: const TextStyle(
-                      color: studentWebTextSecondary,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
+          child: const Icon(
+            Icons.emoji_events_rounded,
+            color: Colors.white,
+            size: 29,
+          ),
         ),
-      );
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                data.position == null
+                    ? 'Position unavailable'
+                    : 'Position ${data.position}',
+                style: const TextStyle(
+                  color: studentWebBlue,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                data.position == null
+                    ? 'Ranking will appear after results are released'
+                    : 'Out of ${data.totalStudents} students in class',
+                style: const TextStyle(
+                  color: studentWebTextSecondary,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _PerformanceCard extends StatelessWidget {

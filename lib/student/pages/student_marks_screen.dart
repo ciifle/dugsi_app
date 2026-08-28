@@ -80,12 +80,21 @@ class _StudentMarksScreenState extends State<StudentMarksScreen> {
     if (widget.embedBodyOnly &&
         isStudentDesktopWeb(context) &&
         widget.onNavigateToPage != null) {
-      widget.onNavigateToPage!('marksTotal', arguments: list);
+      widget.onNavigateToPage!(
+        'marksTotal',
+        arguments: StudentMarksTotalArguments(
+          marks: list,
+          academicYearId: _selectedYear?.id,
+        ),
+      );
       return;
     }
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => StudentTotalPage(marks: list)),
+      MaterialPageRoute(
+        builder: (context) =>
+            StudentTotalPage(marks: list, academicYearId: _selectedYear?.id),
+      ),
     );
   }
 

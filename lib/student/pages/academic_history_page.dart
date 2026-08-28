@@ -741,10 +741,10 @@ class _ExamCard extends StatelessWidget {
   );
 
   Widget _resultSummary(StudentResultReportModel report) {
-    final summary = report.summary ?? const {};
-    final percentage = summary['percentage'] ?? summary['average'];
-    final grade = (summary['grade'] ?? '—').toString();
-    final status = (summary['status'] ?? '').toString();
+    final summary = report.summary ?? const <String, dynamic>{};
+    final percentage = report.finalPercentage;
+    final grade = report.grade ?? '—';
+    final status = report.status ?? summary['status']?.toString() ?? '';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -752,8 +752,19 @@ class _ExamCard extends StatelessWidget {
           spacing: 20,
           runSpacing: 8,
           children: [
-            _stat('Percentage', percentage == null ? '—' : '$percentage%'),
+            _stat(
+              'Final Score',
+              percentage == null ? '—' : '$percentage / 100',
+            ),
             _stat('Grade', grade),
+            _stat(
+              'Position',
+              report.position == null
+                  ? 'Unavailable'
+                  : report.classSize == null
+                  ? '${report.position}'
+                  : '${report.position} / ${report.classSize}',
+            ),
             _stat('Status', status.isEmpty ? 'Unavailable' : status),
           ],
         ),

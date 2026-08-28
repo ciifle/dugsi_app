@@ -60,12 +60,21 @@ class _TeacherDayOffPageState extends State<TeacherDayOffPage> {
         (_activeFilter == null || item.isActive == _activeFilter);
   }).toList();
 
+  List<List<TeacherDayOff>> get _visibleGroups {
+    final groups = <int, List<TeacherDayOff>>{};
+    for (final item in _visible) {
+      groups.putIfAbsent(item.teacherId, () => []).add(item);
+    }
+    return groups.values.toList();
+  }
+
   Future<void> _openForm([TeacherDayOff? item]) async {
     final changed = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (_) => _TeacherDayOffDialog(
         teachers: _teachers,
+        existing: _items,
         initial: item,
         service: _service,
       ),
@@ -251,33 +260,55 @@ class _TeacherDayOffPageState extends State<TeacherDayOffPage> {
                           DataColumn(label: Text('Status')),
                           DataColumn(label: Text('Actions')),
                         ],
-                        rows: _visible
+                        rows: _visibleGroups
                             .map(
-                              (item) => DataRow(
+                              (records) => DataRow(
                                 cells: [
-                                  DataCell(Text(item.teacherName)),
-                                  DataCell(Text(item.dayLabel)),
+                                  DataCell(Text(records.first.teacherName)),
+                                  DataCell(
+                                    Text(
+                                      records
+                                          .map(
+                                            (item) =>
+                                                item.dayLabel.substring(0, 3),
+                                          )
+                                          .join(', '),
+                                    ),
+                                  ),
                                   DataCell(
                                     Chip(
                                       label: Text(
-                                        item.isActive ? 'Active' : 'Inactive',
+                                        records.any((item) => item.isActive)
+                                            ? 'Active'
+                                            : 'Inactive',
                                       ),
                                     ),
                                   ),
                                   DataCell(
                                     Row(
                                       children: [
-                                        IconButton(
-                                          tooltip: 'Edit',
-                                          onPressed: () => _openForm(item),
-                                          icon: const Icon(Icons.edit_outlined),
-                                        ),
-                                        IconButton(
-                                          tooltip: 'Delete',
-                                          onPressed: () => _delete(item),
-                                          icon: const Icon(
-                                            Icons.delete_outline,
-                                            color: Colors.red,
+                                        ...records.map(
+                                          (item) => PopupMenuButton<String>(
+                                            tooltip: item.dayLabel,
+                                            icon: const Icon(Icons.more_horiz),
+                                            onSelected: (value) =>
+                                                value == 'edit'
+                                                ? _openForm(item)
+                                                : _delete(item),
+                                            itemBuilder: (_) => [
+                                              PopupMenuItem(
+                                                enabled: false,
+                                                child: Text(item.dayLabel),
+                                              ),
+                                              const PopupMenuItem(
+                                                value: 'edit',
+                                                child: Text('Edit'),
+                                              ),
+                                              const PopupMenuItem(
+                                                value: 'delete',
+                                                child: Text('Delete'),
+                                              ),
+                                            ],
                                           ),
                                         ),
                                       ],
@@ -291,26 +322,46 @@ class _TeacherDayOffPageState extends State<TeacherDayOffPage> {
                     ),
                   )
                 : ListView.builder(
-                    itemCount: _visible.length,
+                    itemCount: _visibleGroups.length,
                     itemBuilder: (_, index) {
-                      final item = _visible[index];
+                      final records = _visibleGroups[index];
+                      final item = records.first;
                       return Card(
                         child: ListTile(
                           title: Text(item.teacherName),
                           subtitle: Text(
-                            '${item.dayLabel} · ${item.isActive ? 'Active' : 'Inactive'}',
+                            '${records.map((record) => record.dayLabel.substring(0, 3)).join(' • ')}\n${records.any((record) => record.isActive) ? 'Active' : 'Inactive'}',
                           ),
+                          isThreeLine: true,
                           trailing: PopupMenuButton<String>(
-                            onSelected: (value) => value == 'edit'
-                                ? _openForm(item)
-                                : _delete(item),
-                            itemBuilder: (_) => const [
-                              PopupMenuItem(value: 'edit', child: Text('Edit')),
-                              PopupMenuItem(
-                                value: 'delete',
-                                child: Text('Delete'),
-                              ),
-                            ],
+                            tooltip: 'Manage',
+                            onSelected: (value) {
+                              final parts = value.split(':');
+                              final record = records.firstWhere(
+                                (record) => record.id == int.parse(parts[1]),
+                              );
+                              parts[0] == 'edit'
+                                  ? _openForm(record)
+                                  : _delete(record);
+                            },
+                            itemBuilder: (_) => records
+                                .expand(
+                                  (record) => [
+                                    PopupMenuItem<String>(
+                                      enabled: false,
+                                      child: Text(record.dayLabel),
+                                    ),
+                                    PopupMenuItem<String>(
+                                      value: 'edit:${record.id}',
+                                      child: const Text('Edit'),
+                                    ),
+                                    PopupMenuItem<String>(
+                                      value: 'delete:${record.id}',
+                                      child: const Text('Delete'),
+                                    ),
+                                  ],
+                                )
+                                .toList(),
                           ),
                         ),
                       );
@@ -332,10 +383,12 @@ class _TeacherDayOffPageState extends State<TeacherDayOffPage> {
 
 class _TeacherDayOffDialog extends StatefulWidget {
   final List<TeacherModel> teachers;
+  final List<TeacherDayOff> existing;
   final TeacherDayOff? initial;
   final TeacherDayOffService service;
   const _TeacherDayOffDialog({
     required this.teachers,
+    required this.existing,
     required this.initial,
     required this.service,
   });
@@ -347,6 +400,7 @@ class _TeacherDayOffDialog extends StatefulWidget {
 class _TeacherDayOffDialogState extends State<_TeacherDayOffDialog> {
   int? _teacherId;
   String? _day;
+  final Set<String> _days = <String>{};
   bool _active = true;
   bool _saving = false;
   String? _error;
@@ -360,8 +414,16 @@ class _TeacherDayOffDialogState extends State<_TeacherDayOffDialog> {
   }
 
   Future<void> _save() async {
-    if (_teacherId == null || _day == null) {
-      setState(() => _error = 'Select a teacher and day.');
+    if (_teacherId == null) {
+      setState(() => _error = 'Select a teacher.');
+      return;
+    }
+    if (widget.initial == null && _days.isEmpty) {
+      setState(() => _error = 'Select at least one day off.');
+      return;
+    }
+    if (widget.initial != null && _day == null) {
+      setState(() => _error = 'Select a day.');
       return;
     }
     setState(() {
@@ -369,10 +431,9 @@ class _TeacherDayOffDialogState extends State<_TeacherDayOffDialog> {
       _error = null;
     });
     final result = widget.initial == null
-        ? await widget.service.create(
+        ? await widget.service.createBulk(
             teacherId: _teacherId!,
-            day: _day!,
-            isActive: _active,
+            days: _days.toList(),
           )
         : await widget.service.update(
             widget.initial!.id,
@@ -386,8 +447,28 @@ class _TeacherDayOffDialogState extends State<_TeacherDayOffDialog> {
       setState(() => _error = result.message);
       return;
     }
+    if (widget.initial == null) {
+      final created =
+          (result as TeacherDayOffSuccess<TeacherDayOffBulkResponse>).data;
+      final teacher = widget.teachers.firstWhere(
+        (item) => item.id == _teacherId,
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${created.createdCount} day${created.createdCount == 1 ? '' : 's'} off added for ${teacher.fullName}.',
+          ),
+          backgroundColor: _green,
+        ),
+      );
+    }
     Navigator.pop(context, true);
   }
+
+  Set<String> get _existingDays => widget.existing
+      .where((item) => item.teacherId == _teacherId && item.isActive)
+      .map((item) => item.day)
+      .toSet();
 
   @override
   Widget build(BuildContext context) => AlertDialog(
@@ -443,23 +524,66 @@ class _TeacherDayOffDialogState extends State<_TeacherDayOffDialog> {
                 .toList(),
             onChanged: _saving
                 ? null
-                : (value) => setState(() => _teacherId = value),
+                : (value) => setState(() {
+                    _teacherId = value;
+                    _days.removeAll(_existingDays);
+                  }),
           ),
           const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            isExpanded: true,
-            initialValue: _day,
-            decoration: const InputDecoration(labelText: 'Day *'),
-            items: teacherDayLabels.entries
-                .map(
-                  (entry) => DropdownMenuItem(
-                    value: entry.key,
-                    child: Text(entry.value),
-                  ),
-                )
-                .toList(),
-            onChanged: _saving ? null : (value) => setState(() => _day = value),
-          ),
+          if (widget.initial == null) ...[
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Days Off *',
+                style: TextStyle(fontWeight: FontWeight.w700, color: _navy),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 300),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF6F8FB),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE2E7ED)),
+              ),
+              child: ListView(
+                shrinkWrap: true,
+                children: teacherDayLabels.entries.map((entry) {
+                  final alreadyOff = _existingDays.contains(entry.key);
+                  return CheckboxListTile(
+                    dense: true,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    title: Text(entry.value),
+                    subtitle: alreadyOff ? const Text('Already off') : null,
+                    value: alreadyOff || _days.contains(entry.key),
+                    onChanged: _saving || alreadyOff
+                        ? null
+                        : (selected) => setState(() {
+                            selected == true
+                                ? _days.add(entry.key)
+                                : _days.remove(entry.key);
+                          }),
+                  );
+                }).toList(),
+              ),
+            ),
+          ] else
+            DropdownButtonFormField<String>(
+              isExpanded: true,
+              initialValue: _day,
+              decoration: const InputDecoration(labelText: 'Day *'),
+              items: teacherDayLabels.entries
+                  .map(
+                    (entry) => DropdownMenuItem(
+                      value: entry.key,
+                      child: Text(entry.value),
+                    ),
+                  )
+                  .toList(),
+              onChanged: _saving
+                  ? null
+                  : (value) => setState(() => _day = value),
+            ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Active'),

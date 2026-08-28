@@ -165,6 +165,21 @@ class StudentResultReportModel {
   final List<Map<String, dynamic>> results;
   final Map<String, dynamic>? summary;
 
+  num? get finalPercentage => summary?['final_percentage'] as num?;
+  num get finalMaxMarks => (summary?['max_marks'] as num?) ?? 100;
+  String? get grade => _strOpt(summary?['grade']);
+  int? get position {
+    final value = summary?['position'];
+    return value == null ? null : _parseId(value);
+  }
+
+  int? get classSize {
+    final value = summary?['class_size'];
+    return value == null ? null : _parseId(value);
+  }
+
+  String? get status => _strOpt(summary?['status']);
+
   StudentResultReportModel({
     required this.exam,
     this.student,
@@ -195,6 +210,13 @@ class StudentResultReportModel {
     if (summary != null) {
       // Map API summary fields to expected field names
       summary = {
+        'final_percentage': _parseNumOpt(
+          summary['final_percentage'] ??
+              summary['overall_percentage'] ??
+              summary['percentage'] ??
+              summary['average'],
+        ),
+        'max_marks': _parseNumOpt(summary['max_marks']) ?? 100,
         // Support both old and new field names
         'total_marks_obtained':
             summary['total_marks_obtained'] ??
@@ -207,9 +229,11 @@ class StudentResultReportModel {
             summary['percentage'] ??
             summary['average'] ??
             null,
-        'grade': summary['overall_grade'] ?? summary['grade'],
+        'grade': summary['grade'] ?? summary['overall_grade'],
         'status': summary['status'] ?? summary['result'],
         'position': summary['position'],
+        'class_size':
+            summary['class_size'] ?? summary['total_students_in_class'],
         // Also include new field names directly
         'total':
             summary['total'] ??

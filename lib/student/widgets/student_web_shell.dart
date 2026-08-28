@@ -124,6 +124,15 @@ class _StudentWebShellState extends State<StudentWebShell> {
           onNavigateToPage: _navigateToPage,
         );
       case 'marksTotal':
+        if (_selectedArguments is StudentMarksTotalArguments) {
+          final arguments = _selectedArguments as StudentMarksTotalArguments;
+          return StudentTotalPage(
+            marks: arguments.marks,
+            academicYearId: arguments.academicYearId,
+            embedBodyOnly: true,
+            onNavigateToPage: _navigateToPage,
+          );
+        }
         if (_selectedArguments is List<StudentMarkModel>) {
           return StudentTotalPage(
             marks: _selectedArguments as List<StudentMarkModel>,

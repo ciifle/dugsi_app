@@ -95,7 +95,10 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
     Navigator.of(context)
         .push(
           MaterialPageRoute(
-            builder: (_) => StudentDetailPage(studentId: student.id, initialAcademicYearId: _academicYearId),
+            builder: (_) => StudentDetailPage(
+              studentId: student.id,
+              initialAcademicYearId: _academicYearId,
+            ),
           ),
         )
         .then((_) => _loadStudents());
@@ -169,9 +172,12 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
               builder: (context, constraints) {
                 final compact = constraints.maxWidth < 650;
                 final search = _buildSearchField();
-                final filters = Wrap(spacing: 12, runSpacing: 10, crossAxisAlignment: WrapCrossAlignment.center, children: [
-                  _buildAcademicYearFilter(), _buildStatusFilters(),
-                ]);
+                final filters = Wrap(
+                  spacing: 12,
+                  runSpacing: 10,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [_buildAcademicYearFilter(), _buildStatusFilters()],
+                );
                 if (compact) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -577,11 +583,28 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
           for (final value in <String?>[null, 'Active', 'Inactive'])
             InkWell(
               borderRadius: BorderRadius.circular(12),
-              onTap: () { setState(() => _studentStatus = value); _loadStudents(); },
+              onTap: () {
+                setState(() => _studentStatus = value);
+                _loadStudents();
+              },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-                decoration: BoxDecoration(color: _studentStatus == value ? kPrimaryBlue : null, borderRadius: BorderRadius.circular(12)),
-                child: Text(value ?? 'All', style: TextStyle(color: _studentStatus == value ? Colors.white : Colors.grey.shade600, fontWeight: FontWeight.w600)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 9,
+                ),
+                decoration: BoxDecoration(
+                  color: _studentStatus == value ? kPrimaryBlue : null,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  value ?? 'All',
+                  style: TextStyle(
+                    color: _studentStatus == value
+                        ? Colors.white
+                        : Colors.grey.shade600,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ),
         ],
@@ -594,12 +617,34 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
     return SizedBox(
       width: 210,
       child: DropdownButtonFormField<int>(
-        value: years.any((year) => year.id == _academicYearId) ? _academicYearId : null,
-        decoration: const InputDecoration(labelText: 'Academic Year', prefixIcon: Icon(Icons.calendar_month_rounded), isDense: true, border: OutlineInputBorder()),
-        items: years.map((year) => DropdownMenuItem(value: year.id, child: Text(year.name))).toList(),
+        isExpanded: true,
+        value: years.any((year) => year.id == _academicYearId)
+            ? _academicYearId
+            : null,
+        decoration: const InputDecoration(
+          labelText: 'Academic Year',
+          prefixIcon: Icon(Icons.calendar_month_rounded),
+          isDense: true,
+          border: OutlineInputBorder(),
+        ),
+        items: years
+            .map(
+              (year) => DropdownMenuItem(
+                value: year.id,
+                child: Text(
+                  year.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            )
+            .toList(),
         onChanged: (value) {
           if (value == null || value == _academicYearId) return;
-          setState(() { _academicYearId = value; searchQuery = _searchController.text.trim(); });
+          setState(() {
+            _academicYearId = value;
+            searchQuery = _searchController.text.trim();
+          });
           _loadStudents();
         },
       ),

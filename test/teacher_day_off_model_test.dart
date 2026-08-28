@@ -3,6 +3,11 @@ import 'package:kobac/services/teacher_day_off_service.dart';
 
 void main() {
   group('TeacherDayOff', () {
+    test('shared day helpers map labels and enum codes', () {
+      expect(dayCodeToLabel('thu'), 'Thursday');
+      expect(dayLabelToCode('Friday'), 'FRI');
+      expect(dayLabelToCode('unknown'), isNull);
+    });
     test('parses API payload and nested teacher', () {
       final value = TeacherDayOff.fromJson({
         'id': 7,
