@@ -5,10 +5,12 @@ import 'package:kobac/services/classes_service.dart';
 import 'package:kobac/services/school_admin_assignments_service.dart';
 import 'package:kobac/services/subjects_service.dart';
 import 'package:kobac/services/teachers_service.dart';
+import 'package:kobac/services/teacher_subjects_service.dart';
 import 'package:kobac/school_admin/widgets/delete_confirm_dialog.dart'
     show showDeleteConfirmDialog;
 import 'package:kobac/school_admin/widgets/manage_assignments_dialog.dart'
     show showManageAssignmentsDialog;
+import 'package:kobac/school_admin/widgets/assign_teacher_classes_dialog.dart';
 import 'package:kobac/widgets/form_3d/form_3d.dart';
 import 'package:provider/provider.dart';
 
@@ -201,11 +203,10 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
     final years = context.read<AcademicYearsProvider>().years;
     final created = await showDialog<bool>(
       context: context,
-      builder: (ctx) => _CreateAssignmentDialog(
+      builder: (ctx) => AssignTeacherClassesDialog(
         classes: _classes,
         years: years,
         initialAcademicYearId: _selectedAcademicYearId,
-        onSaved: () => _loadAssignments(),
       ),
     );
     if (created == true && mounted) {
@@ -305,7 +306,11 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
             .map(
               (y) => DropdownMenuItem<int?>(
                 value: y.id,
-                child: Text(y.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                child: Text(
+                  y.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             )
             .toList(),
@@ -487,7 +492,8 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
           // wide screens; avoid showing the same control twice.
           if (MediaQuery.sizeOf(context).width < 760) ...[
             Select3D<int?>(
-              value: context.watch<AcademicYearsProvider>().years.any(
+              value:
+                  context.watch<AcademicYearsProvider>().years.any(
                     (y) => y.id == _selectedAcademicYearId,
                   )
                   ? _selectedAcademicYearId
@@ -660,7 +666,11 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
                       DataCell(Text(a.className)),
                       DataCell(Text(a.subjectName)),
                       DataCell(
-                        Text(a.academicYearName.isNotEmpty ? a.academicYearName : '—'),
+                        Text(
+                          a.academicYearName.isNotEmpty
+                              ? a.academicYearName
+                              : '—',
+                        ),
                       ),
                       DataCell(
                         Row(
@@ -799,7 +809,7 @@ class _CreateAssignmentDialog extends StatefulWidget {
   const _CreateAssignmentDialog({
     required this.classes,
     required this.years,
-    this.initialAcademicYearId,
+    required this.initialAcademicYearId,
     required this.onSaved,
   });
 
@@ -813,31 +823,23 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
   int? _subjectId;
   int? _teacherId;
   late int? _academicYearId;
-  List<SubjectModel> _subjects = [];
-  bool _subjectsLoading = true;
   bool _saving = false;
   List<TeacherModel> _allTeachers = [];
   bool _teachersLoading = true;
   bool _multi = false;
   final List<_BulkAssignmentRow> _bulkRows = [_BulkAssignmentRow()];
   String? _formError;
+  TeacherSubjectsConfig? _teacherSubjects;
+  bool _teacherSubjectsLoading = false;
+  final Map<int, Set<int>> _classSubjectIds = {};
+  List<SubjectModel> _compatibleSubjects = [];
+  bool _classSubjectsLoading = false;
 
   @override
   void initState() {
     super.initState();
     _academicYearId = widget.initialAcademicYearId;
-    _loadAllSubjects();
     _loadAllTeachers();
-  }
-
-  Future<void> _loadAllSubjects() async {
-    setState(() => _subjectsLoading = true);
-    final result = await SubjectsService().listSubjects();
-    if (!mounted) return;
-    setState(() {
-      _subjectsLoading = false;
-      if (result is SubjectSuccess<List<SubjectModel>>) _subjects = result.data;
-    });
   }
 
   Future<void> _loadAllTeachers() async {
@@ -851,11 +853,109 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
     });
   }
 
-  void _onClassChanged(int? v) => setState(() {
-    _classId = v;
-    _subjectId = null;
-    _teacherId = null;
-  });
+  Future<void> _onTeacherChanged(int? value) async {
+    setState(() {
+      _teacherId = value;
+      _classId = null;
+      _subjectId = null;
+      _teacherSubjects = null;
+      _teacherSubjectsLoading = value != null;
+      _formError = null;
+      for (final row in _bulkRows) {
+        row.classId = null;
+        row.subjectId = null;
+        row.compatibleSubjects = [];
+        row.error = null;
+      }
+    });
+    if (value == null) return;
+    final result = await TeacherSubjectsService().getSubjects(value);
+    if (!mounted || _teacherId != value) return;
+    setState(() {
+      _teacherSubjectsLoading = false;
+      if (result is TeacherSubjectsSuccess<TeacherSubjectsConfig>) {
+        _teacherSubjects = result.data;
+        _subjectId = result.data.inferredSubject?.id;
+        for (final row in _bulkRows) {
+          row.subjectId = result.data.inferredSubject?.id;
+        }
+      } else {
+        _formError = (result as TeacherSubjectsError).message;
+      }
+    });
+  }
+
+  Future<Set<int>?> _subjectsForClass(int classId) async {
+    if (_classSubjectIds.containsKey(classId)) return _classSubjectIds[classId];
+    final result = await SchoolAdminAssignmentsService().listClassSubjects(
+      classId,
+    );
+    if (result is! AssignmentSuccess<List<ClassSubjectItem>>) return null;
+    final ids = result.data.map((item) => item.id).toSet();
+    _classSubjectIds[classId] = ids;
+    return ids;
+  }
+
+  Future<void> _onClassChanged(int? value) async {
+    setState(() {
+      _classId = value;
+      _subjectId = _teacherSubjects?.inferredSubject?.id;
+      _compatibleSubjects = [];
+      _classSubjectsLoading = value != null && _teacherSubjects != null;
+      _formError = null;
+    });
+    if (value == null || _teacherSubjects == null) return;
+    final ids = await _subjectsForClass(value);
+    if (!mounted || _classId != value) return;
+    final compatible = ids == null
+        ? <SubjectModel>[]
+        : _teacherSubjects!.subjects.where((s) => ids.contains(s.id)).toList();
+    setState(() {
+      _classSubjectsLoading = false;
+      _compatibleSubjects = compatible;
+      if (compatible.length == 1) {
+        _subjectId = compatible.first.id;
+      } else if (!compatible.any((s) => s.id == _subjectId)) {
+        _subjectId = null;
+      }
+      if (compatible.isEmpty) {
+        _formError = _teacherSubjects!.subjectCount == 1
+            ? '${_teacherSubjects!.subjects.first.name} is not assigned to this class.'
+            : 'This teacher has no teaching subject assigned to this class.';
+      }
+    });
+  }
+
+  Future<void> _onBulkClassChanged(_BulkAssignmentRow row, int? value) async {
+    setState(() {
+      row.classId = value;
+      row.subjectId = _teacherSubjects?.inferredSubject?.id;
+      row.compatibleSubjects = [];
+      row.loading = value != null;
+      row.error = null;
+      _formError = null;
+    });
+    if (value == null || _teacherSubjects == null) return;
+    final ids = await _subjectsForClass(value);
+    if (!mounted || row.classId != value || !_bulkRows.contains(row)) return;
+    final compatible = ids == null
+        ? <SubjectModel>[]
+        : _teacherSubjects!.subjects.where((s) => ids.contains(s.id)).toList();
+    setState(() {
+      row.loading = false;
+      row.compatibleSubjects = compatible;
+      if (compatible.length == 1) {
+        row.subjectId = compatible.first.id;
+      } else if (!compatible.any((s) => s.id == row.subjectId)) {
+        row.subjectId = null;
+      }
+      if (compatible.isEmpty) {
+        row.error = _teacherSubjects!.subjectCount == 1
+            ? '${_teacherSubjects!.subjects.first.name} is not assigned to this class.'
+            : 'This teacher has no teaching subject assigned to this class.';
+      }
+    });
+  }
 
   void _onSubjectChanged(int? v) => setState(() => _subjectId = v);
 
@@ -874,13 +974,21 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
       );
       return;
     }
-    if (_classId == null || _subjectId == null || _teacherId == null) {
+    if (_teacherId == null || _classId == null || _subjectId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Select class, subject and teacher'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
+      );
+      return;
+    }
+    final compatible = await _subjectsForClass(_classId!);
+    if (!mounted) return;
+    if (compatible != null && !compatible.contains(_subjectId)) {
+      setState(
+        () => _formError = 'Selected subject is not assigned to this class.',
       );
       return;
     }
@@ -932,11 +1040,27 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
       return;
     }
     if (_teacherId == null ||
-        _bulkRows.any((row) => row.classId == null || row.subjectId == null)) {
+        _teacherSubjects == null ||
+        _teacherSubjects!.subjectCount == 0 ||
+        _bulkRows.any(
+          (row) =>
+              row.classId == null || row.subjectId == null || row.error != null,
+        )) {
       setState(
         () => _formError = 'Select a teacher, class and subject for every row.',
       );
       return;
+    }
+    for (final row in _bulkRows) {
+      final compatible = await _subjectsForClass(row.classId!);
+      if (!mounted) return;
+      if (compatible != null && !compatible.contains(row.subjectId)) {
+        setState(
+          () => _formError =
+              'Selected subject is not assigned to the selected class.',
+        );
+        return;
+      }
     }
     final keys = <String>{};
     for (final row in _bulkRows) {
@@ -980,19 +1104,26 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
     Navigator.pop(context, true);
   }
 
+  bool get _canSubmit {
+    if (_saving || _teacherSubjectsLoading || _classSubjectsLoading)
+      return false;
+    if (_academicYearId == null || _teacherId == null) return false;
+    if ((_teacherSubjects?.subjectCount ?? 0) == 0) return false;
+    if (_multi) {
+      return _bulkRows.isNotEmpty &&
+          _bulkRows.every(
+            (row) =>
+                !row.loading &&
+                row.classId != null &&
+                row.subjectId != null &&
+                row.error == null,
+          );
+    }
+    return _classId != null && _subjectId != null && _formError == null;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final subjectHint = _subjectsLoading
-        ? 'Loading...'
-        : _subjects.isEmpty
-        ? 'No subjects in school. Add subjects first.'
-        : null;
-    final teacherHint = _teachersLoading
-        ? null
-        : _allTeachers.isEmpty
-        ? 'No teachers available. Create teachers first.'
-        : null;
-
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 20),
@@ -1041,7 +1172,10 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
                     ),
                   ),
                   ...widget.years.map(
-                    (y) => DropdownMenuItem<int?>(value: y.id, child: Text(y.name)),
+                    (y) => DropdownMenuItem<int?>(
+                      value: y.id,
+                      child: Text(y.name),
+                    ),
                   ),
                 ],
                 onChanged: _saving
@@ -1068,9 +1202,7 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
                       ),
                     ),
                   ],
-                  onChanged: _teachersLoading
-                      ? null
-                      : (value) => setState(() => _teacherId = value),
+                  onChanged: _teachersLoading ? null : _onTeacherChanged,
                 ),
                 const SizedBox(height: 16),
                 ...List.generate(_bulkRows.length, (index) {
@@ -1106,45 +1238,76 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
                               ),
                           ],
                         ),
+                        const SizedBox(height: 8),
                         Select3D<int?>(
                           value: row.classId,
-                          label: 'Class',
+                          label: 'Class *',
                           items: [
-                            const DropdownMenuItem(
+                            const DropdownMenuItem<int?>(
                               value: null,
                               child: Text('Select class'),
                             ),
                             ...widget.classes.map(
-                              (item) => DropdownMenuItem(
+                              (item) => DropdownMenuItem<int?>(
                                 value: item.id,
-                                child: Text(item.name),
+                                child: Text(
+                                  item.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ),
                           ],
-                          onChanged: (value) =>
-                              setState(() => row.classId = value),
+                          onChanged: (value) => _onBulkClassChanged(row, value),
                         ),
-                        const SizedBox(height: 12),
-                        Select3D<int?>(
-                          value: row.subjectId,
-                          label: 'Subject',
-                          items: [
-                            const DropdownMenuItem(
-                              value: null,
-                              child: Text('Select subject'),
-                            ),
-                            ..._subjects.map(
-                              (item) => DropdownMenuItem(
-                                value: item.id,
-                                child: Text(item.name),
+                        if (row.loading) ...[
+                          const SizedBox(height: 8),
+                          const LinearProgressIndicator(color: kPrimaryGreen),
+                        ],
+                        if (!row.loading &&
+                            row.classId != null &&
+                            row.compatibleSubjects.length > 1) ...[
+                          const SizedBox(height: 12),
+                          Select3D<int?>(
+                            value: row.subjectId,
+                            label: 'Subject *',
+                            items: [
+                              const DropdownMenuItem(
+                                value: null,
+                                child: Text('Select subject'),
                               ),
+                              ...row.compatibleSubjects.map(
+                                (item) => DropdownMenuItem(
+                                  value: item.id,
+                                  child: Text(
+                                    item.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                            ],
+                            onChanged: (value) =>
+                                setState(() => row.subjectId = value),
+                          ),
+                        ] else if (!row.loading &&
+                            row.subjectId != null &&
+                            row.compatibleSubjects.length == 1) ...[
+                          const SizedBox(height: 12),
+                          _ReadOnlySubject(
+                            subject: row.compatibleSubjects.first,
+                          ),
+                        ],
+                        if (row.error != null) ...[
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              row.error!,
+                              style: const TextStyle(color: Colors.red),
                             ),
-                          ],
-                          onChanged: _subjectsLoading
-                              ? null
-                              : (value) =>
-                                    setState(() => row.subjectId = value),
-                        ),
+                          ),
+                        ],
                       ],
                     ),
                   );
@@ -1157,6 +1320,38 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
                 ),
                 const SizedBox(height: 12),
               ] else ...[
+                Select3D<int?>(
+                  value: _teacherId,
+                  label: 'Teacher *',
+                  items: [
+                    const DropdownMenuItem<int?>(
+                      value: null,
+                      child: Text('Select teacher'),
+                    ),
+                    ..._allTeachers.map(
+                      (t) => DropdownMenuItem<int?>(
+                        value: t.id,
+                        child: Text(
+                          t.fullName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
+                  onChanged: _teachersLoading ? null : _onTeacherChanged,
+                ),
+                if (_teacherSubjectsLoading) ...[
+                  const SizedBox(height: 8),
+                  const LinearProgressIndicator(color: kPrimaryGreen),
+                ],
+                if (!_teacherSubjectsLoading &&
+                    _teacherId != null &&
+                    (_teacherSubjects?.subjectCount ?? 0) == 0) ...[
+                  const SizedBox(height: 10),
+                  const _SubjectNotice(),
+                ],
+                const SizedBox(height: 16),
                 Select3D<int?>(
                   value: _classId,
                   label: 'Class',
@@ -1174,72 +1369,31 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
                   ],
                   onChanged: _onClassChanged,
                 ),
+                if (_classSubjectsLoading) ...[
+                  const SizedBox(height: 8),
+                  const LinearProgressIndicator(color: kPrimaryGreen),
+                ],
                 const SizedBox(height: 16),
-                if (subjectHint != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Text(
-                      subjectHint,
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                    ),
+                if (!_classSubjectsLoading && _compatibleSubjects.length > 1)
+                  Select3D<int?>(
+                    value: _subjectId,
+                    label: 'Subject',
+                    items: [
+                      const DropdownMenuItem<int?>(
+                        value: null,
+                        child: Text('Select subject'),
+                      ),
+                      ..._compatibleSubjects.map(
+                        (s) => DropdownMenuItem<int?>(
+                          value: s.id,
+                          child: Text(s.name),
+                        ),
+                      ),
+                    ],
+                    onChanged: _onSubjectChanged,
                   ),
-                Select3D<int?>(
-                  value: _subjectId,
-                  label: 'Subject',
-                  items: [
-                    DropdownMenuItem<int?>(
-                      value: null,
-                      child: Text(
-                        _subjectsLoading
-                            ? 'Loading...'
-                            : _subjects.isEmpty
-                            ? 'No subjects in school'
-                            : 'Select subject',
-                      ),
-                    ),
-                    ..._subjects.map(
-                      (s) => DropdownMenuItem<int?>(
-                        value: s.id,
-                        child: Text(s.name),
-                      ),
-                    ),
-                  ],
-                  onChanged: _subjectsLoading ? null : _onSubjectChanged,
-                ),
-                const SizedBox(height: 16),
-                if (teacherHint != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Text(
-                      teacherHint,
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                    ),
-                  ),
-                Select3D<int?>(
-                  value: _teacherId,
-                  label: 'Teacher',
-                  items: [
-                    DropdownMenuItem<int?>(
-                      value: null,
-                      child: Text(
-                        _teachersLoading
-                            ? 'Loading...'
-                            : _allTeachers.isEmpty
-                            ? 'No teachers in school'
-                            : 'Select teacher',
-                      ),
-                    ),
-                    ..._allTeachers.map(
-                      (t) => DropdownMenuItem<int?>(
-                        value: t.id,
-                        child: Text(t.fullName),
-                      ),
-                    ),
-                  ],
-                  onChanged: _teachersLoading
-                      ? null
-                      : (v) => setState(() => _teacherId = v),
-                ),
+                if (!_classSubjectsLoading && _compatibleSubjects.length == 1)
+                  _ReadOnlySubject(subject: _compatibleSubjects.first),
               ],
               if (_formError != null) ...[
                 const SizedBox(height: 12),
@@ -1261,7 +1415,7 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
                     flex: 2,
                     child: PrimaryButton3D(
                       label: _multi ? 'Save All Assignments' : 'Create',
-                      onPressed: _submit,
+                      onPressed: _canSubmit ? _submit : null,
                       loading: _saving,
                       height: 48,
                     ),
@@ -1279,6 +1433,9 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
 class _BulkAssignmentRow {
   int? classId;
   int? subjectId;
+  List<SubjectModel> compatibleSubjects = [];
+  bool loading = false;
+  String? error;
 }
 
 /// Edit assignment: prefilled with current teacher, class, subject. PATCH /api/school-admin/assignments/:id.
@@ -1304,11 +1461,14 @@ class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
   late int? _subjectId;
   late int? _teacherId;
   late int? _academicYearId;
-  List<SubjectModel> _subjects = [];
-  bool _subjectsLoading = true;
   bool _saving = false;
   List<TeacherModel> _allTeachers = [];
   bool _teachersLoading = true;
+  TeacherSubjectsConfig? _teacherSubjects;
+  bool _teacherSubjectsLoading = true;
+  String? _formError;
+  List<SubjectModel> _compatibleSubjects = [];
+  bool _classSubjectsLoading = false;
 
   @override
   void initState() {
@@ -1323,18 +1483,9 @@ class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
     _academicYearId = widget.assignment.academicYearId > 0
         ? widget.assignment.academicYearId
         : null;
-    _loadAllSubjects();
     _loadAllTeachers();
-  }
-
-  Future<void> _loadAllSubjects() async {
-    setState(() => _subjectsLoading = true);
-    final result = await SubjectsService().listSubjects();
-    if (!mounted) return;
-    setState(() {
-      _subjectsLoading = false;
-      if (result is SubjectSuccess<List<SubjectModel>>) _subjects = result.data;
-    });
+    if (_teacherId != null)
+      _loadTeacherSubjects(_teacherId!, preserveSubject: true);
   }
 
   Future<void> _loadAllTeachers() async {
@@ -1348,11 +1499,92 @@ class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
     });
   }
 
-  void _onClassChanged(int? v) => setState(() {
-    _classId = v;
-    _subjectId = null;
-    _teacherId = null;
-  });
+  Future<void> _loadTeacherSubjects(
+    int teacherId, {
+    bool preserveSubject = false,
+  }) async {
+    setState(() {
+      _teacherSubjectsLoading = true;
+      _formError = null;
+    });
+    final result = await TeacherSubjectsService().getSubjects(teacherId);
+    if (!mounted || _teacherId != teacherId) return;
+    setState(() {
+      _teacherSubjectsLoading = false;
+      if (result is TeacherSubjectsSuccess<TeacherSubjectsConfig>) {
+        _teacherSubjects = result.data;
+        final remainsValid =
+            preserveSubject &&
+            result.data.subjects.any((subject) => subject.id == _subjectId);
+        _subjectId = remainsValid
+            ? _subjectId
+            : result.data.inferredSubject?.id;
+      } else {
+        _teacherSubjects = null;
+        _subjectId = null;
+        _formError = (result as TeacherSubjectsError).message;
+      }
+    });
+    if (result is TeacherSubjectsSuccess<TeacherSubjectsConfig> &&
+        _classId != null) {
+      await _revalidateClass(preserveSubject: preserveSubject);
+    }
+  }
+
+  void _onTeacherChanged(int? value) {
+    setState(() {
+      _teacherId = value;
+      _teacherSubjects = null;
+      _subjectId = null;
+      _compatibleSubjects = [];
+    });
+    if (value != null) _loadTeacherSubjects(value);
+  }
+
+  Future<void> _onClassChanged(int? value) async {
+    setState(() {
+      _classId = value;
+      _subjectId = null;
+      _compatibleSubjects = [];
+      _formError = null;
+    });
+    if (value != null) await _revalidateClass();
+  }
+
+  Future<void> _revalidateClass({bool preserveSubject = false}) async {
+    final classId = _classId;
+    final config = _teacherSubjects;
+    if (classId == null || config == null) return;
+    final previousSubject = _subjectId;
+    setState(() => _classSubjectsLoading = true);
+    final result = await SchoolAdminAssignmentsService().listClassSubjects(
+      classId,
+    );
+    if (!mounted || _classId != classId || _teacherSubjects != config) return;
+    final classIds = result is AssignmentSuccess<List<ClassSubjectItem>>
+        ? result.data.map((item) => item.id).toSet()
+        : <int>{};
+    final compatible = config.subjects
+        .where((s) => classIds.contains(s.id))
+        .toList();
+    setState(() {
+      _classSubjectsLoading = false;
+      _compatibleSubjects = compatible;
+      if (compatible.length == 1) {
+        _subjectId = compatible.first.id;
+      } else if (preserveSubject &&
+          compatible.any((subject) => subject.id == previousSubject)) {
+        _subjectId = previousSubject;
+      } else {
+        _subjectId = null;
+      }
+      if (compatible.isEmpty) {
+        _formError = config.subjectCount == 1
+            ? '${config.subjects.first.name} is not assigned to this class.'
+            : 'This teacher has no teaching subject assigned to this class.';
+      }
+    });
+  }
 
   void _onSubjectChanged(int? v) => setState(() => _subjectId = v);
 
@@ -1374,6 +1606,17 @@ class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
+      );
+      return;
+    }
+    final classResult = await SchoolAdminAssignmentsService().listClassSubjects(
+      _classId!,
+    );
+    if (!mounted) return;
+    if (classResult is AssignmentSuccess<List<ClassSubjectItem>> &&
+        !classResult.data.any((subject) => subject.id == _subjectId)) {
+      setState(
+        () => _formError = 'Selected subject is not assigned to this class.',
       );
       return;
     }
@@ -1422,19 +1665,18 @@ class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
     }
   }
 
+  bool get _canSubmit =>
+      !_saving &&
+      !_teacherSubjectsLoading &&
+      !_classSubjectsLoading &&
+      _academicYearId != null &&
+      _teacherId != null &&
+      _classId != null &&
+      _subjectId != null &&
+      _formError == null;
+
   @override
   Widget build(BuildContext context) {
-    final subjectHint = _subjectsLoading
-        ? 'Loading...'
-        : _subjects.isEmpty
-        ? 'No subjects in school.'
-        : null;
-    final teacherHint = _teachersLoading
-        ? null
-        : _allTeachers.isEmpty
-        ? 'No teachers available.'
-        : null;
-
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 20),
@@ -1474,7 +1716,10 @@ class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
                     ),
                   ),
                   ...widget.years.map(
-                    (y) => DropdownMenuItem<int?>(value: y.id, child: Text(y.name)),
+                    (y) => DropdownMenuItem<int?>(
+                      value: y.id,
+                      child: Text(y.name),
+                    ),
                   ),
                 ],
                 onChanged: _saving
@@ -1483,8 +1728,40 @@ class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
               ),
               const SizedBox(height: 16),
               Select3D<int?>(
+                value: _teacherId,
+                label: 'Teacher *',
+                items: [
+                  const DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text('Select teacher'),
+                  ),
+                  ..._allTeachers.map(
+                    (t) => DropdownMenuItem<int?>(
+                      value: t.id,
+                      child: Text(
+                        t.fullName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ],
+                onChanged: _teachersLoading ? null : _onTeacherChanged,
+              ),
+              if (_teacherSubjectsLoading) ...[
+                const SizedBox(height: 8),
+                const LinearProgressIndicator(color: kPrimaryGreen),
+              ],
+              if (!_teacherSubjectsLoading &&
+                  _teacherId != null &&
+                  (_teacherSubjects?.subjectCount ?? 0) == 0) ...[
+                const SizedBox(height: 10),
+                const _SubjectNotice(),
+              ],
+              const SizedBox(height: 16),
+              Select3D<int?>(
                 value: _classId,
-                label: 'Class',
+                label: 'Class *',
                 items: [
                   const DropdownMenuItem<int?>(
                     value: null,
@@ -1493,78 +1770,49 @@ class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
                   ...widget.classes.map(
                     (c) => DropdownMenuItem<int?>(
                       value: c.id,
-                      child: Text(c.name),
+                      child: Text(
+                        c.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ),
                 ],
                 onChanged: _onClassChanged,
               ),
+              if (_classSubjectsLoading) ...[
+                const SizedBox(height: 8),
+                const LinearProgressIndicator(color: kPrimaryGreen),
+              ],
               const SizedBox(height: 16),
-              if (subjectHint != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(
-                    subjectHint,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  ),
+              if (!_classSubjectsLoading && _compatibleSubjects.length > 1)
+                Select3D<int?>(
+                  value: _subjectId,
+                  label: 'Subject *',
+                  items: [
+                    const DropdownMenuItem<int?>(
+                      value: null,
+                      child: Text('Select subject'),
+                    ),
+                    ..._compatibleSubjects.map(
+                      (s) => DropdownMenuItem<int?>(
+                        value: s.id,
+                        child: Text(
+                          s.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
+                  onChanged: _onSubjectChanged,
                 ),
-              Select3D<int?>(
-                value: _subjectId,
-                label: 'Subject',
-                items: [
-                  DropdownMenuItem<int?>(
-                    value: null,
-                    child: Text(
-                      _subjectsLoading
-                          ? 'Loading...'
-                          : _subjects.isEmpty
-                          ? 'No subjects in school'
-                          : 'Select subject',
-                    ),
-                  ),
-                  ..._subjects.map(
-                    (s) => DropdownMenuItem<int?>(
-                      value: s.id,
-                      child: Text(s.name),
-                    ),
-                  ),
-                ],
-                onChanged: _subjectsLoading ? null : _onSubjectChanged,
-              ),
-              const SizedBox(height: 16),
-              if (teacherHint != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(
-                    teacherHint,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  ),
-                ),
-              Select3D<int?>(
-                value: _teacherId,
-                label: 'Teacher',
-                items: [
-                  DropdownMenuItem<int?>(
-                    value: null,
-                    child: Text(
-                      _teachersLoading
-                          ? 'Loading...'
-                          : _allTeachers.isEmpty
-                          ? 'No teachers in school'
-                          : 'Select teacher',
-                    ),
-                  ),
-                  ..._allTeachers.map(
-                    (t) => DropdownMenuItem<int?>(
-                      value: t.id,
-                      child: Text(t.fullName),
-                    ),
-                  ),
-                ],
-                onChanged: _teachersLoading
-                    ? null
-                    : (v) => setState(() => _teacherId = v),
-              ),
+              if (!_classSubjectsLoading && _compatibleSubjects.length == 1)
+                _ReadOnlySubject(subject: _compatibleSubjects.first),
+              if (_formError != null) ...[
+                const SizedBox(height: 12),
+                Text(_formError!, style: const TextStyle(color: Colors.red)),
+              ],
               const SizedBox(height: 24),
               Row(
                 children: [
@@ -1581,7 +1829,7 @@ class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
                     flex: 2,
                     child: PrimaryButton3D(
                       label: 'Save',
-                      onPressed: _submit,
+                      onPressed: _canSubmit ? _submit : null,
                       loading: _saving,
                       height: 48,
                     ),
@@ -1591,6 +1839,84 @@ class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ReadOnlySubject extends StatelessWidget {
+  final SubjectModel subject;
+  const _ReadOnlySubject({required this.subject});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF6F8FB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFDDE5EF)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.menu_book_rounded, color: kPrimaryBlue, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Teaching Subject',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subject.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: kPrimaryBlue,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(
+            Icons.lock_outline_rounded,
+            color: Color(0xFF94A3B8),
+            size: 18,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SubjectNotice extends StatelessWidget {
+  const _SubjectNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF8E8),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF4D58A)),
+      ),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline_rounded, color: Color(0xFF9A6700), size: 20),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'No teaching subjects are assigned to this teacher. Manage Teaching Subjects from the Teachers page.',
+              style: TextStyle(color: Color(0xFF7A5200), height: 1.35),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1627,4 +1953,3 @@ class _BackButton extends StatelessWidget {
     );
   }
 }
-

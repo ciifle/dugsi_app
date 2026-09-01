@@ -6,6 +6,7 @@ import 'package:kobac/school_admin/pages/teacher_screen.dart';
 import 'package:kobac/school_admin/widgets/delete_confirm_dialog.dart';
 import 'package:kobac/school_admin/pages/create_teacher_screen.dart';
 import 'package:kobac/school_admin/pages/edit_teacher_screen.dart';
+import 'package:kobac/school_admin/widgets/manage_teacher_subjects_dialog.dart';
 
 // --- Premium 3D Design Constants ---
 const Color kPrimaryBlue = Color(0xFF023471);
@@ -121,6 +122,22 @@ class _TeacherListScreenState extends State<TeacherListScreen> {
         SnackBar(
           content: Text((result as TeacherError).message),
           backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _manageSubjects(TeacherModel teacher) async {
+    final changed = await showManageTeacherSubjectsDialog(
+      context,
+      teacher: teacher,
+    );
+    if (changed == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Teaching subjects updated.'),
+          backgroundColor: kPrimaryGreen,
+          behavior: SnackBarBehavior.floating,
         ),
       );
     }
@@ -325,6 +342,7 @@ class _TeacherListScreenState extends State<TeacherListScreen> {
                           onTap: () => _navigateToDetail(teacher),
                           onEdit: () => _navigateToEdit(teacher),
                           onDelete: () => _deleteTeacher(teacher),
+                          onSubjects: () => _manageSubjects(teacher),
                         );
                       },
                     );
@@ -731,6 +749,7 @@ class _TeacherListScreenState extends State<TeacherListScreen> {
                       onTap: () => _navigateToDetail(teacher),
                       onEdit: () => _navigateToEdit(teacher),
                       onDelete: () => _deleteTeacher(teacher),
+                      onSubjects: () => _manageSubjects(teacher),
                     );
                   },
                 );
@@ -748,12 +767,14 @@ class _TeacherRow extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback onSubjects;
 
   const _TeacherRow({
     required this.teacher,
     required this.onTap,
     required this.onEdit,
     required this.onDelete,
+    required this.onSubjects,
   });
 
   @override
@@ -833,9 +854,19 @@ class _TeacherRow extends StatelessWidget {
               ),
             ),
             SizedBox(
-              width: 80,
+              width: 120,
               child: Row(
                 children: [
+                  IconButton(
+                    icon: const Icon(
+                      Icons.menu_book_outlined,
+                      size: 20,
+                      color: kPrimaryBlue,
+                    ),
+                    onPressed: onSubjects,
+                    tooltip: 'Teaching Subjects',
+                    visualDensity: VisualDensity.compact,
+                  ),
                   IconButton(
                     icon: const Icon(
                       Icons.edit_outlined,
@@ -932,12 +963,14 @@ class _TeacherCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback onSubjects;
 
   const _TeacherCard({
     required this.teacher,
     required this.onTap,
     required this.onEdit,
     required this.onDelete,
+    required this.onSubjects,
   });
 
   @override
@@ -1056,6 +1089,17 @@ class _TeacherCard extends StatelessWidget {
               const SizedBox(height: 14),
               Row(
                 children: [
+                  Expanded(
+                    child: _TeacherAction(
+                      icon: Icons.menu_book_rounded,
+                      label: 'Subjects',
+                      color: kPrimaryBlue,
+                      background: const Color(0xFFEAF1FF),
+                      border: const Color(0xFFD6E2F5),
+                      onPressed: onSubjects,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: _TeacherInfo(
                       icon: Icons.phone_rounded,
