@@ -1,9 +1,13 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:kobac/school_admin/widgets/admin_responsive_layout.dart';
 import 'package:kobac/services/classes_service.dart';
 import 'package:kobac/services/class_subjects_service.dart';
 import 'package:kobac/services/subjects_service.dart';
 import 'package:kobac/services/api_error_helpers.dart';
+import 'package:kobac/school_admin/widgets/exam_subject_controls.dart';
+import 'package:kobac/school_admin/widgets/edit_subject_type_dialog.dart';
+import 'package:kobac/school_admin/widgets/add_class_subjects_dialog.dart';
 import 'package:kobac/school_admin/widgets/delete_confirm_dialog.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
@@ -12,6 +16,12 @@ const Color kBgColor = Color(0xFFF0F3F7);
 const Color kTextSecondaryColor = Color(0xFF636E72);
 const double kCardRadius = 28.0;
 
+enum _TypeFilter { all, exam, nonExam }
+
+/// Displays only the subjects already assigned to the selected class.
+/// New subjects are added through the separate Add Subjects dialog, which
+/// loads the full school catalog itself and filters out subjects already
+/// assigned here — the school-wide catalog never appears on this page.
 class AdminClassSubjectsScreen extends StatefulWidget {
   final bool embedBodyOnly;
   final void Function(String, {Object? arguments})? onNavigateToPage;
@@ -28,47 +38,43 @@ class AdminClassSubjectsScreen extends StatefulWidget {
 
 class _AdminClassSubjectsScreenState extends State<AdminClassSubjectsScreen> {
   List<ClassModel> _classes = [];
-  List<SubjectModel> _allSubjects = [];
   ClassModel? _selectedClass;
   List<ClassSubjectModel> _classSubjects = [];
-  Set<int> _selectedSubjectIds = {};
-  bool _loading = false;
+  final Map<int, String> _subjectNamesById = {};
+
+  _TypeFilter _filter = _TypeFilter.all;
+  bool _loadingClasses = false;
   bool _loadingClassSubjects = false;
-  bool _saving = false;
-  String? _error;
+  String? _classesError;
+  String? _classSubjectsError;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _loadClasses();
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadClasses() async {
     setState(() {
-      _loading = true;
-      _error = null;
+      _loadingClasses = true;
+      _classesError = null;
     });
-    
     try {
       final classesResult = await ClassesService().listClasses();
-      final subjectsResult = await SubjectsService().listSubjects();
-      
       if (!mounted) return;
-      
       setState(() {
-        _loading = false;
+        _loadingClasses = false;
         if (classesResult is ClassSuccess<List<ClassModel>>) {
           _classes = classesResult.data;
-        }
-        if (subjectsResult is SubjectSuccess<List<SubjectModel>>) {
-          _allSubjects = subjectsResult.data;
+        } else {
+          _classesError = 'Unable to load classes.';
         }
       });
     } catch (e, st) {
       if (!mounted) return;
       setState(() {
-        _loading = false;
-        _error = userFriendlyMessage(e, st, 'AdminClassSubjectsScreen');
+        _loadingClasses = false;
+        _classesError = userFriendlyMessage(e, st, 'AdminClassSubjectsScreen');
       });
     }
   }
@@ -76,99 +82,119 @@ class _AdminClassSubjectsScreenState extends State<AdminClassSubjectsScreen> {
   Future<void> _loadClassSubjects(int classId) async {
     setState(() {
       _loadingClassSubjects = true;
+      _classSubjectsError = null;
     });
-    
-    try {
-      final result = await ClassSubjectsService().listClassSubjects(classId: classId);
-      if (!mounted) return;
-      
-      setState(() {
-        _loadingClassSubjects = false;
-        if (result is ClassSubjectSuccess<List<ClassSubjectModel>>) {
-          _classSubjects = result.data;
-          _selectedSubjectIds = _classSubjects.map((cs) => cs.subjectId).toSet();
-        } else {
-          _classSubjects = [];
-          _selectedSubjectIds = {};
-        }
-      });
-    } catch (e, st) {
-      if (!mounted) return;
-      setState(() {
-        _loadingClassSubjects = false;
+
+    final result = await ClassSubjectsService().listClassSubjects(classId: classId);
+    if (!mounted) return;
+
+    setState(() {
+      _loadingClassSubjects = false;
+      if (result is ClassSubjectSuccess<List<ClassSubjectModel>>) {
+        _classSubjects = result.data;
+      } else {
         _classSubjects = [];
-        _selectedSubjectIds = {};
-      });
+        _classSubjectsError = 'Unable to load class subjects.';
+      }
+    });
+
+    // Defensive fallback only: if the class-subjects endpoint didn't embed a
+    // subject name for some row, resolve it quietly from the catalog. This
+    // never renders the catalog itself — it only fills in display names.
+    if (_classSubjects.any((cs) => cs.subjectName.isEmpty && !_subjectNamesById.containsKey(cs.subjectId))) {
+      final catalog = await SubjectsService().listSubjects();
+      if (!mounted) return;
+      if (catalog is SubjectSuccess<List<SubjectModel>>) {
+        setState(() {
+          for (final s in catalog.data) {
+            _subjectNamesById[s.id] = s.name;
+          }
+        });
+      }
     }
   }
 
-  Future<void> _saveClassSubjects() async {
-    if (_selectedClass == null) return;
-    
-    setState(() {
-      _saving = true;
-    });
-    
-    try {
-      final data = {
-        'class_id': _selectedClass!.id,
-        'subject_ids': _selectedSubjectIds.toList(),
-      };
-      
-      final result = await ClassSubjectsService().createClassSubject(data);
-      
-      if (!mounted) return;
-      
-      setState(() {
-        _saving = false;
-      });
-      
-      if (result is ClassSubjectSuccess) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Class subjects updated successfully'),
-            backgroundColor: kPrimaryGreen,
-          ),
-        );
-        // Reload to show updated state
-        _loadClassSubjects(_selectedClass!.id);
-      } else {
-        final error = result as ClassSubjectError;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(error.message),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e, st) {
-      if (!mounted) return;
-      setState(() {
-        _saving = false;
-      });
+  Future<void> _openAddSubjects() async {
+    final selectedClass = _selectedClass;
+    if (selectedClass == null) return;
+    final added = await showAddClassSubjectsDialog(
+      context,
+      classId: selectedClass.id,
+      className: selectedClass.name,
+      alreadyAssignedSubjectIds: _classSubjects.map((cs) => cs.subjectId).toSet(),
+    );
+    if (added == true) _loadClassSubjects(selectedClass.id);
+  }
+
+  Future<void> _editSubjectType(ClassSubjectModel classSubject) async {
+    final selectedClass = _selectedClass;
+    if (selectedClass == null) return;
+    final updated = await showEditSubjectTypeDialog(
+      context,
+      classId: classSubject.classId,
+      subjectId: classSubject.subjectId,
+      subjectName: _subjectNameFor(classSubject),
+      className: selectedClass.name,
+      currentIsExamSubject: classSubject.isExamSubject,
+    );
+    if (updated == null || !mounted) return;
+    _loadClassSubjects(selectedClass.id);
+  }
+
+  Future<void> _removeSubject(ClassSubjectModel classSubject) async {
+    final selectedClass = _selectedClass;
+    if (selectedClass == null) return;
+    final subjectName = _subjectNameFor(classSubject);
+    final confirmed = await showDeleteConfirmDialog(
+      context,
+      title: 'Remove Subject?',
+      message:
+          '$subjectName will no longer be taught by ${selectedClass.name}. '
+          'This removes the class-subject assignment entirely — it is not '
+          'the same as marking it Non-Exam.',
+      confirmLabel: 'Remove',
+    );
+    if (confirmed != true || !mounted) return;
+
+    final result = await ClassSubjectsService().deleteClassSubject(
+      selectedClass.id,
+      classSubject.subjectId,
+    );
+    if (!mounted) return;
+    if (result is ClassSubjectSuccess) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(userFriendlyMessage(e, st, 'AdminClassSubjectsScreen')),
+          content: Text('$subjectName removed from ${selectedClass.name}.'),
+          backgroundColor: kPrimaryGreen,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      _loadClassSubjects(selectedClass.id);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text((result as ClassSubjectError).message),
           backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
         ),
       );
     }
   }
 
-  String _getClassName(int classId) {
-    final classModel = _classes.firstWhere(
-      (c) => c.id == classId,
-      orElse: () => ClassModel(id: classId, name: 'Class $classId'),
-    );
-    return classModel.name;
+  String _subjectNameFor(ClassSubjectModel cs) {
+    if (cs.subjectName.isNotEmpty) return cs.subjectName;
+    return _subjectNamesById[cs.subjectId] ?? 'Subject ${cs.subjectId}';
   }
 
-  String _getSubjectName(int subjectId) {
-    final subject = _allSubjects.firstWhere(
-      (s) => s.id == subjectId,
-      orElse: () => SubjectModel(id: subjectId, name: 'Subject $subjectId'),
-    );
-    return subject.name;
+  int get _totalCount => _classSubjects.length;
+  int get _examCount => _classSubjects.where((cs) => cs.isExamSubject).length;
+  int get _nonExamCount => _totalCount - _examCount;
+
+  List<ClassSubjectModel> get _visibleSubjects {
+    if (_filter == _TypeFilter.all) return _classSubjects;
+    return _classSubjects
+        .where((cs) => _filter == _TypeFilter.exam ? cs.isExamSubject : !cs.isExamSubject)
+        .toList();
   }
 
   @override
@@ -257,13 +283,13 @@ class _AdminClassSubjectsScreenState extends State<AdminClassSubjectsScreen> {
   }
 
   Widget _buildManagementContent({required bool compact}) {
-    if (_loading) {
+    if (_loadingClasses) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 48),
         child: Center(child: CircularProgressIndicator(color: kPrimaryBlue)),
       );
     }
-    if (_error != null) {
+    if (_classesError != null) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 48),
         child: Column(
@@ -271,10 +297,10 @@ class _AdminClassSubjectsScreenState extends State<AdminClassSubjectsScreen> {
           children: [
             Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
             const SizedBox(height: 12),
-            Text(_error!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, color: kTextSecondaryColor)),
+            Text(_classesError!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, color: kTextSecondaryColor)),
             const SizedBox(height: 16),
             ElevatedButton.icon(
-              onPressed: _loadData,
+              onPressed: _loadClasses,
               icon: const Icon(Icons.refresh),
               label: const Text('Retry'),
             ),
@@ -313,126 +339,304 @@ class _AdminClassSubjectsScreenState extends State<AdminClassSubjectsScreen> {
                   value: null,
                   child: Text('Select a class'),
                 ),
-                ..._classes.map((classModel) => DropdownMenuItem<ClassModel?>(
-                  value: classModel,
-                  child: Text(classModel.name),
-                )),
+                ..._classes.map(
+                  (classModel) => DropdownMenuItem<ClassModel?>(
+                    value: classModel,
+                    child: Text(
+                      classModel.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
               ],
               onChanged: (ClassModel? value) {
                 setState(() {
                   _selectedClass = value;
                   _classSubjects = [];
-                  _selectedSubjectIds = {};
+                  _filter = _TypeFilter.all;
+                  _classSubjectsError = null;
                 });
-                if (value != null) {
-                  _loadClassSubjects(value.id);
-                }
+                if (value != null) _loadClassSubjects(value.id);
               },
             ),
           ),
         ),
         if (_selectedClass != null) ...[
           const SizedBox(height: 24),
-          Text(
-            'Manage Subjects for ${_selectedClass!.name}',
-            style: TextStyle(
-              fontSize: compact ? 16 : 14,
-              fontWeight: FontWeight.w600,
-              color: compact ? kPrimaryBlue : Colors.grey.shade700,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${_selectedClass!.name} Subjects',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: compact ? 16 : 14,
+                    fontWeight: FontWeight.w600,
+                    color: compact ? kPrimaryBlue : Colors.grey.shade700,
+                  ),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: _openAddSubjects,
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('Add Subjects'),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           if (_loadingClassSubjects)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
               child: Center(child: CircularProgressIndicator(color: kPrimaryBlue)),
             )
+          else if (_classSubjectsError != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Column(
+                children: [
+                  Icon(Icons.error_outline, size: 40, color: Colors.red[300]),
+                  const SizedBox(height: 10),
+                  Text(_classSubjectsError!, style: const TextStyle(color: kTextSecondaryColor)),
+                  const SizedBox(height: 12),
+                  TextButton.icon(
+                    onPressed: () => _loadClassSubjects(_selectedClass!.id),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry'),
+                  ),
+                ],
+              ),
+            )
+          else if (_classSubjects.isEmpty)
+            _buildEmptyState()
           else ...[
-            if (_selectedSubjectIds.isNotEmpty) ...[
-              Text(
-                'Currently Assigned (${_selectedSubjectIds.length})',
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextSecondaryColor),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _selectedSubjectIds.map((subjectId) {
-                  return Chip(
-                    label: Text(_getSubjectName(subjectId)),
-                    backgroundColor: kPrimaryGreen.withOpacity(0.1),
-                    deleteIcon: const Icon(Icons.close, size: 18),
-                    onDeleted: () {
-                      setState(() {
-                        _selectedSubjectIds.remove(subjectId);
-                      });
-                    },
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 16),
-            ],
-            const Text(
-              'Available Subjects',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextSecondaryColor),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              constraints: const BoxConstraints(maxHeight: 320),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE8ECF2)),
-              ),
-              child: ListView(
-                shrinkWrap: true,
-                children: _allSubjects.map((subject) {
-                  final isSelected = _selectedSubjectIds.contains(subject.id);
-                  return CheckboxListTile(
-                    title: Text(subject.name),
-                    value: isSelected,
-                    onChanged: (bool? value) {
-                      setState(() {
-                        if (value == true) {
-                          _selectedSubjectIds.add(subject.id);
-                        } else {
-                          _selectedSubjectIds.remove(subject.id);
-                        }
-                      });
-                    },
-                    activeColor: kPrimaryGreen,
-                  );
-                }).toList(),
-              ),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton.icon(
-                onPressed: _saving ? null : _saveClassSubjects,
-                icon: _saving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.save_rounded),
-                label: Text(_saving ? 'Saving...' : 'Save Subjects'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: kPrimaryBlue,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shadowColor: Colors.transparent,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            _buildSummary(),
+            const SizedBox(height: 16),
+            _buildFilterChips(),
+            const SizedBox(height: 12),
+            if (_visibleSubjects.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  'No subjects match this filter.',
+                  style: TextStyle(color: kTextSecondaryColor),
                 ),
-              ),
-            ),
+              )
+            else if (!compact && (kIsWeb || MediaQuery.sizeOf(context).width >= 760))
+              _buildDesktopTable()
+            else
+              ..._visibleSubjects.map((cs) => _buildSubjectCard(cs)),
           ],
         ],
       ],
     );
   }
+
+  Widget _buildEmptyState() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF6F8FA),
+        border: Border.all(color: const Color(0xFFE8ECF2)),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          const Text(
+            'No subjects have been assigned to this class yet.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: kTextSecondaryColor),
+          ),
+          const SizedBox(height: 14),
+          ElevatedButton.icon(
+            onPressed: _openAddSubjects,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Add Subjects'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kPrimaryGreen,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummary() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF6F8FA),
+        border: Border.all(color: const Color(0xFFE8ECF2)),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Wrap(
+        spacing: 20,
+        runSpacing: 8,
+        children: [
+          _SummaryCell(label: 'Total Subjects', value: _totalCount, color: kPrimaryBlue),
+          _SummaryCell(label: 'Exam Subjects', value: _examCount, color: const Color(0xFF5AB04B)),
+          _SummaryCell(label: 'Non-Exam Subjects', value: _nonExamCount, color: const Color(0xFFB07A1E)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChips() {
+    Widget chip(String label, _TypeFilter value) {
+      final selected = _filter == value;
+      return ChoiceChip(
+        label: Text(label),
+        selected: selected,
+        onSelected: (_) => setState(() => _filter = value),
+        selectedColor: kPrimaryBlue.withOpacity(0.12),
+        labelStyle: TextStyle(
+          color: selected ? kPrimaryBlue : kTextSecondaryColor,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+          fontSize: 12.5,
+        ),
+        side: BorderSide(color: selected ? kPrimaryBlue : const Color(0xFFE5E7EB)),
+        backgroundColor: Colors.white,
+      );
+    }
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        chip('All', _TypeFilter.all),
+        chip('Exam', _TypeFilter.exam),
+        chip('Non-Exam', _TypeFilter.nonExam),
+      ],
+    );
+  }
+
+  Widget _buildDesktopTable() {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: const Color(0xFFE8ECF2)),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 560),
+          child: DataTable(
+            columns: const [
+              DataColumn(label: Text('Subject')),
+              DataColumn(label: Text('Type')),
+              DataColumn(label: Text('Actions')),
+            ],
+            rows: _visibleSubjects
+                .map(
+                  (cs) => DataRow(
+                    cells: [
+                      DataCell(Text(_subjectNameFor(cs))),
+                      DataCell(ExamSubjectBadge(isExamSubject: cs.isExamSubject)),
+                      DataCell(
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextButton(
+                              onPressed: () => _editSubjectType(cs),
+                              child: const Text('Change Type'),
+                            ),
+                            IconButton(
+                              tooltip: 'Remove Subject',
+                              icon: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 20),
+                              onPressed: () => _removeSubject(cs),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+                .toList(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubjectCard(ClassSubjectModel cs) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE8ECF2)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: kPrimaryBlue.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            alignment: Alignment.center,
+            child: const Icon(Icons.menu_book_rounded, color: kPrimaryBlue, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _subjectNameFor(cs),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                ExamSubjectBadge(isExamSubject: cs.isExamSubject, compact: true),
+              ],
+            ),
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'Actions',
+            icon: const Icon(Icons.more_vert_rounded, color: kTextSecondaryColor),
+            onSelected: (value) {
+              if (value == 'edit') _editSubjectType(cs);
+              if (value == 'remove') _removeSubject(cs);
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'edit', child: Text('Change Type')),
+              PopupMenuItem(value: 'remove', child: Text('Remove Subject')),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryCell extends StatelessWidget {
+  final String label;
+  final int value;
+  final Color color;
+
+  const _SummaryCell({required this.label, required this.value, required this.color});
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(
+        '$value',
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color),
+      ),
+      Text(
+        label,
+        style: const TextStyle(fontSize: 11, color: kTextSecondaryColor),
+      ),
+    ],
+  );
 }

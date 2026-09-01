@@ -232,8 +232,10 @@ class _AdminMarksScreenState extends State<AdminMarksScreen> {
 
   List<SubjectModel> get _effectiveSubjects {
     if (_filterClassId != null && _classSubjects.isNotEmpty) {
-      // Convert ClassSubjectItem to SubjectModel for display
+      // Only exam subjects are valid for mark entry/filtering — non-exam
+      // subjects stay assigned to the class but never get exam marks.
       return _classSubjects
+          .where((cs) => cs.isExamSubject)
           .map((cs) => SubjectModel(id: cs.id, name: cs.name))
           .toList();
     }
@@ -2064,8 +2066,10 @@ class _AddMarksDialogState extends State<_AddMarksDialog> {
 
   List<SubjectModel> get _effectiveSubjects {
     if (_classId != null && _classSubjects.isNotEmpty) {
-      // Convert ClassSubjectItem to SubjectModel for display
+      // Only exam subjects are valid for mark entry — non-exam subjects
+      // stay assigned to the class but never get exam marks.
       return _classSubjects
+          .where((cs) => cs.isExamSubject)
           .map((cs) => SubjectModel(id: cs.id, name: cs.name))
           .toList();
     }
@@ -2667,7 +2671,10 @@ class _UpdateTeacherDialogState extends State<_UpdateTeacherDialog> {
 
   List<SubjectModel> get _effectiveSubjects {
     if (_classId != null && widget.classSubjects.isNotEmpty) {
+      // Only exam subjects are valid for mark entry — non-exam subjects
+      // stay assigned to the class but never get exam marks.
       return widget.classSubjects
+          .where((cs) => cs.isExamSubject)
           .map((cs) => SubjectModel(id: cs.id, name: cs.name))
           .toList();
     }

@@ -27,12 +27,28 @@ dynamic _parseJson(String body) {
   }
 }
 
+/// Returns a backend-provided error message, but never a raw database/HTML
+/// failure (e.g. driver/SQL errors) — those fall back to null so callers use
+/// their own clean, user-facing default message instead.
 String? _errorMessage(http.Response response) {
   if (response.body.isEmpty) return null;
   try {
     final m = jsonDecode(response.body);
-    if (m is Map && m['message'] != null) return m['message'] as String;
-    if (m is Map && m['error'] != null) return m['error'] as String;
+    String? raw;
+    if (m is Map && m['message'] != null) raw = m['message'] as String;
+    if (raw == null && m is Map && m['error'] != null) {
+      raw = m['error'] as String;
+    }
+    if (raw == null) return null;
+    final lower = raw.toLowerCase();
+    final looksLikeRawServerError =
+        lower.contains('<html') ||
+        lower.contains('sql') ||
+        lower.contains('unknown column') ||
+        lower.contains('stack trace') ||
+        lower.contains('exception') ||
+        lower.contains('at line ');
+    return looksLikeRawServerError ? null : raw;
   } catch (_) {}
   return null;
 }
@@ -65,18 +81,23 @@ void devLogResponse(String context, int statusCode, String body) {
 
 // ==================== MODELS ====================
 
-/// Assignment: { id, teacher: { id, fullName, email }, class: { id, name }, subject: { id, name } }
+/// Assignment: { id, teacher: { id, fullName, email }, class: { id, name },
+/// subject: { id, name }, academic_year_id, academic_year: { id, name } }
 class AssignmentModel {
   final int id;
   final Map<String, dynamic> teacher;
   final Map<String, dynamic> class_;
   final Map<String, dynamic> subject;
+  final int academicYearId;
+  final Map<String, dynamic>? academicYear;
 
   AssignmentModel({
     required this.id,
     required this.teacher,
     required this.class_,
     required this.subject,
+    this.academicYearId = 0,
+    this.academicYear,
   });
 
   int get teacherId => _parseId(teacher['id']);
@@ -87,11 +108,17 @@ class AssignmentModel {
   String get className => _str(class_['name']);
   int get subjectId => _parseId(subject['id']);
   String get subjectName => _str(subject['name']);
+  String get academicYearName {
+    final name = academicYear?['name'];
+    return name == null ? '' : _str(name);
+  }
 
   factory AssignmentModel.fromJson(Map<String, dynamic> json) {
     final t = json['teacher'] ?? json['Teacher'];
     final c = json['class'] ?? json['Class'] ?? json['class_'];
     final s = json['subject'] ?? json['Subject'] ?? json['subject_'];
+    final ay =
+        json['academic_year'] ?? json['academicYear'] ?? json['AcademicYear'];
     return AssignmentModel(
       id: _parseId(json['id']),
       teacher: t is Map<String, dynamic>
@@ -99,21 +126,45 @@ class AssignmentModel {
           : {'id': 0, 'fullName': '', 'email': ''},
       class_: c is Map<String, dynamic> ? c : {'id': 0, 'name': ''},
       subject: s is Map<String, dynamic> ? s : {'id': 0, 'name': ''},
+      academicYearId: _parseId(
+        json['academic_year_id'] ?? json['academicYearId'] ?? ay?['id'],
+      ),
+      academicYear: ay is Map<String, dynamic> ? ay : null,
     );
   }
 }
 
-/// SubjectsResponse: { subjects: [ { id, name } ] }
+/// SubjectsResponse: { subjects: [ { id, name, is_exam_subject } ] }
 class ClassSubjectItem {
   final int id;
   final String name;
 
-  ClassSubjectItem({required this.id, required this.name});
+  /// Whether this class subject participates in exams/grading. Defaults to
+  /// `true` when absent, matching the backend's own default so legacy rows
+  /// without the field are treated as exam subjects.
+  final bool isExamSubject;
+
+  ClassSubjectItem({
+    required this.id,
+    required this.name,
+    this.isExamSubject = true,
+  });
 
   factory ClassSubjectItem.fromJson(Map<String, dynamic> json) {
+    bool parseExamFlag(dynamic v) {
+      if (v == null) return true;
+      if (v is bool) return v;
+      if (v is num) return v != 0;
+      if (v is String) return v == '1' || v.toLowerCase() == 'true';
+      return true;
+    }
+
     return ClassSubjectItem(
       id: _parseId(json['id'] ?? json['subject_id']),
       name: _str(json['name'] ?? json['subject_name'] ?? json['subjectName']),
+      isExamSubject: parseExamFlag(
+        json['is_exam_subject'] ?? json['isExamSubject'],
+      ),
     );
   }
 }
@@ -153,11 +204,12 @@ class SchoolAdminAssignmentsService {
       SchoolAdminAssignmentsService._();
   factory SchoolAdminAssignmentsService() => _instance;
 
-  /// GET /api/school-admin/assignments?teacher_id=&class_id=&subject_id=
+  /// GET /api/school-admin/assignments?teacher_id=&class_id=&subject_id=&academic_year_id=
   Future<AssignmentResult<List<AssignmentModel>>> listAssignments({
     int? teacherId,
     int? classId,
     int? subjectId,
+    int? academicYearId,
   }) async {
     try {
       final params = <String, String>{};
@@ -167,6 +219,8 @@ class SchoolAdminAssignmentsService {
         params['class_id'] = classId.toString();
       if (subjectId != null && subjectId > 0)
         params['subject_id'] = subjectId.toString();
+      if (academicYearId != null && academicYearId > 0)
+        params['academic_year_id'] = academicYearId.toString();
       final uri = params.isEmpty
           ? apiUrl('$_base/assignments')
           : apiUrl('$_base/assignments').replace(queryParameters: params);
@@ -178,7 +232,8 @@ class SchoolAdminAssignmentsService {
       );
       if (response.statusCode != 200) {
         return AssignmentError(
-          _errorMessage(response) ?? 'Could not load assignments.',
+          _errorMessage(response) ??
+              'Unable to load assignments. Please try again.',
           response.statusCode,
         );
       }
@@ -233,17 +288,19 @@ class SchoolAdminAssignmentsService {
     }
   }
 
-  /// POST /api/school-admin/assignments  Body: { teacher_id, class_id, subject_id }
+  /// POST /api/school-admin/assignments  Body: { teacher_id, class_id, subject_id, academic_year_id }
   Future<AssignmentResult<AssignmentModel>> createAssignment({
     required int teacherId,
     required int classId,
     required int subjectId,
+    required int academicYearId,
   }) async {
     try {
       final body = {
         'teacher_id': teacherId,
         'class_id': classId,
         'subject_id': subjectId,
+        'academic_year_id': academicYearId,
       };
       final response = await _client.post(
         apiUrl('$_base/assignments'),
@@ -289,14 +346,20 @@ class SchoolAdminAssignmentsService {
   }
 
   /// POST /api/school-admin/course-assignments/bulk
+  /// Body: { teacher_id, academic_year_id, assignments: [{class_id, subject_id}, ...] }
   Future<AssignmentResult<BulkAssignmentResponse>> createBulkAssignments({
     required int teacherId,
+    required int academicYearId,
     required List<Map<String, int>> assignments,
   }) async {
     try {
       final response = await _client.post(
         apiUrl('$_base/course-assignments/bulk'),
-        body: {'teacher_id': teacherId, 'assignments': assignments},
+        body: {
+          'teacher_id': teacherId,
+          'academic_year_id': academicYearId,
+          'assignments': assignments,
+        },
       );
       if (response.statusCode != 200 && response.statusCode != 201) {
         return AssignmentError(
@@ -338,12 +401,15 @@ class SchoolAdminAssignmentsService {
     int? teacherId,
     int? classId,
     int? subjectId,
+    int? academicYearId,
   }) async {
     try {
       final body = <String, dynamic>{};
       if (teacherId != null && teacherId > 0) body['teacher_id'] = teacherId;
       if (classId != null && classId > 0) body['class_id'] = classId;
       if (subjectId != null && subjectId > 0) body['subject_id'] = subjectId;
+      if (academicYearId != null && academicYearId > 0)
+        body['academic_year_id'] = academicYearId;
       final response = await _client.patch(
         apiUrl('$_base/assignments/$id'),
         body: body,
@@ -416,6 +482,87 @@ class SchoolAdminAssignmentsService {
     }
   }
 
+  /// DELETE /api/school-admin/assignments/academic-year/{academicYearId}
+  /// Deletes every course assignment for the given academic year. Returns the
+  /// backend's reported deleted_count when available.
+  Future<AssignmentResult<int?>> deleteAssignmentsForYear(
+    int academicYearId,
+  ) async {
+    try {
+      final response = await _client.delete(
+        apiUrl('$_base/assignments/academic-year/$academicYearId'),
+      );
+      devLogResponse(
+        'SchoolAdminAssignmentsService.deleteAssignmentsForYear',
+        response.statusCode,
+        response.body,
+      );
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        return AssignmentError(
+          _errorMessage(response) ??
+              'Could not reset assignments for this year. Please try again.',
+          response.statusCode,
+        );
+      }
+      return AssignmentSuccess(_deletedCount(response));
+    } catch (e, st) {
+      return AssignmentError(
+        userFriendlyMessage(
+          e,
+          st,
+          'SchoolAdminAssignmentsService.deleteAssignmentsForYear',
+        ),
+      );
+    }
+  }
+
+  /// DELETE /api/school-admin/assignments/academic-year/{academicYearId}/teacher/{teacherId}
+  /// Deletes a single teacher's course assignments for the given academic
+  /// year. Returns the backend's reported deleted_count when available.
+  Future<AssignmentResult<int?>> deleteAssignmentsForTeacherYear({
+    required int academicYearId,
+    required int teacherId,
+  }) async {
+    try {
+      final response = await _client.delete(
+        apiUrl(
+          '$_base/assignments/academic-year/$academicYearId/teacher/$teacherId',
+        ),
+      );
+      devLogResponse(
+        'SchoolAdminAssignmentsService.deleteAssignmentsForTeacherYear',
+        response.statusCode,
+        response.body,
+      );
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        return AssignmentError(
+          _errorMessage(response) ??
+              "Could not clear this teacher's assignments. Please try again.",
+          response.statusCode,
+        );
+      }
+      return AssignmentSuccess(_deletedCount(response));
+    } catch (e, st) {
+      return AssignmentError(
+        userFriendlyMessage(
+          e,
+          st,
+          'SchoolAdminAssignmentsService.deleteAssignmentsForTeacherYear',
+        ),
+      );
+    }
+  }
+
+  int? _deletedCount(http.Response response) {
+    final raw = _parseJson(response.body);
+    if (raw is! Map<String, dynamic>) return null;
+    final data = raw['data'];
+    final source = data is Map<String, dynamic> ? data : raw;
+    final value = source['deleted_count'] ?? source['deletedCount'];
+    if (value == null) return null;
+    return value is int ? value : int.tryParse(value.toString());
+  }
+
   /// GET /api/school-admin/classes/{class_id}/subjects
   /// Response: { "subjects": [ { "id", "name" } ] } or { "subjects": [] }. Handle empty arrays safely.
   Future<AssignmentResult<List<ClassSubjectItem>>> listClassSubjects(
@@ -451,7 +598,19 @@ class SchoolAdminAssignmentsService {
         if (e is Map<String, dynamic>) {
           final subjectMap = e['subject'] ?? e['Subject'] ?? e;
           if (subjectMap is Map<String, dynamic>) {
-            final item = ClassSubjectItem.fromJson(subjectMap);
+            // `is_exam_subject` may sit on the outer row (sibling of a
+            // nested `subject` object) rather than inside it — fall back to
+            // the outer row's value when the inner map doesn't have one.
+            final merged = identical(subjectMap, e)
+                ? e
+                : {
+                    ...subjectMap,
+                    if (!subjectMap.containsKey('is_exam_subject') &&
+                        !subjectMap.containsKey('isExamSubject'))
+                      'is_exam_subject':
+                          e['is_exam_subject'] ?? e['isExamSubject'],
+                  };
+            final item = ClassSubjectItem.fromJson(merged);
             if (item.id > 0 && seenIds.add(item.id)) items.add(item);
           } else {
             final item = ClassSubjectItem.fromJson(e);

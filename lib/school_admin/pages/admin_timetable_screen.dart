@@ -15,6 +15,7 @@ import 'package:kobac/widgets/form_3d/form_3d.dart';
 import 'package:kobac/services/periods_service.dart';
 import 'package:kobac/services/shifts_service.dart';
 import 'package:kobac/services/teacher_day_off_service.dart';
+import 'package:kobac/school_admin/widgets/timetable_print_dialog.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
 const Color kPrimaryGreen = Color(0xFF5AB04B);
@@ -43,6 +44,7 @@ class AdminTimetableScreen extends StatefulWidget {
 class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
   int? _selectedClassId; // null = All classes
   int? _selectedShiftId; // null = All shifts
+  int? _selectedAcademicYearId; // year context for the slot form + printing
   String _selectedDay = 'MON';
   late Future<TimetableResult<List<TimetableSlotModel>>> _timetablesFuture;
   List<ClassModel> _classes = [];
@@ -59,6 +61,21 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
     _loadRefData();
     _loadTimetables();
     Future.microtask(() => context.read<ShiftsProvider>().ensureLoaded());
+    Future.microtask(_loadDefaultAcademicYear);
+  }
+
+  Future<void> _loadDefaultAcademicYear() async {
+    final provider = context.read<AcademicYearsProvider>();
+    await provider.ensureLoaded();
+    if (!mounted || _selectedAcademicYearId != null) return;
+    setState(() => _selectedAcademicYearId = provider.activeYear?.id);
+  }
+
+  Future<void> _openPrintDialog() async {
+    await showTimetablePrintDialog(
+      context,
+      initialAcademicYearId: _selectedAcademicYearId,
+    );
   }
 
   String _classShiftName(int? classId) {
@@ -203,6 +220,7 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
         initialClassId: _selectedClassId,
         initialDay: _selectedDay,
         teacherDaysOff: _teacherDaysOff,
+        academicYearId: _selectedAcademicYearId,
         isCreate: true,
         onSave: _createSlotFromDialog,
       ),
@@ -247,6 +265,7 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
         initialDay: slot.day,
         teacherDaysOff: _teacherDaysOff,
         initialPeriodId: slot.periodId,
+        academicYearId: _selectedAcademicYearId,
         slotId: slot.id,
         isCreate: false,
         onSave: (ctx, payload) => _updateSlotFromDialog(ctx, slot.id, payload),
@@ -391,6 +410,41 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<int?>(
+                    value:
+                        context.watch<AcademicYearsProvider>().years.any(
+                              (y) => y.id == _selectedAcademicYearId,
+                            )
+                        ? _selectedAcademicYearId
+                        : null,
+                    isExpanded: true,
+                    hint: const Text('Academic Year'),
+                    items: context
+                        .watch<AcademicYearsProvider>()
+                        .years
+                        .map(
+                          (y) => DropdownMenuItem<int?>(
+                            value: y.id,
+                            child: Text(y.name),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) {
+                      setState(() => _selectedAcademicYearId = v);
+                    },
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: FormCard(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<int?>(
                     value: _selectedClassId,
                     isExpanded: true,
                     hint: const Text('All classes'),
@@ -447,6 +501,23 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                         _loadTimetables();
                       });
                     },
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: OutlinedButton.icon(
+                onPressed: _openPrintDialog,
+                icon: const Icon(Icons.print_rounded, size: 18),
+                label: const Text('Print Timetable'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: kPrimaryBlue,
+                  side: const BorderSide(color: Color(0xFFE5E7EB)),
+                  minimumSize: const Size(double.infinity, 44),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
               ),
@@ -1004,9 +1075,36 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
           LayoutBuilder(
             builder: (context, constraints) {
               final isWide = constraints.maxWidth >= 900;
+              final years = context.watch<AcademicYearsProvider>().years;
+              final academicYearField = SizedBox(
+                width: isWide ? 220 : double.infinity,
+                child: DropdownButtonFormField<int?>(
+                  isExpanded: true,
+                  value: years.any((y) => y.id == _selectedAcademicYearId)
+                      ? _selectedAcademicYearId
+                      : null,
+                  decoration: _desktopFilterDecoration('Academic Year'),
+                  items: years
+                      .map(
+                        (y) => DropdownMenuItem<int?>(
+                          value: y.id,
+                          child: Text(
+                            y.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    setState(() => _selectedAcademicYearId = value);
+                  },
+                ),
+              );
               final classField = SizedBox(
                 width: isWide ? 280 : double.infinity,
                 child: DropdownButtonFormField<int?>(
+                  isExpanded: true,
                   value: _selectedClassId,
                   decoration: _desktopFilterDecoration('Class'),
                   items: [
@@ -1017,7 +1115,11 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                     ..._classes.map(
                       (c) => DropdownMenuItem<int?>(
                         value: c.id,
-                        child: Text(c.name),
+                        child: Text(
+                          c.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ),
                   ],
@@ -1032,6 +1134,7 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
               final shiftField = SizedBox(
                 width: isWide ? 220 : double.infinity,
                 child: DropdownButtonFormField<int?>(
+                  isExpanded: true,
                   value: _selectedShiftId,
                   decoration: _desktopFilterDecoration('Shift'),
                   items: [
@@ -1042,7 +1145,11 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                     ...context.watch<ShiftsProvider>().shifts.map(
                       (s) => DropdownMenuItem<int?>(
                         value: s.id,
-                        child: Text(s.name),
+                        child: Text(
+                          s.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ),
                   ],
@@ -1086,14 +1193,33 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                   ),
                 ),
               );
+              final printButton = SizedBox(
+                height: 44,
+                child: OutlinedButton.icon(
+                  onPressed: _openPrintDialog,
+                  icon: const Icon(Icons.print_rounded, size: 18),
+                  label: const Text('Print Timetable'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: kPrimaryBlue,
+                    side: const BorderSide(color: Color(0xFFE5E7EB)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              );
 
               if (isWide) {
                 return Row(
                   children: [
+                    academicYearField,
+                    const SizedBox(width: 12),
                     classField,
                     const SizedBox(width: 12),
                     shiftField,
                     const Spacer(),
+                    printButton,
+                    const SizedBox(width: 12),
                     deleteYearButton,
                     const SizedBox(width: 12),
                     addButton,
@@ -1104,6 +1230,8 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  academicYearField,
+                  const SizedBox(height: 12),
                   classField,
                   const SizedBox(height: 12),
                   shiftField,
@@ -1112,7 +1240,7 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                     alignment: WrapAlignment.end,
                     spacing: 12,
                     runSpacing: 8,
-                    children: [deleteYearButton, addButton],
+                    children: [printButton, deleteYearButton, addButton],
                   ),
                 ],
               );
@@ -1758,6 +1886,7 @@ class _TimetableSlotFormDialog extends StatefulWidget {
   final int? slotId;
   final bool isCreate;
   final List<TeacherDayOff> teacherDaysOff;
+  final int? academicYearId;
   final Future<bool> Function(BuildContext ctx, Map<String, dynamic> payload)
   onSave;
 
@@ -1772,6 +1901,7 @@ class _TimetableSlotFormDialog extends StatefulWidget {
     this.slotId,
     required this.isCreate,
     this.teacherDaysOff = const [],
+    this.academicYearId,
     required this.onSave,
   });
 
@@ -1834,15 +1964,42 @@ class _TimetableSlotFormDialogState extends State<_TimetableSlotFormDialog> {
     });
   }
 
+  /// Loads teachers assigned to this class+subject, then — when an academic
+  /// year is in scope — narrows the list to teachers who actually hold a
+  /// course assignment for that class+subject in that year. This keeps the
+  /// timetable form from offering a teacher who was only assigned in a
+  /// different academic year.
   Future<void> _loadTeachers(int classId, int subjectId) async {
     setState(() => _loadingTeachers = true);
-    final result = await SchoolAdminAssignmentsService()
-        .listClassSubjectTeachers(classId, subjectId);
+    final academicYearId = widget.academicYearId;
+    final results = await Future.wait([
+      SchoolAdminAssignmentsService().listClassSubjectTeachers(
+        classId,
+        subjectId,
+      ),
+      if (academicYearId != null)
+        SchoolAdminAssignmentsService().listAssignments(
+          academicYearId: academicYearId,
+          classId: classId,
+          subjectId: subjectId,
+        ),
+    ]);
     if (!mounted) return;
     setState(() {
       _loadingTeachers = false;
-      if (result is AssignmentSuccess<List<TeacherModel>>) {
-        _classTeachers = result.data;
+      final teachersResult = results[0];
+      if (teachersResult is AssignmentSuccess<List<TeacherModel>>) {
+        var teachers = teachersResult.data;
+        if (academicYearId != null && results.length > 1) {
+          final yearResult = results[1];
+          if (yearResult is AssignmentSuccess<List<AssignmentModel>>) {
+            final allowedIds = yearResult.data.map((a) => a.teacherId).toSet();
+            teachers = teachers
+                .where((t) => allowedIds.contains(t.id))
+                .toList();
+          }
+        }
+        _classTeachers = teachers;
         final currentId = _teacherId;
         final inList =
             currentId != null && _classTeachers.any((t) => t.id == currentId);
@@ -2337,6 +2494,7 @@ class _DeleteYearTimetablesDialogState
             ),
             const SizedBox(height: 18),
             DropdownButtonFormField<int>(
+              isExpanded: true,
               value: _yearId,
               decoration: InputDecoration(
                 labelText: 'Academic year',
@@ -2349,7 +2507,11 @@ class _DeleteYearTimetablesDialogState
                   .map(
                     (year) => DropdownMenuItem(
                       value: year.id,
-                      child: Text(year.name),
+                      child: Text(
+                        year.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   )
                   .toList(),

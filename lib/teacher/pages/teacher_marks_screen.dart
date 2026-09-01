@@ -289,7 +289,11 @@ class _TeacherMarksScreenState extends State<TeacherMarksScreen> {
                   value: _filterSubjectId,
                   items: _filterClassId != null
                       ? _assignments
-                            .where((a) => a.classId == _filterClassId)
+                            .where(
+                              (a) =>
+                                  a.classId == _filterClassId &&
+                                  a.isExamSubject,
+                            )
                             .map(
                               (a) => DropdownMenuItem<int?>(
                                 value: a.subjectId,
@@ -689,7 +693,7 @@ class _AddSingleMarkDialogState extends State<_AddSingleMarkDialog> {
   Widget build(BuildContext context) {
     final classList = widget.dashboard?.assignedClasses ?? [];
     final subjects = widget.assignments
-        .where((a) => a.classId == _classId)
+        .where((a) => a.classId == _classId && a.isExamSubject)
         .map((a) => (id: a.subjectId, name: a.subjectName))
         .toSet()
         .toList();
@@ -1415,7 +1419,7 @@ class _AddMarkDialogState extends State<_AddMarkDialog> {
   @override
   Widget build(BuildContext context) {
     final classAssignments = widget.assignments
-        .where((a) => a.classId == widget.classId)
+        .where((a) => a.classId == widget.classId && a.isExamSubject)
         .toList();
     final subjectList = classAssignments
         .map((a) => (id: a.subjectId, name: a.subjectName))

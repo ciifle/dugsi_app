@@ -8,6 +8,8 @@ Future<bool?> showDeleteConfirmDialog(
   BuildContext context, {
   required String title,
   required String message,
+  String confirmLabel = 'Delete',
+  IconData icon = Icons.delete_outline_rounded,
 }) {
   return showDialog<bool>(
     context: context,
@@ -40,7 +42,7 @@ Future<bool?> showDeleteConfirmDialog(
                     color: Colors.red.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Icon(Icons.delete_outline_rounded, color: Colors.red[700], size: 28),
+                  child: Icon(icon, color: Colors.red[700], size: 28),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -111,7 +113,10 @@ Future<bool?> showDeleteConfirmDialog(
                         ),
                         child: Center(
                           child: Text(
-                            'Delete',
+                            confirmLabel,
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.red[700]),
                           ),
                         ),

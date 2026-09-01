@@ -289,6 +289,18 @@ class TeacherAssignmentModel {
     subject['name'] ?? subject['subject_name'] ?? subject['subjectName'],
   );
 
+  /// Whether this class subject participates in exams/grading. Defaults to
+  /// `true` (matching the backend default) when the field is absent, so
+  /// exam-subject filtering never hides an assignment it can't classify.
+  bool get isExamSubject {
+    final v = subject['is_exam_subject'] ?? subject['isExamSubject'];
+    if (v == null) return true;
+    if (v is bool) return v;
+    if (v is num) return v != 0;
+    if (v is String) return v == '1' || v.toLowerCase() == 'true';
+    return true;
+  }
+
   /// Use for display: never show "class 0"; show "Unassigned" when class missing.
   String get classDisplayName =>
       (classId == 0 || className.trim().isEmpty) ? 'Unassigned' : className;

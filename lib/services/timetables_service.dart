@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import 'package:kobac/services/api_client.dart';
 import 'package:kobac/services/api_error_helpers.dart';
+import 'package:kobac/services/pdf_file_result.dart';
 import 'package:kobac/services/periods_service.dart';
 
 /// Timetable slot model (school-admin scope).
@@ -105,12 +106,28 @@ dynamic _parseJson(String body) {
   }
 }
 
+/// Returns a backend-provided error message, but never a raw database/HTML
+/// failure (e.g. driver/SQL errors) — those fall back to null so callers use
+/// their own clean, user-facing default message instead.
 String? _errorMessage(http.Response response) {
   if (response.body.isEmpty) return null;
   try {
     final m = jsonDecode(response.body);
-    if (m is Map && m['message'] != null) return m['message'] as String;
-    if (m is Map && m['error'] != null) return m['error'] as String;
+    String? raw;
+    if (m is Map && m['message'] != null) raw = m['message'] as String;
+    if (raw == null && m is Map && m['error'] != null) {
+      raw = m['error'] as String;
+    }
+    if (raw == null) return null;
+    final lower = raw.toLowerCase();
+    final looksLikeRawServerError =
+        lower.contains('<html') ||
+        lower.contains('sql') ||
+        lower.contains('unknown column') ||
+        lower.contains('stack trace') ||
+        lower.contains('exception') ||
+        lower.contains('at line ');
+    return looksLikeRawServerError ? null : raw;
   } catch (_) {}
   return null;
 }
@@ -434,6 +451,96 @@ class TimetablesService {
     } catch (e, st) {
       return TimetableError(
         userFriendlyMessage(e, st, 'TimetablesService.deleteTimetablesForYear'),
+      );
+    }
+  }
+
+  String _printPdfError(http.Response response, {required bool allTeachers}) {
+    final backend = _errorMessage(response);
+    if (backend != null &&
+        !backend.toLowerCase().contains('<html') &&
+        !backend.toLowerCase().contains('sql')) {
+      return backend;
+    }
+    if (response.statusCode == 401)
+      return 'Your session has expired. Please sign in again.';
+    if (response.statusCode == 403)
+      return 'School administrator access is required.';
+    if (response.statusCode == 404) {
+      return allTeachers
+          ? 'No teacher timetables were found for this academic year.'
+          : 'No timetable was found for this teacher in this academic year.';
+    }
+    return 'The timetable PDF could not be generated. Please try again.';
+  }
+
+  /// GET /api/school-admin/timetables/teachers/{teacherId}/print?academic_year_id=
+  Future<TimetableResult<PdfFileResult>> getTeacherTimetablePrintPdf({
+    required int teacherId,
+    required int academicYearId,
+  }) async {
+    try {
+      final response = await _client.get(
+        apiUrl('$_base/teachers/$teacherId/print').replace(
+          queryParameters: {'academic_year_id': academicYearId.toString()},
+        ),
+        headers: const {'Accept': 'application/pdf'},
+      );
+      devLogResponse(
+        'TimetablesService.getTeacherTimetablePrintPdf',
+        response.statusCode,
+        response.body.length > 200 ? '<pdf bytes>' : response.body,
+      );
+      final document = pdfFileResultFromResponse(response);
+      if (document == null) {
+        return TimetableError(
+          _printPdfError(response, allTeachers: false),
+          response.statusCode,
+        );
+      }
+      return TimetableSuccess(document);
+    } catch (e, st) {
+      return TimetableError(
+        userFriendlyMessage(
+          e,
+          st,
+          'TimetablesService.getTeacherTimetablePrintPdf',
+        ),
+      );
+    }
+  }
+
+  /// GET /api/school-admin/timetables/teachers/print?academic_year_id=
+  Future<TimetableResult<PdfFileResult>> getAllTeachersTimetablePrintPdf({
+    required int academicYearId,
+  }) async {
+    try {
+      final response = await _client.get(
+        apiUrl('$_base/teachers/print').replace(
+          queryParameters: {'academic_year_id': academicYearId.toString()},
+        ),
+        headers: const {'Accept': 'application/pdf'},
+      );
+      devLogResponse(
+        'TimetablesService.getAllTeachersTimetablePrintPdf',
+        response.statusCode,
+        response.body.length > 200 ? '<pdf bytes>' : response.body,
+      );
+      final document = pdfFileResultFromResponse(response);
+      if (document == null) {
+        return TimetableError(
+          _printPdfError(response, allTeachers: true),
+          response.statusCode,
+        );
+      }
+      return TimetableSuccess(document);
+    } catch (e, st) {
+      return TimetableError(
+        userFriendlyMessage(
+          e,
+          st,
+          'TimetablesService.getAllTeachersTimetablePrintPdf',
+        ),
       );
     }
   }

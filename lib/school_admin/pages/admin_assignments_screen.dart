@@ -1,11 +1,16 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:kobac/services/academic_years_service.dart';
 import 'package:kobac/services/classes_service.dart';
 import 'package:kobac/services/school_admin_assignments_service.dart';
 import 'package:kobac/services/subjects_service.dart';
 import 'package:kobac/services/teachers_service.dart';
 import 'package:kobac/school_admin/widgets/delete_confirm_dialog.dart'
     show showDeleteConfirmDialog;
+import 'package:kobac/school_admin/widgets/manage_assignments_dialog.dart'
+    show showManageAssignmentsDialog;
 import 'package:kobac/widgets/form_3d/form_3d.dart';
+import 'package:provider/provider.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
 const Color kPrimaryGreen = Color(0xFF5AB04B);
@@ -38,6 +43,7 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
   int? _filterClassId;
   int? _filterSubjectId;
   int? _filterTeacherId;
+  int? _selectedAcademicYearId;
   bool _filterSubjectsLoading = false;
   bool _filterTeachersLoading = false;
 
@@ -45,10 +51,23 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
   void initState() {
     super.initState();
     _loadClasses();
-    _loadAssignments();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initAcademicYear());
     if (widget.openCreateOnLoad) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _openCreate());
     }
+  }
+
+  Future<void> _initAcademicYear() async {
+    final provider = context.read<AcademicYearsProvider>();
+    await provider.ensureLoaded();
+    if (!mounted) return;
+    setState(() => _selectedAcademicYearId ??= provider.activeYear?.id);
+    _loadAssignments();
+  }
+
+  Future<void> _onAcademicYearChanged(int? yearId) async {
+    setState(() => _selectedAcademicYearId = yearId);
+    _loadAssignments();
   }
 
   Future<void> _loadClasses() async {
@@ -68,6 +87,7 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
       teacherId: _filterTeacherId,
       classId: _filterClassId,
       subjectId: _filterSubjectId,
+      academicYearId: _selectedAcademicYearId,
     );
     if (!mounted) return;
     setState(() {
@@ -178,10 +198,13 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
   }
 
   Future<void> _openCreate() async {
+    final years = context.read<AcademicYearsProvider>().years;
     final created = await showDialog<bool>(
       context: context,
       builder: (ctx) => _CreateAssignmentDialog(
         classes: _classes,
+        years: years,
+        initialAcademicYearId: _selectedAcademicYearId,
         onSaved: () => _loadAssignments(),
       ),
     );
@@ -198,11 +221,13 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
   }
 
   Future<void> _openEdit(AssignmentModel a) async {
+    final years = context.read<AcademicYearsProvider>().years;
     final updated = await showDialog<bool>(
       context: context,
       builder: (ctx) => _EditAssignmentDialog(
         assignment: a,
         classes: _classes,
+        years: years,
         onSaved: () => _loadAssignments(),
       ),
     );
@@ -221,9 +246,12 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
   Future<void> _deleteAssignment(AssignmentModel a) async {
     final confirmed = await showDeleteConfirmDialog(
       context,
-      title: 'Remove teacher assignment?',
+      title: 'Delete Assignment?',
       message:
-          '${a.teacherName} will no longer be assigned to ${a.className} - ${a.subjectName}.',
+          'Teacher: ${a.teacherName}\n'
+          'Class: ${a.className}\n'
+          'Subject: ${a.subjectName}\n'
+          'Academic Year: ${a.academicYearName.isNotEmpty ? a.academicYearName : '—'}',
     );
     if (confirmed != true || !mounted) return;
     final result = await SchoolAdminAssignmentsService().deleteAssignment(a.id);
@@ -246,6 +274,88 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
         ),
       );
     }
+  }
+
+  /// Opens the Manage Assignments dialog, where the admin explicitly picks
+  /// the academic year (and teacher, for the clear-teacher flow) to act on —
+  /// nothing here is pre-submitted from the page's active-year filter.
+  Future<void> _openManageDialog() async {
+    final changed = await showManageAssignmentsDialog(
+      context,
+      initialAcademicYearId: _selectedAcademicYearId,
+    );
+    // Keep the page's own Academic Year filter unchanged; only refresh the
+    // list so a reset/clear performed on another year doesn't affect what's
+    // currently displayed unless it was the same year.
+    if (changed == true && mounted) {
+      _loadAssignments();
+    }
+  }
+
+  Widget _buildAcademicYearMiniField() {
+    final years = context.watch<AcademicYearsProvider>().years;
+    return SizedBox(
+      width: 190,
+      child: Select3D<int?>(
+        value: years.any((y) => y.id == _selectedAcademicYearId)
+            ? _selectedAcademicYearId
+            : null,
+        label: 'Academic Year',
+        items: years
+            .map(
+              (y) => DropdownMenuItem<int?>(
+                value: y.id,
+                child: Text(y.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
+            )
+            .toList(),
+        onChanged: _onAcademicYearChanged,
+      ),
+    );
+  }
+
+  Widget _buildManageButton() {
+    final compact = MediaQuery.sizeOf(context).width < 380;
+    if (compact) {
+      return Tooltip(
+        message: 'Manage Assignments',
+        child: Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(11),
+          child: InkWell(
+            onTap: _openManageDialog,
+            borderRadius: BorderRadius.circular(11),
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(11),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+              ),
+              alignment: Alignment.center,
+              child: const Icon(
+                Icons.tune_rounded,
+                color: kPrimaryBlue,
+                size: 20,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    return OutlinedButton.icon(
+      onPressed: _openManageDialog,
+      icon: const Icon(Icons.tune_rounded, size: 18),
+      label: const Text('Manage'),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: kPrimaryBlue,
+        backgroundColor: Colors.white,
+        side: const BorderSide(color: Color(0xFFE5E7EB)),
+        minimumSize: const Size(0, 40),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
+      ),
+    );
   }
 
   @override
@@ -271,16 +381,32 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
                     _BackButton(onPressed: () => Navigator.pop(context)),
                     const SizedBox(width: 16),
                     const Expanded(
-                      child: Text(
-                        'Course Assign Teacher',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: kPrimaryBlue,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Course Assign Teacher',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: kPrimaryBlue,
+                            ),
+                          ),
+                          Text(
+                            'Manage teacher subject assignments by academic year',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.black54,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    _AddButton(onPressed: _loading ? null : _openCreate),
+                    if (MediaQuery.sizeOf(context).width >= 760) ...[
+                      _buildAcademicYearMiniField(),
+                      const SizedBox(width: 10),
+                    ],
+                    _buildManageButton(),
                   ],
                 ),
               ),
@@ -306,13 +432,7 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
                         if (!_loading &&
                             _error == null &&
                             _assignments.isNotEmpty)
-                          ..._assignments.map(
-                            (a) => _AssignmentCard(
-                              assignment: a,
-                              onEdit: () => _openEdit(a),
-                              onDelete: () => _deleteAssignment(a),
-                            ),
-                          ),
+                          _buildAssignmentsList(),
                         const SizedBox(height: 24),
                       ],
                     ),
@@ -363,7 +483,34 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
                 ),
             ],
           ),
-          const SizedBox(height: 14),
+          // The header already shows a compact Academic Year selector on
+          // wide screens; avoid showing the same control twice.
+          if (MediaQuery.sizeOf(context).width < 760) ...[
+            Select3D<int?>(
+              value: context.watch<AcademicYearsProvider>().years.any(
+                    (y) => y.id == _selectedAcademicYearId,
+                  )
+                  ? _selectedAcademicYearId
+                  : null,
+              label: 'Academic Year',
+              items: context
+                  .watch<AcademicYearsProvider>()
+                  .years
+                  .map(
+                    (y) => DropdownMenuItem<int?>(
+                      value: y.id,
+                      child: Text(
+                        y.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: _onAcademicYearChanged,
+            ),
+            const SizedBox(height: 14),
+          ],
           Select3D<int?>(
             value: _filterClassId,
             label: 'Class',
@@ -474,6 +621,81 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
       ),
     );
   }
+
+  Widget _buildAssignmentsList() {
+    final isWide = kIsWeb || MediaQuery.sizeOf(context).width >= 760;
+    if (!isWide) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: _assignments
+            .map(
+              (a) => _AssignmentCard(
+                assignment: a,
+                onEdit: () => _openEdit(a),
+                onDelete: () => _deleteAssignment(a),
+              ),
+            )
+            .toList(),
+      );
+    }
+    return FormCard(
+      padding: const EdgeInsets.all(8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: 900,
+          child: DataTable(
+            columns: const [
+              DataColumn(label: Text('Teacher')),
+              DataColumn(label: Text('Class')),
+              DataColumn(label: Text('Subject')),
+              DataColumn(label: Text('Academic Year')),
+              DataColumn(label: Text('Actions')),
+            ],
+            rows: _assignments
+                .map(
+                  (a) => DataRow(
+                    cells: [
+                      DataCell(Text(a.teacherName)),
+                      DataCell(Text(a.className)),
+                      DataCell(Text(a.subjectName)),
+                      DataCell(
+                        Text(a.academicYearName.isNotEmpty ? a.academicYearName : '—'),
+                      ),
+                      DataCell(
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(
+                                Icons.edit_outlined,
+                                color: kPrimaryBlue,
+                                size: 20,
+                              ),
+                              onPressed: () => _openEdit(a),
+                              tooltip: 'Edit assignment',
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                Icons.delete_outline_rounded,
+                                color: Colors.red[400],
+                                size: 22,
+                              ),
+                              onPressed: () => _deleteAssignment(a),
+                              tooltip: 'Remove assignment',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+                .toList(),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _AssignmentCard extends StatelessWidget {
@@ -532,6 +754,18 @@ class _AssignmentCard extends StatelessWidget {
                     assignment.teacherEmail!,
                     style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
+                if (assignment.academicYearName.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      assignment.academicYearName,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: kPrimaryGreen.withOpacity(0.9),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -558,9 +792,16 @@ class _AssignmentCard extends StatelessWidget {
 /// Create assignment: school-wide Class, Subject, Teacher (GET /classes, /subjects, /teachers).
 class _CreateAssignmentDialog extends StatefulWidget {
   final List<ClassModel> classes;
+  final List<AcademicYear> years;
+  final int? initialAcademicYearId;
   final VoidCallback onSaved;
 
-  const _CreateAssignmentDialog({required this.classes, required this.onSaved});
+  const _CreateAssignmentDialog({
+    required this.classes,
+    required this.years,
+    this.initialAcademicYearId,
+    required this.onSaved,
+  });
 
   @override
   State<_CreateAssignmentDialog> createState() =>
@@ -571,6 +812,7 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
   int? _classId;
   int? _subjectId;
   int? _teacherId;
+  late int? _academicYearId;
   List<SubjectModel> _subjects = [];
   bool _subjectsLoading = true;
   bool _saving = false;
@@ -583,6 +825,7 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
   @override
   void initState() {
     super.initState();
+    _academicYearId = widget.initialAcademicYearId;
     _loadAllSubjects();
     _loadAllTeachers();
   }
@@ -621,6 +864,16 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
       await _submitBulk();
       return;
     }
+    if (_academicYearId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Select an academic year.'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     if (_classId == null || _subjectId == null || _teacherId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -636,6 +889,7 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
       teacherId: _teacherId!,
       classId: _classId!,
       subjectId: _subjectId!,
+      academicYearId: _academicYearId!,
     );
     if (!mounted) return;
     setState(() => _saving = false);
@@ -673,6 +927,10 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
   }
 
   Future<void> _submitBulk() async {
+    if (_academicYearId == null) {
+      setState(() => _formError = 'Select an academic year.');
+      return;
+    }
     if (_teacherId == null ||
         _bulkRows.any((row) => row.classId == null || row.subjectId == null)) {
       setState(
@@ -695,6 +953,7 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
     });
     final result = await SchoolAdminAssignmentsService().createBulkAssignments(
       teacherId: _teacherId!,
+      academicYearId: _academicYearId!,
       assignments: _bulkRows
           .map(
             (row) => {'class_id': row.classId!, 'subject_id': row.subjectId!},
@@ -767,6 +1026,29 @@ class _CreateAssignmentDialogState extends State<_CreateAssignmentDialog> {
                       }),
               ),
               const SizedBox(height: 20),
+              Select3D<int?>(
+                value: widget.years.any((y) => y.id == _academicYearId)
+                    ? _academicYearId
+                    : null,
+                label: 'Academic Year *',
+                items: [
+                  DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text(
+                      widget.years.isEmpty
+                          ? 'No academic years available'
+                          : 'Select academic year',
+                    ),
+                  ),
+                  ...widget.years.map(
+                    (y) => DropdownMenuItem<int?>(value: y.id, child: Text(y.name)),
+                  ),
+                ],
+                onChanged: _saving
+                    ? null
+                    : (v) => setState(() => _academicYearId = v),
+              ),
+              const SizedBox(height: 16),
               if (_multi) ...[
                 Select3D<int?>(
                   value: _teacherId,
@@ -1003,11 +1285,13 @@ class _BulkAssignmentRow {
 class _EditAssignmentDialog extends StatefulWidget {
   final AssignmentModel assignment;
   final List<ClassModel> classes;
+  final List<AcademicYear> years;
   final VoidCallback onSaved;
 
   const _EditAssignmentDialog({
     required this.assignment,
     required this.classes,
+    required this.years,
     required this.onSaved,
   });
 
@@ -1019,6 +1303,7 @@ class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
   late int? _classId;
   late int? _subjectId;
   late int? _teacherId;
+  late int? _academicYearId;
   List<SubjectModel> _subjects = [];
   bool _subjectsLoading = true;
   bool _saving = false;
@@ -1034,6 +1319,9 @@ class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
         : null;
     _teacherId = widget.assignment.teacherId > 0
         ? widget.assignment.teacherId
+        : null;
+    _academicYearId = widget.assignment.academicYearId > 0
+        ? widget.assignment.academicYearId
         : null;
     _loadAllSubjects();
     _loadAllTeachers();
@@ -1069,6 +1357,16 @@ class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
   void _onSubjectChanged(int? v) => setState(() => _subjectId = v);
 
   Future<void> _submit() async {
+    if (_academicYearId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Select an academic year.'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     if (_classId == null || _subjectId == null || _teacherId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1085,6 +1383,7 @@ class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
       teacherId: _teacherId,
       classId: _classId,
       subjectId: _subjectId,
+      academicYearId: _academicYearId,
     );
     if (!mounted) return;
     setState(() => _saving = false);
@@ -1160,6 +1459,29 @@ class _EditAssignmentDialogState extends State<_EditAssignmentDialog> {
                 style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
               const SizedBox(height: 20),
+              Select3D<int?>(
+                value: widget.years.any((y) => y.id == _academicYearId)
+                    ? _academicYearId
+                    : null,
+                label: 'Academic Year *',
+                items: [
+                  DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text(
+                      widget.years.isEmpty
+                          ? 'No academic years available'
+                          : 'Select academic year',
+                    ),
+                  ),
+                  ...widget.years.map(
+                    (y) => DropdownMenuItem<int?>(value: y.id, child: Text(y.name)),
+                  ),
+                ],
+                onChanged: _saving
+                    ? null
+                    : (v) => setState(() => _academicYearId = v),
+              ),
+              const SizedBox(height: 16),
               Select3D<int?>(
                 value: _classId,
                 label: 'Class',
@@ -1306,37 +1628,3 @@ class _BackButton extends StatelessWidget {
   }
 }
 
-class _AddButton extends StatelessWidget {
-  final VoidCallback? onPressed;
-
-  const _AddButton({this.onPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: (onPressed != null ? kPrimaryGreen : Colors.grey).withOpacity(
-            0.12,
-          ),
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-              color: (onPressed != null ? kPrimaryGreen : Colors.grey)
-                  .withOpacity(0.2),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Icon(
-          Icons.add_rounded,
-          color: onPressed != null ? kPrimaryGreen : Colors.grey,
-          size: 24,
-        ),
-      ),
-    );
-  }
-}
