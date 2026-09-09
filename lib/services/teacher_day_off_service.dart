@@ -110,9 +110,17 @@ class TeacherDayOffService {
         item.day == day.toUpperCase(),
   );
 
-  Future<TeacherDayOffResult<List<TeacherDayOff>>> list() async {
+  Future<TeacherDayOffResult<List<TeacherDayOff>>> list({
+    int? academicYearId,
+  }) async {
     try {
-      final response = await _client.get(apiUrl(_base));
+      final response = await _client.get(
+        apiUrl(
+          academicYearId == null
+              ? _base
+              : '$_base?academic_year_id=$academicYearId',
+        ),
+      );
       if (response.statusCode != 200) return _error(response);
       final raw = _json(response.body);
       final list = raw is List
@@ -163,6 +171,7 @@ class TeacherDayOffService {
   Future<TeacherDayOffResult<TeacherDayOffBulkResponse>> createBulk({
     required int teacherId,
     required List<String> days,
+    int? academicYearId,
   }) async {
     final normalized = days.map((day) => day.toUpperCase()).toSet().toList();
     if (normalized.isEmpty) {
@@ -171,7 +180,11 @@ class TeacherDayOffService {
     try {
       final response = await _client.post(
         apiUrl('$_base/bulk'),
-        body: {'teacher_id': teacherId, 'days': normalized},
+        body: {
+          'teacher_id': teacherId,
+          'days': normalized,
+          if (academicYearId != null) 'academic_year_id': academicYearId,
+        },
       );
       if (response.statusCode < 200 || response.statusCode >= 300) {
         return _error(response);
@@ -212,8 +225,13 @@ class TeacherDayOffService {
     required int teacherId,
     required String day,
     required bool isActive,
-  }) =>
-      _write(id, {'teacher_id': teacherId, 'day': day, 'is_active': isActive});
+    int? academicYearId,
+  }) => _write(id, {
+    'teacher_id': teacherId,
+    'day': day,
+    'is_active': isActive,
+    if (academicYearId != null) 'academic_year_id': academicYearId,
+  });
 
   Future<TeacherDayOffResult<TeacherDayOff>> _write(
     int? id,

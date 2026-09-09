@@ -16,6 +16,7 @@ import 'package:kobac/services/periods_service.dart';
 import 'package:kobac/services/shifts_service.dart';
 import 'package:kobac/services/teacher_day_off_service.dart';
 import 'package:kobac/school_admin/widgets/timetable_print_dialog.dart';
+import 'package:kobac/school_admin/widgets/timetable_generator_dialog.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
 const Color kPrimaryGreen = Color(0xFF5AB04B);
@@ -76,6 +77,30 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
       context,
       initialAcademicYearId: _selectedAcademicYearId,
     );
+  }
+
+  Future<void> _openGenerator() async {
+    final provider = context.read<AcademicYearsProvider>();
+    await provider.ensureLoaded();
+    if (!mounted) return;
+    final generated = await showTimetableGeneratorDialog(
+      context,
+      years: provider.years,
+      initialAcademicYearId: _selectedAcademicYearId ?? provider.activeYear?.id,
+      onOpenCourseAssignments: () {
+        if (widget.onNavigateToPage != null) {
+          widget.onNavigateToPage!('courseAssignments');
+        } else {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const AdminAssignmentsScreen()),
+          );
+        }
+      },
+    );
+    if (generated == true && mounted) {
+      _loadRefData();
+      _loadTimetables();
+    }
   }
 
   String _classShiftName(int? classId) {
@@ -377,235 +402,437 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
           colors: [kBgColor, kPrimaryBlue.withOpacity(0.02)],
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-            child: Row(
+      child: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+          SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _BackButton(onPressed: () => Navigator.pop(context)),
-                const SizedBox(width: 16),
-                const Expanded(
-                  child: Text(
-                    'Timetable',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: kPrimaryBlue,
-                    ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                  child: Row(
+                    children: [
+                      _BackButton(onPressed: () => Navigator.pop(context)),
+                      const SizedBox(width: 16),
+                      const Expanded(
+                        child: Text(
+                          'Timetable',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: kPrimaryBlue,
+                          ),
+                        ),
+                      ),
+                      _AddButton(onPressed: _openAddSlot),
+                    ],
                   ),
                 ),
-                _AddButton(onPressed: _openAddSlot),
+                if (_refDataLoaded) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: FormCard(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<int?>(
+                          value:
+                              context.watch<AcademicYearsProvider>().years.any(
+                                (y) => y.id == _selectedAcademicYearId,
+                              )
+                              ? _selectedAcademicYearId
+                              : null,
+                          isExpanded: true,
+                          hint: const Text('Academic Year'),
+                          items: context
+                              .watch<AcademicYearsProvider>()
+                              .years
+                              .map(
+                                (y) => DropdownMenuItem<int?>(
+                                  value: y.id,
+                                  child: Text(y.name),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (v) {
+                            setState(() => _selectedAcademicYearId = v);
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: FormCard(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<int?>(
+                          value: _selectedClassId,
+                          isExpanded: true,
+                          hint: const Text('All classes'),
+                          items: [
+                            const DropdownMenuItem<int?>(
+                              value: null,
+                              child: Text('All classes'),
+                            ),
+                            ..._classes.map(
+                              (c) => DropdownMenuItem<int?>(
+                                value: c.id,
+                                child: Text(c.name),
+                              ),
+                            ),
+                          ],
+                          onChanged: (v) {
+                            setState(() {
+                              _selectedClassId = v;
+                              _loadTimetables();
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: FormCard(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<int?>(
+                          value: _selectedShiftId,
+                          isExpanded: true,
+                          hint: const Text('All shifts'),
+                          items: [
+                            const DropdownMenuItem<int?>(
+                              value: null,
+                              child: Text('All shifts'),
+                            ),
+                            ...context.watch<ShiftsProvider>().shifts.map(
+                              (s) => DropdownMenuItem<int?>(
+                                value: s.id,
+                                child: Text(s.name),
+                              ),
+                            ),
+                          ],
+                          onChanged: (v) {
+                            setState(() {
+                              _selectedShiftId = v;
+                              _loadTimetables();
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: ElevatedButton.icon(
+                      onPressed: _openGenerator,
+                      icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                      label: const Text('Generate Timetable'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: kPrimaryGreen,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(double.infinity, 46),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: OutlinedButton.icon(
+                      onPressed: _openPrintDialog,
+                      icon: const Icon(Icons.print_rounded, size: 18),
+                      label: const Text('Print Timetable'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: kPrimaryBlue,
+                        side: const BorderSide(color: Color(0xFFE5E7EB)),
+                        minimumSize: const Size(double.infinity, 44),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: OutlinedButton.icon(
+                      onPressed: _openDeleteYearTimetablesDialog,
+                      icon: const Icon(Icons.event_busy_rounded, size: 18),
+                      label: const Text('Delete Year Timetables'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red.shade700,
+                        side: BorderSide(color: Colors.red.shade300),
+                        minimumSize: const Size(double.infinity, 44),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: kDays.map((day) {
+                        final isSelected = _selectedDay == day;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () => setState(() => _selectedDay = day),
+                              borderRadius: BorderRadius.circular(14),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? kPrimaryBlue
+                                      : Colors.white,
+                                  borderRadius: BorderRadius.circular(14),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: kPrimaryBlue.withOpacity(0.08),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  day,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : kPrimaryBlue,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
               ],
             ),
           ),
-          if (_refDataLoaded) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: FormCard(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<int?>(
-                    value:
-                        context.watch<AcademicYearsProvider>().years.any(
-                              (y) => y.id == _selectedAcademicYearId,
-                            )
-                        ? _selectedAcademicYearId
-                        : null,
-                    isExpanded: true,
-                    hint: const Text('Academic Year'),
-                    items: context
-                        .watch<AcademicYearsProvider>()
-                        .years
-                        .map(
-                          (y) => DropdownMenuItem<int?>(
-                            value: y.id,
-                            child: Text(y.name),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (v) {
-                      setState(() => _selectedAcademicYearId = v);
-                    },
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: FormCard(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<int?>(
-                    value: _selectedClassId,
-                    isExpanded: true,
-                    hint: const Text('All classes'),
-                    items: [
-                      const DropdownMenuItem<int?>(
-                        value: null,
-                        child: Text('All classes'),
-                      ),
-                      ..._classes.map(
-                        (c) => DropdownMenuItem<int?>(
-                          value: c.id,
-                          child: Text(c.name),
+        ],
+        body: RefreshIndicator(
+          onRefresh: () async => _loadTimetables(),
+          color: kPrimaryGreen,
+          child: FutureBuilder<TimetableResult<List<TimetableSlotModel>>>(
+            future: _timetablesFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: CircularProgressIndicator(color: kPrimaryGreen),
+                );
+              }
+              if (snapshot.hasError) {
+                final msg = userFriendlyMessage(
+                  snapshot.error!,
+                  null,
+                  'AdminTimetableScreen',
+                );
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          size: 48,
+                          color: Colors.red[300],
                         ),
-                      ),
-                    ],
-                    onChanged: (v) {
-                      setState(() {
-                        _selectedClassId = v;
-                        _loadTimetables();
-                      });
-                    },
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: FormCard(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<int?>(
-                    value: _selectedShiftId,
-                    isExpanded: true,
-                    hint: const Text('All shifts'),
-                    items: [
-                      const DropdownMenuItem<int?>(
-                        value: null,
-                        child: Text('All shifts'),
-                      ),
-                      ...context.watch<ShiftsProvider>().shifts.map(
-                        (s) => DropdownMenuItem<int?>(
-                          value: s.id,
-                          child: Text(s.name),
+                        const SizedBox(height: 12),
+                        Text(
+                          msg,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[800],
+                          ),
                         ),
-                      ),
-                    ],
-                    onChanged: (v) {
-                      setState(() {
-                        _selectedShiftId = v;
-                        _loadTimetables();
-                      });
-                    },
+                        const SizedBox(height: 16),
+                        TextButton.icon(
+                          onPressed: _loadTimetables,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Retry'),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: OutlinedButton.icon(
-                onPressed: _openPrintDialog,
-                icon: const Icon(Icons.print_rounded, size: 18),
-                label: const Text('Print Timetable'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: kPrimaryBlue,
-                  side: const BorderSide(color: Color(0xFFE5E7EB)),
-                  minimumSize: const Size(double.infinity, 44),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                );
+              }
+              final result = snapshot.data;
+              if (result == null) return const Center(child: Text('No data'));
+              if (result is TimetableError) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          size: 48,
+                          color: Colors.red[300],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          result.message,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[800],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextButton.icon(
+                          onPressed: _loadTimetables,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Retry'),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: OutlinedButton.icon(
-                onPressed: _openDeleteYearTimetablesDialog,
-                icon: const Icon(Icons.event_busy_rounded, size: 18),
-                label: const Text('Delete Year Timetables'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.red.shade700,
-                  side: BorderSide(color: Colors.red.shade300),
-                  minimumSize: const Size(double.infinity, 44),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: kDays.map((day) {
-                  final isSelected = _selectedDay == day;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () => setState(() => _selectedDay = day),
-                        borderRadius: BorderRadius.circular(14),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
+                );
+              }
+              final slots = _slotsForDay(
+                (result as TimetableSuccess<List<TimetableSlotModel>>).data,
+              );
+              if (slots.isEmpty) {
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                    Center(
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.schedule_rounded,
+                            size: 60,
+                            color: Colors.grey[300],
                           ),
-                          decoration: BoxDecoration(
-                            color: isSelected ? kPrimaryBlue : Colors.white,
-                            borderRadius: BorderRadius.circular(14),
-                            boxShadow: [
-                              BoxShadow(
-                                color: kPrimaryBlue.withOpacity(0.08),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Text(
-                            day,
+                          const SizedBox(height: 12),
+                          Text(
+                            'No slots for $_selectedDay yet',
                             style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: isSelected ? Colors.white : kPrimaryBlue,
+                              color: Colors.grey[600],
+                              fontSize: 16,
                             ),
                           ),
-                        ),
+                          const SizedBox(height: 16),
+                          TextButton.icon(
+                            onPressed: _openAddSlot,
+                            icon: const Icon(Icons.add_rounded),
+                            label: const Text('Add Slot'),
+                          ),
+                        ],
                       ),
                     ),
+                  ],
+                );
+              }
+              return ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 8,
+                ),
+                itemCount: slots.length,
+                itemBuilder: (context, index) {
+                  final slot = slots[index];
+                  return _SlotCard(
+                    slot: slot,
+                    subjectName: _subjectName(slot.subjectId),
+                    teacherName: _teacherName(slot.teacherId),
+                    className: _selectedClassId == null
+                        ? _className(slot.classId)
+                        : null,
+                    classShiftName: _classShiftName(slot.classId),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => TimetableDetailPage(slotId: slot.id),
+                      ),
+                    ),
+                    onEdit: () => _openEditSlot(slot),
+                    onDelete: () => _deleteSlot(slot),
                   );
-                }).toList(),
-              ),
+                },
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopPageBody(BuildContext context) {
+    return Container(
+      color: const Color(0xFFF8F9FC),
+      child: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+          SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_refDataLoaded)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                    child: _buildDesktopFilterCard(),
+                  ),
+                const SizedBox(height: 16),
+              ],
             ),
-            const SizedBox(height: 16),
-          ],
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: () async => _loadTimetables(),
-              color: kPrimaryGreen,
-              child: FutureBuilder<TimetableResult<List<TimetableSlotModel>>>(
-                future: _timetablesFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(
-                      child: CircularProgressIndicator(color: kPrimaryGreen),
-                    );
-                  }
-                  if (snapshot.hasError) {
-                    final msg = userFriendlyMessage(
-                      snapshot.error!,
-                      null,
-                      'AdminTimetableScreen',
-                    );
-                    return Center(
+          ),
+        ],
+        body: RefreshIndicator(
+          onRefresh: () async => _loadTimetables(),
+          color: kPrimaryGreen,
+          child: FutureBuilder<TimetableResult<List<TimetableSlotModel>>>(
+            future: _timetablesFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: CircularProgressIndicator(color: kPrimaryBlue),
+                );
+              }
+              if (snapshot.hasError) {
+                final msg = userFriendlyMessage(
+                  snapshot.error!,
+                  null,
+                  'AdminTimetableScreen',
+                );
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                    Center(
                       child: Padding(
                         padding: const EdgeInsets.all(24),
                         child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
                               Icons.error_outline,
@@ -630,17 +857,23 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                           ],
                         ),
                       ),
-                    );
-                  }
-                  final result = snapshot.data;
-                  if (result == null)
-                    return const Center(child: Text('No data'));
-                  if (result is TimetableError) {
-                    return Center(
+                    ),
+                  ],
+                );
+              }
+              final result = snapshot.data;
+              if (result == null) {
+                return const Center(child: Text('No data'));
+              }
+              if (result is TimetableError) {
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                    Center(
                       child: Padding(
                         padding: const EdgeInsets.all(24),
                         child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
                               Icons.error_outline,
@@ -665,391 +898,203 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                           ],
                         ),
                       ),
-                    );
-                  }
-                  final slots = _slotsForDay(
-                    (result as TimetableSuccess<List<TimetableSlotModel>>).data,
-                  );
-                  if (slots.isEmpty) {
-                    return ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: [
-                        SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.2,
-                        ),
-                        Center(
-                          child: Column(
-                            children: [
-                              Icon(
-                                Icons.schedule_rounded,
-                                size: 60,
-                                color: Colors.grey[300],
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                'No slots for $_selectedDay yet',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              TextButton.icon(
-                                onPressed: _openAddSlot,
-                                icon: const Icon(Icons.add_rounded),
-                                label: const Text('Add Slot'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    );
-                  }
-                  return ListView.builder(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 8,
                     ),
-                    itemCount: slots.length,
-                    itemBuilder: (context, index) {
-                      final slot = slots[index];
-                      return _SlotCard(
-                        slot: slot,
-                        subjectName: _subjectName(slot.subjectId),
-                        teacherName: _teacherName(slot.teacherId),
-                        className: _selectedClassId == null
-                            ? _className(slot.classId)
-                            : null,
-                        classShiftName: _classShiftName(slot.classId),
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                TimetableDetailPage(slotId: slot.id),
+                  ],
+                );
+              }
+              final slots = _slotsForDay(
+                (result as TimetableSuccess<List<TimetableSlotModel>>).data,
+              );
+              if (slots.isEmpty) {
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(24),
+                  children: [
+                    SizedBox(height: MediaQuery.of(context).size.height * 0.15),
+                    Center(
+                      child: Column(
+                        children: [
+                          Text(
+                            'No slots for $_selectedDay yet',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 16,
+                            ),
                           ),
-                        ),
-                        onEdit: () => _openEditSlot(slot),
-                        onDelete: () => _deleteSlot(slot),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            height: 44,
+                            child: ElevatedButton.icon(
+                              onPressed: _openAddSlot,
+                              icon: const Icon(Icons.add_rounded, size: 18),
+                              label: const Text('Add Slot'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: kPrimaryBlue,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shadowColor: Colors.transparent,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              }
 
-  Widget _buildDesktopPageBody(BuildContext context) {
-    return Container(
-      color: const Color(0xFFF8F9FC),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (_refDataLoaded)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-              child: _buildDesktopFilterCard(),
-            ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: () async => _loadTimetables(),
-              color: kPrimaryGreen,
-              child: FutureBuilder<TimetableResult<List<TimetableSlotModel>>>(
-                future: _timetablesFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(
-                      child: CircularProgressIndicator(color: kPrimaryBlue),
-                    );
-                  }
-                  if (snapshot.hasError) {
-                    final msg = userFriendlyMessage(
-                      snapshot.error!,
-                      null,
-                      'AdminTimetableScreen',
-                    );
-                    return ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: [
-                        SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.2,
-                        ),
-                        Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              children: [
-                                Icon(
-                                  Icons.error_outline,
-                                  size: 48,
-                                  color: Colors.red[300],
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  msg,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.grey[800],
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                TextButton.icon(
-                                  onPressed: _loadTimetables,
-                                  icon: const Icon(Icons.refresh),
-                                  label: const Text('Retry'),
-                                ),
-                              ],
-                            ),
-                          ),
+              final totalPages = _totalDesktopPages(slots.length);
+              if (_desktopCurrentPage > totalPages) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  setState(() => _desktopCurrentPage = totalPages);
+                });
+              }
+              final visibleSlots = _paginateSlots(slots);
+              final startIndex =
+                  ((_desktopCurrentPage - 1) * _desktopPageSize) + 1;
+              final endIndex = startIndex + visibleSlots.length - 1;
+
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(24),
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFE8ECF2)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.03),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
                         ),
                       ],
-                    );
-                  }
-                  final result = snapshot.data;
-                  if (result == null) {
-                    return const Center(child: Text('No data'));
-                  }
-                  if (result is TimetableError) {
-                    return ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
+                    ),
+                    child: Column(
                       children: [
-                        SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.2,
-                        ),
-                        Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              children: [
-                                Icon(
-                                  Icons.error_outline,
-                                  size: 48,
-                                  color: Colors.red[300],
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  result.message,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.grey[800],
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                TextButton.icon(
-                                  onPressed: _loadTimetables,
-                                  icon: const Icon(Icons.refresh),
-                                  label: const Text('Retry'),
-                                ),
-                              ],
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 16,
+                          ),
+                          decoration: const BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(
+                                color: Color(0xFFE8ECF2),
+                                width: 1,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    );
-                  }
-                  final slots = _slotsForDay(
-                    (result as TimetableSuccess<List<TimetableSlotModel>>).data,
-                  );
-                  if (slots.isEmpty) {
-                    return ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.all(24),
-                      children: [
-                        SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.15,
-                        ),
-                        Center(
-                          child: Column(
+                          child: Row(
                             children: [
-                              Text(
-                                'No slots for $_selectedDay yet',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              SizedBox(
-                                height: 44,
-                                child: ElevatedButton.icon(
-                                  onPressed: _openAddSlot,
-                                  icon: const Icon(Icons.add_rounded, size: 18),
-                                  label: const Text('Add Slot'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: kPrimaryBlue,
-                                    foregroundColor: Colors.white,
-                                    elevation: 0,
-                                    shadowColor: Colors.transparent,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  'Period',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade600,
                                   ),
                                 ),
                               ),
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  'Subject',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 3,
+                                child: Text(
+                                  'Teacher',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  'Class',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  'Time',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  'Session',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 80),
                             ],
                           ),
                         ),
+                        ...visibleSlots.map((slot) {
+                          return _TimetableRow(
+                            slot: slot,
+                            subjectName: _subjectName(slot.subjectId),
+                            teacherName: _teacherName(slot.teacherId),
+                            className: _className(slot.classId),
+                            classShiftName: _classShiftName(slot.classId),
+                            onEdit: () => _openEditSlot(slot),
+                            onDelete: () => _deleteSlot(slot),
+                          );
+                        }),
+                        _TimetableTableFooter(
+                          startIndex: startIndex,
+                          endIndex: endIndex,
+                          totalItems: slots.length,
+                          currentPage: _desktopCurrentPage,
+                          totalPages: totalPages,
+                          pageSize: _desktopPageSize,
+                          onPageChanged: (page) =>
+                              setState(() => _desktopCurrentPage = page),
+                          onPageSizeChanged: (size) => setState(() {
+                            _desktopPageSize = size;
+                            _desktopCurrentPage = 1;
+                          }),
+                        ),
                       ],
-                    );
-                  }
-
-                  final totalPages = _totalDesktopPages(slots.length);
-                  if (_desktopCurrentPage > totalPages) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (!mounted) return;
-                      setState(() => _desktopCurrentPage = totalPages);
-                    });
-                  }
-                  final visibleSlots = _paginateSlots(slots);
-                  final startIndex =
-                      ((_desktopCurrentPage - 1) * _desktopPageSize) + 1;
-                  final endIndex = startIndex + visibleSlots.length - 1;
-
-                  return ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(24),
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: const Color(0xFFE8ECF2)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.03),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 16,
-                              ),
-                              decoration: const BoxDecoration(
-                                border: Border(
-                                  bottom: BorderSide(
-                                    color: Color(0xFFE8ECF2),
-                                    width: 1,
-                                  ),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    flex: 2,
-                                    child: Text(
-                                      'Period',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Text(
-                                      'Subject',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    flex: 3,
-                                    child: Text(
-                                      'Teacher',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Text(
-                                      'Class',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Text(
-                                      'Time',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Text(
-                                      'Session',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 80),
-                                ],
-                              ),
-                            ),
-                            ...visibleSlots.map((slot) {
-                              return _TimetableRow(
-                                slot: slot,
-                                subjectName: _subjectName(slot.subjectId),
-                                teacherName: _teacherName(slot.teacherId),
-                                className: _className(slot.classId),
-                                classShiftName: _classShiftName(slot.classId),
-                                onEdit: () => _openEditSlot(slot),
-                                onDelete: () => _deleteSlot(slot),
-                              );
-                            }),
-                            _TimetableTableFooter(
-                              startIndex: startIndex,
-                              endIndex: endIndex,
-                              totalItems: slots.length,
-                              currentPage: _desktopCurrentPage,
-                              totalPages: totalPages,
-                              pageSize: _desktopPageSize,
-                              onPageChanged: (page) =>
-                                  setState(() => _desktopCurrentPage = page),
-                              onPageSizeChanged: (size) => setState(() {
-                                _desktopPageSize = size;
-                                _desktopCurrentPage = 1;
-                              }),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
-        ],
+        ),
       ),
     );
   }
@@ -1178,6 +1223,22 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                   ),
                 ),
               );
+              final generateButton = SizedBox(
+                height: 44,
+                child: ElevatedButton.icon(
+                  onPressed: _openGenerator,
+                  icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                  label: const Text('Generate Timetable'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kPrimaryGreen,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              );
               final deleteYearButton = SizedBox(
                 height: 44,
                 child: OutlinedButton.icon(
@@ -1218,6 +1279,8 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                     const SizedBox(width: 12),
                     shiftField,
                     const Spacer(),
+                    generateButton,
+                    const SizedBox(width: 12),
                     printButton,
                     const SizedBox(width: 12),
                     deleteYearButton,
@@ -1240,7 +1303,12 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                     alignment: WrapAlignment.end,
                     spacing: 12,
                     runSpacing: 8,
-                    children: [printButton, deleteYearButton, addButton],
+                    children: [
+                      generateButton,
+                      printButton,
+                      deleteYearButton,
+                      addButton,
+                    ],
                   ),
                 ],
               );

@@ -1,11 +1,77 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:kobac/models/exam_hall_models.dart';
+import 'package:kobac/services/academic_years_service.dart';
+import 'package:kobac/services/exam_hall_service.dart';
 import 'package:kobac/services/teacher_day_off_service.dart';
 import 'package:kobac/services/teachers_service.dart';
-import 'package:kobac/school_admin/widgets/delete_confirm_dialog.dart';
+import 'package:kobac/services/timetable_generator_service.dart';
+import 'package:kobac/school_admin/widgets/admin_feature_dialog.dart';
+import 'package:kobac/widgets/form_3d/form_card.dart';
+import 'package:kobac/widgets/form_3d/select_3d.dart';
 
 const _navy = Color(0xFF023471);
 const _green = Color(0xFF5AB04B);
+const _pageBg = Color(0xFFF4F7FB);
+
+Widget _inlineNotice(String message, {bool error = false}) => Container(
+  margin: const EdgeInsets.only(top: 14),
+  padding: const EdgeInsets.all(12),
+  decoration: BoxDecoration(
+    color: error ? const Color(0xFFFFF1F2) : const Color(0xFFFFF8E8),
+    borderRadius: BorderRadius.circular(12),
+    border: Border.all(
+      color: error ? const Color(0xFFFCA5A5) : const Color(0xFFF5C76B),
+    ),
+  ),
+  child: Row(
+    children: [
+      Icon(
+        error ? Icons.error_outline_rounded : Icons.warning_amber_rounded,
+        color: error ? Colors.red.shade700 : Colors.orange.shade800,
+      ),
+      const SizedBox(width: 10),
+      Expanded(child: Text(message)),
+    ],
+  ),
+);
+
+Widget _confirmationDetails(List<(String, String)> rows) => Container(
+  padding: const EdgeInsets.all(16),
+  decoration: BoxDecoration(
+    color: const Color(0xFFF4F7FB),
+    borderRadius: BorderRadius.circular(16),
+    border: Border.all(color: const Color(0xFFDCE3EC)),
+  ),
+  child: Column(
+    children: rows
+        .map(
+          (row) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 5),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    row.$1,
+                    style: const TextStyle(color: Color(0xFF64748B)),
+                  ),
+                ),
+                Flexible(
+                  child: Text(
+                    row.$2,
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      color: _navy,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        )
+        .toList(),
+  ),
+);
 
 class TeacherDayOffPage extends StatefulWidget {
   final bool embedBodyOnly;
@@ -17,608 +83,1229 @@ class TeacherDayOffPage extends StatefulWidget {
 
 class _TeacherDayOffPageState extends State<TeacherDayOffPage> {
   final _service = TeacherDayOffService();
-  List<TeacherDayOff> _items = [];
-  List<TeacherModel> _teachers = [];
-  int? _teacherFilter;
-  String? _dayFilter;
-  bool? _activeFilter;
+  final _yearsService = AcademicYearsService();
+  List<TeacherDayOff> _items = const [];
+  List<TeacherModel> _teachers = const [];
+  List<AcademicYear> _years = const [];
+  int? _yearId;
   bool _loading = true;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    final results = await Future.wait([
+      _yearsService.list(),
+      _yearsService.active(),
+      TeachersService().listTeachers(),
+    ]);
+    if (!mounted) return;
+    final yearsResult = results[0];
+    final activeResult = results[1];
+    final teachersResult = results[2];
+    if (yearsResult is AcademicYearSuccess<List<AcademicYear>>) {
+      _years = yearsResult.data;
+    }
+    AcademicYear? active;
+    if (activeResult is AcademicYearSuccess<AcademicYear?>) {
+      active = activeResult.data;
+    }
+    if (teachersResult is TeacherSuccess<List<TeacherModel>>) {
+      _teachers = teachersResult.data;
+    }
+    _yearId = active?.id ?? (_years.isNotEmpty ? _years.first.id : null);
+    if (_yearId == null) {
+      setState(() {
+        _loading = false;
+        _error = 'Create an academic year before assigning teacher days off.';
+      });
+      return;
+    }
+    await _load();
   }
 
   Future<void> _load() async {
+    final yearId = _yearId;
+    if (yearId == null) return;
     setState(() {
       _loading = true;
       _error = null;
     });
-    final results = await Future.wait([
-      _service.list(),
-      TeachersService().listTeachers(),
-    ]);
+    final result = await _service.list(academicYearId: yearId);
     if (!mounted) return;
     setState(() {
       _loading = false;
-      if (results[0] is TeacherDayOffSuccess<List<TeacherDayOff>>) {
-        _items = (results[0] as TeacherDayOffSuccess<List<TeacherDayOff>>).data;
+      if (result is TeacherDayOffSuccess<List<TeacherDayOff>>) {
+        _items = result.data;
       } else {
-        _error = (results[0] as TeacherDayOffError).message;
-      }
-      if (results[1] is TeacherSuccess<List<TeacherModel>>) {
-        _teachers = (results[1] as TeacherSuccess<List<TeacherModel>>).data;
+        _error = (result as TeacherDayOffError).message;
       }
     });
   }
 
-  List<TeacherDayOff> get _visible => _items.where((item) {
-    return (_teacherFilter == null || item.teacherId == _teacherFilter) &&
-        (_dayFilter == null || item.day == _dayFilter) &&
-        (_activeFilter == null || item.isActive == _activeFilter);
-  }).toList();
-
-  List<List<TeacherDayOff>> get _visibleGroups {
-    final groups = <int, List<TeacherDayOff>>{};
-    for (final item in _visible) {
-      groups.putIfAbsent(item.teacherId, () => []).add(item);
+  Map<int, List<TeacherDayOff>> get _grouped {
+    final map = <int, List<TeacherDayOff>>{};
+    for (final item in _items.where((item) => item.isActive)) {
+      map.putIfAbsent(item.teacherId, () => []).add(item);
     }
-    return groups.values.toList();
+    for (final values in map.values) {
+      values.sort(
+        (a, b) => teacherDayLabels.keys
+            .toList()
+            .indexOf(a.day)
+            .compareTo(teacherDayLabels.keys.toList().indexOf(b.day)),
+      );
+    }
+    return map;
   }
 
-  Future<void> _openForm([TeacherDayOff? item]) async {
+  AcademicYear? get _year {
+    for (final year in _years) {
+      if (year.id == _yearId) return year;
+    }
+    return null;
+  }
+
+  Future<void> _openManual([TeacherDayOff? item]) async {
+    if (_yearId == null) return;
     final changed = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => _TeacherDayOffDialog(
+      builder: (_) => _ManualDayOffDialog(
+        year: _year!,
         teachers: _teachers,
         existing: _items,
-        initial: item,
-        service: _service,
+        initialItems: item == null
+            ? const []
+            : (_grouped[item.teacherId] ?? [item]),
       ),
     );
-    if (changed == true) await _load();
+    if (changed == true) {
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Teacher days off saved successfully.'),
+            backgroundColor: _green,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _openRandom() async {
+    if (_yearId == null) return;
+    final changed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) =>
+          _RandomDayOffDialog(years: _years, initialYearId: _yearId!),
+    );
+    if (changed == true) {
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Teacher days off generated successfully.'),
+            backgroundColor: _green,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _delete(TeacherDayOff item) async {
-    final confirmed = await showDeleteConfirmDialog(
-      context,
-      title: 'Delete day off?',
-      message: '${item.teacherName} — ${item.dayLabel} will be removed.',
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AdminFeatureDialog(
+        title: 'Remove Teacher Day Off?',
+        maxWidth: 480,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _confirmationDetails([
+              ('Teacher', item.teacherName),
+              ('Day', item.day),
+              ('Academic Year', _year?.name ?? '—'),
+            ]),
+            const SizedBox(height: 16),
+            const Text('This recurring weekly day off will be removed.'),
+            const SizedBox(height: 22),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                    onPressed: () => Navigator.pop(dialogContext, true),
+                    child: const Text('Remove'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
     if (confirmed != true) return;
     final result = await _service.delete(item.id);
     if (!mounted) return;
     if (result is TeacherDayOffError) {
-      _snack(result.message, error: true);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(result.message)));
     } else {
-      _snack('Teacher day off deleted.');
       await _load();
     }
   }
 
-  void _snack(String message, {bool error = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: error ? Colors.red.shade700 : _green,
+  @override
+  Widget build(BuildContext context) {
+    final content = Container(
+      color: _pageBg,
+      child: RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            _header(),
+            const SizedBox(height: 20),
+            _summary(),
+            const SizedBox(height: 20),
+            if (_loading)
+              const Padding(
+                padding: EdgeInsets.all(72),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (_error != null)
+              _messageCard(Icons.error_outline, _error!, 'Retry', _initialize)
+            else if (_grouped.isEmpty)
+              _messageCard(
+                Icons.event_available_outlined,
+                'No teacher days off have been configured for this academic year.',
+                'Random Generate',
+                _openRandom,
+                secondaryLabel: 'Add Manually',
+                secondaryAction: () => _openManual(),
+              )
+            else
+              LayoutBuilder(
+                builder: (context, constraints) => constraints.maxWidth >= 760
+                    ? _desktopTable()
+                    : _mobileCards(),
+              ),
+          ],
+        ),
       ),
     );
+    return widget.embedBodyOnly
+        ? content
+        : Scaffold(
+            appBar: AppBar(title: const Text('Teacher Day Off')),
+            body: content,
+          );
   }
 
-  Widget _body() => Padding(
-    padding: const EdgeInsets.all(24),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+  Widget _header() => FormCard(
+    child: Wrap(
+      spacing: 16,
+      runSpacing: 16,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFE5EAF0)),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0D023471),
-                blurRadius: 20,
-                offset: Offset(0, 6),
+        const SizedBox(
+          width: 360,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Teacher Day Off',
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  color: _navy,
+                ),
+              ),
+              SizedBox(height: 5),
+              Text(
+                'Manage recurring weekly teacher days off by academic year.',
               ),
             ],
           ),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final filters = <Widget>[
-                DropdownButtonFormField<int?>(
-                  isExpanded: true,
-                  initialValue: _teacherFilter,
-                  decoration: const InputDecoration(
-                    labelText: 'Teacher',
-                    prefixIcon: Icon(Icons.person_outline_rounded),
-                  ),
-                  items: [
-                    const DropdownMenuItem(
-                      value: null,
-                      child: Text('All teachers'),
-                    ),
-                    ..._teachers.map(
-                      (teacher) => DropdownMenuItem(
-                        value: teacher.id,
-                        child: Text(
-                          teacher.fullName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ),
-                  ],
-                  onChanged: (value) => setState(() => _teacherFilter = value),
-                ),
-                DropdownButtonFormField<String?>(
-                  isExpanded: true,
-                  initialValue: _dayFilter,
-                  decoration: const InputDecoration(
-                    labelText: 'Day',
-                    prefixIcon: Icon(Icons.calendar_today_outlined),
-                  ),
-                  items: [
-                    const DropdownMenuItem(
-                      value: null,
-                      child: Text('All days'),
-                    ),
-                    ...teacherDayLabels.entries.map(
-                      (entry) => DropdownMenuItem(
-                        value: entry.key,
-                        child: Text(entry.value),
-                      ),
-                    ),
-                  ],
-                  onChanged: (value) => setState(() => _dayFilter = value),
-                ),
-                DropdownButtonFormField<bool?>(
-                  isExpanded: true,
-                  initialValue: _activeFilter,
-                  decoration: const InputDecoration(
-                    labelText: 'Status',
-                    prefixIcon: Icon(Icons.toggle_on_outlined),
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: null, child: Text('All statuses')),
-                    DropdownMenuItem(value: true, child: Text('Active')),
-                    DropdownMenuItem(value: false, child: Text('Inactive')),
-                  ],
-                  onChanged: (value) => setState(() => _activeFilter = value),
-                ),
-              ];
-              final addButton = FilledButton.icon(
-                onPressed: _loading ? null : _openForm,
-                style: FilledButton.styleFrom(
-                  backgroundColor: _green,
-                  minimumSize: const Size(170, 56),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                icon: const Icon(Icons.add_rounded),
-                label: const Text('Add Day Off'),
-              );
-              if (constraints.maxWidth >= 820) {
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    for (var index = 0; index < filters.length; index++) ...[
-                      Expanded(child: filters[index]),
-                      if (index < filters.length - 1) const SizedBox(width: 14),
-                    ],
-                    const SizedBox(width: 14),
-                    addButton,
-                  ],
-                );
-              }
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (var index = 0; index < filters.length; index++) ...[
-                    filters[index],
-                    const SizedBox(height: 14),
-                  ],
-                  addButton,
-                ],
-              );
-            },
+        ),
+        SizedBox(
+          width: 260,
+          child: Select3D<int>(
+            value: _yearId,
+            label: 'Academic Year',
+            items: _years
+                .map(
+                  (year) =>
+                      DropdownMenuItem(value: year.id, child: Text(year.name)),
+                )
+                .toList(),
+            onChanged: _loading
+                ? null
+                : (value) {
+                    if (value != null) {
+                      _yearId = value;
+                      _load();
+                    }
+                  },
           ),
         ),
-        const SizedBox(height: 16),
-        if (_loading) const LinearProgressIndicator(color: _green),
-        if (_error != null)
-          Expanded(
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(_error!, textAlign: TextAlign.center),
-                  TextButton(onPressed: _load, child: const Text('Retry')),
-                ],
-              ),
-            ),
-          )
-        else if (!_loading && _visible.isEmpty)
-          const Expanded(
-            child: Center(child: Text('No teacher day-off records found.')),
-          )
-        else if (!_loading)
-          Expanded(
-            child: kIsWeb || MediaQuery.sizeOf(context).width >= 760
-                ? SingleChildScrollView(
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: DataTable(
-                        columns: const [
-                          DataColumn(label: Text('Teacher')),
-                          DataColumn(label: Text('Day Off')),
-                          DataColumn(label: Text('Status')),
-                          DataColumn(label: Text('Actions')),
-                        ],
-                        rows: _visibleGroups
-                            .map(
-                              (records) => DataRow(
-                                cells: [
-                                  DataCell(Text(records.first.teacherName)),
-                                  DataCell(
-                                    Text(
-                                      records
-                                          .map(
-                                            (item) =>
-                                                item.dayLabel.substring(0, 3),
-                                          )
-                                          .join(', '),
-                                    ),
-                                  ),
-                                  DataCell(
-                                    Chip(
-                                      label: Text(
-                                        records.any((item) => item.isActive)
-                                            ? 'Active'
-                                            : 'Inactive',
-                                      ),
-                                    ),
-                                  ),
-                                  DataCell(
-                                    Row(
-                                      children: [
-                                        ...records.map(
-                                          (item) => PopupMenuButton<String>(
-                                            tooltip: item.dayLabel,
-                                            icon: const Icon(Icons.more_horiz),
-                                            onSelected: (value) =>
-                                                value == 'edit'
-                                                ? _openForm(item)
-                                                : _delete(item),
-                                            itemBuilder: (_) => [
-                                              PopupMenuItem(
-                                                enabled: false,
-                                                child: Text(item.dayLabel),
-                                              ),
-                                              const PopupMenuItem(
-                                                value: 'edit',
-                                                child: Text('Edit'),
-                                              ),
-                                              const PopupMenuItem(
-                                                value: 'delete',
-                                                child: Text('Delete'),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                            .toList(),
-                      ),
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: _visibleGroups.length,
-                    itemBuilder: (_, index) {
-                      final records = _visibleGroups[index];
-                      final item = records.first;
-                      return Card(
-                        child: ListTile(
-                          title: Text(item.teacherName),
-                          subtitle: Text(
-                            '${records.map((record) => record.dayLabel.substring(0, 3)).join(' • ')}\n${records.any((record) => record.isActive) ? 'Active' : 'Inactive'}',
-                          ),
-                          isThreeLine: true,
-                          trailing: PopupMenuButton<String>(
-                            tooltip: 'Manage',
-                            onSelected: (value) {
-                              final parts = value.split(':');
-                              final record = records.firstWhere(
-                                (record) => record.id == int.parse(parts[1]),
-                              );
-                              parts[0] == 'edit'
-                                  ? _openForm(record)
-                                  : _delete(record);
-                            },
-                            itemBuilder: (_) => records
-                                .expand(
-                                  (record) => [
-                                    PopupMenuItem<String>(
-                                      enabled: false,
-                                      child: Text(record.dayLabel),
-                                    ),
-                                    PopupMenuItem<String>(
-                                      value: 'edit:${record.id}',
-                                      child: const Text('Edit'),
-                                    ),
-                                    PopupMenuItem<String>(
-                                      value: 'delete:${record.id}',
-                                      child: const Text('Delete'),
-                                    ),
-                                  ],
-                                )
-                                .toList(),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+        FilledButton.icon(
+          onPressed: _yearId == null ? null : _openRandom,
+          style: FilledButton.styleFrom(
+            backgroundColor: _navy,
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
           ),
+          icon: const Icon(Icons.shuffle_rounded),
+          label: const Text('Random Generate'),
+        ),
+        OutlinedButton.icon(
+          onPressed: _yearId == null ? null : () => _openManual(),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: _navy,
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+          ),
+          icon: const Icon(Icons.add_rounded),
+          label: const Text('Add Manually'),
+        ),
       ],
     ),
   );
 
-  @override
-  Widget build(BuildContext context) => widget.embedBodyOnly
-      ? _body()
-      : Scaffold(
-          appBar: AppBar(title: const Text('Teacher Day Off')),
-          body: _body(),
-        );
+  Widget _summary() {
+    final grouped = _grouped;
+    return Wrap(
+      spacing: 14,
+      runSpacing: 14,
+      children: [
+        _stat(
+          'Total Teachers',
+          _teachers.length,
+          Icons.groups_2_outlined,
+          _navy,
+        ),
+        _stat(
+          'Teachers With Day Off',
+          grouped.length,
+          Icons.person_off_outlined,
+          _green,
+        ),
+        _stat(
+          'Weekly Day-Off Entries',
+          _items.where((e) => e.isActive).length,
+          Icons.event_repeat_rounded,
+          Colors.orange.shade700,
+        ),
+      ],
+    );
+  }
+
+  Widget _stat(String label, int value, IconData icon, Color color) =>
+      Container(
+        width: 250,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x14023471),
+              blurRadius: 18,
+              offset: Offset(0, 7),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: color.withValues(alpha: .12),
+              foregroundColor: color,
+              child: Icon(icon),
+            ),
+            const SizedBox(width: 14),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$value',
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: _navy,
+                  ),
+                ),
+                Text(label, style: const TextStyle(color: Colors.black54)),
+              ],
+            ),
+          ],
+        ),
+      );
+
+  Widget _desktopTable() => FormCard(
+    padding: EdgeInsets.zero,
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          headingRowColor: WidgetStateProperty.all(const Color(0xFFEAF1FA)),
+          columns: const [
+            DataColumn(label: Text('Teacher')),
+            DataColumn(label: Text('Weekly Days Off')),
+            DataColumn(label: Text('Academic Year')),
+            DataColumn(label: Text('Actions')),
+          ],
+          rows: _grouped.values
+              .map(
+                (items) => DataRow(
+                  cells: [
+                    DataCell(
+                      Text(
+                        items.first.teacherName,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    DataCell(_dayChips(items)),
+                    DataCell(Text(_year?.name ?? '—')),
+                    DataCell(
+                      Row(
+                        children: [
+                          IconButton(
+                            tooltip: 'Edit',
+                            onPressed: () => _openManual(items.first),
+                            icon: const Icon(Icons.edit_outlined, color: _navy),
+                          ),
+                          ...items.map(
+                            (item) => IconButton(
+                              tooltip: 'Remove ${item.dayLabel}',
+                              onPressed: () => _delete(item),
+                              icon: Icon(
+                                Icons.delete_outline,
+                                color: Colors.red.shade700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              )
+              .toList(),
+        ),
+      ),
+    ),
+  );
+
+  Widget _mobileCards() => Column(
+    children: _grouped.values
+        .map(
+          (items) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: FormCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          items.first.teacherName,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: _navy,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => _openManual(items.first),
+                        icon: const Icon(Icons.edit_outlined),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    _year?.name ?? '',
+                    style: const TextStyle(color: Colors.black54),
+                  ),
+                  const SizedBox(height: 12),
+                  _dayChips(items),
+                ],
+              ),
+            ),
+          ),
+        )
+        .toList(),
+  );
+
+  Widget _dayChips(List<TeacherDayOff> items) => Wrap(
+    spacing: 7,
+    runSpacing: 7,
+    children: items
+        .map(
+          (item) => InputChip(
+            label: Text(item.day),
+            backgroundColor: const Color(0xFFEAF5E7),
+            side: BorderSide(color: _green.withValues(alpha: .45)),
+            onDeleted: () => _delete(item),
+            deleteIconColor: Colors.red.shade600,
+          ),
+        )
+        .toList(),
+  );
+
+  Widget _messageCard(
+    IconData icon,
+    String text,
+    String action,
+    Future<void> Function() callback, {
+    String? secondaryLabel,
+    VoidCallback? secondaryAction,
+  }) => FormCard(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 34),
+      child: Column(
+        children: [
+          Icon(icon, size: 48, color: _navy),
+          const SizedBox(height: 12),
+          Text(text, textAlign: TextAlign.center),
+          const SizedBox(height: 18),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              FilledButton.icon(
+                style: FilledButton.styleFrom(backgroundColor: _green),
+                onPressed: callback,
+                icon: const Icon(Icons.shuffle_rounded),
+                label: Text(action),
+              ),
+              if (secondaryLabel != null)
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(foregroundColor: _navy),
+                  onPressed: secondaryAction,
+                  icon: const Icon(Icons.add_rounded),
+                  label: Text(secondaryLabel),
+                ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
-class _TeacherDayOffDialog extends StatefulWidget {
+class _ManualDayOffDialog extends StatefulWidget {
+  final AcademicYear year;
   final List<TeacherModel> teachers;
   final List<TeacherDayOff> existing;
-  final TeacherDayOff? initial;
-  final TeacherDayOffService service;
-  const _TeacherDayOffDialog({
+  final List<TeacherDayOff> initialItems;
+  const _ManualDayOffDialog({
+    required this.year,
     required this.teachers,
     required this.existing,
-    required this.initial,
-    required this.service,
+    required this.initialItems,
   });
 
   @override
-  State<_TeacherDayOffDialog> createState() => _TeacherDayOffDialogState();
+  State<_ManualDayOffDialog> createState() => _ManualDayOffDialogState();
 }
 
-class _TeacherDayOffDialogState extends State<_TeacherDayOffDialog> {
+class _ManualDayOffDialogState extends State<_ManualDayOffDialog> {
   int? _teacherId;
-  String? _day;
-  final Set<String> _days = <String>{};
-  bool _active = true;
+  final Set<String> _days = {};
+  Set<String> _workingDays = {};
+  bool _loadingWorkingDays = true;
   bool _saving = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _teacherId = widget.initial?.teacherId;
-    _day = widget.initial?.day;
-    _active = widget.initial?.isActive ?? true;
+    _teacherId = widget.initialItems.firstOrNull?.teacherId;
+    _days.addAll(widget.initialItems.map((item) => item.day));
+    _loadWorkingDays();
+  }
+
+  bool get _editing => widget.initialItems.isNotEmpty;
+
+  Future<void> _loadWorkingDays() async {
+    final result = await TimetableGeneratorService().getWorkingDays(
+      widget.year.id,
+    );
+    if (!mounted) return;
+    setState(() {
+      _loadingWorkingDays = false;
+      if (result is GeneratorSuccess<List<String>>) {
+        _workingDays = result.data.toSet();
+      } else {
+        _error = (result as GeneratorError).message;
+      }
+    });
   }
 
   Future<void> _save() async {
-    if (_teacherId == null) {
-      setState(() => _error = 'Select a teacher.');
+    if (_loadingWorkingDays || _workingDays.isEmpty) {
+      setState(
+        () => _error =
+            'Configure school working days before assigning teacher days off.',
+      );
       return;
     }
-    if (widget.initial == null && _days.isEmpty) {
-      setState(() => _error = 'Select at least one day off.');
-      return;
-    }
-    if (widget.initial != null && _day == null) {
-      setState(() => _error = 'Select a day.');
+    if (_teacherId == null || _days.isEmpty) {
+      setState(() => _error = 'Select a teacher and at least one weekday.');
       return;
     }
     setState(() {
       _saving = true;
       _error = null;
     });
-    final result = widget.initial == null
-        ? await widget.service.createBulk(
-            teacherId: _teacherId!,
-            days: _days.toList(),
-          )
-        : await widget.service.update(
-            widget.initial!.id,
-            teacherId: _teacherId!,
-            day: _day!,
-            isActive: _active,
+    final TeacherDayOffResult<dynamic> result;
+    if (_editing) {
+      final existingByDay = {
+        for (final item in widget.initialItems) item.day: item,
+      };
+      final added = _days.difference(existingByDay.keys.toSet()).toList();
+      final removed = existingByDay.keys.toSet().difference(_days).toList();
+      TeacherDayOffResult<dynamic> editResult = TeacherDayOffSuccess(true);
+      if (added.isNotEmpty) {
+        editResult = await TeacherDayOffService().createBulk(
+          teacherId: _teacherId!,
+          days: added,
+          academicYearId: widget.year.id,
+        );
+      }
+      if (editResult is! TeacherDayOffError) {
+        for (final day in removed) {
+          editResult = await TeacherDayOffService().delete(
+            existingByDay[day]!.id,
           );
+          if (editResult is TeacherDayOffError) break;
+        }
+      }
+      result = editResult;
+    } else {
+      final existingDays = widget.existing
+          .where((e) => e.teacherId == _teacherId)
+          .map((e) => e.day)
+          .toSet();
+      final newDays = _days.difference(existingDays).toList();
+      if (newDays.isEmpty) {
+        setState(() {
+          _saving = false;
+          _error = 'Those days are already assigned to this teacher.';
+        });
+        return;
+      }
+      result = await TeacherDayOffService().createBulk(
+        teacherId: _teacherId!,
+        days: newDays,
+        academicYearId: widget.year.id,
+      );
+    }
     if (!mounted) return;
-    setState(() => _saving = false);
     if (result is TeacherDayOffError) {
-      setState(() => _error = result.message);
-      return;
+      final message = result.message;
+      setState(() {
+        _saving = false;
+        _error = message;
+      });
+    } else {
+      Navigator.pop(context, true);
     }
-    if (widget.initial == null) {
-      final created =
-          (result as TeacherDayOffSuccess<TeacherDayOffBulkResponse>).data;
-      final teacher = widget.teachers.firstWhere(
-        (item) => item.id == _teacherId,
-      );
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '${created.createdCount} day${created.createdCount == 1 ? '' : 's'} off added for ${teacher.fullName}.',
-          ),
-          backgroundColor: _green,
-        ),
-      );
-    }
-    Navigator.pop(context, true);
   }
 
-  Set<String> get _existingDays => widget.existing
-      .where((item) => item.teacherId == _teacherId && item.isActive)
-      .map((item) => item.day)
-      .toSet();
-
   @override
-  Widget build(BuildContext context) => AlertDialog(
+  Widget build(BuildContext context) => Dialog(
     backgroundColor: Colors.white,
     surfaceTintColor: Colors.white,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-    insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-    title: Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: _navy.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: const Icon(Icons.event_busy_outlined, color: _navy),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            widget.initial == null
-                ? 'Add Teacher Day Off'
-                : 'Edit Teacher Day Off',
-            style: const TextStyle(
-              color: _navy,
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-      ],
-    ),
-    content: SizedBox(
-      width: 480,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          DropdownButtonFormField<int>(
-            isExpanded: true,
-            initialValue: _teacherId,
-            decoration: const InputDecoration(labelText: 'Teacher *'),
-            items: widget.teachers
-                .map(
-                  (teacher) => DropdownMenuItem(
-                    value: teacher.id,
-                    child: Text(
-                      teacher.fullName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+    insetPadding: const EdgeInsets.all(20),
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 620),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: _navy.withValues(alpha: .08),
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                )
-                .toList(),
-            onChanged: _saving
-                ? null
-                : (value) => setState(() {
-                    _teacherId = value;
-                    _days.removeAll(_existingDays);
-                  }),
-          ),
-          const SizedBox(height: 16),
-          if (widget.initial == null) ...[
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Days Off *',
-                style: TextStyle(fontWeight: FontWeight.w700, color: _navy),
-              ),
+                  child: const Icon(Icons.event_busy_rounded, color: _navy),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        !_editing
+                            ? 'Add Teacher Day Off'
+                            : 'Edit Teacher Day Off',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: _navy,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      const Text(
+                        'Manage recurring weekly availability.',
+                        style: TextStyle(color: Color(0xFF64748B)),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: _saving ? null : () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            Container(
-              constraints: const BoxConstraints(maxHeight: 300),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF6F8FB),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFE2E7ED)),
-              ),
-              child: ListView(
-                shrinkWrap: true,
-                children: teacherDayLabels.entries.map((entry) {
-                  final alreadyOff = _existingDays.contains(entry.key);
-                  return CheckboxListTile(
-                    dense: true,
-                    controlAffinity: ListTileControlAffinity.leading,
-                    title: Text(entry.value),
-                    subtitle: alreadyOff ? const Text('Already off') : null,
-                    value: alreadyOff || _days.contains(entry.key),
-                    onChanged: _saving || alreadyOff
-                        ? null
-                        : (selected) => setState(() {
-                            selected == true
-                                ? _days.add(entry.key)
-                                : _days.remove(entry.key);
-                          }),
-                  );
-                }).toList(),
-              ),
-            ),
-          ] else
-            DropdownButtonFormField<String>(
-              isExpanded: true,
-              initialValue: _day,
-              decoration: const InputDecoration(labelText: 'Day *'),
-              items: teacherDayLabels.entries
-                  .map(
-                    (entry) => DropdownMenuItem(
-                      value: entry.key,
-                      child: Text(entry.value),
+            const SizedBox(height: 18),
+            FormCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _confirmationDetails([('Academic Year *', widget.year.name)]),
+                  const SizedBox(height: 15),
+                  Select3D<int>(
+                    value: _teacherId,
+                    label: 'Teacher',
+                    items: widget.teachers
+                        .map(
+                          (t) => DropdownMenuItem(
+                            value: t.id,
+                            child: Text(t.fullName),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: !_editing
+                        ? (value) => setState(() => _teacherId = value)
+                        : null,
+                  ),
+                  const SizedBox(height: 18),
+                  const Text(
+                    'Recurring weekly days off',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: teacherDayLabels.entries.map((entry) {
+                      final available = _workingDays.contains(entry.key);
+                      return FilterChip(
+                        label: Text(entry.key),
+                        selected: _days.contains(entry.key),
+                        selectedColor: _green.withValues(alpha: .22),
+                        checkmarkColor: _green,
+                        side: BorderSide(
+                          color: _days.contains(entry.key)
+                              ? _green
+                              : const Color(0xFFDCE3EC),
+                        ),
+                        onSelected: _saving || _loadingWorkingDays || !available
+                            ? null
+                            : (selected) => setState(() {
+                                selected
+                                    ? _days.add(entry.key)
+                                    : _days.remove(entry.key);
+                              }),
+                      );
+                    }).toList(),
+                  ),
+                  if (!_loadingWorkingDays && _workingDays.isEmpty)
+                    _inlineNotice(
+                      'No school working days are configured for this academic year.',
                     ),
-                  )
-                  .toList(),
-              onChanged: _saving
-                  ? null
-                  : (value) => setState(() => _day = value),
-            ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Active'),
-            value: _active,
-            onChanged: _saving
-                ? null
-                : (value) => setState(() => _active = value),
-          ),
-          if (_error != null)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.red.shade200),
-              ),
-              child: Text(
-                _error!,
-                style: TextStyle(color: Colors.red.shade800),
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 14),
+                      child: Text(
+                        _error!,
+                        style: TextStyle(color: Colors.red.shade700),
+                      ),
+                    ),
+                ],
               ),
             ),
-        ],
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: _saving ? null : () => Navigator.pop(context),
+                  style: TextButton.styleFrom(foregroundColor: _navy),
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed: _saving ? null : _save,
+                  style: FilledButton.styleFrom(backgroundColor: _green),
+                  icon: _saving
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.save_outlined),
+                  label: Text(_saving ? 'Saving...' : 'Save'),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     ),
-    actions: [
-      TextButton(
-        onPressed: _saving ? null : () => Navigator.pop(context, false),
-        child: const Text('Cancel'),
+  );
+}
+
+class _RandomDayOffDialog extends StatefulWidget {
+  final List<AcademicYear> years;
+  final int initialYearId;
+  const _RandomDayOffDialog({required this.years, required this.initialYearId});
+
+  @override
+  State<_RandomDayOffDialog> createState() => _RandomDayOffDialogState();
+}
+
+class _RandomDayOffDialogState extends State<_RandomDayOffDialog> {
+  final _service = TimetableGeneratorService();
+  List<SchoolLevel> _levels = const [];
+  List<String> _workingDays = const [];
+  late int _yearId;
+  int? _levelId;
+  int _daysPerTeacher = 1;
+  DayOffPreview? _preview;
+  bool _loading = true;
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _yearId = widget.initialYearId;
+    _loadReferences();
+  }
+
+  Future<void> _loadReferences() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    final results = await Future.wait([
+      ExamHallService().levels(),
+      _service.getWorkingDays(_yearId),
+    ]);
+    if (!mounted) return;
+    final levelResult = results[0];
+    final daysResult = results[1];
+    if (levelResult is HallSuccess<List<SchoolLevel>>) {
+      _levels = levelResult.data.where((e) => e.isActive).toList();
+      _levelId = _levels.isEmpty ? null : _levels.first.id;
+    }
+    if (daysResult is GeneratorSuccess<List<String>>)
+      _workingDays = daysResult.data;
+    setState(() {
+      _loading = false;
+      if (levelResult is HallError) _error = levelResult.message;
+      if (daysResult is GeneratorError) _error = daysResult.message;
+    });
+  }
+
+  Future<void> _previewRandom() async {
+    if (_levelId == null) {
+      setState(() => _error = 'Select a level first.');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final result = await _service.previewDayOffs(
+      academicYearId: _yearId,
+      levelId: _levelId!,
+      daysOffPerTeacher: _daysPerTeacher,
+    );
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      if (result is GeneratorSuccess<DayOffPreview>) {
+        _preview = result.data;
+      } else {
+        _error = (result as GeneratorError).message;
+      }
+    });
+  }
+
+  Future<void> _apply() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AdminFeatureDialog(
+        title: 'Apply Random Teacher Days Off?',
+        maxWidth: 500,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _confirmationDetails([
+              (
+                'Academic Year',
+                widget.years
+                        .where((year) => year.id == _yearId)
+                        .map((year) => year.name)
+                        .firstOrNull ??
+                    '—',
+              ),
+              (
+                'Level',
+                _levels
+                        .where((level) => level.id == _levelId)
+                        .map((level) => level.name)
+                        .firstOrNull ??
+                    '—',
+              ),
+              ('Days Off Per Teacher', '$_daysPerTeacher per week'),
+            ]),
+            const SizedBox(height: 16),
+            const Text(
+              'These recurring weekly days off will be used by timetable generation.',
+            ),
+            const SizedBox(height: 22),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(backgroundColor: _green),
+                    onPressed: () => Navigator.pop(dialogContext, true),
+                    child: const Text('Apply Days Off'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
-      FilledButton(
-        onPressed: _saving ? null : _save,
-        style: FilledButton.styleFrom(backgroundColor: _green),
-        child: Text(_saving ? 'Saving…' : 'Save'),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final result = await _service.generateDayOffs(
+      academicYearId: _yearId,
+      levelId: _levelId!,
+      daysOffPerTeacher: _daysPerTeacher,
+    );
+    if (!mounted) return;
+    if (result is GeneratorSuccess<Map<String, dynamic>>) {
+      Navigator.pop(context, true);
+    } else {
+      setState(() {
+        _busy = false;
+        _error = (result as GeneratorError).message;
+      });
+    }
+  }
+
+  String _teacherName(Map<String, dynamic> row) =>
+      (row['teacher_name'] ??
+              row['teacherName'] ??
+              row['full_name'] ??
+              row['name'] ??
+              'Teacher')
+          .toString();
+  List<String> _rowDays(Map<String, dynamic> row) {
+    final raw = row['days'] ?? row['days_off'] ?? row['day_offs'] ?? row['day'];
+    return raw is List
+        ? raw.map((e) => e.toString().toUpperCase()).toList()
+        : raw == null
+        ? const []
+        : [raw.toString().toUpperCase()];
+  }
+
+  Widget _previewRow(Map<String, dynamic> row) => Card(
+    child: ListTile(
+      leading: const CircleAvatar(
+        backgroundColor: Color(0xFFEAF1FA),
+        child: Icon(Icons.person_outline, color: _navy),
       ),
-    ],
+      title: Text(
+        _teacherName(row),
+        style: const TextStyle(fontWeight: FontWeight.w700),
+      ),
+      subtitle: Wrap(
+        spacing: 6,
+        children: _rowDays(row)
+            .map(
+              (day) =>
+                  Chip(label: Text(day), visualDensity: VisualDensity.compact),
+            )
+            .toList(),
+      ),
+    ),
+  );
+
+  Widget _warningRow(String warning) => Padding(
+    padding: const EdgeInsets.only(top: 5),
+    child: Text('- $warning', style: TextStyle(color: Colors.orange.shade900)),
+  );
+
+  @override
+  Widget build(BuildContext context) => Dialog(
+    backgroundColor: Colors.white,
+    surfaceTintColor: Colors.white,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+    insetPadding: const EdgeInsets.all(18),
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 780, maxHeight: 760),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: _navy.withValues(alpha: .08),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(Icons.shuffle_rounded, color: _navy),
+                ),
+                const SizedBox(width: 14),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Random Teacher Days Off',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: _navy,
+                        ),
+                      ),
+                      SizedBox(height: 3),
+                      Text(
+                        'Generate recurring weekly days off before creating the timetable.',
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: _busy ? null : () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            if (_loading)
+              const Padding(
+                padding: EdgeInsets.all(60),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      FormCard(
+                        child: Column(
+                          children: [
+                            Select3D<int>(
+                              value: _yearId,
+                              label: 'Academic Year',
+                              items: widget.years
+                                  .map(
+                                    (y) => DropdownMenuItem(
+                                      value: y.id,
+                                      child: Text(y.name),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: _busy
+                                  ? null
+                                  : (value) {
+                                      if (value != null) {
+                                        _yearId = value;
+                                        _preview = null;
+                                        _loadReferences();
+                                      }
+                                    },
+                            ),
+                            const SizedBox(height: 14),
+                            Select3D<int>(
+                              value: _levelId,
+                              label: 'Level',
+                              items: _levels
+                                  .map(
+                                    (l) => DropdownMenuItem(
+                                      value: l.id,
+                                      child: Text(l.name),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: _busy
+                                  ? null
+                                  : (value) => setState(() {
+                                      _levelId = value;
+                                      _preview = null;
+                                    }),
+                            ),
+                            const SizedBox(height: 14),
+                            Select3D<int>(
+                              value: _daysPerTeacher,
+                              label: 'Weekly days off per teacher',
+                              items: const [
+                                DropdownMenuItem(
+                                  value: 1,
+                                  child: Text('1 day'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 2,
+                                  child: Text('2 days'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 3,
+                                  child: Text('3 days'),
+                                ),
+                              ],
+                              onChanged: _busy
+                                  ? null
+                                  : (value) => setState(() {
+                                      _daysPerTeacher = value ?? 1;
+                                      _preview = null;
+                                    }),
+                            ),
+                            const SizedBox(height: 16),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Wrap(
+                                spacing: 7,
+                                runSpacing: 7,
+                                children: [
+                                  const Text(
+                                    'Working days: ',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  ..._workingDays.map(
+                                    (d) => Chip(
+                                      label: Text(d),
+                                      backgroundColor: const Color(0xFFEAF1FA),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_error != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 14),
+                          child: Text(
+                            _error!,
+                            style: TextStyle(color: Colors.red.shade700),
+                          ),
+                        ),
+                      if (_preview != null) ...[
+                        const SizedBox(height: 18),
+                        const Text(
+                          'Randomized preview',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: _navy,
+                          ),
+                        ),
+                        const SizedBox(height: 9),
+                        if (_preview!.teachers.isEmpty)
+                          const FormCard(
+                            child: Text(
+                              'The server returned an empty preview.',
+                            ),
+                          ),
+                        ..._preview!.teachers.map(_previewRow),
+                        ..._preview!.warnings.map(_warningRow),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            const SizedBox(height: 18),
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 10,
+              children: [
+                TextButton(
+                  onPressed: _busy ? null : () => Navigator.pop(context),
+                  style: TextButton.styleFrom(foregroundColor: _navy),
+                  child: const Text('Cancel'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _busy ? null : _previewRandom,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _navy,
+                    side: const BorderSide(color: _navy),
+                  ),
+                  icon: const Icon(Icons.shuffle),
+                  label: Text(
+                    _preview == null
+                        ? 'Preview Random Days Off'
+                        : 'Randomize Again',
+                  ),
+                ),
+                if (_preview != null) ...[
+                  FilledButton.icon(
+                    onPressed: _busy ? null : _apply,
+                    style: FilledButton.styleFrom(backgroundColor: _green),
+                    icon: _busy
+                        ? const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.check),
+                    label: const Text('Apply'),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
   );
 }

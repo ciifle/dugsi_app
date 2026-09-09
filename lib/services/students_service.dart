@@ -291,6 +291,19 @@ StudentPage? parseStudentPageResponse(dynamic raw) {
 
 typedef StudentPdfDocument = PdfFileResult;
 
+/// Normalize Somali telephone input to the local API representation.
+String? normalizeStudentTelephone(String value) {
+  var number = value.replaceAll(RegExp(r'[\s\-()]'), '');
+  if (number.startsWith('+252')) {
+    number = number.substring(4);
+  } else if (number.startsWith('252')) {
+    number = number.substring(3);
+  } else if (number.startsWith('0')) {
+    number = number.substring(1);
+  }
+  return RegExp(r'^[1-9][0-9]{8}$').hasMatch(number) ? '0$number' : null;
+}
+
 /// Payload for creating a student (POST). Exact API keys.
 Map<String, dynamic> createStudentPayload({
   required String emisNumber,
@@ -309,7 +322,7 @@ Map<String, dynamic> createStudentPayload({
   required String disabilityStatus,
   required String guardianName,
   required String schoolName,
-  required String className,
+  required int classId,
   required int age,
   required String absenteeismStatus,
   required String password,
@@ -322,7 +335,9 @@ Map<String, dynamic> createStudentPayload({
     'orphanStatus': orphanStatus,
     'birthDate': birthDate,
     'sex': sex,
-    'telephone': telephone,
+    'telephone':
+        normalizeStudentTelephone(telephone) ??
+        (throw ArgumentError('Enter a valid telephone number')),
     'birthPlace': birthPlace,
     'nationality': nationality,
     'studentState': studentState,
@@ -331,7 +346,7 @@ Map<String, dynamic> createStudentPayload({
     'disabilityStatus': disabilityStatus,
     'guardianName': guardianName,
     'schoolName': schoolName,
-    'className': className,
+    'class_id': classId,
     'age': age,
     'absenteeismStatus': absenteeismStatus,
     'password': password,
@@ -552,9 +567,15 @@ class StudentsService {
       }
       if (response.statusCode == 409)
         return StudentError(
-          _errorMessage(response) ?? 'EMIS number already exists.',
+          'A student with this EMIS/registration number already exists.',
           409,
         );
+      if (response.statusCode == 404) {
+        return StudentError(
+          'The selected class was not found. Please select a valid class.',
+          404,
+        );
+      }
       if (response.statusCode == 400)
         return StudentError(
           _errorMessage(response) ??
@@ -680,7 +701,7 @@ class StudentsService {
         if (classObj is Map) map['class'] = classObj;
         final schoolObj = raw['School'] ?? raw['school'];
         if (schoolObj is Map) {
-          final school = schoolObj as Map;
+          final school = schoolObj;
           if (school['name'] != null) {
             map['schoolName'] ??= school['name'].toString();
             map['school_name'] ??= school['name'].toString();
