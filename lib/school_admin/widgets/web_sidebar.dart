@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:kobac/services/auth_provider.dart';
-import 'package:kobac/shared/widgets/school_brand_logo.dart';
 
 /// Desktop sidebar navigation
 class WebSidebar extends StatefulWidget {
@@ -22,6 +21,58 @@ class WebSidebar extends StatefulWidget {
 
 class _WebSidebarState extends State<WebSidebar> {
   String _expandedSection = '';
+
+  static String _sectionFor(String page) {
+    const groups = {
+      'students': ['students', 'addStudent'],
+      'teachers': ['teachers', 'addTeacher', 'editTeacher', 'teacherDetail'],
+      'classes': [
+        'classes',
+        'addClass',
+        'editClass',
+        'classDetail',
+        'classDetails',
+        'classMerge',
+        'levels',
+        'shifts',
+      ],
+      'subjects': ['subjects', 'classSubjects', 'addSubject', 'editSubject'],
+      'attendance': ['attendance'],
+      'fees': ['fees', 'payments'],
+      'timetable': [
+        'timetable',
+        'teacherDayOff',
+        'courseAssignments',
+        'periods',
+      ],
+      'examinations': [
+        'exams',
+        'marks',
+        'examHalls',
+        'hallAllocation',
+        'hallReports',
+        'passCards',
+      ],
+    };
+    for (final entry in groups.entries) {
+      if (entry.value.contains(page)) return entry.key;
+    }
+    return page;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _expandedSection = _sectionFor(widget.selectedPage);
+  }
+
+  @override
+  void didUpdateWidget(covariant WebSidebar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedPage != widget.selectedPage) {
+      _expandedSection = _sectionFor(widget.selectedPage);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,24 +110,45 @@ class _WebSidebarState extends State<WebSidebar> {
                   horizontal: 12,
                   vertical: 7,
                 ),
-                child: Row(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    SchoolBrandLogo(logoUrl: school?.logoUrl, size: 34),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        schoolName == null || schoolName.isEmpty
-                            ? 'Dugsi'
-                            : schoolName,
+                    LayoutBuilder(
+                      builder: (context, box) {
+                        // This source logo has generous canvas padding. Crop only
+                        // the empty canvas in layout, preserving its aspect ratio.
+                        final imageWidth = box.maxWidth / .58;
+                        return ClipRect(
+                          child: SizedBox(
+                            height: 48,
+                            width: box.maxWidth,
+                            child: OverflowBox(
+                              maxWidth: imageWidth,
+                              maxHeight: imageWidth * 596 / 843,
+                              child: Image.asset(
+                                'assets/dugsi logo-04.png',
+                                width: imageWidth,
+                                fit: BoxFit.contain,
+                                semanticLabel: 'Dugsi logo',
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    if (schoolName != null && schoolName.isNotEmpty) ...[
+                      const SizedBox(height: 5),
+                      Text(
+                        schoolName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: Color(0xFF023471),
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -86,13 +158,14 @@ class _WebSidebarState extends State<WebSidebar> {
           // Navigation Items
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: 16),
+              padding: const EdgeInsets.symmetric(vertical: 6),
               child: Column(
                 children: [
                   _SidebarSection(
                     title: 'Dashboard',
                     icon: Icons.dashboard_rounded,
                     isExpanded: _expandedSection == 'dashboard',
+                    isActive: _sectionFor(widget.selectedPage) == 'dashboard',
                     onTap: () => _navigateToPage('dashboard'),
                     children: [],
                   ),
@@ -100,10 +173,8 @@ class _WebSidebarState extends State<WebSidebar> {
                   _SidebarSection(
                     title: 'Students',
                     icon: Icons.people_alt_rounded,
-                    isExpanded:
-                        _expandedSection == 'students' ||
-                        widget.selectedPage == 'students' ||
-                        widget.selectedPage == 'addStudent',
+                    isExpanded: _expandedSection == 'students',
+                    isActive: _sectionFor(widget.selectedPage) == 'students',
                     onTap: () => _toggleSection('students'),
                     children: [
                       _SidebarItem(
@@ -124,12 +195,8 @@ class _WebSidebarState extends State<WebSidebar> {
                   _SidebarSection(
                     title: 'Teachers',
                     icon: Icons.school_rounded,
-                    isExpanded:
-                        _expandedSection == 'teachers' ||
-                        widget.selectedPage == 'teachers' ||
-                        widget.selectedPage == 'addTeacher' ||
-                        widget.selectedPage == 'editTeacher' ||
-                        widget.selectedPage == 'teacherDetail',
+                    isExpanded: _expandedSection == 'teachers',
+                    isActive: _sectionFor(widget.selectedPage) == 'teachers',
                     onTap: () => _toggleSection('teachers'),
                     children: [
                       _SidebarItem(
@@ -150,16 +217,8 @@ class _WebSidebarState extends State<WebSidebar> {
                   _SidebarSection(
                     title: 'Classes',
                     icon: Icons.class_rounded,
-                    isExpanded:
-                        _expandedSection == 'classes' ||
-                        widget.selectedPage == 'classes' ||
-                        widget.selectedPage == 'addClass' ||
-                        widget.selectedPage == 'editClass' ||
-                        widget.selectedPage == 'classDetail' ||
-                        widget.selectedPage == 'classDetails' ||
-                        widget.selectedPage == 'classMerge' ||
-                        widget.selectedPage == 'levels' ||
-                        widget.selectedPage == 'shifts',
+                    isExpanded: _expandedSection == 'classes',
+                    isActive: _sectionFor(widget.selectedPage) == 'classes',
                     onTap: () => _toggleSection('classes'),
                     children: [
                       _SidebarItem(
@@ -198,12 +257,8 @@ class _WebSidebarState extends State<WebSidebar> {
                   _SidebarSection(
                     title: 'Subjects',
                     icon: Icons.menu_book_rounded,
-                    isExpanded:
-                        _expandedSection == 'subjects' ||
-                        widget.selectedPage == 'subjects' ||
-                        widget.selectedPage == 'classSubjects' ||
-                        widget.selectedPage == 'addSubject' ||
-                        widget.selectedPage == 'editSubject',
+                    isExpanded: _expandedSection == 'subjects',
+                    isActive: _sectionFor(widget.selectedPage) == 'subjects',
                     onTap: () => _toggleSection('subjects'),
                     children: [
                       _SidebarItem(
@@ -231,11 +286,13 @@ class _WebSidebarState extends State<WebSidebar> {
                     title: 'Attendance',
                     icon: Icons.event_note_rounded,
                     isExpanded: _expandedSection == 'attendance',
+                    isActive: _sectionFor(widget.selectedPage) == 'attendance',
                     onTap: () => _toggleSection('attendance'),
                     children: [
                       _SidebarItem(
                         title: 'Student Attendance',
                         icon: Icons.person_outline_rounded,
+                        isActive: widget.selectedPage == 'attendance',
                         onTap: () => _navigateToPage('attendance'),
                       ),
                     ],
@@ -246,16 +303,19 @@ class _WebSidebarState extends State<WebSidebar> {
                       title: 'Fees',
                       icon: Icons.account_balance_wallet_rounded,
                       isExpanded: _expandedSection == 'fees',
+                      isActive: _sectionFor(widget.selectedPage) == 'fees',
                       onTap: () => _toggleSection('fees'),
                       children: [
                         _SidebarItem(
                           title: 'Fees',
                           icon: Icons.payment_outlined,
+                          isActive: widget.selectedPage == 'fees',
                           onTap: () => _navigateToPage('fees'),
                         ),
                         _SidebarItem(
                           title: 'Payments',
                           icon: Icons.receipt_long_outlined,
+                          isActive: widget.selectedPage == 'payments',
                           onTap: () => _navigateToPage('payments'),
                         ),
                       ],
@@ -263,25 +323,35 @@ class _WebSidebarState extends State<WebSidebar> {
                   ],
                   const _SidebarDivider(),
                   _SidebarSection(
-                    title: 'Time Table Module',
+                    title: 'Time Table',
                     icon: Icons.schedule_rounded,
                     isExpanded: _expandedSection == 'timetable',
+                    isActive: _sectionFor(widget.selectedPage) == 'timetable',
                     onTap: () => _toggleSection('timetable'),
                     children: [
                       _SidebarItem(
                         title: 'Course Assign Teacher',
                         icon: Icons.assignment_ind_outlined,
+                        isActive: widget.selectedPage == 'courseAssignments',
                         onTap: () => _navigateToPage('courseAssignments'),
                       ),
                       _SidebarItem(
                         title: 'Teacher Day Off',
                         icon: Icons.event_busy_outlined,
+                        isActive: widget.selectedPage == 'teacherDayOff',
                         onTap: () => _navigateToPage('teacherDayOff'),
                       ),
                       _SidebarItem(
                         title: 'Time Table',
                         icon: Icons.calendar_view_week_outlined,
+                        isActive: widget.selectedPage == 'timetable',
                         onTap: () => _navigateToPage('timetable'),
+                      ),
+                      _SidebarItem(
+                        title: 'Periods',
+                        icon: Icons.access_time_filled_rounded,
+                        isActive: widget.selectedPage == 'periods',
+                        onTap: () => _navigateToPage('periods'),
                       ),
                     ],
                   ),
@@ -290,6 +360,8 @@ class _WebSidebarState extends State<WebSidebar> {
                     title: 'Academic Years',
                     icon: Icons.calendar_month_rounded,
                     isExpanded: _expandedSection == 'academicYears',
+                    isActive:
+                        _sectionFor(widget.selectedPage) == 'academicYears',
                     onTap: () => _navigateToPage('academicYears'),
                     children: [],
                   ),
@@ -297,16 +369,9 @@ class _WebSidebarState extends State<WebSidebar> {
                   _SidebarSection(
                     title: 'Examinations',
                     icon: Icons.event_seat_rounded,
-                    isExpanded:
-                        _expandedSection == 'examinations' ||
-                        {
-                          'exams',
-                          'marks',
-                          'examHalls',
-                          'hallAllocation',
-                          'hallReports',
-                          'passCards',
-                        }.contains(widget.selectedPage),
+                    isExpanded: _expandedSection == 'examinations',
+                    isActive:
+                        _sectionFor(widget.selectedPage) == 'examinations',
                     onTap: () => _toggleSection('examinations'),
                     children: [
                       _SidebarItem(
@@ -354,6 +419,7 @@ class _WebSidebarState extends State<WebSidebar> {
                     title: 'Student Promotions',
                     icon: Icons.trending_up_rounded,
                     isExpanded: _expandedSection == 'promotions',
+                    isActive: _sectionFor(widget.selectedPage) == 'promotions',
                     onTap: () => _navigateToPage('promotions'),
                     children: [],
                   ),
@@ -362,6 +428,7 @@ class _WebSidebarState extends State<WebSidebar> {
                     title: 'Notices',
                     icon: Icons.notifications_outlined,
                     isExpanded: _expandedSection == 'notices',
+                    isActive: _sectionFor(widget.selectedPage) == 'notices',
                     onTap: () => _navigateToPage('notices'),
                     children: [],
                   ),
@@ -370,6 +437,8 @@ class _WebSidebarState extends State<WebSidebar> {
                     title: 'Notifications',
                     icon: Icons.notifications_outlined,
                     isExpanded: _expandedSection == 'notifications',
+                    isActive:
+                        _sectionFor(widget.selectedPage) == 'notifications',
                     onTap: () => _navigateToPage('notifications'),
                     children: [],
                   ),
@@ -378,6 +447,7 @@ class _WebSidebarState extends State<WebSidebar> {
                   _SidebarItem(
                     title: 'Profile',
                     icon: Icons.person_outline_rounded,
+                    isActive: widget.selectedPage == 'profile',
                     onTap: () => _navigateToPage('profile'),
                   ),
                 ],
@@ -405,7 +475,7 @@ class _WebSidebarState extends State<WebSidebar> {
   }
 
   void _navigateToPage(String pageKey) {
-    setState(() => _expandedSection = pageKey);
+    setState(() => _expandedSection = _sectionFor(pageKey));
     widget.onNavigate(pageKey);
   }
 }
@@ -463,12 +533,12 @@ class _LogoutCardState extends State<_LogoutCard> {
             onTapCancel: () => setState(() => _pressed = false),
             onTapUp: (_) => setState(() => _pressed = false),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               child: Row(
                 children: [
                   Container(
-                    width: 38,
-                    height: 38,
+                    width: 28,
+                    height: 28,
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: .16),
                       borderRadius: BorderRadius.circular(11),
@@ -491,16 +561,6 @@ class _LogoutCardState extends State<_LogoutCard> {
                             color: Colors.white,
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        SizedBox(height: 2),
-                        Text(
-                          'Sign out of your account',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Color(0xFFFFE4E4),
-                            fontSize: 10.5,
                           ),
                         ),
                       ],
@@ -526,6 +586,7 @@ class _SidebarSection extends StatelessWidget {
   final String title;
   final IconData icon;
   final bool isExpanded;
+  final bool isActive;
   final VoidCallback onTap;
   final List<Widget> children;
 
@@ -533,6 +594,7 @@ class _SidebarSection extends StatelessWidget {
     required this.title,
     required this.icon,
     required this.isExpanded,
+    required this.isActive,
     required this.onTap,
     required this.children,
   });
@@ -546,22 +608,22 @@ class _SidebarSection extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 1),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: isExpanded ? const Color(0xFF023471) : Colors.transparent,
+              color: isActive ? const Color(0xFF023471) : Colors.transparent,
               borderRadius: BorderRadius.circular(14),
-              boxShadow: isExpanded
+              boxShadow: isActive
                   ? const [BoxShadow(color: Color(0x33023471), blurRadius: 12)]
                   : null,
             ),
             child: Row(
               children: [
                 Container(
-                  width: 34,
-                  height: 34,
+                  width: 26,
+                  height: 26,
                   decoration: BoxDecoration(
-                    color: isExpanded
+                    color: isActive
                         ? Colors.white.withValues(alpha: .16)
                         : const Color(0xFFF1F5FA),
                     borderRadius: BorderRadius.circular(10),
@@ -569,19 +631,19 @@ class _SidebarSection extends StatelessWidget {
                   child: Icon(
                     icon,
                     size: 18,
-                    color: isExpanded ? Colors.white : const Color(0xFF023471),
+                    color: isActive ? Colors.white : const Color(0xFF023471),
                   ),
                 ),
                 const SizedBox(width: 11),
                 Expanded(
                   child: Text(
                     title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: isExpanded
-                          ? Colors.white
-                          : const Color(0xFF2D2D2D),
+                      color: isActive ? Colors.white : const Color(0xFF2D2D2D),
                     ),
                   ),
                 ),
@@ -589,7 +651,7 @@ class _SidebarSection extends StatelessWidget {
                   Icon(
                     isExpanded ? Icons.expand_less : Icons.expand_more,
                     size: 16,
-                    color: isExpanded ? Colors.white : const Color(0xFF6B6B6B),
+                    color: isActive ? Colors.white : const Color(0xFF6B6B6B),
                   ),
               ],
             ),
@@ -597,7 +659,7 @@ class _SidebarSection extends StatelessWidget {
         ),
         if (isExpanded && children.isNotEmpty)
           Container(
-            padding: const EdgeInsets.only(left: 60),
+            padding: const EdgeInsets.only(left: 24, right: 10),
             child: Column(children: children),
           ),
       ],
@@ -630,7 +692,7 @@ class _SidebarItem extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
               decoration: isActive
                   ? BoxDecoration(
                       color: const Color(0xFF023471).withValues(alpha: 0.1),
@@ -650,6 +712,8 @@ class _SidebarItem extends StatelessWidget {
                   Expanded(
                     child: Text(
                       title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: isActive
@@ -666,7 +730,7 @@ class _SidebarItem extends StatelessWidget {
             ),
             if (isActive)
               Positioned(
-                left: 12,
+                left: 2,
                 top: 8,
                 bottom: 8,
                 child: Container(
@@ -689,10 +753,6 @@ class _SidebarDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      height: 1,
-      color: const Color(0xFFE8ECF2),
-    );
+    return const SizedBox(height: 2);
   }
 }

@@ -1,3 +1,6 @@
+import 'package:kobac/school_admin/widgets/admin_responsive_layout.dart';
+import 'package:kobac/school_admin/widgets/web_admin_reference_kit.dart';
+import 'package:kobac/school_admin/widgets/dependency_delete_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, setEquals;
 import 'package:provider/provider.dart';
@@ -318,103 +321,71 @@ class _LevelsPageState extends State<LevelsPage> {
     });
   }
 
-  Future<void> _edit([SchoolLevel? level]) async {
-    final name = TextEditingController(text: level?.name),
-        order = TextEditingController(
-          text: '${level?.sortOrder ?? _items.length + 1}',
-        );
-    bool active = level?.isActive ?? true;
+  /// Levels can only be created through the API — there is no PATCH/PUT
+  /// route for /levels/{id}, so an existing level's name, sort order, or
+  /// active status cannot be edited from the client. Only `name` is
+  /// accepted by the create endpoint's documented request schema.
+  Future<void> _create() async {
+    final name = TextEditingController();
     final saved = await showDialog<bool>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => AdminFeatureDialog(
-          title: level == null ? 'Add Level' : 'Edit Level',
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: name,
-                decoration: const InputDecoration(
-                  labelText: 'Level Name',
-                  hintText: 'Enter level name',
-                ),
+      builder: (ctx) => AdminFeatureDialog(
+        title: 'Add Level',
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: name,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Level Name *',
+                hintText: 'Enter level name',
               ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: order,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Sort Order',
-                  hintText: '1',
-                ),
-              ),
-              const SizedBox(height: 6),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                activeThumbColor: _green,
-                title: const Text(
-                  'Active status',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                subtitle: const Text('Available for class organization'),
-                value: active,
-                onChanged: (v) => setLocal(() => active = v),
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(ctx, false),
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(0, 48),
-                      ),
-                      child: const Text('Cancel'),
+              onSubmitted: (_) => Navigator.pop(ctx, true),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 48),
                     ),
+                    child: const Text('Cancel'),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: _green,
-                        minimumSize: const Size(0, 48),
-                      ),
-                      onPressed: () async {
-                        if (name.text.trim().isEmpty) {
-                          _snack(
-                            context,
-                            'Level name is required.',
-                            error: true,
-                          );
-                          return;
-                        }
-                        final r = await _service.saveLevel(
-                          id: level?.id,
-                          name: name.text,
-                          sortOrder: int.tryParse(order.text) ?? 0,
-                          active: active,
-                        );
-                        if (!ctx.mounted) return;
-                        if (r is HallError) {
-                          _snack(context, r.message, error: true);
-                          return;
-                        }
-                        Navigator.pop(ctx, true);
-                      },
-                      child: Text(
-                        level == null ? 'Create Level' : 'Save Changes',
-                      ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _green,
+                      minimumSize: const Size(0, 48),
                     ),
+                    onPressed: () async {
+                      if (name.text.trim().isEmpty) {
+                        _snack(context, 'Level name is required.', error: true);
+                        return;
+                      }
+                      final r = await _service.createLevel(name.text);
+                      if (!ctx.mounted) return;
+                      if (r is HallError) {
+                        _snack(context, r.message, error: true);
+                        return;
+                      }
+                      Navigator.pop(ctx, true);
+                    },
+                    child: const Text('Create Level'),
                   ),
-                ],
-              ),
-            ],
-          ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
     if (saved == true) {
-      _snack(context, 'Level saved.');
+      _snack(context, 'Level created.');
       _load();
     }
   }
@@ -568,29 +539,130 @@ class _LevelsPageState extends State<LevelsPage> {
     }
   }
 
+  Widget _webLevels() => WebAdminPage(
+    title: 'Levels',
+    subtitle: 'Organize classes into academic levels',
+    icon: Icons.layers_rounded,
+    children: [
+      WebAdminStats(
+        items: [
+          WebAdminStat(
+            'Total Levels',
+            _items.length.toString(),
+            Icons.layers_rounded,
+          ),
+          WebAdminStat(
+            'Total Classes',
+            _items
+                .fold<int>(0, (sum, level) => sum + level.classCount)
+                .toString(),
+            Icons.groups_rounded,
+          ),
+          WebAdminStat(
+            'Active Levels',
+            _items.where((level) => level.isActive).length.toString(),
+            Icons.check_circle,
+            webGreen,
+          ),
+          WebAdminStat(
+            'Inactive Levels',
+            _items.where((level) => !level.isActive).length.toString(),
+            Icons.pause_circle_filled,
+            Colors.redAccent,
+          ),
+        ],
+      ),
+      WebAdminDataPanel(
+        title: 'School Levels',
+        subtitle: 'Manage academic levels and assign classes',
+        searchHint: 'Search levels...',
+        noun: 'levels',
+        icon: Icons.layers_rounded,
+        loading: _loading,
+        error: _error,
+        retry: _load,
+        actions: [webAdminAction('Add Level', Icons.add, _create)],
+        columns: const [
+          '#',
+          'Level Name',
+          'Classes',
+          'Status',
+          'Sort Order',
+          'Actions',
+        ],
+        columnWidths: const {
+          0: FixedColumnWidth(48),
+          1: FlexColumnWidth(2),
+          2: FlexColumnWidth(1),
+          3: FlexColumnWidth(1.3),
+          4: FlexColumnWidth(1),
+          5: FixedColumnWidth(238),
+        },
+        rows: _items.asMap().entries.map((entry) {
+          final level = entry.value;
+          return WebAdminRow(
+            searchText: level.name,
+            cells: [
+              Text((entry.key + 1).toString()),
+              Text(
+                level.name,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              Text(level.classCount.toString()),
+              webAdminBadge(
+                level.isActive ? 'ACTIVE' : 'INACTIVE',
+                active: level.isActive,
+              ),
+              Text(level.sortOrder.toString()),
+              Wrap(
+                spacing: 10,
+                runSpacing: 8,
+                children: [
+                  webAdminAction(
+                    'Assign Classes',
+                    Icons.groups,
+                    () => _assign(level),
+                    outlined: true,
+                    color: webNavy,
+                  ),
+                  webAdminIcon(
+                    'Delete',
+                    Icons.delete_outline,
+                    () => _delete(level),
+                    destructive: true,
+                  ),
+                ],
+              ),
+            ],
+          );
+        }).toList(),
+      ),
+    ],
+  );
+
+  bool _deleteDialogOpen = false;
   Future<void> _delete(SchoolLevel l) async {
-    final ok = await showAdminFeatureConfirmation(
-      context,
-      title: 'Delete Level?',
-      message:
-          'Delete ${l.name}? Class names and enrollments will not be changed.',
-      confirmLabel: 'Delete Level',
-      icon: Icons.delete_outline_rounded,
-      confirmColor: Colors.red,
-    );
-    if (ok != true) return;
-    final r = await _service.deleteLevel(l.id);
-    if (!mounted) return;
-    if (r is HallError)
-      _snack(context, r.message, error: true);
-    else {
-      _snack(context, 'Level deleted.');
+    if (_deleteDialogOpen) return;
+    _deleteDialogOpen = true;
+    try {
+      final deleted = await showAdminDeletionFlow(
+        context,
+        kind: DeleteItemKind.level,
+        id: l.id,
+        name: l.name,
+      );
+      if (!mounted || deleted != true) return;
+      _snack(context, 'Level deleted successfully.');
       _load();
+    } finally {
+      _deleteDialogOpen = false;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (isDesktopWebAdminLayout(context)) return _webLevels();
+
     final content = _loading
         ? _loadingState('Loading levels…')
         : _error != null
@@ -627,11 +699,6 @@ class _LevelsPageState extends State<LevelsPage> {
                                 DataCell(
                                   Wrap(
                                     children: [
-                                      IconButton(
-                                        tooltip: 'Edit',
-                                        onPressed: () => _edit(l),
-                                        icon: const Icon(Icons.edit_outlined),
-                                      ),
                                       IconButton(
                                         tooltip: 'Assign Classes',
                                         onPressed: () => _assign(l),
@@ -702,17 +769,6 @@ class _LevelsPageState extends State<LevelsPage> {
                                   horizontal: 6,
                                 ),
                               ),
-                              onPressed: () => _edit(l),
-                              icon: const Icon(Icons.edit_outlined),
-                              label: const Text('Edit'),
-                            ),
-                            TextButton.icon(
-                              style: TextButton.styleFrom(
-                                visualDensity: VisualDensity.compact,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                ),
-                              ),
                               onPressed: () => _assign(l),
                               icon: const Icon(Icons.class_outlined),
                               label: const Text('Assign Classes'),
@@ -745,7 +801,7 @@ class _LevelsPageState extends State<LevelsPage> {
       subtitle: 'Organize classes into academic levels',
       child: content,
       action: FloatingActionButton.extended(
-        onPressed: () => _edit(),
+        onPressed: () => _create(),
         backgroundColor: _green,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add_rounded),
@@ -1058,8 +1114,102 @@ class _ShiftsPageState extends State<ShiftsPage> {
     }
   }
 
+  Widget _webShifts() => WebAdminPage(
+    title: 'Shifts',
+    subtitle: 'Manage school shifts and assign classes',
+    icon: Icons.schedule_rounded,
+    children: [
+      WebAdminStats(
+        items: [
+          WebAdminStat(
+            'Total Shifts',
+            _items.length.toString(),
+            Icons.schedule_rounded,
+          ),
+          WebAdminStat(
+            'Classes Assigned',
+            _items
+                .fold<int>(0, (sum, shift) => sum + shift.classCount)
+                .toString(),
+            Icons.groups_rounded,
+          ),
+          WebAdminStat(
+            'Active Shifts',
+            _items.where((shift) => shift.isActive).length.toString(),
+            Icons.check_circle,
+            webGreen,
+          ),
+          WebAdminStat(
+            'Inactive Shifts',
+            _items.where((shift) => !shift.isActive).length.toString(),
+            Icons.pause_circle_filled,
+            Colors.redAccent,
+          ),
+        ],
+      ),
+      WebAdminDataPanel(
+        title: 'School Shifts',
+        subtitle:
+            'Create and manage school shifts. Assign classes to each shift.',
+        searchHint: 'Search shifts...',
+        noun: 'shifts',
+        icon: Icons.schedule_rounded,
+        loading: _loading,
+        error: _error,
+        retry: _load,
+        actions: [webAdminAction('Add Shift', Icons.add, () => _edit())],
+        columns: const ['#', 'Shift Name', 'Classes', 'Status', 'Actions'],
+        columnWidths: const {
+          0: FixedColumnWidth(48),
+          1: FlexColumnWidth(3),
+          2: FlexColumnWidth(1),
+          3: FlexColumnWidth(1.5),
+          4: FixedColumnWidth(172),
+        },
+        rows: _items.asMap().entries.map((entry) {
+          final shift = entry.value;
+          return WebAdminRow(
+            searchText: shift.name,
+            cells: [
+              Text((entry.key + 1).toString()),
+              Text(
+                shift.name,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              Text(shift.classCount.toString()),
+              webAdminBadge(
+                shift.isActive ? 'ACTIVE' : 'INACTIVE',
+                active: shift.isActive,
+              ),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  webAdminIcon('Edit', Icons.edit_outlined, () => _edit(shift)),
+                  webAdminIcon(
+                    'Assign Classes',
+                    Icons.class_outlined,
+                    () => _assign(shift),
+                  ),
+                  webAdminIcon(
+                    'Delete',
+                    Icons.delete_outline,
+                    () => _delete(shift),
+                    destructive: true,
+                  ),
+                ],
+              ),
+            ],
+          );
+        }).toList(),
+      ),
+    ],
+  );
+
   @override
   Widget build(BuildContext context) {
+    if (isDesktopWebAdminLayout(context)) return _webShifts();
+
     final content = _loading
         ? _loadingState('Loading shifts…')
         : _error != null

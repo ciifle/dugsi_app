@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:kobac/services/delete_error_message.dart';
 
 import 'package:http/http.dart' as http;
 
@@ -494,7 +495,7 @@ class ClassesService {
         return ClassError('Class not found.', 404);
       if (response.statusCode != 200) {
         return ClassError(
-          _errorMessage(response) ?? 'Could not delete. Please try again.',
+          safeDeleteError(_errorMessage(response)),
           response.statusCode,
         );
       }

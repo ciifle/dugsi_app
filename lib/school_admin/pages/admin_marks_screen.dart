@@ -2519,26 +2519,25 @@ class _ReleaseButton extends StatelessWidget {
   const _ReleaseButton({required this.onPressed});
   @override
   Widget build(BuildContext context) {
+    final releaseColor = isDesktopWebAdminLayout(context)
+        ? kPrimaryBlue
+        : Colors.deepPurple;
     return GestureDetector(
       onTap: onPressed,
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: Colors.deepPurple.withOpacity(0.12),
+          color: releaseColor.withOpacity(0.12),
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
-              color: Colors.deepPurple.withOpacity(0.2),
+              color: releaseColor.withOpacity(0.2),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
           ],
         ),
-        child: const Icon(
-          Icons.publish_rounded,
-          color: Colors.deepPurple,
-          size: 24,
-        ),
+        child: Icon(Icons.publish_rounded, color: releaseColor, size: 24),
       ),
     );
   }

@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:kobac/school_admin/widgets/admin_responsive_layout.dart';
 import 'package:kobac/services/classes_service.dart';
 import 'package:kobac/services/api_error_helpers.dart';
+import 'package:kobac/services/exam_hall_service.dart';
+import 'package:kobac/models/exam_hall_models.dart';
 import 'package:kobac/school_admin/pages/admin_class_details_screen.dart';
-import 'package:kobac/school_admin/widgets/delete_confirm_dialog.dart';
+import 'package:kobac/school_admin/widgets/dependency_delete_dialog.dart';
 import 'package:kobac/widgets/form_3d/form_3d.dart';
 
 // --- Premium 3D Design Constants ---
@@ -62,7 +64,7 @@ class _AdminClassesPageState extends State<AdminClassesPage> {
         title: 'Add Class',
         initialName: '',
         submitLabel: 'Create',
-        onSave: (name) async {
+        onSave: (name, _) async {
           final result = await ClassesService().createClass({'name': name});
           if (result is ClassSuccess) return true;
           if (ctx.mounted) {
@@ -91,26 +93,52 @@ class _AdminClassesPageState extends State<AdminClassesPage> {
   }
 
   Future<void> _openEditClass(ClassModel classModel) async {
+    final levelsResult = await ExamHallService().levels();
+    if (!mounted) return;
+    final levels = levelsResult is HallSuccess<List<SchoolLevel>>
+        ? levelsResult.data
+        : <SchoolLevel>[];
     final updated = await showDialog<bool>(
       context: context,
       builder: (ctx) => _ClassFormDialog(
         title: 'Edit Class',
         initialName: classModel.name,
         submitLabel: 'Save',
-        onSave: (name) async {
+        levels: levels,
+        initialLevelId: classModel.levelId,
+        onSave: (name, levelId) async {
           final result = await ClassesService().updateClass(classModel.id, {
             'name': name,
           });
-          if (result is ClassSuccess) return true;
-          if (ctx.mounted) {
-            ScaffoldMessenger.of(ctx).showSnackBar(
-              SnackBar(
-                content: Text((result as ClassError).message),
-                backgroundColor: Colors.red,
-              ),
-            );
+          if (result is ClassError) {
+            if (ctx.mounted) {
+              ScaffoldMessenger.of(ctx).showSnackBar(
+                SnackBar(
+                  content: Text(result.message),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+            return false;
           }
-          return false;
+          if (levelId != null && levelId != classModel.levelId) {
+            final levelResult = await ExamHallService().assignClassLevel(
+              classModel.id,
+              levelId,
+            );
+            if (levelResult is HallError) {
+              if (ctx.mounted) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  SnackBar(
+                    content: Text(levelResult.message),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+              return false;
+            }
+          }
+          return true;
         },
       ),
     );
@@ -127,30 +155,27 @@ class _AdminClassesPageState extends State<AdminClassesPage> {
     }
   }
 
+  bool _deleteDialogOpen = false;
   Future<void> _deleteClass(ClassModel classModel) async {
-    final confirmed = await showDeleteConfirmDialog(
-      context,
-      title: 'Delete class?',
-      message: 'Delete class ${classModel.name}?',
-    );
-    if (confirmed != true) return;
-    final result = await ClassesService().deleteClass(classModel.id);
-    if (!mounted) return;
-    if (result is ClassSuccess) {
+    if (_deleteDialogOpen) return;
+    _deleteDialogOpen = true;
+    try {
+      final deleted = await showAdminDeletionFlow(
+        context,
+        kind: DeleteItemKind.schoolClass,
+        id: classModel.id,
+        name: classModel.name,
+      );
+      if (!mounted || deleted != true) return;
       _loadClasses();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${classModel.name} deleted'),
+        const SnackBar(
+          content: Text('Class deleted successfully.'),
           backgroundColor: kPrimaryGreen,
         ),
       );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text((result as ClassError).message),
-          backgroundColor: Colors.red,
-        ),
-      );
+    } finally {
+      _deleteDialogOpen = false;
     }
   }
 
@@ -1087,18 +1112,23 @@ class _AddClassScreenState extends State<AddClassScreen> {
   }
 }
 
-/// Dialog for Create/Edit class: single "name" field, Save/Create button.
+/// Dialog for Create/Edit class: name field, optional level dropdown (shown
+/// only when [levels] is supplied, e.g. on Edit), Save/Create button.
 class _ClassFormDialog extends StatefulWidget {
   final String title;
   final String initialName;
   final String submitLabel;
-  final Future<bool> Function(String name) onSave;
+  final Future<bool> Function(String name, int? levelId) onSave;
+  final List<SchoolLevel>? levels;
+  final int? initialLevelId;
 
   const _ClassFormDialog({
     required this.title,
     required this.initialName,
     required this.submitLabel,
     required this.onSave,
+    this.levels,
+    this.initialLevelId,
   });
 
   @override
@@ -1107,12 +1137,14 @@ class _ClassFormDialog extends StatefulWidget {
 
 class _ClassFormDialogState extends State<_ClassFormDialog> {
   late TextEditingController _nameController;
+  late int? _levelId;
   bool _submitting = false;
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.initialName);
+    _levelId = widget.initialLevelId;
   }
 
   @override
@@ -1134,7 +1166,7 @@ class _ClassFormDialogState extends State<_ClassFormDialog> {
     }
     if (_submitting) return;
     setState(() => _submitting = true);
-    final ok = await widget.onSave(name);
+    final ok = await widget.onSave(name, _levelId);
     if (!mounted) return;
     setState(() => _submitting = false);
     if (ok) Navigator.of(context).pop(true);
@@ -1167,6 +1199,29 @@ class _ClassFormDialogState extends State<_ClassFormDialog> {
               textCapitalization: TextCapitalization.words,
               onSubmitted: (_) => _submit(),
             ),
+            if (widget.levels != null && widget.levels!.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              DropdownButtonFormField<int?>(
+                initialValue: _levelId,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Level'),
+                items: [
+                  const DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text('No level'),
+                  ),
+                  ...widget.levels!.map(
+                    (level) => DropdownMenuItem<int?>(
+                      value: level.id,
+                      child: Text(level.name, overflow: TextOverflow.ellipsis),
+                    ),
+                  ),
+                ],
+                onChanged: _submitting
+                    ? null
+                    : (value) => setState(() => _levelId = value),
+              ),
+            ],
             const SizedBox(height: 24),
             Row(
               children: [

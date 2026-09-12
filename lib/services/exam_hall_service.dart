@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:kobac/services/delete_error_message.dart';
 import 'package:flutter/foundation.dart';
 import 'package:kobac/models/exam_hall_models.dart';
 import 'package:kobac/services/api_client.dart';
@@ -233,21 +234,27 @@ class ExamHallService {
     SchoolLevel.fromJson,
     'Could not load levels.',
   );
-  Future<HallResult<SchoolLevel>> saveLevel({
-    int? id,
-    required String name,
-    required int sortOrder,
-    required bool active,
-  }) => _write(
-    id == null ? '$_admin/levels' : '$_admin/levels/$id',
-    {'name': name.trim(), 'sort_order': sortOrder, 'is_active': active},
-    id == null,
+
+  /// POST /api/school-admin/levels — the only documented level-write route;
+  /// its request schema declares `name` only (no sort_order/is_active, and
+  /// no PATCH/PUT exists for /levels/{id}), so an existing level's metadata
+  /// cannot currently be edited from the client.
+  Future<HallResult<SchoolLevel>> createLevel(String name) => _write(
+    '$_admin/levels',
+    {'name': name.trim()},
+    true,
     'level',
     SchoolLevel.fromJson,
-    'Could not save level.',
+    'Could not create level.',
   );
-  Future<HallResult<bool>> deleteLevel(int id) =>
-      _delete('$_admin/levels/$id', 'Could not delete level.');
+  Future<HallResult<bool>> deleteLevel(int id) async {
+    final result = await _delete('$_admin/levels/$id', deleteFailureMessage);
+    if (result is HallError) {
+      return HallError(safeDeleteError(result.message), result.statusCode);
+    }
+    return result;
+  }
+
   Future<HallResult<List<LevelClass>>> classes({int? levelId}) => _getList(
     '$_admin/classes${levelId == null ? '' : '?level_id=$levelId'}',
     'classes',
@@ -293,6 +300,28 @@ class ExamHallService {
     } catch (e, st) {
       return HallError(
         userFriendlyMessage(e, st, 'ExamHallService.assignClasses'),
+      );
+    }
+  }
+
+  /// PATCH /api/school-admin/classes/{classId}/level — moves a single class
+  /// to a different level, kept consistent with the bulk assignClasses call.
+  Future<HallResult<bool>> assignClassLevel(int classId, int levelId) async {
+    try {
+      final response = await _client.patch(
+        apiUrl('$_admin/classes/$classId/level'),
+        body: {'level_id': levelId},
+      );
+      final raw = _decode(response.body);
+      return _ok(response.statusCode)
+          ? HallSuccess(true)
+          : HallError(
+              _message(raw, 'Could not update the class level.'),
+              response.statusCode,
+            );
+    } catch (e, st) {
+      return HallError(
+        userFriendlyMessage(e, st, 'ExamHallService.assignClassLevel'),
       );
     }
   }

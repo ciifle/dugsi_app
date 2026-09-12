@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:kobac/models/exam_hall_models.dart';
 import 'package:kobac/services/academic_years_service.dart';
+import 'package:kobac/services/exam_hall_service.dart';
 import 'package:kobac/services/pdf_file_result.dart';
 import 'package:kobac/services/teachers_service.dart';
 import 'package:kobac/services/timetables_service.dart';
@@ -15,13 +17,13 @@ const _subtleText = Color(0xFF64748B);
 
 /// Opens the single, centered "Print Timetable" dialog used by the Time
 /// Table page on both mobile and PWA. The admin picks between Teacher
-/// Timetable and All Teachers inside the dialog itself — there is only one
-/// print entry point on the page.
+/// Timetable and Classes by Level inside the dialog itself — there is only
+/// one print entry point on the page.
 Future<void> showTimetablePrintDialog(
   BuildContext context, {
   int? initialAcademicYearId,
   int? initialTeacherId,
-  bool initialAllTeachers = false,
+  bool initialClassesByLevel = false,
 }) async {
   final provider = context.read<AcademicYearsProvider>();
   final width = MediaQuery.sizeOf(context).width;
@@ -40,7 +42,7 @@ Future<void> showTimetablePrintDialog(
           child: _TimetablePrintForm(
             initialYearId: initialAcademicYearId,
             initialTeacherId: initialTeacherId,
-            initialAllTeachers: initialAllTeachers,
+            initialClassesByLevel: initialClassesByLevel,
           ),
         ),
       ),
@@ -51,12 +53,12 @@ Future<void> showTimetablePrintDialog(
 class _TimetablePrintForm extends StatefulWidget {
   final int? initialYearId;
   final int? initialTeacherId;
-  final bool initialAllTeachers;
+  final bool initialClassesByLevel;
 
   const _TimetablePrintForm({
     this.initialYearId,
     this.initialTeacherId,
-    this.initialAllTeachers = false,
+    this.initialClassesByLevel = false,
   });
 
   @override
@@ -64,17 +66,20 @@ class _TimetablePrintForm extends StatefulWidget {
 }
 
 class _TimetablePrintFormState extends State<_TimetablePrintForm> {
-  late bool _allTeachers;
+  late bool _classesByLevel;
   int? _yearId;
   int? _teacherId;
+  int? _levelId;
   List<TeacherModel> _teachers = [];
+  List<SchoolLevel> _levels = [];
   bool _teachersLoading = true;
+  bool _levelsLoading = true;
   bool _generating = false;
 
   @override
   void initState() {
     super.initState();
-    _allTeachers = widget.initialAllTeachers;
+    _classesByLevel = widget.initialClassesByLevel;
     _yearId = widget.initialYearId;
     _teacherId = widget.initialTeacherId;
     WidgetsBinding.instance.addPostFrameCallback((_) => _initialize());
@@ -82,7 +87,11 @@ class _TimetablePrintFormState extends State<_TimetablePrintForm> {
 
   Future<void> _initialize() async {
     final provider = context.read<AcademicYearsProvider>();
-    await Future.wait([provider.ensureLoaded(), _loadTeachers()]);
+    await Future.wait([
+      provider.ensureLoaded(),
+      _loadTeachers(),
+      _loadLevels(),
+    ]);
     if (!mounted) return;
     setState(() => _yearId ??= provider.activeYear?.id);
   }
@@ -93,6 +102,15 @@ class _TimetablePrintFormState extends State<_TimetablePrintForm> {
     setState(() {
       _teachersLoading = false;
       if (result is TeacherSuccess<List<TeacherModel>>) _teachers = result.data;
+    });
+  }
+
+  Future<void> _loadLevels() async {
+    final result = await ExamHallService().levels();
+    if (!mounted) return;
+    setState(() {
+      _levelsLoading = false;
+      if (result is HallSuccess<List<SchoolLevel>>) _levels = result.data;
     });
   }
 
@@ -113,21 +131,42 @@ class _TimetablePrintFormState extends State<_TimetablePrintForm> {
     return 'teacher';
   }
 
-  void _selectType(bool allTeachers) {
-    if (_generating || _allTeachers == allTeachers) return;
+  String? get _levelName {
+    for (final level in _levels) {
+      if (level.id == _levelId) return level.name;
+    }
+    return null;
+  }
+
+  String get _primaryLabel {
+    if (!_classesByLevel) return 'Print Teacher Timetable';
+    final name = _levelName;
+    return name != null && name.isNotEmpty
+        ? 'Print $name Timetable'
+        : 'Print Level Timetable';
+  }
+
+  void _selectType(bool classesByLevel) {
+    if (_generating || _classesByLevel == classesByLevel) return;
     setState(() {
-      _allTeachers = allTeachers;
-      if (allTeachers) _teacherId = null;
+      _classesByLevel = classesByLevel;
+      if (classesByLevel) _teacherId = null;
+      // _levelId is intentionally left untouched here so switching between
+      // Teacher/Classes-by-Level modes never silently drops a level the
+      // admin already picked.
     });
   }
 
   Future<void> _generate(bool download) async {
     if (_generating || _yearId == null) return;
-    if (!_allTeachers && _teacherId == null) return;
+    if (!_classesByLevel && _teacherId == null) return;
+    if (_classesByLevel && _levelId == null) return;
     setState(() => _generating = true);
-    final result = _allTeachers
-        ? await TimetablesService().getAllTeachersTimetablePrintPdf(
+    final result = _classesByLevel
+        ? await TimetablesService().getClassesByLevelTimetablePrintPdf(
             academicYearId: _yearId!,
+            levelId: _levelId!,
+            levelLabel: _levelName,
           )
         : await TimetablesService().getTeacherTimetablePrintPdf(
             teacherId: _teacherId!,
@@ -144,8 +183,8 @@ class _TimetablePrintFormState extends State<_TimetablePrintForm> {
     final document = (result as TimetableSuccess<PdfFileResult>).data;
     final filename =
         document.filename ??
-        (_allTeachers
-            ? 'all-teacher-timetables-${_safe(_yearName)}.pdf'
+        (_classesByLevel
+            ? 'classes-by-level-${_safe(_levelName ?? 'level')}-${_safe(_yearName)}.pdf'
             : 'timetable-${_safe(_teacherName)}-${_safe(_yearName)}.pdf');
     try {
       if (download) {
@@ -180,8 +219,11 @@ class _TimetablePrintFormState extends State<_TimetablePrintForm> {
     final provider = context.watch<AcademicYearsProvider>();
     final validYear = provider.years.any((year) => year.id == _yearId);
     final validTeacher = _teachers.any((t) => t.id == _teacherId);
+    final validLevel = _levels.any((l) => l.id == _levelId);
     final canSubmit =
-        validYear && (_allTeachers || validTeacher) && !_generating;
+        validYear &&
+        (_classesByLevel ? validLevel : validTeacher) &&
+        !_generating;
 
     return Container(
       decoration: BoxDecoration(
@@ -212,16 +254,17 @@ class _TimetablePrintFormState extends State<_TimetablePrintForm> {
               icon: Icons.co_present_rounded,
               title: 'Teacher Timetable',
               subtitle: 'Print the timetable for one selected teacher.',
-              selected: !_allTeachers,
+              selected: !_classesByLevel,
               onTap: () => _selectType(false),
             ),
             const SizedBox(height: 10),
             _PrintTypeCard(
               icon: Icons.groups_rounded,
-              title: 'All Teachers',
+              title: 'Classes by Level',
               subtitle:
-                  'Print all teacher timetables for the selected academic year.',
-              selected: _allTeachers,
+                  'Print one weekly wall timetable containing all classes '
+                  'in the selected level.',
+              selected: _classesByLevel,
               onTap: () => _selectType(true),
             ),
             const SizedBox(height: 18),
@@ -244,7 +287,7 @@ class _TimetablePrintFormState extends State<_TimetablePrintForm> {
                   ? null
                   : (value) => setState(() => _yearId = value),
             ),
-            if (!_allTeachers) ...[
+            if (!_classesByLevel) ...[
               const SizedBox(height: 14),
               Select3D<int?>(
                 value: validTeacher ? _teacherId : null,
@@ -265,12 +308,40 @@ class _TimetablePrintFormState extends State<_TimetablePrintForm> {
                     ? null
                     : (value) => setState(() => _teacherId = value),
               ),
+            ] else ...[
+              const SizedBox(height: 14),
+              Select3D<int?>(
+                value: validLevel ? _levelId : null,
+                label: _levelsLoading ? 'Loading levels...' : 'Level *',
+                items: _levels
+                    .map(
+                      (level) => DropdownMenuItem<int?>(
+                        value: level.id,
+                        child: Text(
+                          level.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: _generating || _levelsLoading
+                    ? null
+                    : (value) => setState(() => _levelId = value),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Creates one A4 landscape weekly timetable containing all '
+                'classes in the selected level.',
+                style: TextStyle(fontSize: 12, color: _subtleText),
+              ),
             ],
             if (_generating) const _GeneratingIndicator(),
             const SizedBox(height: 20),
             _Actions(
               canSubmit: canSubmit,
               busy: _generating,
+              primaryLabel: _primaryLabel,
               onPreview: () => _generate(false),
               onDownload: () => _generate(true),
             ),
@@ -424,7 +495,10 @@ class _GeneratingIndicator extends StatelessWidget {
         ),
         SizedBox(width: 10),
         Flexible(
-          child: Text('Generating document...', overflow: TextOverflow.ellipsis),
+          child: Text(
+            'Generating document...',
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
       ],
     ),
@@ -434,12 +508,14 @@ class _GeneratingIndicator extends StatelessWidget {
 class _Actions extends StatelessWidget {
   final bool canSubmit;
   final bool busy;
+  final String primaryLabel;
   final VoidCallback onPreview;
   final VoidCallback onDownload;
 
   const _Actions({
     required this.canSubmit,
     required this.busy,
+    required this.primaryLabel,
     required this.onPreview,
     required this.onDownload,
   });
@@ -480,7 +556,7 @@ class _Actions extends StatelessWidget {
                 ),
               )
             : const Icon(Icons.download_rounded, size: 18),
-        label: const Text('Download'),
+        label: Text(primaryLabel, overflow: TextOverflow.ellipsis),
       ),
     ],
   );

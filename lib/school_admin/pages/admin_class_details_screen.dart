@@ -145,7 +145,7 @@ class _AdminClassDetailsScreenState extends State<AdminClassDetailsScreen> {
       widget.classId,
       academicYearId: yearId,
     );
-    if (!mounted) return;
+    if (!mounted || _academicYearId != yearId) return;
     if (result is ClassError) {
       setState(() {
         _loading = false;
@@ -168,8 +168,264 @@ class _AdminClassDetailsScreenState extends State<AdminClassDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final yearState = context.watch<AcademicYearsProvider>();
+    if (_academicYearId != null &&
+        yearState.retainedYearId(_academicYearId) == null) {
+      _academicYearId = null;
+      _students = [];
+      _studentCount = 0;
+      _loading = false;
+      _error = 'The selected academic year was deleted. Select another year.';
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _loadStudents();
+      });
+    }
+
     final yearsProvider = context.watch<AcademicYearsProvider>();
     final years = yearsProvider.years;
+    final header = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (!isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly))
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+            child: Row(
+              children: [
+                _BackButton(
+                  onPressed: () {
+                    final isDesktop = isDesktopWebAdminLayout(context);
+                    if (isDesktop && widget.onNavigateToPage != null) {
+                      widget.onNavigateToPage!('classes');
+                    } else {
+                      Navigator.of(context).pop();
+                    }
+                  },
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Class',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                      Text(
+                        widget.className,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: kPrimaryBlue,
+                        ),
+                      ),
+                      if (_classShiftName != null &&
+                          _classShiftName!.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            'Shift: $_classShiftName',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: kPrimaryGreen.withOpacity(0.9),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: DropdownButtonFormField<int>(
+            key: ValueKey(_academicYearId),
+            initialValue: _academicYearId,
+            decoration: const InputDecoration(
+              labelText: 'Academic year',
+              prefixIcon: Icon(Icons.calendar_month_rounded),
+              isDense: true,
+            ),
+            items: years
+                .map(
+                  (year) => DropdownMenuItem<int>(
+                    value: year.id,
+                    child: Text(year.name),
+                  ),
+                )
+                .toList(),
+            onChanged: _loading
+                ? null
+                : (value) async {
+                    if (value == null || value == _academicYearId) return;
+                    setState(() {
+                      _academicYearId = value;
+                      _error = null;
+                      _students = [];
+                      _studentCount = 0;
+                    });
+                    await _loadStudents();
+                  },
+          ),
+        ),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: OutlinedButton.icon(
+            onPressed: _academicYearId == null
+                ? null
+                : () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ClassRankingsPage(
+                        classId: widget.classId,
+                        className: widget.className,
+                        academicYearId: _academicYearId!,
+                      ),
+                    ),
+                  ),
+            icon: const Icon(Icons.emoji_events_rounded),
+            label: const Text('View Rankings'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: kPrimaryBlue,
+              minimumSize: const Size(double.infinity, 46),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final narrow = constraints.maxWidth < 620;
+              final buttonWidth = narrow
+                  ? constraints.maxWidth
+                  : (constraints.maxWidth - 24) / 3;
+              return Wrap(
+                spacing: 12,
+                runSpacing: 10,
+                children: [
+                  SizedBox(
+                    width: buttonWidth,
+                    child: OutlinedButton.icon(
+                      onPressed: _loading
+                          ? null
+                          : () async {
+                              final isDesktop = isDesktopWebAdminLayout(
+                                context,
+                              );
+                              if (isDesktop &&
+                                  widget.onNavigateToPage != null) {
+                                widget.onNavigateToPage!(
+                                  'addStudent',
+                                  arguments: {
+                                    'initialClassId': widget.classId,
+                                    'initialAcademicYearId': _academicYearId,
+                                  },
+                                );
+                              } else {
+                                final created = await Navigator.of(context)
+                                    .push<bool>(
+                                      MaterialPageRoute(
+                                        builder: (_) => CreateStudentScreen(
+                                          initialClassId: widget.classId,
+                                        ),
+                                      ),
+                                    );
+                                if (created == true && mounted) _loadStudents();
+                              }
+                            },
+                      icon: const Icon(Icons.person_add_rounded, size: 20),
+                      label: const Text('Add student'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: kPrimaryGreen,
+                        side: const BorderSide(color: kPrimaryGreen),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    width: buttonWidth,
+                    child: ElevatedButton.icon(
+                      onPressed: _loading ? null : () => _manageClassSubjects(),
+                      icon: const Icon(Icons.menu_book_rounded, size: 20),
+                      label: const Text('Manage subjects'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: kPrimaryGreen,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    width: buttonWidth,
+                    child: ElevatedButton.icon(
+                      onPressed: (_loading || _students.isEmpty)
+                          ? null
+                          : () => showClassRosterPrintDialog(
+                              context,
+                              classId: widget.classId,
+                              className: widget.className,
+                              studentCount: _studentCount,
+                              initialAcademicYearId: _academicYearId,
+                            ),
+                      icon: const Icon(Icons.print_rounded, size: 20),
+                      label: const Text('Print Class List'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: kPrimaryBlue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    width: buttonWidth,
+                    child: ElevatedButton.icon(
+                      onPressed: (_loading || _students.isEmpty)
+                          ? null
+                          : () => showClassMarksPrintDialog(
+                              context,
+                              classId: widget.classId,
+                              className: widget.className,
+                              studentCount: _studentCount,
+                              initialAcademicYearId: _academicYearId,
+                            ),
+                      icon: const Icon(Icons.assessment_rounded, size: 20),
+                      label: const Text('Print Class Marks'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: kPrimaryBlue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    width: buttonWidth,
+                    child: OutlinedButton.icon(
+                      onPressed: _loading
+                          ? null
+                          : () => _openClassMerge(context),
+                      icon: const Icon(Icons.swap_horiz_rounded, size: 20),
+                      label: const Text('Move / Merge Students'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: kPrimaryBlue,
+                        side: const BorderSide(color: kPrimaryBlue),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+
+    // One continuous scroll for the whole page: header/actions and the
+    // student list share a single CustomScrollView so there is never a
+    // fixed action area competing with a separately-scrolling student list.
     final body = Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -178,254 +434,15 @@ class _AdminClassDetailsScreenState extends State<AdminClassDetailsScreen> {
           colors: [kBgColor, kPrimaryBlue.withOpacity(0.02)],
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (!isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly))
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-              child: Row(
-                children: [
-                  _BackButton(
-                    onPressed: () {
-                      final isDesktop = isDesktopWebAdminLayout(context);
-                      if (isDesktop && widget.onNavigateToPage != null) {
-                        widget.onNavigateToPage!('classes');
-                      } else {
-                        Navigator.of(context).pop();
-                      }
-                    },
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Class',
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                        Text(
-                          widget.className,
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: kPrimaryBlue,
-                          ),
-                        ),
-                        if (_classShiftName != null &&
-                            _classShiftName!.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 2),
-                            child: Text(
-                              'Shift: $_classShiftName',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: kPrimaryGreen.withOpacity(0.9),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: DropdownButtonFormField<int>(
-              key: ValueKey(_academicYearId),
-              initialValue: _academicYearId,
-              decoration: const InputDecoration(
-                labelText: 'Academic year',
-                prefixIcon: Icon(Icons.calendar_month_rounded),
-                isDense: true,
-              ),
-              items: years
-                  .map(
-                    (year) => DropdownMenuItem<int>(
-                      value: year.id,
-                      child: Text(year.name),
-                    ),
-                  )
-                  .toList(),
-              onChanged: _loading
-                  ? null
-                  : (value) async {
-                      if (value == null || value == _academicYearId) return;
-                      setState(() {
-                        _academicYearId = value;
-                        _error = null;
-                        _students = [];
-                        _studentCount = 0;
-                      });
-                      await _loadStudents();
-                    },
-            ),
-          ),
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: OutlinedButton.icon(
-              onPressed: _academicYearId == null
-                  ? null
-                  : () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => ClassRankingsPage(
-                          classId: widget.classId,
-                          className: widget.className,
-                          academicYearId: _academicYearId!,
-                        ),
-                      ),
-                    ),
-              icon: const Icon(Icons.emoji_events_rounded),
-              label: const Text('View Rankings'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: kPrimaryBlue,
-                minimumSize: const Size(double.infinity, 46),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final narrow = constraints.maxWidth < 620;
-                final buttonWidth = narrow
-                    ? constraints.maxWidth
-                    : (constraints.maxWidth - 24) / 3;
-                return Wrap(
-                  spacing: 12,
-                  runSpacing: 10,
-                  children: [
-                    SizedBox(
-                      width: buttonWidth,
-                      child: OutlinedButton.icon(
-                        onPressed: _loading
-                            ? null
-                            : () async {
-                                final isDesktop = isDesktopWebAdminLayout(
-                                  context,
-                                );
-                                if (isDesktop &&
-                                    widget.onNavigateToPage != null) {
-                                  widget.onNavigateToPage!(
-                                    'addStudent',
-                                    arguments: {
-                                      'initialClassId': widget.classId,
-                                      'initialAcademicYearId': _academicYearId,
-                                    },
-                                  );
-                                } else {
-                                  final created = await Navigator.of(context)
-                                      .push<bool>(
-                                        MaterialPageRoute(
-                                          builder: (_) => CreateStudentScreen(
-                                            initialClassId: widget.classId,
-                                          ),
-                                        ),
-                                      );
-                                  if (created == true && mounted)
-                                    _loadStudents();
-                                }
-                              },
-                        icon: const Icon(Icons.person_add_rounded, size: 20),
-                        label: const Text('Add student'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: kPrimaryGreen,
-                          side: const BorderSide(color: kPrimaryGreen),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: buttonWidth,
-                      child: ElevatedButton.icon(
-                        onPressed: _loading
-                            ? null
-                            : () => _manageClassSubjects(),
-                        icon: const Icon(Icons.menu_book_rounded, size: 20),
-                        label: const Text('Manage subjects'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: kPrimaryGreen,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: buttonWidth,
-                      child: ElevatedButton.icon(
-                        onPressed: (_loading || _students.isEmpty)
-                            ? null
-                            : () => showClassRosterPrintDialog(
-                                context,
-                                classId: widget.classId,
-                                className: widget.className,
-                                studentCount: _studentCount,
-                                initialAcademicYearId: _academicYearId,
-                              ),
-                        icon: const Icon(Icons.print_rounded, size: 20),
-                        label: const Text('Print Class List'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: kPrimaryBlue,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: buttonWidth,
-                      child: ElevatedButton.icon(
-                        onPressed: (_loading || _students.isEmpty)
-                            ? null
-                            : () => showClassMarksPrintDialog(
-                                context,
-                                classId: widget.classId,
-                                className: widget.className,
-                                studentCount: _studentCount,
-                                initialAcademicYearId: _academicYearId,
-                              ),
-                        icon: const Icon(Icons.assessment_rounded, size: 20),
-                        label: const Text('Print Class Marks'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: kPrimaryBlue,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: buttonWidth,
-                      child: OutlinedButton.icon(
-                        onPressed: _loading
-                            ? null
-                            : () => _openClassMerge(context),
-                        icon: const Icon(Icons.swap_horiz_rounded, size: 20),
-                        label: const Text('Move / Merge Students'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: kPrimaryBlue,
-                          side: const BorderSide(color: kPrimaryBlue),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: () async => _loadStudents(),
-              color: kPrimaryGreen,
-              child: _buildBody(),
-            ),
-          ),
-        ],
+      child: RefreshIndicator(
+        onRefresh: () async => _loadStudents(),
+        color: kPrimaryGreen,
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(child: header),
+            ..._buildBodySlivers(context),
+          ],
+        ),
       ),
     );
 
@@ -436,107 +453,149 @@ class _AdminClassDetailsScreenState extends State<AdminClassDetailsScreen> {
     );
   }
 
-  Widget _buildBody() {
+  List<Widget> _buildBodySlivers(BuildContext context) {
     if (_loading) {
-      return const Center(
-        child: CircularProgressIndicator(color: kPrimaryGreen),
-      );
-    }
-    if (_error != null) {
-      return _ErrorView(message: _error!, onRetry: _loadStudents);
-    }
-    if (_students.isEmpty) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: [
-          SizedBox(height: MediaQuery.of(context).size.height * 0.2),
-          Center(
-            child: Column(
-              children: [
-                Icon(
-                  Icons.people_outline_rounded,
-                  size: 56,
-                  color: Colors.grey[400],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'No students enrolled in this class for '
-                  '$_selectedAcademicYearName.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                ),
-                const SizedBox(height: 16),
-                TextButton.icon(
-                  onPressed: () async {
-                    final isDesktop = isDesktopWebAdminLayout(context);
-                    if (isDesktop && widget.onNavigateToPage != null) {
-                      widget.onNavigateToPage!(
-                        'addStudent',
-                        arguments: {
-                          'initialClassId': widget.classId,
-                          'initialAcademicYearId': _academicYearId,
-                        },
-                      );
-                    } else {
-                      final created = await Navigator.of(context).push<bool>(
-                        MaterialPageRoute(
-                          builder: (_) => CreateStudentScreen(
-                            initialClassId: widget.classId,
-                          ),
-                        ),
-                      );
-                      if (created == true && mounted) _loadStudents();
-                    }
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add student'),
-                ),
-              ],
+      return const [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 60),
+              child: CircularProgressIndicator(color: kPrimaryGreen),
             ),
           ),
-        ],
-      );
+        ),
+      ];
     }
-    return ListView.builder(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      itemCount: _students.length + 1,
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Text(
-              '$_studentCount student${_studentCount == 1 ? '' : 's'}',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[700],
-              ),
-            ),
-          );
-        }
-        final student = _students[index - 1];
-        return _StudentRow(
-          student: student,
-          onTap: () {
-            final isDesktop = isDesktopWebAdminLayout(context);
-            if (isDesktop && widget.onNavigateToPage != null) {
-              widget.onNavigateToPage!('studentDetail', arguments: student.id);
-            } else {
-              Navigator.of(context)
-                  .push(
+    if (_error != null) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: _ErrorView(message: _error!, onRetry: _loadStudents),
+        ),
+      ];
+    }
+    // Extra bottom padding keeps the last card fully visible above any
+    // bottom navigation the hosting shell renders, beyond the system inset.
+    final bottomPadding = MediaQuery.of(context).padding.bottom + 32;
+    if (_students.isEmpty) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Padding(
+            padding: EdgeInsets.only(bottom: bottomPadding),
+            child: _EmptyStudentsView(
+              yearName: _selectedAcademicYearName,
+              onAddStudent: () async {
+                final isDesktop = isDesktopWebAdminLayout(context);
+                if (isDesktop && widget.onNavigateToPage != null) {
+                  widget.onNavigateToPage!(
+                    'addStudent',
+                    arguments: {
+                      'initialClassId': widget.classId,
+                      'initialAcademicYearId': _academicYearId,
+                    },
+                  );
+                } else {
+                  final created = await Navigator.of(context).push<bool>(
                     MaterialPageRoute(
-                      builder: (_) => StudentDetailPage(
-                        studentId: student.id,
-                        initialAcademicYearId: _academicYearId,
-                      ),
+                      builder: (_) =>
+                          CreateStudentScreen(initialClassId: widget.classId),
                     ),
-                  )
-                  .then((_) => _loadStudents());
+                  );
+                  if (created == true && mounted) _loadStudents();
+                }
+              },
+            ),
+          ),
+        ),
+      ];
+    }
+    return [
+      SliverPadding(
+        padding: EdgeInsets.fromLTRB(20, 8, 20, bottomPadding),
+        sliver: SliverList(
+          delegate: SliverChildBuilderDelegate((context, index) {
+            if (index == 0) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  '$_studentCount student${_studentCount == 1 ? '' : 's'}',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[700],
+                  ),
+                ),
+              );
             }
-          },
-        );
-      },
+            final student = _students[index - 1];
+            return _StudentRow(
+              student: student,
+              onTap: () {
+                final isDesktop = isDesktopWebAdminLayout(context);
+                if (isDesktop && widget.onNavigateToPage != null) {
+                  widget.onNavigateToPage!(
+                    'studentDetail',
+                    arguments: student.id,
+                  );
+                } else {
+                  Navigator.of(context)
+                      .push(
+                        MaterialPageRoute(
+                          builder: (_) => StudentDetailPage(
+                            studentId: student.id,
+                            initialAcademicYearId: _academicYearId,
+                          ),
+                        ),
+                      )
+                      .then((_) => _loadStudents());
+                }
+              },
+            );
+          }, childCount: _students.length + 1),
+        ),
+      ),
+    ];
+  }
+}
+
+class _EmptyStudentsView extends StatelessWidget {
+  final String yearName;
+  final VoidCallback onAddStudent;
+  const _EmptyStudentsView({
+    required this.yearName,
+    required this.onAddStudent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.people_outline_rounded,
+              size: 56,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'No students enrolled in this class for $yearName.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 16),
+            TextButton.icon(
+              onPressed: onAddStudent,
+              icon: const Icon(Icons.add),
+              label: const Text('Add student'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -549,33 +608,28 @@ class _ErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      children: [
-        SizedBox(height: MediaQuery.of(context).size.height * 0.2),
-        Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
-                const SizedBox(height: 12),
-                Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16, color: Colors.grey[800]),
-                ),
-                const SizedBox(height: 16),
-                TextButton.icon(
-                  onPressed: onRetry,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Retry'),
-                ),
-              ],
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, color: Colors.grey[800]),
             ),
-          ),
+            const SizedBox(height: 16),
+            TextButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

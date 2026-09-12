@@ -149,6 +149,15 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final yearState = context.watch<AcademicYearsProvider>();
+    if (_academicYearId != null &&
+        yearState.retainedYearId(_academicYearId) == null) {
+      _academicYearId = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _loadStudents();
+      });
+    }
+
     final body = _buildPageBody(context);
 
     if (isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)) {

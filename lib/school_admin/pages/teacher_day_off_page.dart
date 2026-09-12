@@ -1,3 +1,5 @@
+import 'package:kobac/school_admin/widgets/web_admin_reference_kit.dart';
+import 'package:kobac/school_admin/widgets/admin_responsive_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:kobac/models/exam_hall_models.dart';
 import 'package:kobac/services/academic_years_service.dart';
@@ -271,6 +273,8 @@ class _TeacherDayOffPageState extends State<TeacherDayOffPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (isDesktopWebAdminLayout(context)) return _webBody();
+
     final content = Container(
       color: _pageBg,
       child: RefreshIndicator(
@@ -314,6 +318,230 @@ class _TeacherDayOffPageState extends State<TeacherDayOffPage> {
             appBar: AppBar(title: const Text('Teacher Day Off')),
             body: content,
           );
+  }
+
+  bool _webDeleting = false;
+  Future<void> _deleteWebGroup(List<TeacherDayOff> items) async {
+    if (_webDeleting || items.isEmpty) return;
+    final confirmed = await showAdminFeatureConfirmation(
+      context,
+      title: 'Remove Teacher Days Off?',
+      message:
+          'Remove ' +
+          items.map((item) => item.day).toSet().join(', ') +
+          ' for ' +
+          items.first.teacherName +
+          ' in ' +
+          (_year?.name ?? '') +
+          '?',
+      confirmLabel: 'Remove Days Off',
+      confirmColor: Colors.red,
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _webDeleting = true);
+    String? error;
+    for (final item in items) {
+      final result = await _service.delete(item.id);
+      if (result is TeacherDayOffError) {
+        error = result.message;
+        break;
+      }
+    }
+    if (!mounted) return;
+    setState(() => _webDeleting = false);
+    await _load();
+    if (mounted && error != null)
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
+  }
+
+  Widget _webBody() {
+    final groups = _grouped.values.toList();
+    final knownTeachers = _teachers.map((teacher) => teacher.id).toSet();
+    final covered = _grouped.keys.where(knownTeachers.contains).length;
+    final coverage = knownTeachers.isEmpty
+        ? null
+        : (covered * 100 / knownTeachers.length).round();
+    return WebAdminPage(
+      title: 'Teacher Day Off',
+      subtitle: 'Manage recurring weekly teacher days off by academic year',
+      icon: Icons.event_available_rounded,
+      year: _year?.name,
+      children: [
+        WebAdminCard(
+          child: Wrap(
+            spacing: 16,
+            runSpacing: 14,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SizedBox(
+                width: 350,
+                child: DropdownButtonFormField<int>(
+                  initialValue: _yearId,
+                  isExpanded: true,
+                  decoration: webAdminInput(
+                    'Academic Year',
+                    icon: Icons.calendar_month_outlined,
+                  ),
+                  items: _years
+                      .map(
+                        (year) => DropdownMenuItem(
+                          value: year.id,
+                          child: Text(year.name),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: _loading
+                      ? null
+                      : (value) {
+                          if (value != null) {
+                            _yearId = value;
+                            _load();
+                          }
+                        },
+                ),
+              ),
+              webAdminAction(
+                'Random Generate',
+                Icons.shuffle,
+                _yearId == null ? null : _openRandom,
+                color: webNavy,
+              ),
+              webAdminAction(
+                'Add Manually',
+                Icons.add,
+                _yearId == null ? null : () => _openManual(),
+                outlined: true,
+                color: webNavy,
+              ),
+            ],
+          ),
+        ),
+        WebAdminStats(
+          items: [
+            WebAdminStat(
+              'Total Teachers',
+              _teachers.length.toString(),
+              Icons.groups_rounded,
+            ),
+            WebAdminStat(
+              'Teachers With Day Off',
+              groups.length.toString(),
+              Icons.person_off_outlined,
+              webGreen,
+            ),
+            WebAdminStat(
+              'Weekly Day-Off Entries',
+              _items.where((item) => item.isActive).length.toString(),
+              Icons.event_repeat,
+              Colors.orange,
+            ),
+            if (coverage != null)
+              WebAdminStat(
+                'Coverage',
+                coverage.toString() + '%',
+                Icons.check_circle,
+                webGreen,
+              ),
+          ],
+        ),
+        WebAdminDataPanel(
+          title: 'Teachers and Weekly Days Off',
+          subtitle: '',
+          icon: Icons.groups,
+          searchHint: 'Search teachers...',
+          noun: 'teachers',
+          loading: _loading,
+          error: _error,
+          retry: _initialize,
+          columns: const [
+            '#',
+            'Teacher Name',
+            'Weekly Day(s) Off',
+            'Academic Year',
+            'Actions',
+          ],
+          columnWidths: const {
+            0: FixedColumnWidth(46),
+            1: FlexColumnWidth(2.4),
+            2: FlexColumnWidth(2.3),
+            3: FlexColumnWidth(1.2),
+            4: FixedColumnWidth(110),
+          },
+          rows: groups.asMap().entries.map((entry) {
+            final items = entry.value;
+            final unique = <String, TeacherDayOff>{
+              for (final item in items) item.day: item,
+            };
+            return WebAdminRow(
+              searchText: items.first.teacherName,
+              cells: [
+                Text((entry.key + 1).toString()),
+                Text(items.first.teacherName),
+                Wrap(
+                  spacing: 7,
+                  runSpacing: 7,
+                  children: unique.values.map((item) {
+                    final colors = [
+                      const Color(0xFF22A447),
+                      const Color(0xFFE34B54),
+                      const Color(0xFF2387E8),
+                      const Color(0xFF347CF6),
+                      const Color(0xFF023471),
+                      const Color(0xFFF28A22),
+                      const Color(0xFFFF981C),
+                    ];
+                    final index = const [
+                      'MON',
+                      'TUE',
+                      'WED',
+                      'THU',
+                      'FRI',
+                      'SAT',
+                      'SUN',
+                    ].indexOf(item.day);
+                    final color = colors[index < 0 ? 0 : index];
+                    return InputChip(
+                      label: Text(item.day),
+                      visualDensity: VisualDensity.compact,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      backgroundColor: color.withValues(alpha: .09),
+                      side: BorderSide(color: color.withValues(alpha: .45)),
+                      labelStyle: TextStyle(
+                        color: color,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      deleteIcon: Icon(Icons.close, size: 14, color: color),
+                      onDeleted: _webDeleting ? null : () => _delete(item),
+                    );
+                  }).toList(),
+                ),
+                Text(_year?.name ?? '?'),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    webAdminIcon(
+                      'Edit',
+                      Icons.edit_outlined,
+                      _webDeleting ? null : () => _openManual(items.first),
+                    ),
+                    webAdminIcon(
+                      'Delete',
+                      Icons.delete_outline,
+                      _webDeleting ? null : () => _deleteWebGroup(items),
+                      destructive: true,
+                    ),
+                  ],
+                ),
+              ],
+            );
+          }).toList(),
+        ),
+      ],
+    );
   }
 
   Widget _header() => FormCard(

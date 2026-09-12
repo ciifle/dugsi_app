@@ -38,6 +38,8 @@ import 'package:kobac/school_admin/pages/settings_page.dart';
 import 'package:kobac/school_admin/pages/class_merge_page.dart';
 import 'package:kobac/school_admin/pages/change_password_page.dart';
 import 'package:kobac/school_admin/pages/exam_hall_management_pages.dart';
+import 'package:kobac/school_admin/pages/admin_periods_screen.dart';
+import 'package:kobac/school_admin/widgets/web_admin_legacy_routes.dart';
 
 /// Responsive admin shell for desktop/web layout
 /// Shows sidebar + top bar + main content area
@@ -63,7 +65,7 @@ class _WebAdminShellState extends State<WebAdminShell> {
 
   void _navigateToPage(String pageKey, {Object? arguments}) {
     setState(() {
-      _selectedPage = pageKey;
+      _selectedPage = supportedWebAdminPage(pageKey);
       _selectedArguments = arguments;
     });
   }
@@ -109,6 +111,8 @@ class _WebAdminShellState extends State<WebAdminShell> {
         return 'Course Assign Teacher';
       case 'teacherDayOff':
         return 'Teacher Day Off';
+      case 'periods':
+        return 'Periods';
       case 'exams':
         return 'Exams';
       case 'academicYears':
@@ -312,7 +316,8 @@ class _WebAdminShellState extends State<WebAdminShell> {
         return const AdminAssignmentsScreen(embedBodyOnly: true);
       case 'teacherDayOff':
         return const TeacherDayOffPage(embedBodyOnly: true);
-
+      case 'periods':
+        return const AdminPeriodsScreen();
       case 'exams':
         return AdminExamsScreen(
           embedBodyOnly: true,

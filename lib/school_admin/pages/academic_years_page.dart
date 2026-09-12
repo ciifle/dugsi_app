@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import 'package:kobac/services/academic_years_service.dart';
 import 'package:kobac/school_admin/widgets/admin_feature_dialog.dart';
+import 'package:kobac/school_admin/widgets/dependency_delete_dialog.dart';
 
 const _blue = Color(0xFF023471);
 const _green = Color(0xFF5AB04B);
@@ -18,6 +19,35 @@ class AcademicYearsPage extends StatefulWidget {
 }
 
 class _AcademicYearsPageState extends State<AcademicYearsPage> {
+  bool _deleteDialogOpen = false;
+
+  Future<void> _delete(AcademicYear year) async {
+    if (_deleteDialogOpen) return;
+    final provider = context.read<AcademicYearsProvider>();
+    setState(() => _deleteDialogOpen = true);
+    try {
+      final deleted = await showAdminDeletionFlow(
+        context,
+        kind: DeleteItemKind.academicYear,
+        id: year.id,
+        name: year.name,
+        onDeleted: (_) async {
+          provider.removeDeletedYear(year.id);
+          await provider.refresh();
+        },
+      );
+      if (!mounted || deleted != true) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Academic year deleted successfully.'),
+          backgroundColor: _green,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _deleteDialogOpen = false);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -35,6 +65,21 @@ class _AcademicYearsPageState extends State<AcademicYearsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Academic year created'),
+          backgroundColor: _green,
+        ),
+      );
+    }
+  }
+
+  Future<void> _edit(AcademicYear year) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (_) => _AcademicYearDialog(existing: year),
+    );
+    if (result == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Academic year updated successfully.'),
           backgroundColor: _green,
         ),
       );
@@ -96,7 +141,9 @@ class _AcademicYearsPageState extends State<AcademicYearsPage> {
                     ),
                   ),
                   FilledButton.icon(
-                    onPressed: provider.submitting ? null : _create,
+                    onPressed: provider.submitting || _deleteDialogOpen
+                        ? null
+                        : _create,
                     icon: const Icon(Icons.add_rounded),
                     label: const Text('New year'),
                     style: FilledButton.styleFrom(backgroundColor: _green),
@@ -137,8 +184,10 @@ class _AcademicYearsPageState extends State<AcademicYearsPage> {
                   final year = provider.years[index];
                   return _YearCard(
                     year: year,
-                    busy: provider.submitting,
+                    busy: provider.submitting || _deleteDialogOpen,
+                    onEdit: () => _edit(year),
                     onActivate: () => _activate(year),
+                    onDelete: () => _delete(year),
                   );
                 },
               ),
@@ -158,11 +207,15 @@ class _AcademicYearsPageState extends State<AcademicYearsPage> {
 class _YearCard extends StatelessWidget {
   final AcademicYear year;
   final bool busy;
+  final VoidCallback onEdit;
   final VoidCallback onActivate;
+  final VoidCallback onDelete;
   const _YearCard({
     required this.year,
     required this.busy,
+    required this.onEdit,
     required this.onActivate,
+    required this.onDelete,
   });
 
   @override
@@ -182,55 +235,108 @@ class _YearCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Wrap(
-        spacing: 16,
-        runSpacing: 12,
-        crossAxisAlignment: WrapCrossAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const CircleAvatar(
-            backgroundColor: Color(0xFFE8EEF5),
-            child: Icon(Icons.calendar_month_rounded, color: _blue),
+          Row(
+            children: [
+              const CircleAvatar(
+                backgroundColor: Color(0xFFE8EEF5),
+                child: Icon(Icons.calendar_month_rounded, color: _blue),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      year.name,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: _blue,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      year.startDate == null || year.endDate == null
+                          ? 'Dates unavailable'
+                          : '${format.format(year.startDate!)} — ${format.format(year.endDate!)}',
+                      style: TextStyle(color: Colors.grey.shade700),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          SizedBox(
-            width: 220,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  year.name,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                    color: _blue,
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Chip(
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                avatar: Icon(
+                  year.isActive ? Icons.check_circle : Icons.circle_outlined,
+                  size: 15,
+                  color: year.isActive ? _green : Colors.grey,
+                ),
+                label: Text(year.isActive ? 'Active' : 'Inactive'),
+                labelPadding: const EdgeInsets.only(right: 4),
+                backgroundColor: year.isActive
+                    ? _green.withOpacity(.12)
+                    : Colors.grey.shade100,
+                side: BorderSide.none,
+              ),
+              OutlinedButton.icon(
+                onPressed: busy ? null : onEdit,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _blue,
+                  side: const BorderSide(color: _blue),
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
                   ),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  year.startDate == null || year.endDate == null
-                      ? 'Dates unavailable'
-                      : '${format.format(year.startDate!)} — ${format.format(year.endDate!)}',
-                  style: TextStyle(color: Colors.grey.shade700),
+                icon: const Icon(Icons.edit_outlined, size: 16),
+                label: const Text('Edit'),
+              ),
+              if (!year.isActive)
+                OutlinedButton(
+                  onPressed: busy ? null : onActivate,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _blue,
+                    side: const BorderSide(color: _blue),
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text('Activate'),
                 ),
-              ],
-            ),
+              OutlinedButton.icon(
+                onPressed: busy ? null : onDelete,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFB42318),
+                  side: const BorderSide(color: Color(0xFFB42318)),
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                icon: const Icon(Icons.delete_outline_rounded, size: 16),
+                label: const Text('Delete'),
+              ),
+            ],
           ),
-          Chip(
-            avatar: Icon(
-              year.isActive ? Icons.check_circle : Icons.circle_outlined,
-              size: 17,
-              color: year.isActive ? _green : Colors.grey,
-            ),
-            label: Text(year.isActive ? 'Active' : 'Inactive'),
-            backgroundColor: year.isActive
-                ? _green.withOpacity(.12)
-                : Colors.grey.shade100,
-            side: BorderSide.none,
-          ),
-          if (!year.isActive)
-            OutlinedButton(
-              onPressed: busy ? null : onActivate,
-              child: const Text('Activate'),
-            ),
         ],
       ),
     );
@@ -257,16 +363,27 @@ class _Message extends StatelessWidget {
 }
 
 class _AcademicYearDialog extends StatefulWidget {
-  const _AcademicYearDialog();
+  final AcademicYear? existing;
+  const _AcademicYearDialog({this.existing});
   @override
   State<_AcademicYearDialog> createState() => _AcademicYearDialogState();
 }
 
 class _AcademicYearDialogState extends State<_AcademicYearDialog> {
   final _form = GlobalKey<FormState>();
-  final _name = TextEditingController();
+  late final TextEditingController _name;
   DateTime? _start;
   DateTime? _end;
+
+  bool get _isEdit => widget.existing != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _name = TextEditingController(text: widget.existing?.name ?? '');
+    _start = widget.existing?.startDate;
+    _end = widget.existing?.endDate;
+  }
 
   @override
   void dispose() {
@@ -292,17 +409,21 @@ class _AcademicYearDialogState extends State<_AcademicYearDialog> {
       );
       return;
     }
-    if (_end!.isBefore(_start!)) {
+    if (!_start!.isBefore(_end!)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('End date cannot be before start date')),
+        const SnackBar(content: Text('Start date must be before end date.')),
       );
       return;
     }
-    final result = await context.read<AcademicYearsProvider>().create(
-      name: _name.text,
-      start: _start!,
-      end: _end!,
-    );
+    final provider = context.read<AcademicYearsProvider>();
+    final result = _isEdit
+        ? await provider.update(
+            id: widget.existing!.id,
+            name: _name.text,
+            start: _start!,
+            end: _end!,
+          )
+        : await provider.create(name: _name.text, start: _start!, end: _end!);
     if (!mounted) return;
     if (result is AcademicYearError) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -318,17 +439,25 @@ class _AcademicYearDialogState extends State<_AcademicYearDialog> {
     final busy = context.watch<AcademicYearsProvider>().submitting;
     final date = DateFormat('dd MMM yyyy');
     return AdminFeatureDialog(
-      title: 'New academic year',
+      title: _isEdit ? 'Edit Academic Year' : 'New academic year',
       onClose: busy ? () {} : () => Navigator.pop(context),
       child: Form(
         key: _form,
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (_isEdit) ...[
+              Text(
+                'Update the academic year name and dates.',
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 16),
+            ],
             TextFormField(
               controller: _name,
-              decoration: const InputDecoration(
-                labelText: 'Name',
+              decoration: InputDecoration(
+                labelText: _isEdit ? 'Academic Year Name *' : 'Name',
                 hintText: '2026-2027',
               ),
               validator: (value) => value == null || value.trim().isEmpty
@@ -338,7 +467,7 @@ class _AcademicYearDialogState extends State<_AcademicYearDialog> {
             const SizedBox(height: 14),
             ListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Start date'),
+              title: Text(_isEdit ? 'Start Date *' : 'Start date'),
               subtitle: Text(
                 _start == null ? 'Select date' : date.format(_start!),
               ),
@@ -347,7 +476,7 @@ class _AcademicYearDialogState extends State<_AcademicYearDialog> {
             ),
             ListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('End date'),
+              title: Text(_isEdit ? 'End Date *' : 'End date'),
               subtitle: Text(_end == null ? 'Select date' : date.format(_end!)),
               trailing: const Icon(Icons.calendar_today_rounded),
               onTap: busy ? null : () => _pick(false),
@@ -381,7 +510,7 @@ class _AcademicYearDialogState extends State<_AcademicYearDialog> {
                               color: Colors.white,
                             ),
                           )
-                        : const Text('Create'),
+                        : Text(_isEdit ? 'Save Changes' : 'Create'),
                   ),
                 ),
               ],

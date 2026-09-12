@@ -77,6 +77,24 @@ class AcademicYearsService {
     return (map?['message'] ?? map?['error'] ?? fallback).toString();
   }
 
+  /// Backend validation messages (e.g. "Start date must be before end
+  /// date.") are shown as-is; raw database/stack-trace diagnostics never
+  /// reach the UI.
+  String _safeMessage(dynamic raw, String fallback) {
+    final text = _message(raw, fallback);
+    final lower = text.toLowerCase();
+    final looksRaw =
+        lower.contains('sql') ||
+        lower.contains('<html') ||
+        lower.contains('constraint') ||
+        lower.contains('foreign key') ||
+        lower.contains('stack trace') ||
+        lower.contains('sqlstate') ||
+        lower.contains('unknown column') ||
+        RegExp(r'er_[a-z_]+').hasMatch(lower);
+    return looksRaw ? fallback : text;
+  }
+
   dynamic _decode(String body) {
     try {
       return body.isEmpty ? null : jsonDecode(body);
@@ -190,6 +208,43 @@ class AcademicYearsService {
     }
   }
 
+  /// PATCH /api/school-admin/academic-years/{id} — updates name/start_date/
+  /// end_date only; the academic_year_id and is_active state are left
+  /// untouched by the backend (no is_active field is ever sent here), so an
+  /// active year stays active after editing.
+  Future<AcademicYearResult<AcademicYear>> update({
+    required int id,
+    required String name,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    try {
+      final response = await _client.patch(
+        apiUrl('$_base/$id'),
+        body: {
+          'name': name.trim(),
+          'start_date': _day(startDate),
+          'end_date': _day(endDate),
+        },
+      );
+      final raw = _decode(response.body);
+      if (response.statusCode != 200) {
+        return AcademicYearError(
+          _safeMessage(raw, 'Could not update academic year.'),
+          response.statusCode,
+        );
+      }
+      final root = _map(raw);
+      final value = _map(root?['academic_year']) ?? _map(root?['data']) ?? root;
+      if (value == null) return AcademicYearError('Invalid server response.');
+      return AcademicYearSuccess(AcademicYear.fromJson(value));
+    } catch (e, st) {
+      return AcademicYearError(
+        userFriendlyMessage(e, st, 'AcademicYearsService.update'),
+      );
+    }
+  }
+
   static String _day(DateTime value) =>
       '${value.year.toString().padLeft(4, '0')}-'
       '${value.month.toString().padLeft(2, '0')}-'
@@ -207,6 +262,17 @@ class AcademicYearsProvider extends ChangeNotifier {
   bool submitting = false;
   String? error;
   bool _loaded = false;
+  final Set<int> _deletedYearIds = {};
+
+  /// Tombstones prevent in-flight or stale responses from restoring a deleted year.
+  int? retainedYearId(int? id) => _deletedYearIds.contains(id) ? null : id;
+
+  void removeDeletedYear(int id) {
+    _deletedYearIds.add(id);
+    years = years.where((year) => year.id != id).toList();
+    if (activeYear?.id == id) activeYear = null;
+    notifyListeners();
+  }
 
   Future<void> ensureLoaded() async {
     if (_loaded || loading) return;
@@ -222,12 +288,17 @@ class AcademicYearsProvider extends ChangeNotifier {
     final listResult = results[0];
     final activeResult = results[1];
     if (listResult is AcademicYearSuccess<List<AcademicYear>>) {
-      years = listResult.data;
+      years = listResult.data
+          .where((year) => !_deletedYearIds.contains(year.id))
+          .toList();
     } else {
       error = (listResult as AcademicYearError).message;
     }
     if (activeResult is AcademicYearSuccess<AcademicYear?>) {
-      activeYear = activeResult.data;
+      final active = activeResult.data;
+      activeYear = active != null && _deletedYearIds.contains(active.id)
+          ? null
+          : active;
     } else {
       error ??= (activeResult as AcademicYearError).message;
     }
@@ -259,6 +330,29 @@ class AcademicYearsProvider extends ChangeNotifier {
     notifyListeners();
     final result = await service.activate(id);
     submitting = false;
+    if (result is AcademicYearSuccess<AcademicYear>) await refresh();
+    notifyListeners();
+    return result;
+  }
+
+  Future<AcademicYearResult<AcademicYear>> update({
+    required int id,
+    required String name,
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    submitting = true;
+    notifyListeners();
+    final result = await service.update(
+      id: id,
+      name: name,
+      startDate: start,
+      endDate: end,
+    );
+    submitting = false;
+    // Refresh from the backend so the edited name/dates and the untouched
+    // active state both reflect server truth immediately, without losing
+    // the year's id or resetting activeYear.
     if (result is AcademicYearSuccess<AcademicYear>) await refresh();
     notifyListeners();
     return result;

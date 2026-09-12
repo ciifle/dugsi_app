@@ -365,6 +365,15 @@ class _AdminAssignmentsScreenState extends State<AdminAssignmentsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final yearState = context.watch<AcademicYearsProvider>();
+    if (_selectedAcademicYearId != null &&
+        yearState.retainedYearId(_selectedAcademicYearId) == null) {
+      _selectedAcademicYearId = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _loadAssignments();
+      });
+    }
+
     final scaffold = Scaffold(
       backgroundColor: kBgColor,
       body: Container(

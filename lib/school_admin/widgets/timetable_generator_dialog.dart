@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:kobac/models/exam_hall_models.dart';
 import 'package:kobac/services/academic_years_service.dart';
 import 'package:kobac/services/exam_hall_service.dart';
@@ -14,6 +15,7 @@ Future<bool?> showTimetableGeneratorDialog(
   required List<AcademicYear> years,
   int? initialAcademicYearId,
   VoidCallback? onOpenCourseAssignments,
+  VoidCallback? onOpenTeacherDaysOff,
 }) => showDialog<bool>(
   context: context,
   barrierDismissible: false,
@@ -21,6 +23,7 @@ Future<bool?> showTimetableGeneratorDialog(
     years: years,
     initialAcademicYearId: initialAcademicYearId,
     onOpenCourseAssignments: onOpenCourseAssignments,
+    onOpenTeacherDaysOff: onOpenTeacherDaysOff,
   ),
 );
 
@@ -28,10 +31,12 @@ class _TimetableGeneratorDialog extends StatefulWidget {
   final List<AcademicYear> years;
   final int? initialAcademicYearId;
   final VoidCallback? onOpenCourseAssignments;
+  final VoidCallback? onOpenTeacherDaysOff;
   const _TimetableGeneratorDialog({
     required this.years,
     this.initialAcademicYearId,
     this.onOpenCourseAssignments,
+    this.onOpenTeacherDaysOff,
   });
 
   @override
@@ -46,11 +51,13 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
   List<SchoolLevel> _levels = [];
   Set<String> _workingDays = {};
   List<LevelSubjectPeriod> _subjects = [];
-  int _daysOffPerTeacher = 1;
-  DayOffPreview? _dayOffPreview;
+  final _periodForm = GlobalKey<FormState>();
+  final Map<int, TextEditingController> _periodInputs = {};
   TimetableGeneratorPreview? _preview;
   bool _busy = false;
   String? _error;
+  Map<String, dynamic> _errorDetails = {};
+  final Set<String> _expandedCapacitySubjects = {};
 
   @override
   void initState() {
@@ -141,79 +148,60 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
       _levelId = levelId;
       _subjects = [];
       _preview = null;
-      _dayOffPreview = null;
       _error = null;
     });
     if (levelId == null || _yearId == null) return;
+    final yearId = _yearId!;
     await _run(
-      TimetableGeneratorService().getLevelSubjects(levelId, _yearId!),
-      success: (value) => _subjects = value,
+      TimetableGeneratorService().getLevelSubjects(levelId, yearId),
+      success: (value) {
+        // Discard if the level/year changed while this request was in flight,
+        // so a slow response can never leak a previous level's subjects.
+        if (_levelId != levelId || _yearId != yearId) return;
+        for (final controller in _periodInputs.values) {
+          controller.dispose();
+        }
+        _periodInputs.clear();
+        _subjects = value;
+        for (final subject in value) {
+          _periodInputs[subject.subjectId] = TextEditingController(
+            text: '${subject.periodsPerWeek}',
+          );
+        }
+      },
     );
   }
 
   Future<void> _saveSubjects() async {
-    if (_yearId == null || _levelId == null) return;
+    if (_busy || _yearId == null || _levelId == null) return;
+    if (_periodForm.currentState?.validate() != true) return;
+    for (final subject in _subjects) {
+      subject.periodsPerWeek = int.parse(
+        _periodInputs[subject.subjectId]!.text,
+      );
+    }
+    final levelId = _levelId!;
+    final yearId = _yearId!;
+    _preview = null;
+    var saved = false;
     await _run(
-      TimetableGeneratorService().saveLevelSubjects(
-        _levelId!,
-        _yearId!,
-        _subjects,
-      ),
+      TimetableGeneratorService().saveLevelSubjects(levelId, yearId, _subjects),
       success: (_) {
+        saved = true;
         _step = 3;
-        _toast('Weekly subject periods saved.');
+        _toast('Level timetable configuration saved.');
       },
     );
-  }
-
-  Future<void> _previewDaysOff() async {
-    if (_yearId == null || _levelId == null) return;
-    await _run(
-      TimetableGeneratorService().previewDayOffs(
-        academicYearId: _yearId!,
-        levelId: _levelId!,
-        daysOffPerTeacher: _daysOffPerTeacher,
-      ),
-      success: (value) => _dayOffPreview = value,
-    );
-  }
-
-  Future<void> _applyDaysOff() async {
-    final apply = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Apply Random Teacher Days Off?'),
-        content: Text(
-          'These weekly days off will be used by the timetable generator for ${_yearName()}.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Apply'),
-          ),
-        ],
-      ),
-    );
-    if (apply != true || !mounted) return;
-    await _run(
-      TimetableGeneratorService().generateDayOffs(
-        academicYearId: _yearId!,
-        levelId: _levelId!,
-        daysOffPerTeacher: _daysOffPerTeacher,
-      ),
-      success: (_) {
-        _step = 4;
-        _toast('Teacher days off applied.');
-      },
-    );
+    // Reload from the backend so the level step reflects the persisted
+    // configuration rather than only the locally-entered values.
+    if (saved && mounted && _levelId == levelId && _yearId == yearId) {
+      await _loadSubjects(levelId);
+    }
   }
 
   Future<void> _previewTimetable() async {
-    if (_yearId == null || _levelId == null) return;
+    if (_busy || _yearId == null || _levelId == null) return;
+    setState(() => _preview = null);
     await _run(
       TimetableGeneratorService().previewTimetable(
         academicYearId: _yearId!,
@@ -224,16 +212,17 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
   }
 
   Future<void> _generate({bool replace = false}) async {
+    if (_preview?.canGenerate != true || _yearId == null || _levelId == null) {
+      return;
+    }
+    TimetableGenerationResult? generated;
     await _run(
       TimetableGeneratorService().generateTimetable(
         academicYearId: _yearId!,
         levelId: _levelId!,
         replaceExisting: replace,
       ),
-      success: (_) {
-        _toast('Timetable generated successfully.');
-        Navigator.pop(context, true);
-      },
+      success: (value) => generated = value,
       onError: (error) async {
         if (error.statusCode != 409) return false;
         final replaceApproved = await _confirmReplace();
@@ -243,7 +232,129 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
         return true;
       },
     );
+    final result = generated;
+    if (result == null || !mounted) return;
+    if (result.unscheduled.isNotEmpty) {
+      await _showGenerationResultDialog(result);
+      if (!mounted) return;
+    } else {
+      _toast('Timetable generated successfully.');
+    }
+    Navigator.pop(context, true);
   }
+
+  Future<void> _showGenerationResultDialog(
+    TimetableGenerationResult result,
+  ) => showDialog<void>(
+    context: context,
+    builder: (_) => Dialog(
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Timetable Generated',
+                style: TextStyle(
+                  color: _navy,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${result.totalScheduled} lesson${result.totalScheduled == 1 ? '' : 's'} scheduled',
+                style: const TextStyle(
+                  color: _green,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              if (result.totalUnscheduled > 0) ...[
+                const SizedBox(height: 2),
+                Text(
+                  '${result.totalUnscheduled} requested lesson${result.totalUnscheduled == 1 ? '' : 's'} could not fit',
+                  style: const TextStyle(
+                    color: Color(0xFF9A6700),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (final summary in result.unscheduled)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF8E8),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFFF4D58A)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                summary.className.isEmpty
+                                    ? 'Class'
+                                    : summary.className,
+                                style: const TextStyle(
+                                  color: _navy,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Wrap(
+                                spacing: 6,
+                                children: [
+                                  if (summary.requested != null)
+                                    Text('${summary.requested} requested'),
+                                  if (summary.requested != null &&
+                                      summary.scheduled != null)
+                                    const Text('•'),
+                                  if (summary.scheduled != null)
+                                    Text('${summary.scheduled} scheduled'),
+                                ],
+                              ),
+                              Text(
+                                '${summary.unscheduled} unscheduled',
+                                style: const TextStyle(
+                                  color: Color(0xFF7A5200),
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () => Navigator.pop(context),
+                style: FilledButton.styleFrom(
+                  backgroundColor: _green,
+                  minimumSize: const Size(0, 48),
+                ),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 
   Future<bool?> _confirmReplace() => showDialog<bool>(
     context: context,
@@ -273,6 +384,7 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
     setState(() {
       _busy = true;
       _error = null;
+      _errorDetails = {};
     });
     final result = await future;
     if (!mounted) return;
@@ -281,12 +393,17 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        if (!handled) _error = result.message;
+        if (!handled) {
+          _error = result.message;
+          _errorDetails = result.details;
+        }
       });
       return;
     }
-    setState(() => _busy = false);
-    success((result as GeneratorSuccess<T>).data);
+    setState(() {
+      _busy = false;
+      success((result as GeneratorSuccess<T>).data);
+    });
   }
 
   void _toast(String message) => ScaffoldMessenger.of(
@@ -323,20 +440,18 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(22),
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 180),
-                    child: KeyedSubtree(
-                      key: ValueKey(_step),
-                      child: _stepBody(),
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _stepBody(),
+                      if (_error != null) ...[
+                        const SizedBox(height: 12),
+                        _notice(_error!, error: true),
+                      ],
+                    ],
                   ),
                 ),
               ),
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
-                  child: _notice(_error!, error: true),
-                ),
               _footer(),
             ],
           ),
@@ -385,40 +500,77 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
     ),
   );
 
-  Widget _stepBar() => SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-    child: Row(
-      children:
-          ['Year', 'Working Days', 'Level Subjects', 'Days Off', 'Preview']
-              .asMap()
-              .entries
-              .map(
-                (entry) => Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Chip(
-                    avatar: CircleAvatar(
-                      backgroundColor: entry.key <= _step
-                          ? _green
-                          : Colors.grey.shade300,
-                      child: Text(
-                        '${entry.key + 1}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ),
-                    label: Text(entry.value),
-                    backgroundColor: entry.key == _step
-                        ? _navy.withValues(alpha: .08)
-                        : Colors.white,
-                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+  Widget _stepBar() => LayoutBuilder(
+    builder: (context, constraints) {
+      const steps = [
+        'Year',
+        'Working Days',
+        'Level Subjects',
+        'Preview',
+        'Generate',
+      ];
+      if (constraints.maxWidth < 600) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
+          child: Row(
+            children: [
+              Text(
+                'Step ' + (_step + 1).toString() + ' of 5',
+                style: const TextStyle(
+                  color: _green,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  steps[_step],
+                  style: const TextStyle(
+                    color: _navy,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-              )
-              .toList(),
-    ),
+              ),
+            ],
+          ),
+        );
+      }
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+        child: Row(
+          children:
+              ['Year', 'Working Days', 'Level Subjects', 'Preview', 'Generate']
+                  .asMap()
+                  .entries
+                  .map(
+                    (entry) => Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Chip(
+                        avatar: CircleAvatar(
+                          backgroundColor: entry.key <= _step
+                              ? _green
+                              : Colors.grey.shade300,
+                          child: Text(
+                            '${entry.key + 1}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                        label: Text(entry.value),
+                        backgroundColor: entry.key == _step
+                            ? _navy.withValues(alpha: .08)
+                            : Colors.white,
+                        side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                    ),
+                  )
+                  .toList(),
+        ),
+      );
+    },
   );
 
   Widget _stepBody() {
@@ -436,9 +588,9 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
       case 2:
         return _subjectsStep();
       case 3:
-        return _daysOffStep();
-      default:
         return _previewStep();
+      default:
+        return _generateStep();
     }
   }
 
@@ -532,107 +684,104 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
       const SizedBox(height: 16),
       if (_levelId != null && _subjects.isEmpty)
         _notice('No timetable subjects were returned for this level.'),
-      ..._subjects.map(
-        (subject) => Container(
-          margin: const EdgeInsets.only(bottom: 9),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  subject.subjectName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: _navy,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                onPressed: subject.periodsPerWeek == 0
-                    ? null
-                    : () => setState(() => subject.periodsPerWeek--),
-                icon: const Icon(Icons.remove_circle_outline),
-              ),
-              SizedBox(
-                width: 32,
-                child: Text(
-                  '${subject.periodsPerWeek}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-              ),
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                onPressed: () => setState(() => subject.periodsPerWeek++),
-                icon: const Icon(Icons.add_circle_outline, color: _green),
-              ),
-            ],
-          ),
-        ),
+      Form(
+        key: _periodForm,
+        child: Column(children: _subjects.map(_periodRow).toList()),
       ),
       if (_subjects.isNotEmpty)
         Text(
-          'Required periods/week: ${_subjects.fold<int>(0, (sum, item) => sum + item.periodsPerWeek)}',
+          'Total Required Periods: ${_periodInputs.values.fold<int>(0, (sum, input) => sum + (int.tryParse(input.text) ?? 0))}',
           style: const TextStyle(color: _navy, fontWeight: FontWeight.w800),
         ),
     ],
   );
 
-  Widget _daysOffStep() => Column(
+  @override
+  void dispose() {
+    for (final controller in _periodInputs.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  Widget _periodRow(LevelSubjectPeriod subject) => Container(
+    margin: const EdgeInsets.only(bottom: 12),
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF8FAFC),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: const Color(0xFFE2E8F0)),
+    ),
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final name = Text(
+          subject.subjectName,
+          style: const TextStyle(color: _navy, fontWeight: FontWeight.w700),
+        );
+        final input = TextFormField(
+          key: ValueKey('subject-periods-${subject.subjectId}'),
+          controller: _periodInputs[subject.subjectId],
+          keyboardType: TextInputType.number,
+          inputFormatters: [
+            TextInputFormatter.withFunction(
+              (oldValue, newValue) =>
+                  RegExp(r'^[0-9]*$').hasMatch(newValue.text)
+                  ? newValue
+                  : oldValue,
+            ),
+          ],
+          validator: (value) =>
+              int.tryParse(value ?? '') == null ? 'Enter a whole number' : null,
+          onChanged: (_) => setState(() => _preview = null),
+          decoration: _inputDecoration('Periods per week'),
+        );
+        if (constraints.maxWidth < 480) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [name, const SizedBox(height: 12), input],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: name),
+            const SizedBox(width: 20),
+            SizedBox(width: 180, child: input),
+          ],
+        );
+      },
+    ),
+  );
+
+  bool get _needsTeacherDaysOff =>
+      timetableNeedsTeacherDaysOff(_preview?.raw ?? {}) ||
+      timetableNeedsTeacherDaysOff(_errorDetails) ||
+      timetableNeedsTeacherDaysOff({'message': _error ?? ''});
+
+  Widget _dayOffNotice() => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      _notice('Teacher days off are not configured.'),
+      if (widget.onOpenTeacherDaysOff != null)
+        OutlinedButton.icon(
+          onPressed: () {
+            Navigator.pop(context, false);
+            widget.onOpenTeacherDaysOff!();
+          },
+          icon: const Icon(Icons.event_busy_outlined),
+          label: const Text('Manage Teacher Days Off'),
+        ),
+    ],
+  );
+
+  Widget _generateStep() => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       _title(
-        'Random Teacher Days Off',
-        'Preview is read-only until you explicitly apply it.',
+        'Generate Timetable',
+        'Review the validated configuration before generating.',
       ),
       const SizedBox(height: 16),
-      DropdownButtonFormField<int>(
-        key: ValueKey(_daysOffPerTeacher),
-        initialValue: _daysOffPerTeacher,
-        isExpanded: true,
-        decoration: _inputDecoration('Days Off Per Teacher Per Week'),
-        items: List.generate(3, (index) => index + 1)
-            .map(
-              (value) => DropdownMenuItem(value: value, child: Text('$value')),
-            )
-            .toList(),
-        onChanged: (value) => setState(() {
-          _daysOffPerTeacher = value ?? 1;
-          _dayOffPreview = null;
-        }),
-      ),
-      const SizedBox(height: 14),
-      OutlinedButton.icon(
-        onPressed: _previewDaysOff,
-        icon: const Icon(Icons.shuffle_rounded),
-        label: Text(
-          _dayOffPreview == null
-              ? 'Preview Random Days Off'
-              : 'Randomize Again',
-        ),
-      ),
-      if (_dayOffPreview != null) ...[
-        const SizedBox(height: 14),
-        ..._dayOffPreview!.teachers.map(_teacherDayOffRow),
-        ..._dayOffPreview!.warnings.map(
-          (warning) => _notice(warning, error: true),
-        ),
-        const SizedBox(height: 10),
-        FilledButton.icon(
-          style: FilledButton.styleFrom(backgroundColor: _green),
-          onPressed: _applyDaysOff,
-          icon: const Icon(Icons.check_rounded),
-          label: const Text('Apply Teacher Days Off'),
-        ),
-      ],
+      if (_preview != null) _summaryCard(),
     ],
   );
 
@@ -641,7 +790,7 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
     children: [
       _title(
         'Timetable Preview',
-        'The backend validates capacity, workload and collisions.',
+        'Preview checks capacity and uses the separately saved teacher days off.',
       ),
       const SizedBox(height: 14),
       OutlinedButton.icon(
@@ -649,10 +798,12 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
         icon: const Icon(Icons.visibility_rounded),
         label: Text(_preview == null ? 'Preview Timetable' : 'Refresh Preview'),
       ),
+      if (_needsTeacherDaysOff) _dayOffNotice(),
       if (_preview != null) ...[
         const SizedBox(height: 16),
         _summaryCard(),
         const SizedBox(height: 12),
+        if (_preview!.capacityIssues.isNotEmpty) _capacityIssuesSection(),
         ..._preview!.issues.map((issue) => _notice(issue, error: true)),
         if (_preview!.issues.any(
               (issue) =>
@@ -671,7 +822,7 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
         if (_preview!.rows.isNotEmpty) ...[
           const SizedBox(height: 12),
           const Text(
-            'Preview Rows',
+            'Preview Schedule',
             style: TextStyle(color: _navy, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 8),
@@ -683,16 +834,33 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
 
   Widget _summaryCard() {
     final summary = _preview!.summary;
+    final canGenerate = _preview!.canGenerate;
+    final hasWarnings = _preview!.capacityIssues.isNotEmpty;
+    int? asInt(dynamic value) => value == null
+        ? null
+        : (value is num ? value.toInt() : int.tryParse(value.toString()));
+    final required = asInt(
+      summary['required_periods'] ??
+          summary['requiredPeriods'] ??
+          summary['required'],
+    );
+    final available = asInt(
+      summary['available_periods'] ??
+          summary['availablePeriods'] ??
+          summary['available'],
+    );
+    final freeSlots =
+        canGenerate && !hasWarnings && required != null && available != null
+        ? available - required
+        : null;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _preview!.feasible
+        color: canGenerate
             ? _green.withValues(alpha: .08)
             : const Color(0xFFFFF3F3),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: _preview!.feasible ? _green : Colors.red.shade200,
-        ),
+        border: Border.all(color: canGenerate ? _green : Colors.red.shade200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -708,34 +876,186 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
           ),
           const SizedBox(height: 8),
           Text(
-            _preview!.feasible
+            canGenerate
                 ? 'Ready to Generate'
-                : 'Configuration needs attention',
+                : 'Timetable Cannot Be Generated Yet',
             style: TextStyle(
-              color: _preview!.feasible ? _green : Colors.red.shade700,
+              color: canGenerate ? _green : Colors.red.shade700,
               fontWeight: FontWeight.w800,
+              fontSize: 16,
             ),
           ),
+          if (canGenerate && hasWarnings) ...[
+            const SizedBox(height: 2),
+            const Text(
+              'With capacity warnings',
+              style: TextStyle(
+                color: Color(0xFF9A6700),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+          if (freeSlots != null && freeSlots > 0) ...[
+            const SizedBox(height: 4),
+            Text(
+              '$freeSlots free timetable slot${freeSlots == 1 ? '' : 's'}',
+              style: TextStyle(color: Colors.grey.shade700),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _teacherDayOffRow(Map<String, dynamic> row) {
-    final teacher = row['teacher'] is Map ? row['teacher'] as Map : const {};
-    final name =
-        (row['teacher_name'] ??
-                row['teacherName'] ??
-                teacher['fullName'] ??
-                teacher['name'] ??
-                'Teacher')
-            .toString();
-    final rawDays =
-        row['days'] ?? row['days_off'] ?? row['day_offs'] ?? row['day'];
-    final days = rawDays is List
-        ? rawDays.join(', ')
-        : rawDays?.toString() ?? '';
-    return _dataRow(name, days);
+  Widget _capacityIssuesSection() => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Capacity Warnings',
+          style: TextStyle(
+            color: _navy,
+            fontWeight: FontWeight.w800,
+            fontSize: 15,
+          ),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'These classes requested more weekly periods than they have '
+          'physical timetable slots for. Generation can still proceed — '
+          'each is scheduled up to its available capacity.',
+          style: TextStyle(color: Color(0xFF7A5200)),
+        ),
+        const SizedBox(height: 10),
+        for (final issue in _preview!.capacityIssues) _capacityIssueCard(issue),
+      ],
+    ),
+  );
+
+  Widget _capacityIssueCard(TimetableCapacityIssue issue) {
+    final expanded = _expandedCapacitySubjects.contains(issue.className);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF8E8),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF4D58A)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            issue.className.isEmpty ? 'Class' : issue.className,
+            style: const TextStyle(color: _navy, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (issue.requested != null) Text('${issue.requested} requested'),
+              if (issue.requested != null && issue.scheduled != null)
+                const Text('•'),
+              if (issue.scheduled != null) Text('${issue.scheduled} scheduled'),
+            ],
+          ),
+          if (issue.unscheduled != null && issue.unscheduled! > 0) ...[
+            const SizedBox(height: 2),
+            Text(
+              '${issue.unscheduled} unscheduled',
+              style: const TextStyle(
+                color: Color(0xFF7A5200),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+          if (issue.available != null) ...[
+            const SizedBox(height: 4),
+            Text('Available timetable slots: ${issue.available}'),
+          ],
+          const SizedBox(height: 6),
+          Text(
+            'Reason: ${issue.reasonText}',
+            style: const TextStyle(color: Color(0xFF7A5200)),
+          ),
+          if (issue.subjectResults.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            InkWell(
+              onTap: () => setState(() {
+                if (expanded) {
+                  _expandedCapacitySubjects.remove(issue.className);
+                } else {
+                  _expandedCapacitySubjects.add(issue.className);
+                }
+              }),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    expanded ? 'Hide subject details' : 'Subject details',
+                    style: const TextStyle(
+                      color: _navy,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Icon(
+                    expanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    color: _navy,
+                    size: 18,
+                  ),
+                ],
+              ),
+            ),
+            if (expanded)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: issue.subjectResults
+                      .map(
+                        (subject) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  subject.subjectName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                [
+                                  if (subject.requested != null)
+                                    'Requested ${subject.requested}',
+                                  if (subject.scheduled != null)
+                                    'Scheduled ${subject.scheduled}',
+                                  if (subject.hasUnscheduled)
+                                    'Unscheduled ${subject.unscheduled}',
+                                ].join(' • '),
+                                style: TextStyle(
+                                  color: subject.hasUnscheduled
+                                      ? const Color(0xFF7A5200)
+                                      : Colors.grey.shade700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
   }
 
   Widget _previewRow(Map<String, dynamic> row) {
@@ -789,11 +1109,12 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
     } else if (_step == 2 && _levelId != null && _subjects.isNotEmpty) {
       primary = _saveSubjects;
       label = 'Save Level Configuration';
-    } else if (_step == 3) {
-      label = _dayOffPreview == null
-          ? 'Preview Days Off First'
-          : 'Apply Days Off to Continue';
-    } else if (_step == 4 && _preview?.feasible == true) {
+    } else if (_step == 3 &&
+        _preview?.canGenerate == true &&
+        !_needsTeacherDaysOff) {
+      primary = () => setState(() => _step = 4);
+      label = 'Continue to Generate';
+    } else if (_step == 4 && _preview?.canGenerate == true) {
       primary = _generate;
       label = 'Generate Timetable';
     }
@@ -817,11 +1138,22 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
           const SizedBox(width: 12),
           Expanded(
             flex: 2,
-            child: PrimaryButton3D(
-              label: _busy && _step == 4 ? 'Generating timetable…' : label,
+            child: FilledButton(
               onPressed: _busy ? null : primary,
-              loading: _busy,
-              height: 48,
+              style: FilledButton.styleFrom(
+                backgroundColor: _green,
+                minimumSize: const Size(0, 48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              child: _busy
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(label, textAlign: TextAlign.center),
             ),
           ),
         ],

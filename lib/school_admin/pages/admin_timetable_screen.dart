@@ -1,3 +1,4 @@
+import 'package:kobac/school_admin/widgets/web_admin_reference_kit.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:kobac/school_admin/widgets/admin_responsive_layout.dart';
@@ -9,6 +10,7 @@ import 'package:kobac/services/school_admin_assignments_service.dart';
 import 'package:kobac/services/api_error_helpers.dart';
 import 'package:kobac/services/academic_years_service.dart';
 import 'package:kobac/school_admin/pages/admin_assignments_screen.dart';
+import 'package:kobac/school_admin/pages/teacher_day_off_page.dart';
 import 'package:kobac/school_admin/pages/timetable_detail_page.dart';
 import 'package:kobac/school_admin/widgets/delete_confirm_dialog.dart';
 import 'package:kobac/widgets/form_3d/form_3d.dart';
@@ -87,6 +89,16 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
       context,
       years: provider.years,
       initialAcademicYearId: _selectedAcademicYearId ?? provider.activeYear?.id,
+      onOpenTeacherDaysOff: () {
+        if (!mounted) return;
+        if (widget.onNavigateToPage != null) {
+          widget.onNavigateToPage!('teacherDayOff');
+        } else {
+          Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const TeacherDayOffPage()));
+        }
+      },
       onOpenCourseAssignments: () {
         if (widget.onNavigateToPage != null) {
           widget.onNavigateToPage!('courseAssignments');
@@ -173,14 +185,9 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
     final result = await TimetablesService().deleteTimetablesForYear(yearId);
     if (!mounted) return;
     if (result is TimetableSuccess<int?>) {
-      final count = result.data;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            count != null
-                ? 'Deleted $count timetable ${count == 1 ? 'entry' : 'entries'} for the selected academic year.'
-                : 'Timetables for the selected academic year were deleted.',
-          ),
+        const SnackBar(
+          content: Text('Timetable cleared successfully.'),
           backgroundColor: kPrimaryGreen,
         ),
       );
@@ -191,19 +198,6 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
         SnackBar(content: Text(message), backgroundColor: Colors.red.shade700),
       );
     }
-  }
-
-  List<TimetableSlotModel> _paginateSlots(List<TimetableSlotModel> slots) {
-    if (slots.isEmpty) return slots;
-    final start = (_desktopCurrentPage - 1) * _desktopPageSize;
-    if (start >= slots.length) return [];
-    final end = start + _desktopPageSize;
-    return slots.sublist(start, end > slots.length ? slots.length : end);
-  }
-
-  int _totalDesktopPages(int totalItems) {
-    if (totalItems == 0) return 1;
-    return (totalItems / _desktopPageSize).ceil();
   }
 
   String _className(int id) {
@@ -354,31 +348,17 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
     }
   }
 
-  InputDecoration _desktopFilterDecoration(String label) {
-    return InputDecoration(
-      labelText: label,
-      labelStyle: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-      floatingLabelStyle: const TextStyle(color: kPrimaryBlue, fontSize: 14),
-      filled: true,
-      fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: kPrimaryBlue, width: 1.5),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final yearState = context.watch<AcademicYearsProvider>();
+    if (_selectedAcademicYearId != null &&
+        yearState.retainedYearId(_selectedAcademicYearId) == null) {
+      _selectedAcademicYearId = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _loadTimetables();
+      });
+    }
+
     final body = isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)
         ? _buildDesktopPageBody(context)
         : _buildMobilePageBody(context);
@@ -789,570 +769,465 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
     );
   }
 
-  Widget _buildDesktopPageBody(BuildContext context) {
-    return Container(
-      color: const Color(0xFFF8F9FC),
-      child: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) => [
-          SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (_refDataLoaded)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-                    child: _buildDesktopFilterCard(),
-                  ),
-                const SizedBox(height: 16),
-              ],
-            ),
-          ),
-        ],
-        body: RefreshIndicator(
-          onRefresh: () async => _loadTimetables(),
-          color: kPrimaryGreen,
-          child: FutureBuilder<TimetableResult<List<TimetableSlotModel>>>(
-            future: _timetablesFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(
-                  child: CircularProgressIndicator(color: kPrimaryBlue),
-                );
-              }
-              if (snapshot.hasError) {
-                final msg = userFriendlyMessage(
-                  snapshot.error!,
-                  null,
-                  'AdminTimetableScreen',
-                );
-                return ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
+  String get _webDayName =>
+      const {
+        'MON': 'Monday',
+        'TUE': 'Tuesday',
+        'WED': 'Wednesday',
+        'THU': 'Thursday',
+        'FRI': 'Friday',
+        'SAT': 'Saturday',
+        'SUN': 'Sunday',
+      }[_selectedDay] ??
+      _selectedDay;
+  String get _webYearName =>
+      context
+          .read<AcademicYearsProvider>()
+          .years
+          .where((year) => year.id == _selectedAcademicYearId)
+          .map((year) => year.name)
+          .firstOrNull ??
+      'Select academic year';
+
+  Widget _buildDesktopPageBody(BuildContext context) =>
+      FutureBuilder<TimetableResult<List<TimetableSlotModel>>>(
+        future: _timetablesFuture,
+        builder: (context, snapshot) {
+          final result = snapshot.data;
+          final slots = result is TimetableSuccess<List<TimetableSlotModel>>
+              ? _slotsForDay(result.data)
+              : <TimetableSlotModel>[];
+          final totalPages = (slots.length / _desktopPageSize).ceil().clamp(
+            1,
+            1000000,
+          );
+          _desktopCurrentPage = _desktopCurrentPage.clamp(1, totalPages);
+          final offset = (_desktopCurrentPage - 1) * _desktopPageSize;
+          final visible = slots.skip(offset).take(_desktopPageSize).toList();
+          return WebAdminPage(
+            title: 'Time Table',
+            subtitle: 'View, manage and generate school timetables',
+            icon: Icons.schedule,
+            year: _webYearName,
+            children: [
+              _buildDesktopFilterCard(),
+              WebAdminCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    SizedBox(height: MediaQuery.of(context).size.height * 0.2),
-                    Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      spacing: 20,
+                      runSpacing: 14,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
-                              Icons.error_outline,
-                              size: 48,
-                              color: Colors.red[300],
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              msg,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey[800],
+                            const CircleAvatar(
+                              backgroundColor: webNavy,
+                              child: Icon(
+                                Icons.calendar_today,
+                                color: Colors.white,
+                                size: 20,
                               ),
                             ),
-                            const SizedBox(height: 16),
-                            TextButton.icon(
-                              onPressed: _loadTimetables,
-                              icon: const Icon(Icons.refresh),
-                              label: const Text('Retry'),
+                            const SizedBox(width: 14),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _webDayName + ' Timetable',
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w800,
+                                    color: webNavy,
+                                  ),
+                                ),
+                                const SizedBox(height: 5),
+                                Text(
+                                  _webYearName,
+                                  style: const TextStyle(color: webMuted),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                      ),
-                    ),
-                  ],
-                );
-              }
-              final result = snapshot.data;
-              if (result == null) {
-                return const Center(child: Text('No data'));
-              }
-              if (result is TimetableError) {
-                return ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  children: [
-                    SizedBox(height: MediaQuery.of(context).size.height * 0.2),
-                    Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
+                        Wrap(
+                          spacing: 16,
+                          runSpacing: 8,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            Icon(
-                              Icons.error_outline,
-                              size: 48,
-                              color: Colors.red[300],
-                            ),
-                            const SizedBox(height: 12),
                             Text(
-                              result.message,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey[800],
+                              'Total Periods: ' + slots.length.toString(),
+                              style: const TextStyle(
+                                color: webNavy,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
-                            const SizedBox(height: 16),
-                            TextButton.icon(
-                              onPressed: _loadTimetables,
-                              icon: const Icon(Icons.refresh),
-                              label: const Text('Retry'),
+                            const Text(
+                              'Morning',
+                              style: TextStyle(color: webGreen),
+                            ),
+                            const Text(
+                              'Afternoon',
+                              style: TextStyle(color: Color(0xFF2387E8)),
                             ),
                           ],
                         ),
-                      ),
+                      ],
                     ),
-                  ],
-                );
-              }
-              final slots = _slotsForDay(
-                (result as TimetableSuccess<List<TimetableSlotModel>>).data,
-              );
-              if (slots.isEmpty) {
-                return ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(24),
-                  children: [
-                    SizedBox(height: MediaQuery.of(context).size.height * 0.15),
-                    Center(
-                      child: Column(
+                    const SizedBox(height: 20),
+                    if (snapshot.connectionState == ConnectionState.waiting ||
+                        !_refDataLoaded)
+                      const Padding(
+                        padding: EdgeInsets.all(48),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else if (snapshot.hasError || result is TimetableError)
+                      Column(
                         children: [
                           Text(
-                            'No slots for $_selectedDay yet',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 16,
-                            ),
+                            result is TimetableError
+                                ? result.message
+                                : 'Unable to load timetable.',
                           ),
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            height: 44,
-                            child: ElevatedButton.icon(
-                              onPressed: _openAddSlot,
-                              icon: const Icon(Icons.add_rounded, size: 18),
-                              label: const Text('Add Slot'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: kPrimaryBlue,
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                shadowColor: Colors.transparent,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                            ),
+                          TextButton(
+                            onPressed: _loadTimetables,
+                            child: const Text('Retry'),
                           ),
                         ],
-                      ),
-                    ),
-                  ],
-                );
-              }
-
-              final totalPages = _totalDesktopPages(slots.length);
-              if (_desktopCurrentPage > totalPages) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (!mounted) return;
-                  setState(() => _desktopCurrentPage = totalPages);
-                });
-              }
-              final visibleSlots = _paginateSlots(slots);
-              final startIndex =
-                  ((_desktopCurrentPage - 1) * _desktopPageSize) + 1;
-              final endIndex = startIndex + visibleSlots.length - 1;
-
-              return ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(24),
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFFE8ECF2)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.03),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 16,
-                          ),
-                          decoration: const BoxDecoration(
-                            border: Border(
-                              bottom: BorderSide(
-                                color: Color(0xFFE8ECF2),
-                                width: 1,
+                      )
+                    else ...[
+                      WebAdminTable(
+                        minWidth: 850,
+                        columns: const [
+                          'Period',
+                          'Subject',
+                          'Teacher',
+                          'Class',
+                          'Time',
+                          'Session',
+                          'Actions',
+                        ],
+                        columnWidths: const {
+                          0: FixedColumnWidth(94),
+                          1: FlexColumnWidth(1.2),
+                          2: FlexColumnWidth(2.4),
+                          3: FlexColumnWidth(1.3),
+                          4: FixedColumnWidth(130),
+                          5: FixedColumnWidth(108),
+                          6: FixedColumnWidth(112),
+                        },
+                        rows: visible.map((slot) {
+                          final teacher = _teacherName(slot.teacherId);
+                          final session = _formatTimetableShift(
+                            slot.period?.shift,
+                          );
+                          return <Widget>[
+                            Text(
+                              slot.period?.name.isNotEmpty == true
+                                  ? slot.period!.name
+                                  : slot.period == null
+                                  ? '?'
+                                  : 'Period ' +
+                                        slot.period!.periodNumber.toString(),
+                            ),
+                            Text(_subjectName(slot.subjectId)),
+                            Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 16,
+                                  backgroundColor: const Color(0xFFEEF1F6),
+                                  child: Text(
+                                    _teacherInitials(teacher),
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: webMuted,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 9),
+                                Expanded(
+                                  child: Tooltip(
+                                    message: teacher,
+                                    child: Text(
+                                      teacher,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(_className(slot.classId)),
+                                Text(
+                                  _classShiftName(slot.classId),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: webGreen,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Text(
+                              _formatTimetableTime(slot.startTime) +
+                                  ' - ' +
+                                  _formatTimetableTime(slot.endTime),
+                              style: const TextStyle(
+                                color: webGreen,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                flex: 2,
-                                child: Text(
-                                  'Period',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey.shade600,
-                                  ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE8F2FF),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                session,
+                                style: const TextStyle(
+                                  color: webNavy,
+                                  fontSize: 12,
                                 ),
                               ),
-                              Expanded(
-                                flex: 2,
-                                child: Text(
-                                  'Subject',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey.shade600,
-                                  ),
+                            ),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              children: [
+                                webAdminIcon(
+                                  'Edit',
+                                  Icons.edit_outlined,
+                                  () => _openEditSlot(slot),
                                 ),
-                              ),
-                              Expanded(
-                                flex: 3,
-                                child: Text(
-                                  'Teacher',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey.shade600,
-                                  ),
+                                webAdminIcon(
+                                  'Delete',
+                                  Icons.delete_outline,
+                                  () => _deleteSlot(slot),
+                                  destructive: true,
                                 ),
-                              ),
-                              Expanded(
-                                flex: 2,
-                                child: Text(
-                                  'Class',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                flex: 2,
-                                child: Text(
-                                  'Time',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                flex: 2,
-                                child: Text(
-                                  'Session',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 80),
-                            ],
-                          ),
+                              ],
+                            ),
+                          ];
+                        }).toList(),
+                      ),
+                      if (slots.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.all(26),
+                          child: Text('No timetable entries for this day.'),
                         ),
-                        ...visibleSlots.map((slot) {
-                          return _TimetableRow(
-                            slot: slot,
-                            subjectName: _subjectName(slot.subjectId),
-                            teacherName: _teacherName(slot.teacherId),
-                            className: _className(slot.classId),
-                            classShiftName: _classShiftName(slot.classId),
-                            onEdit: () => _openEditSlot(slot),
-                            onDelete: () => _deleteSlot(slot),
-                          );
+                      _TimetableTableFooter(
+                        startIndex: slots.isEmpty ? 0 : offset + 1,
+                        endIndex: offset + visible.length,
+                        totalItems: slots.length,
+                        currentPage: _desktopCurrentPage,
+                        totalPages: totalPages,
+                        pageSize: _desktopPageSize,
+                        onPageChanged: (page) =>
+                            setState(() => _desktopCurrentPage = page),
+                        onPageSizeChanged: (size) => setState(() {
+                          _desktopPageSize = size;
+                          _desktopCurrentPage = 1;
                         }),
-                        _TimetableTableFooter(
-                          startIndex: startIndex,
-                          endIndex: endIndex,
-                          totalItems: slots.length,
-                          currentPage: _desktopCurrentPage,
-                          totalPages: totalPages,
-                          pageSize: _desktopPageSize,
-                          onPageChanged: (page) =>
-                              setState(() => _desktopCurrentPage = page),
-                          onPageSizeChanged: (size) => setState(() {
-                            _desktopPageSize = size;
-                            _desktopCurrentPage = 1;
-                          }),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      );
 
-  Widget _buildDesktopFilterCard() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE8ECF2)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isWide = constraints.maxWidth >= 900;
-              final years = context.watch<AcademicYearsProvider>().years;
-              final academicYearField = SizedBox(
-                width: isWide ? 220 : double.infinity,
-                child: DropdownButtonFormField<int?>(
-                  isExpanded: true,
-                  value: years.any((y) => y.id == _selectedAcademicYearId)
+  Widget _buildDesktopFilterCard() => WebAdminCard(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        LayoutBuilder(
+          builder: (context, box) {
+            final years = context.watch<AcademicYearsProvider>().years;
+            final shifts = context.watch<ShiftsProvider>().shifts;
+            final fieldWidth = box.maxWidth >= 1300
+                ? 195.0
+                : (box.maxWidth - 28) / 3;
+            Widget select(
+              String label,
+              IconData icon,
+              int? value,
+              List<DropdownMenuItem<int?>> items,
+              ValueChanged<int?> change,
+            ) => SizedBox(
+              width: fieldWidth,
+              child: DropdownButtonFormField<int?>(
+                initialValue: value,
+                isExpanded: true,
+                decoration: webAdminInput(label, icon: icon),
+                items: items,
+                onChanged: change,
+              ),
+            );
+            return Wrap(
+              spacing: 14,
+              runSpacing: 18,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                select(
+                  'Academic Year',
+                  Icons.calendar_month,
+                  years.any((year) => year.id == _selectedAcademicYearId)
                       ? _selectedAcademicYearId
                       : null,
-                  decoration: _desktopFilterDecoration('Academic Year'),
-                  items: years
+                  years
                       .map(
-                        (y) => DropdownMenuItem<int?>(
-                          value: y.id,
+                        (year) => DropdownMenuItem<int?>(
+                          value: year.id,
                           child: Text(
-                            y.name,
-                            maxLines: 1,
+                            year.name,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       )
                       .toList(),
-                  onChanged: (value) {
-                    setState(() => _selectedAcademicYearId = value);
-                  },
+                  (value) => setState(() => _selectedAcademicYearId = value),
                 ),
-              );
-              final classField = SizedBox(
-                width: isWide ? 280 : double.infinity,
-                child: DropdownButtonFormField<int?>(
-                  isExpanded: true,
-                  value: _selectedClassId,
-                  decoration: _desktopFilterDecoration('Class'),
-                  items: [
+                select(
+                  'Class',
+                  Icons.groups,
+                  _selectedClassId,
+                  [
                     const DropdownMenuItem<int?>(
                       value: null,
                       child: Text('All classes'),
                     ),
                     ..._classes.map(
-                      (c) => DropdownMenuItem<int?>(
-                        value: c.id,
-                        child: Text(
-                          c.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                      (item) => DropdownMenuItem<int?>(
+                        value: item.id,
+                        child: Text(item.name, overflow: TextOverflow.ellipsis),
                       ),
                     ),
                   ],
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedClassId = value;
-                      _loadTimetables();
-                    });
+                  (value) {
+                    _selectedClassId = value;
+                    _loadTimetables();
                   },
                 ),
-              );
-              final shiftField = SizedBox(
-                width: isWide ? 220 : double.infinity,
-                child: DropdownButtonFormField<int?>(
-                  isExpanded: true,
-                  value: _selectedShiftId,
-                  decoration: _desktopFilterDecoration('Shift'),
-                  items: [
+                select(
+                  'Shift',
+                  Icons.layers_outlined,
+                  _selectedShiftId,
+                  [
                     const DropdownMenuItem<int?>(
                       value: null,
                       child: Text('All shifts'),
                     ),
-                    ...context.watch<ShiftsProvider>().shifts.map(
-                      (s) => DropdownMenuItem<int?>(
-                        value: s.id,
-                        child: Text(
-                          s.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                    ...shifts.map(
+                      (item) => DropdownMenuItem<int?>(
+                        value: item.id,
+                        child: Text(item.name, overflow: TextOverflow.ellipsis),
                       ),
                     ),
                   ],
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedShiftId = value;
-                      _loadTimetables();
-                    });
+                  (value) {
+                    _selectedShiftId = value;
+                    _loadTimetables();
                   },
                 ),
-              );
-              final addButton = SizedBox(
-                height: 44,
-                child: ElevatedButton.icon(
-                  onPressed: _openAddSlot,
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('Add Slot'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: kPrimaryBlue,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shadowColor: Colors.transparent,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
+                webAdminAction(
+                  'Generate Timetable',
+                  Icons.settings,
+                  _openGenerator,
                 ),
-              );
-              final generateButton = SizedBox(
-                height: 44,
-                child: ElevatedButton.icon(
-                  onPressed: _openGenerator,
-                  icon: const Icon(Icons.auto_awesome_rounded, size: 18),
-                  label: const Text('Generate Timetable'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: kPrimaryGreen,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
+                webAdminAction(
+                  'Print Timetable',
+                  Icons.print,
+                  _openPrintDialog,
+                  outlined: true,
+                  color: webNavy,
                 ),
-              );
-              final deleteYearButton = SizedBox(
-                height: 44,
-                child: OutlinedButton.icon(
-                  onPressed: _openDeleteYearTimetablesDialog,
-                  icon: const Icon(Icons.event_busy_rounded, size: 18),
-                  label: const Text('Delete Year Timetables'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.red.shade700,
-                    side: BorderSide(color: Colors.red.shade300),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
+                webAdminAction(
+                  'Delete Year Timetables',
+                  Icons.delete_outline,
+                  _openDeleteYearTimetablesDialog,
+                  outlined: true,
+                  color: Colors.red,
                 ),
-              );
-              final printButton = SizedBox(
-                height: 44,
-                child: OutlinedButton.icon(
-                  onPressed: _openPrintDialog,
-                  icon: const Icon(Icons.print_rounded, size: 18),
-                  label: const Text('Print Timetable'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: kPrimaryBlue,
-                    side: const BorderSide(color: Color(0xFFE5E7EB)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 22),
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          spacing: 18,
+          runSpacing: 16,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Wrap(
+              spacing: 5,
+              runSpacing: 8,
+              children: kDays
+                  .map(
+                    (day) => SizedBox(
+                      width: 64,
+                      child: OutlinedButton(
+                        onPressed: () => _selectDay(day),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(0, 46),
+                          padding: EdgeInsets.zero,
+                          foregroundColor: day == _selectedDay
+                              ? Colors.white
+                              : webNavy,
+                          backgroundColor: day == _selectedDay
+                              ? webNavy
+                              : Colors.white,
+                          side: const BorderSide(color: webBorder),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                        ),
+                        child: Text(day),
+                      ),
                     ),
-                  ),
-                ),
-              );
-
-              if (isWide) {
-                return Row(
-                  children: [
-                    academicYearField,
-                    const SizedBox(width: 12),
-                    classField,
-                    const SizedBox(width: 12),
-                    shiftField,
-                    const Spacer(),
-                    generateButton,
-                    const SizedBox(width: 12),
-                    printButton,
-                    const SizedBox(width: 12),
-                    deleteYearButton,
-                    const SizedBox(width: 12),
-                    addButton,
-                  ],
-                );
-              }
-
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  academicYearField,
-                  const SizedBox(height: 12),
-                  classField,
-                  const SizedBox(height: 12),
-                  shiftField,
-                  const SizedBox(height: 12),
-                  Wrap(
-                    alignment: WrapAlignment.end,
-                    spacing: 12,
-                    runSpacing: 8,
-                    children: [
-                      generateButton,
-                      printButton,
-                      deleteYearButton,
-                      addButton,
-                    ],
-                  ),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: kDays.map((day) {
-              final isSelected = _selectedDay == day;
-              return InkWell(
-                onTap: () => _selectDay(day),
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
+                  )
+                  .toList(),
+            ),
+            Wrap(
+              spacing: 14,
+              runSpacing: 12,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: isSelected ? kPrimaryBlue : Colors.white,
+                    color: const Color(0xFFEAF4FF),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: isSelected
-                          ? kPrimaryBlue
-                          : const Color(0xFFE5E7EB),
-                    ),
                   ),
                   child: Text(
-                    day,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: isSelected ? Colors.white : kPrimaryBlue,
-                    ),
+                    'Showing ' + _webDayName + ' timetable',
+                    style: const TextStyle(color: webNavy),
                   ),
                 ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
+                webAdminAction(
+                  'Add Slot',
+                  Icons.add,
+                  _openAddSlot,
+                  color: webNavy,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
 }
 
 String _formatTimetableTime(String time) {
@@ -1486,198 +1361,6 @@ class _TimetableTableFooter extends StatelessWidget {
             ],
           );
         },
-      ),
-    );
-  }
-}
-
-class _TimetableRow extends StatelessWidget {
-  final TimetableSlotModel slot;
-  final String subjectName;
-  final String teacherName;
-  final String className;
-  final String? classShiftName;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-
-  const _TimetableRow({
-    required this.slot,
-    required this.subjectName,
-    required this.teacherName,
-    required this.className,
-    this.classShiftName,
-    required this.onEdit,
-    required this.onDelete,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final periodName = slot.period != null
-        ? (slot.period!.name.isNotEmpty
-              ? slot.period!.name
-              : 'Period ${slot.period!.periodNumber}')
-        : '-';
-    final timeStr =
-        '${_formatTimetableTime(slot.startTime)} - ${_formatTimetableTime(slot.endTime)}';
-    final shift = _formatTimetableShift(slot.period?.shift);
-    final displayClass = className.trim().isEmpty || className == '—'
-        ? '-'
-        : className;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE8ECF2), width: 1)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: Text(
-              periodName,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey.shade800,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              subjectName,
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade800),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Row(
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Text(
-                    _teacherInitials(teacherName),
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade700,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    teacherName,
-                    style: TextStyle(fontSize: 14, color: Colors.grey.shade800),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  displayClass,
-                  style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (classShiftName != null && classShiftName!.isNotEmpty)
-                  Text(
-                    classShiftName!,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: kPrimaryGreen.withOpacity(0.85),
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-              ],
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              timeStr,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: kPrimaryGreen,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: kPrimaryBlue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  shift,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: kPrimaryBlue,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          SizedBox(
-            width: 80,
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(
-                    Icons.edit_outlined,
-                    size: 20,
-                    color: kPrimaryGreen,
-                  ),
-                  onPressed: onEdit,
-                  tooltip: 'Edit',
-                  visualDensity: VisualDensity.compact,
-                ),
-                IconButton(
-                  icon: Icon(
-                    Icons.delete_outline,
-                    size: 20,
-                    color: Colors.red[400],
-                  ),
-                  onPressed: onDelete,
-                  tooltip: 'Delete',
-                  visualDensity: VisualDensity.compact,
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -2516,119 +2199,140 @@ class _DeleteYearTimetablesDialogState
       backgroundColor: Colors.transparent,
       elevation: 0,
       insetPadding: const EdgeInsets.symmetric(horizontal: 28),
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 24,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(
-                    Icons.warning_amber_rounded,
-                    color: Colors.red[700],
-                    size: 26,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                const Expanded(
-                  child: Text(
-                    'Delete Academic Year Timetables?',
-                    style: TextStyle(
-                      fontSize: 19,
-                      fontWeight: FontWeight.bold,
-                      color: kPrimaryBlue,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            DropdownButtonFormField<int>(
-              isExpanded: true,
-              value: _yearId,
-              decoration: InputDecoration(
-                labelText: 'Academic year',
-                prefixIcon: const Icon(Icons.calendar_month_rounded),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              items: widget.years
-                  .map(
-                    (year) => DropdownMenuItem(
-                      value: year.id,
-                      child: Text(
-                        year.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) => setState(() => _yearId = value),
-            ),
-            if (selected != null) ...[
-              const SizedBox(height: 16),
-              Text(
-                'This will permanently delete ALL timetable entries for '
-                '"${selected.name}". Classes, students, subjects, marks, and '
-                'attendance are NOT being deleted.',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.red.shade700,
-                  height: 1.4,
-                  fontWeight: FontWeight.w600,
-                ),
+      child: _desktopTimetableDialogBody(
+        context,
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
               ),
             ],
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(0, 48),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(14),
                     ),
-                    child: const Text('Cancel'),
+                    child: Icon(
+                      Icons.warning_amber_rounded,
+                      color: Colors.red[700],
+                      size: 26,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Text(
+                      'Clear Academic Year Timetable?',
+                      style: TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.bold,
+                        color: kPrimaryBlue,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              DropdownButtonFormField<int>(
+                isExpanded: true,
+                value: _yearId,
+                decoration: InputDecoration(
+                  labelText: 'Academic year',
+                  prefixIcon: const Icon(Icons.calendar_month_rounded),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: _yearId == null
-                        ? null
-                        : () => Navigator.pop(context, _yearId),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.red.shade700,
-                      minimumSize: const Size(0, 48),
-                    ),
-                    child: const Text('Delete Timetables'),
+                items: widget.years
+                    .map(
+                      (year) => DropdownMenuItem(
+                        value: year.id,
+                        child: Text(
+                          year.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) => setState(() => _yearId = value),
+              ),
+              if (selected != null) ...[
+                const SizedBox(height: 16),
+                Text(
+                  'This will delete only the timetable entries for '
+                  '"${selected.name}".\n\nIt will NOT delete:\n'
+                  'The academic year, classes, students, teachers, subjects, '
+                  'marks, attendance, or teacher days off.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.red.shade700,
+                    height: 1.4,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
-            ),
-          ],
+              if (selected?.isActive == true) ...[
+                const SizedBox(height: 12),
+                const Text(
+                  'This is the active academic year. Clearing its timetable is allowed and will not deactivate the year.',
+                ),
+              ],
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, 48),
+                      ),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _yearId == null
+                          ? null
+                          : () => Navigator.pop(context, _yearId),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.red.shade700,
+                        minimumSize: const Size(0, 48),
+                      ),
+                      child: const Text('Clear Timetable'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+}
+
+Widget _desktopTimetableDialogBody(BuildContext context, Widget child) {
+  if (!isDesktopWebAdminLayout(context)) return child;
+  return ConstrainedBox(
+    constraints: BoxConstraints(
+      maxWidth: 620,
+      maxHeight: MediaQuery.sizeOf(context).height - 64,
+    ),
+    child: SingleChildScrollView(child: child),
+  );
 }

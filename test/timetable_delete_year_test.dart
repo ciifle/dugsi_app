@@ -41,10 +41,31 @@ void main() {
   );
 
   test('confirmation dialog uses the required destructive copy', () {
-    expect(screen, contains('Delete Academic Year Timetables?'));
-    expect(screen, contains('Classes, students, subjects, marks, and'));
-    expect(screen, contains('attendance are NOT being deleted.'));
-    expect(screen, contains("child: const Text('Delete Timetables')"));
+    expect(screen, contains('Clear Academic Year Timetable?'));
+    expect(
+      screen,
+      contains('This will delete only the timetable entries for'),
+    );
+    expect(screen, contains('It will NOT delete:'));
+    expect(screen, contains("child: const Text('Clear Timetable')"));
+    expect(
+      screen,
+      contains(
+        'This is the active academic year. Clearing its '
+        'timetable is allowed and will not deactivate the year.',
+      ),
+    );
     expect(screen, contains('_yearId == null'));
   });
+
+  test(
+    'no frontend restriction blocks clearing the active year\'s timetable',
+    () {
+      // The confirm button is enabled purely on year selection — there is no
+      // isActive-based gate (e.g. "activate another year first").
+      expect(screen, isNot(contains('Activate another')));
+      expect(screen, isNot(contains('deactivate the year first')));
+      expect(screen, isNot(contains('inactive academic year')));
+    },
+  );
 }

@@ -126,7 +126,12 @@ String? _errorMessage(http.Response response) {
         lower.contains('unknown column') ||
         lower.contains('stack trace') ||
         lower.contains('exception') ||
-        lower.contains('at line ');
+        lower.contains('at line ') ||
+        lower.contains('foreign key') ||
+        lower.contains('constraint') ||
+        lower.contains('parent row') ||
+        lower.contains('sqlstate') ||
+        RegExp(r'er_[a-z_]+').hasMatch(lower);
     return looksLikeRawServerError ? null : raw;
   } catch (_) {}
   return null;
@@ -433,7 +438,7 @@ class TimetablesService {
       if (response.statusCode != 200) {
         return TimetableError(
           _errorMessage(response) ??
-              'Could not delete timetables for this year. Please try again.',
+              'Unable to clear timetable. Please try again.',
           response.statusCode,
         );
       }
@@ -455,7 +460,11 @@ class TimetablesService {
     }
   }
 
-  String _printPdfError(http.Response response, {required bool allTeachers}) {
+  String _printPdfError(
+    http.Response response, {
+    required bool allTeachers,
+    String? shiftLabel,
+  }) {
     final backend = _errorMessage(response);
     if (backend != null &&
         !backend.toLowerCase().contains('<html') &&
@@ -467,6 +476,9 @@ class TimetablesService {
     if (response.statusCode == 403)
       return 'School administrator access is required.';
     if (response.statusCode == 404) {
+      if (allTeachers && shiftLabel != null && shiftLabel.trim().isNotEmpty) {
+        return 'No ${shiftLabel.trim()} timetable entries were found for this academic year.';
+      }
       return allTeachers
           ? 'No teacher timetables were found for this academic year.'
           : 'No timetable was found for this teacher in this academic year.';
@@ -510,14 +522,23 @@ class TimetablesService {
     }
   }
 
-  /// GET /api/school-admin/timetables/teachers/print?academic_year_id=
+  /// GET /api/school-admin/timetables/teachers/print?academic_year_id=&shift=
+  /// `shift` is the backend's fixed enum (`MORNING`|`AFTERNOON`, verified
+  /// against the live Swagger contract) and is required on every request —
+  /// NOT the school's arbitrary Shift entity id. `shiftLabel` (the display
+  /// name, e.g. "Morning") is only used to word a clean "no entries" error.
   Future<TimetableResult<PdfFileResult>> getAllTeachersTimetablePrintPdf({
     required int academicYearId,
+    required String shift,
+    String? shiftLabel,
   }) async {
     try {
       final response = await _client.get(
         apiUrl('$_base/teachers/print').replace(
-          queryParameters: {'academic_year_id': academicYearId.toString()},
+          queryParameters: {
+            'academic_year_id': academicYearId.toString(),
+            'shift': shift,
+          },
         ),
         headers: const {'Accept': 'application/pdf'},
       );
@@ -529,7 +550,7 @@ class TimetablesService {
       final document = pdfFileResultFromResponse(response);
       if (document == null) {
         return TimetableError(
-          _printPdfError(response, allTeachers: true),
+          _printPdfError(response, allTeachers: true, shiftLabel: shiftLabel),
           response.statusCode,
         );
       }
@@ -540,6 +561,81 @@ class TimetablesService {
           e,
           st,
           'TimetablesService.getAllTeachersTimetablePrintPdf',
+        ),
+      );
+    }
+  }
+
+  String _classesPrintError(http.Response response, {String? levelLabel}) {
+    final backend = _errorMessage(response);
+    if (backend != null &&
+        !backend.toLowerCase().contains('<html') &&
+        !backend.toLowerCase().contains('sql')) {
+      return backend;
+    }
+    if (response.statusCode == 401) {
+      return 'Your session has expired. Please sign in again.';
+    }
+    if (response.statusCode == 403) {
+      return 'School administrator access is required.';
+    }
+    if (response.statusCode == 400) {
+      return 'Select an academic year and a level.';
+    }
+    if (response.statusCode == 404) {
+      final label = levelLabel != null && levelLabel.trim().isNotEmpty
+          ? levelLabel.trim()
+          : 'this level';
+      return 'No timetable has been generated for $label in the selected academic year.';
+    }
+    if (response.statusCode == 409) {
+      final label = levelLabel != null && levelLabel.trim().isNotEmpty
+          ? levelLabel.trim()
+          : "This level's";
+      return "$label classes could not be matched to a single shift. Check each class's shift assignment and try again.";
+    }
+    return 'The timetable PDF could not be generated. Please try again.';
+  }
+
+  /// GET /api/school-admin/timetables/classes/print?academic_year_id=&level_id=
+  /// Swagger-verified: the class-based, level-scoped weekly wall timetable
+  /// that supersedes the shift-based all-teachers print above. No shift
+  /// parameter exists — the backend resolves it from the level's own
+  /// classes and rejects (409) if they don't resolve to exactly one shift.
+  Future<TimetableResult<PdfFileResult>> getClassesByLevelTimetablePrintPdf({
+    required int academicYearId,
+    required int levelId,
+    String? levelLabel,
+  }) async {
+    try {
+      final response = await _client.get(
+        apiUrl('$_base/classes/print').replace(
+          queryParameters: {
+            'academic_year_id': academicYearId.toString(),
+            'level_id': levelId.toString(),
+          },
+        ),
+        headers: const {'Accept': 'application/pdf'},
+      );
+      devLogResponse(
+        'TimetablesService.getClassesByLevelTimetablePrintPdf',
+        response.statusCode,
+        response.body.length > 200 ? '<pdf bytes>' : response.body,
+      );
+      final document = pdfFileResultFromResponse(response);
+      if (document == null) {
+        return TimetableError(
+          _classesPrintError(response, levelLabel: levelLabel),
+          response.statusCode,
+        );
+      }
+      return TimetableSuccess(document);
+    } catch (e, st) {
+      return TimetableError(
+        userFriendlyMessage(
+          e,
+          st,
+          'TimetablesService.getClassesByLevelTimetablePrintPdf',
         ),
       );
     }
