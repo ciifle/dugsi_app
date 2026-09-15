@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:kobac/models/exam_hall_models.dart';
 import 'package:kobac/services/academic_years_service.dart';
 import 'package:kobac/services/exam_hall_service.dart';
+import 'package:kobac/services/shifts_service.dart';
 import 'package:kobac/services/teacher_day_off_service.dart';
 import 'package:kobac/services/teachers_service.dart';
 import 'package:kobac/services/timetable_generator_service.dart';
@@ -36,6 +37,41 @@ Widget _inlineNotice(String message, {bool error = false}) => Container(
     ],
   ),
 );
+
+/// Teacher Day Off predates shift-specific working days and only needs a
+/// pool of weekdays the school is open on (to restrict day-off selection),
+/// not per-shift configuration itself — that belongs to the Timetable
+/// Generator's Working Days step. Since the backend no longer has a single
+/// shift-agnostic working-days record, this merges every configured
+/// shift's working days into one set, preserving this page's prior
+/// behavior without adding Teacher-Day-Off-specific shift UI.
+Future<GeneratorResult<List<String>>> _fetchAnyShiftWorkingDays(
+  int academicYearId,
+) async {
+  final shiftsResult = await ShiftsService().list();
+  if (shiftsResult is ShiftError) {
+    return GeneratorError(shiftsResult.message);
+  }
+  final shifts = (shiftsResult as ShiftSuccess<List<Shift>>).data;
+  if (shifts.isEmpty) return GeneratorSuccess(const []);
+  final merged = <String>{};
+  String? lastError;
+  for (final shift in shifts) {
+    final result = await TimetableGeneratorService().getWorkingDays(
+      academicYearId: academicYearId,
+      shiftId: shift.id,
+    );
+    if (result is GeneratorSuccess<WorkingDaysConfig>) {
+      merged.addAll(result.data.days);
+    } else {
+      lastError = (result as GeneratorError).message;
+    }
+  }
+  if (merged.isEmpty && lastError != null) {
+    return GeneratorError(lastError);
+  }
+  return GeneratorSuccess(merged.toList());
+}
 
 Widget _confirmationDetails(List<(String, String)> rows) => Container(
   padding: const EdgeInsets.all(16),
@@ -872,9 +908,7 @@ class _ManualDayOffDialogState extends State<_ManualDayOffDialog> {
   bool get _editing => widget.initialItems.isNotEmpty;
 
   Future<void> _loadWorkingDays() async {
-    final result = await TimetableGeneratorService().getWorkingDays(
-      widget.year.id,
-    );
+    final result = await _fetchAnyShiftWorkingDays(widget.year.id);
     if (!mounted) return;
     setState(() {
       _loadingWorkingDays = false;
@@ -1143,7 +1177,7 @@ class _RandomDayOffDialogState extends State<_RandomDayOffDialog> {
     });
     final results = await Future.wait([
       ExamHallService().levels(),
-      _service.getWorkingDays(_yearId),
+      _fetchAnyShiftWorkingDays(_yearId),
     ]);
     if (!mounted) return;
     final levelResult = results[0];

@@ -1,10 +1,13 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:kobac/models/exam_hall_models.dart';
 import 'package:kobac/services/academic_years_service.dart';
 import 'package:kobac/services/exam_hall_service.dart';
+import 'package:kobac/services/shifts_service.dart';
 import 'package:kobac/services/timetable_generator_service.dart';
 import 'package:kobac/widgets/form_3d/form_3d.dart';
+import 'package:provider/provider.dart';
 
 const _navy = Color(0xFF023471);
 const _green = Color(0xFF5AB04B);
@@ -49,7 +52,12 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
   int? _yearId;
   int? _levelId;
   List<SchoolLevel> _levels = [];
+  // Working days are shift-specific on the backend (Morning/Afternoon are
+  // fully independent records) — this is the single source of truth for
+  // both the shift selector and the outgoing GET/PUT requests.
+  int? _shiftId;
   Set<String> _workingDays = {};
+  String? _workingDaysShiftName;
   List<LevelSubjectPeriod> _subjects = [];
   final _periodForm = GlobalKey<FormState>();
   final Map<int, TextEditingController> _periodInputs = {};
@@ -57,14 +65,25 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
   bool _busy = false;
   String? _error;
   Map<String, dynamic> _errorDetails = {};
-  final Set<String> _expandedCapacitySubjects = {};
+  int _scopeVersion = 0;
+  int _daysRequest = 0;
+  void _clearPeriods() {
+    for (final controller in _periodInputs.values) {
+      controller.dispose();
+    }
+    _periodInputs.clear();
+    _subjects = [];
+    _preview = null;
+    _error = null;
+    _errorDetails = {};
+  }
 
   @override
   void initState() {
     super.initState();
     _yearId = widget.initialAcademicYearId;
     _loadLevels();
-    if (_yearId != null) _loadWorkingDays();
+    Future.microtask(() => context.read<ShiftsProvider>().ensureLoaded());
   }
 
   Future<void> _loadLevels() async {
@@ -79,28 +98,66 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
     });
   }
 
+  /// Switching shift must never show the previous shift's days while the
+  /// new one loads, so the visible selection is cleared up front — the
+  /// admin sees a loading state, never stale Morning chips while Afternoon
+  /// is being fetched.
+  void _onShiftChanged(int? shiftId) {
+    setState(() {
+      _scopeVersion++;
+      _preview = null;
+      _errorDetails = {};
+      _busy = false;
+      _shiftId = shiftId;
+      _workingDays = {};
+      _workingDaysShiftName = null;
+      _error = null;
+    });
+    if (shiftId != null && _yearId != null) _loadWorkingDays();
+  }
+
   Future<void> _loadWorkingDays() async {
     final yearId = _yearId;
-    if (yearId == null) return;
+    final shiftId = _shiftId;
+    final request = ++_daysRequest;
+    if (yearId == null || shiftId == null) return;
     setState(() {
       _busy = true;
       _error = null;
     });
-    final result = await TimetableGeneratorService().getWorkingDays(yearId);
-    if (!mounted || _yearId != yearId) return;
+    final result = await TimetableGeneratorService().getWorkingDays(
+      academicYearId: yearId,
+      shiftId: shiftId,
+    );
+    // Discard if the year/shift changed while this request was in flight —
+    // a slow response can never leak into the wrong shift's selection.
+    if (!mounted ||
+        request != _daysRequest ||
+        _yearId != yearId ||
+        _shiftId != shiftId)
+      return;
     setState(() {
       _busy = false;
-      if (result is GeneratorSuccess<List<String>>) {
-        _workingDays = result.data.toSet();
+      if (result is GeneratorSuccess<WorkingDaysConfig> &&
+          (result.data.shiftId == null || result.data.shiftId == shiftId) &&
+          (result.data.academicYearId == null ||
+              result.data.academicYearId == yearId)) {
+        _workingDays = result.data.days.toSet();
+        _workingDaysShiftName = result.data.shiftName;
       } else {
-        _error = (result as GeneratorError).message;
+        _error = result is GeneratorError
+            ? result.message
+            : 'Working days do not match this shift and year.';
       }
     });
   }
 
   Future<void> _saveWorkingDays() async {
+    if (_busy) return;
+    final scope = _scopeVersion;
     final yearId = _yearId;
-    if (yearId == null) return;
+    final shiftId = _shiftId;
+    if (yearId == null || shiftId == null) return;
     final selectedDays = _days
         .where(_workingDays.contains)
         .toList(growable: false);
@@ -113,10 +170,11 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
       _error = null;
     });
     final saveResult = await TimetableGeneratorService().saveWorkingDays(
-      yearId,
-      selectedDays,
+      academicYearId: yearId,
+      shiftId: shiftId,
+      days: selectedDays,
     );
-    if (!mounted || _yearId != yearId) return;
+    if (!mounted || scope != _scopeVersion) return;
     if (saveResult is GeneratorError) {
       setState(() {
         _busy = false;
@@ -125,28 +183,42 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
       return;
     }
     final reloadResult = await TimetableGeneratorService().getWorkingDays(
-      yearId,
+      academicYearId: yearId,
+      shiftId: shiftId,
     );
-    if (!mounted || _yearId != yearId) return;
+    if (!mounted || scope != _scopeVersion) return;
+    final validReload =
+        reloadResult is GeneratorSuccess<WorkingDaysConfig> &&
+        (reloadResult.data.shiftId == null ||
+            reloadResult.data.shiftId == shiftId) &&
+        (reloadResult.data.academicYearId == null ||
+            reloadResult.data.academicYearId == yearId);
     setState(() {
       _busy = false;
-      if (reloadResult is GeneratorSuccess<List<String>>) {
-        _workingDays = reloadResult.data.toSet();
+      if (validReload) {
+        _workingDays = reloadResult.data.days.toSet();
+        _workingDaysShiftName = reloadResult.data.shiftName;
         _error = null;
         _step = 2;
       } else {
-        _error = (reloadResult as GeneratorError).message;
+        _workingDays = {};
+        _workingDaysShiftName = null;
+        _error = reloadResult is GeneratorError
+            ? reloadResult.message
+            : 'Working days do not match this shift and year.';
       }
     });
-    if (reloadResult is GeneratorSuccess<List<String>>) {
+    if (validReload) {
       _toast('Working days saved successfully.');
     }
   }
 
   Future<void> _loadSubjects(int? levelId) async {
     setState(() {
+      _scopeVersion++;
+      _clearPeriods();
+      _busy = false;
       _levelId = levelId;
-      _subjects = [];
       _preview = null;
       _error = null;
     });
@@ -164,9 +236,19 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
         _periodInputs.clear();
         _subjects = value;
         for (final subject in value) {
-          _periodInputs[subject.subjectId] = TextEditingController(
-            text: '${subject.periodsPerWeek}',
-          );
+          // This wizard is always a NEW generation session — never an edit
+          // screen — so every field starts genuinely empty regardless of
+          // whatever periods_per_week the backend may have saved from a
+          // previous session. The admin must retype every value here; nothing
+          // is ever bound from `subject.periodsPerWeek`, a cache, or any
+          // other prior state.
+          _periodInputs[subject.subjectId] = TextEditingController();
+          if (kDebugMode) {
+            debugPrint(
+              '[LevelSubjectsInit] ${subject.subjectName} -> '
+              '"${_periodInputs[subject.subjectId]!.text}"',
+            );
+          }
         }
       },
     );
@@ -174,6 +256,14 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
 
   Future<void> _saveSubjects() async {
     if (_busy || _yearId == null || _levelId == null) return;
+    final hasBlankField = _subjects.any(
+      (subject) =>
+          (_periodInputs[subject.subjectId]?.text.trim() ?? '').isEmpty,
+    );
+    if (hasBlankField) {
+      setState(() => _error = 'Enter periods per week for every subject.');
+      return;
+    }
     if (_periodForm.currentState?.validate() != true) return;
     for (final subject in _subjects) {
       subject.periodsPerWeek = int.parse(
@@ -192,12 +282,23 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
         _toast('Level timetable configuration saved.');
       },
     );
-    // Reload from the backend so the level step reflects the persisted
-    // configuration rather than only the locally-entered values.
     if (saved && mounted && _levelId == levelId && _yearId == yearId) {
-      await _loadSubjects(levelId);
+      await _previewTimetable();
     }
   }
+
+  /// Step 3's Continue/Save button is gated purely on locally-visible field
+  /// state — never on preview/readiness/capacity/teacher-assignment data,
+  /// which belong to the Preview step. Every displayed subject must have a
+  /// non-blank, valid, non-negative whole number.
+  bool get _allSubjectFieldsValid =>
+      _subjects.isNotEmpty &&
+      _subjects.every((subject) {
+        final text = _periodInputs[subject.subjectId]?.text.trim() ?? '';
+        if (!RegExp(r'^\d+$').hasMatch(text)) return false;
+        final value = int.tryParse(text);
+        return value != null && value >= 0;
+      });
 
   Future<void> _previewTimetable() async {
     if (_busy || _yearId == null || _levelId == null) return;
@@ -224,7 +325,15 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
       ),
       success: (value) => generated = value,
       onError: (error) async {
-        if (error.statusCode != 409) return false;
+        // A capacity/assignment rejection must never become a replace bypass.
+        final alreadyExists =
+            error.statusCode == 409 &&
+            error.message.toLowerCase().contains('already exist');
+        if (!alreadyExists || replace) {
+          _preview = null;
+          _step = 3;
+          return false;
+        }
         final replaceApproved = await _confirmReplace();
         if (replaceApproved == true && mounted) {
           await _generate(replace: true);
@@ -235,126 +344,17 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
     final result = generated;
     if (result == null || !mounted) return;
     if (result.unscheduled.isNotEmpty) {
-      await _showGenerationResultDialog(result);
-      if (!mounted) return;
-    } else {
-      _toast('Timetable generated successfully.');
+      setState(() {
+        _preview = null;
+        _step = 3;
+        _error =
+            'The backend returned an incomplete timetable. Refresh the preview and review the configuration.';
+      });
+      return;
     }
+    _toast('Timetable generated successfully.');
     Navigator.pop(context, true);
   }
-
-  Future<void> _showGenerationResultDialog(
-    TimetableGenerationResult result,
-  ) => showDialog<void>(
-    context: context,
-    builder: (_) => Dialog(
-      backgroundColor: Colors.white,
-      surfaceTintColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 480),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Timetable Generated',
-                style: TextStyle(
-                  color: _navy,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '${result.totalScheduled} lesson${result.totalScheduled == 1 ? '' : 's'} scheduled',
-                style: const TextStyle(
-                  color: _green,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              if (result.totalUnscheduled > 0) ...[
-                const SizedBox(height: 2),
-                Text(
-                  '${result.totalUnscheduled} requested lesson${result.totalUnscheduled == 1 ? '' : 's'} could not fit',
-                  style: const TextStyle(
-                    color: Color(0xFF9A6700),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 16),
-              Flexible(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (final summary in result.unscheduled)
-                        Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFF8E8),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFFF4D58A)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                summary.className.isEmpty
-                                    ? 'Class'
-                                    : summary.className,
-                                style: const TextStyle(
-                                  color: _navy,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Wrap(
-                                spacing: 6,
-                                children: [
-                                  if (summary.requested != null)
-                                    Text('${summary.requested} requested'),
-                                  if (summary.requested != null &&
-                                      summary.scheduled != null)
-                                    const Text('•'),
-                                  if (summary.scheduled != null)
-                                    Text('${summary.scheduled} scheduled'),
-                                ],
-                              ),
-                              Text(
-                                '${summary.unscheduled} unscheduled',
-                                style: const TextStyle(
-                                  color: Color(0xFF7A5200),
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: () => Navigator.pop(context),
-                style: FilledButton.styleFrom(
-                  backgroundColor: _green,
-                  minimumSize: const Size(0, 48),
-                ),
-                child: const Text('Close'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
 
   Future<bool?> _confirmReplace() => showDialog<bool>(
     context: context,
@@ -381,16 +381,17 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
     required void Function(T value) success,
     Future<bool> Function(GeneratorError error)? onError,
   }) async {
+    final scope = _scopeVersion;
     setState(() {
       _busy = true;
       _error = null;
       _errorDetails = {};
     });
     final result = await future;
-    if (!mounted) return;
+    if (!mounted || scope != _scopeVersion) return;
     if (result is GeneratorError) {
       final handled = onError == null ? false : await onError(result);
-      if (!mounted) return;
+      if (!mounted || scope != _scopeVersion) return;
       setState(() {
         _busy = false;
         if (!handled) {
@@ -406,9 +407,11 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
     });
   }
 
-  void _toast(String message) => ScaffoldMessenger.of(
-    context,
-  ).showSnackBar(SnackBar(content: Text(message), backgroundColor: _green));
+  void _toast(String message) {
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(content: Text(message), backgroundColor: _green));
+  }
 
   String _yearName() =>
       widget.years
@@ -613,48 +616,85 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
         ],
         onChanged: (value) {
           setState(() {
+            _scopeVersion++;
+            _daysRequest++;
+            _clearPeriods();
+            _busy = false;
+            _shiftId = null;
             _yearId = value;
             _levelId = null;
             _subjects = [];
             _preview = null;
+            _workingDays = {};
+            _workingDaysShiftName = null;
           });
-          if (value != null) _loadWorkingDays();
         },
       ),
     ],
   );
 
-  Widget _workingDaysStep() => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      _title('Working Days', 'Choose the exact weekdays used by the school.'),
-      const SizedBox(height: 18),
-      Wrap(
-        spacing: 9,
-        runSpacing: 9,
-        children: _days.map((day) {
-          final selected = _workingDays.contains(day);
-          return FilterChip(
-            label: Text(day),
-            selected: selected,
-            selectedColor: _green.withValues(alpha: .16),
-            checkmarkColor: _green,
-            side: BorderSide(
-              color: selected ? _green : const Color(0xFFDCE3EC),
+  Widget _workingDaysStep() {
+    final shiftsProvider = context.watch<ShiftsProvider>();
+    final shifts = shiftsProvider.shifts;
+    final shiftsLoading = shiftsProvider.loading;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _title(
+          'Working Days',
+          'Each shift has its own independent working days.',
+        ),
+        const SizedBox(height: 18),
+        Select3D<int?>(
+          value: shifts.any((s) => s.id == _shiftId) ? _shiftId : null,
+          label: shiftsLoading ? 'Loading shifts...' : 'Shift *',
+          items: [
+            const DropdownMenuItem<int?>(
+              value: null,
+              child: Text('Select shift'),
             ),
-            onSelected: (value) => setState(() {
-              value ? _workingDays.add(day) : _workingDays.remove(day);
-            }),
-          );
-        }).toList(),
-      ),
-      const SizedBox(height: 14),
-      Text(
-        '${_workingDays.length} working day${_workingDays.length == 1 ? '' : 's'} selected',
-        style: const TextStyle(color: _green, fontWeight: FontWeight.w800),
-      ),
-    ],
-  );
+            ...shifts.map(
+              (shift) => DropdownMenuItem<int?>(
+                value: shift.id,
+                child: Text(shift.name, overflow: TextOverflow.ellipsis),
+              ),
+            ),
+          ],
+          onChanged: _busy ? null : _onShiftChanged,
+        ),
+        const SizedBox(height: 18),
+        if (_shiftId == null)
+          _notice('Select a shift to view and configure its working days.')
+        else ...[
+          Wrap(
+            spacing: 9,
+            runSpacing: 9,
+            children: _days.map((day) {
+              final selected = _workingDays.contains(day);
+              return FilterChip(
+                label: Text(day),
+                selected: selected,
+                selectedColor: _green.withValues(alpha: .16),
+                checkmarkColor: _green,
+                side: BorderSide(
+                  color: selected ? _green : const Color(0xFFDCE3EC),
+                ),
+                onSelected: (value) => setState(() {
+                  value ? _workingDays.add(day) : _workingDays.remove(day);
+                }),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            '${_workingDays.length} working day${_workingDays.length == 1 ? '' : 's'} selected'
+            '${_workingDaysShiftName != null ? ' for $_workingDaysShiftName' : ''}',
+            style: const TextStyle(color: _green, fontWeight: FontWeight.w800),
+          ),
+        ],
+      ],
+    );
+  }
 
   Widget _subjectsStep() => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -690,7 +730,7 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
       ),
       if (_subjects.isNotEmpty)
         Text(
-          'Total Required Periods: ${_periodInputs.values.fold<int>(0, (sum, input) => sum + (int.tryParse(input.text) ?? 0))}',
+          'Each class must exactly fill its weekly timetable before generation.',
           style: const TextStyle(color: _navy, fontWeight: FontWeight.w800),
         ),
     ],
@@ -732,7 +772,15 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
           ],
           validator: (value) =>
               int.tryParse(value ?? '') == null ? 'Enter a whole number' : null,
-          onChanged: (_) => setState(() => _preview = null),
+          onChanged: (_) => setState(() {
+            // Editing after a preview always invalidates it — a fresh
+            // Review is required before Generate. Clearing the stale
+            // blank/save-error notice here too means it disappears the
+            // moment the admin starts fixing the field it was about, not
+            // only after the next full save attempt.
+            _preview = null;
+            _error = null;
+          }),
           decoration: _inputDecoration('Periods per week'),
         );
         if (constraints.maxWidth < 480) {
@@ -781,7 +829,7 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
         'Review the validated configuration before generating.',
       ),
       const SizedBox(height: 16),
-      if (_preview != null) _summaryCard(),
+      if (_preview != null) _classReadinessSection(),
     ],
   );
 
@@ -801,24 +849,29 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
       if (_needsTeacherDaysOff) _dayOffNotice(),
       if (_preview != null) ...[
         const SizedBox(height: 16),
-        _summaryCard(),
-        const SizedBox(height: 12),
-        if (_preview!.capacityIssues.isNotEmpty) _capacityIssuesSection(),
-        ..._preview!.issues.map((issue) => _notice(issue, error: true)),
-        if (_preview!.issues.any(
-              (issue) =>
-                  issue.toLowerCase().contains('teacher') &&
-                  issue.toLowerCase().contains('assign'),
-            ) &&
-            widget.onOpenCourseAssignments != null)
-          OutlinedButton.icon(
-            onPressed: () {
-              Navigator.pop(context, false);
-              widget.onOpenCourseAssignments!();
-            },
-            icon: const Icon(Icons.assignment_ind_outlined),
-            label: const Text('Go to Course Assign Teacher'),
+        if (_preview!.hasReadinessContract) ...[
+          _classReadinessSection(),
+          if (_preview!.classResults.any(
+                (c) => c.missingTeacherAssignments.isNotEmpty,
+              ) &&
+              widget.onOpenCourseAssignments != null) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.pop(context, false);
+                widget.onOpenCourseAssignments!();
+              },
+              icon: const Icon(Icons.assignment_ind_outlined),
+              label: const Text('Go to Course Assign Teacher'),
+            ),
+          ],
+        ] else ...[
+          _notice(
+            'The backend has not returned complete per-class readiness. Refresh the preview before generating.',
+            error: true,
           ),
+        ],
+        ..._preview!.issues.map((issue) => _notice(issue, error: true)),
         if (_preview!.rows.isNotEmpty) ...[
           const SizedBox(height: 12),
           const Text(
@@ -832,226 +885,164 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
     ],
   );
 
-  Widget _summaryCard() {
-    final summary = _preview!.summary;
-    final canGenerate = _preview!.canGenerate;
-    final hasWarnings = _preview!.capacityIssues.isNotEmpty;
-    int? asInt(dynamic value) => value == null
-        ? null
-        : (value is num ? value.toInt() : int.tryParse(value.toString()));
-    final required = asInt(
-      summary['required_periods'] ??
-          summary['requiredPeriods'] ??
-          summary['required'],
-    );
-    final available = asInt(
-      summary['available_periods'] ??
-          summary['availablePeriods'] ??
-          summary['available'],
-    );
-    final freeSlots =
-        canGenerate && !hasWarnings && required != null && available != null
-        ? available - required
-        : null;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: canGenerate
-            ? _green.withValues(alpha: .08)
-            : const Color(0xFFFFF3F3),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: canGenerate ? _green : Colors.red.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            _yearName(),
-            style: const TextStyle(color: _navy, fontWeight: FontWeight.w800),
+  /// The new complete-timetable-mode per-class readiness view — one card
+  /// per class with its requested/available/difference/status, plus any
+  /// missing period requirements or teacher assignments for that class.
+  /// Never locally recomputes readiness: every field comes straight from
+  /// the backend's per-class diagnostic. Both under-allocation and
+  /// over-allocation block generation.
+  Widget _classReadinessSection() {
+    final (String banner, Color bannerColor) = _preview!.canGenerate
+        ? ('All classes are ready to generate.', _green)
+        : (
+            'Each class must exactly fill its weekly timetable. Fix the blocking issues before generating.',
+            const Color(0xFFB42318),
+          );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          banner,
+          style: TextStyle(
+            color: bannerColor,
+            fontWeight: FontWeight.w800,
+            fontSize: 16,
           ),
-          Text(_levelName(), style: const TextStyle(color: Color(0xFF64748B))),
-          const SizedBox(height: 8),
-          ...summary.entries.map(
-            (entry) => Text('${_label(entry.key)}: ${entry.value}'),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            canGenerate
-                ? 'Ready to Generate'
-                : 'Timetable Cannot Be Generated Yet',
-            style: TextStyle(
-              color: canGenerate ? _green : Colors.red.shade700,
-              fontWeight: FontWeight.w800,
-              fontSize: 16,
-            ),
-          ),
-          if (canGenerate && hasWarnings) ...[
-            const SizedBox(height: 2),
-            const Text(
-              'With capacity warnings',
-              style: TextStyle(
-                color: Color(0xFF9A6700),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-          if (freeSlots != null && freeSlots > 0) ...[
-            const SizedBox(height: 4),
-            Text(
-              '$freeSlots free timetable slot${freeSlots == 1 ? '' : 's'}',
-              style: TextStyle(color: Colors.grey.shade700),
-            ),
-          ],
-        ],
-      ),
+        ),
+        const SizedBox(height: 12),
+        for (final result in _preview!.classResults)
+          _classReadinessCard(result),
+      ],
     );
   }
 
-  Widget _capacityIssuesSection() => Padding(
-    padding: const EdgeInsets.only(bottom: 12),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Capacity Warnings',
-          style: TextStyle(
-            color: _navy,
-            fontWeight: FontWeight.w800,
-            fontSize: 15,
-          ),
-        ),
-        const SizedBox(height: 6),
-        const Text(
-          'These classes requested more weekly periods than they have '
-          'physical timetable slots for. Generation can still proceed — '
-          'each is scheduled up to its available capacity.',
-          style: TextStyle(color: Color(0xFF7A5200)),
-        ),
-        const SizedBox(height: 10),
-        for (final issue in _preview!.capacityIssues) _capacityIssueCard(issue),
-      ],
-    ),
-  );
-
-  Widget _capacityIssueCard(TimetableCapacityIssue issue) {
-    final expanded = _expandedCapacitySubjects.contains(issue.className);
+  Widget _classReadinessCard(TimetableClassReadiness result) {
+    const amberBg = Color(0xFFFFF8E8);
+    const amberBorder = Color(0xFFF4D58A);
+    const amberText = Color(0xFF9A6700);
+    // Distinct colors identify the correction needed; both states block.
+    const orangeBg = Color(0xFFFFF6ED);
+    const orangeBorder = Color(0xFFFED29B);
+    const orangeText = Color(0xFFB54708);
+    const redBg = Color(0xFFFFF1F2);
+    const redBorder = Color(0xFFFECACA);
+    const redText = Color(0xFFB42318);
+    final (Color bg, Color border, Color text, String label) =
+        result.missingRequirements.isNotEmpty ||
+            result.missingTeacherAssignments.isNotEmpty ||
+            (result.isBlocking && !result.isCapacityWarning)
+        ? (redBg, redBorder, redText, 'BLOCKED')
+        : switch (result.status) {
+            TimetableClassStatus.complete => (
+              _green.withValues(alpha: .08),
+              _green,
+              _green,
+              'COMPLETE',
+            ),
+            TimetableClassStatus.underAllocated => (
+              amberBg,
+              amberBorder,
+              amberText,
+              'UNDER ALLOCATED',
+            ),
+            TimetableClassStatus.overAllocated => (
+              orangeBg,
+              orangeBorder,
+              orangeText,
+              'OVER ALLOCATED',
+            ),
+            _ => (amberBg, amberBorder, amberText, 'PENDING'),
+          };
+    String? statusMessage = result.message;
+    final difference = result.difference;
+    if (difference != null && difference > 0) {
+      statusMessage =
+          'Add ' +
+          difference.toString() +
+          ' more periods to fill this class timetable.';
+    } else if (difference != null && difference < 0) {
+      statusMessage =
+          'Reduce the configured periods by ' + (-difference).toString() + '.';
+    }
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF8E8),
+        color: bg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFF4D58A)),
+        border: Border.all(color: border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            issue.className.isEmpty ? 'Class' : issue.className,
-            style: const TextStyle(color: _navy, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 6,
-            runSpacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.center,
+          Row(
             children: [
-              if (issue.requested != null) Text('${issue.requested} requested'),
-              if (issue.requested != null && issue.scheduled != null)
-                const Text('•'),
-              if (issue.scheduled != null) Text('${issue.scheduled} scheduled'),
-            ],
-          ),
-          if (issue.unscheduled != null && issue.unscheduled! > 0) ...[
-            const SizedBox(height: 2),
-            Text(
-              '${issue.unscheduled} unscheduled',
-              style: const TextStyle(
-                color: Color(0xFF7A5200),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-          if (issue.available != null) ...[
-            const SizedBox(height: 4),
-            Text('Available timetable slots: ${issue.available}'),
-          ],
-          const SizedBox(height: 6),
-          Text(
-            'Reason: ${issue.reasonText}',
-            style: const TextStyle(color: Color(0xFF7A5200)),
-          ),
-          if (issue.subjectResults.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            InkWell(
-              onTap: () => setState(() {
-                if (expanded) {
-                  _expandedCapacitySubjects.remove(issue.className);
-                } else {
-                  _expandedCapacitySubjects.add(issue.className);
-                }
-              }),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    expanded ? 'Hide subject details' : 'Subject details',
-                    style: const TextStyle(
-                      color: _navy,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  Icon(
-                    expanded
-                        ? Icons.keyboard_arrow_up_rounded
-                        : Icons.keyboard_arrow_down_rounded,
+              Expanded(
+                child: Text(
+                  result.className.isEmpty ? 'Class' : result.className,
+                  style: const TextStyle(
                     color: _navy,
-                    size: 18,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
                   ),
-                ],
-              ),
-            ),
-            if (expanded)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: issue.subjectResults
-                      .map(
-                        (subject) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  subject.subjectName,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                [
-                                  if (subject.requested != null)
-                                    'Requested ${subject.requested}',
-                                  if (subject.scheduled != null)
-                                    'Scheduled ${subject.scheduled}',
-                                  if (subject.hasUnscheduled)
-                                    'Unscheduled ${subject.unscheduled}',
-                                ].join(' • '),
-                                style: TextStyle(
-                                  color: subject.hasUnscheduled
-                                      ? const Color(0xFF7A5200)
-                                      : Colors.grey.shade700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                      .toList(),
                 ),
               ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: text.withValues(alpha: .14),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: text,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 16,
+            runSpacing: 4,
+            children: [
+              if (result.requestedPeriods != null)
+                Text('Requested Periods: ${result.requestedPeriods}'),
+              if (result.availableSlots != null)
+                Text('Available Slots: ${result.availableSlots}'),
+              if (result.difference != null)
+                Text('Difference: ${result.difference}'),
+            ],
+          ),
+          if (statusMessage != null) ...[
+            const SizedBox(height: 6),
+            Text(statusMessage, style: TextStyle(color: text)),
+          ],
+          if (result.missingRequirements.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Missing Period Requirements',
+              style: TextStyle(color: redText, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 2),
+            for (final subject in result.missingRequirements)
+              Text('• $subject', style: const TextStyle(color: redText)),
+          ],
+          if (result.missingTeacherAssignments.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Teacher Assignment Required',
+              style: TextStyle(color: redText, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 2),
+            for (final message in result.missingTeacherAssignments)
+              Text('• $message', style: const TextStyle(color: redText)),
           ],
         ],
       ),
@@ -1099,14 +1090,36 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
   );
 
   Widget _footer() {
+    if (kDebugMode && _step == 2) {
+      final filled = _subjects
+          .where(
+            (s) =>
+                int.tryParse(_periodInputs[s.subjectId]?.text.trim() ?? '') !=
+                null,
+          )
+          .length;
+      debugPrint(
+        '[LevelSubjectsContinue] subjects=${_subjects.length} '
+        'filled=$filled allValid=$_allSubjectFieldsValid '
+        'isSaving=$_busy '
+        'canContinue=${!_busy && _levelId != null && _allSubjectFieldsValid}',
+      );
+    }
     VoidCallback? primary;
-    String label = 'Continue';
+    String label = _step == 2
+        ? 'Save Level Configuration'
+        : _step == 4
+        ? 'Generate Timetable'
+        : 'Continue';
     if (_step == 0 && _yearId != null) {
       primary = () => setState(() => _step = 1);
-    } else if (_step == 1 && _workingDays.isNotEmpty) {
+    } else if (_step == 1 && _shiftId != null && _workingDays.isNotEmpty) {
       primary = _saveWorkingDays;
       label = 'Save Working Days';
-    } else if (_step == 2 && _levelId != null && _subjects.isNotEmpty) {
+    } else if (_step == 2 &&
+        _yearId != null &&
+        _levelId != null &&
+        _allSubjectFieldsValid) {
       primary = _saveSubjects;
       label = 'Save Level Configuration';
     } else if (_step == 3 &&
@@ -1132,7 +1145,13 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
                   : _step == 0
                   ? () => Navigator.pop(context)
                   : () => setState(() => _step--),
-              child: Text(_step == 0 ? 'Cancel' : 'Back'),
+              child: Text(
+                _step == 0
+                    ? 'Cancel'
+                    : _step == 3
+                    ? 'Back to Fix'
+                    : 'Back',
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -1201,15 +1220,4 @@ class _TimetableGeneratorDialogState extends State<_TimetableGeneratorDialog> {
     fillColor: const Color(0xFFF8FAFC),
     border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
   );
-
-  String _label(Object key) => key
-      .toString()
-      .replaceAll('_', ' ')
-      .split(' ')
-      .map(
-        (word) => word.isEmpty
-            ? word
-            : '${word[0].toUpperCase()}${word.substring(1)}',
-      )
-      .join(' ');
 }

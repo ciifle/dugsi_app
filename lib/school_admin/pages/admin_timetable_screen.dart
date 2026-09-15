@@ -18,7 +18,7 @@ import 'package:kobac/services/periods_service.dart';
 import 'package:kobac/services/shifts_service.dart';
 import 'package:kobac/services/teacher_day_off_service.dart';
 import 'package:kobac/school_admin/widgets/timetable_print_dialog.dart';
-import 'package:kobac/school_admin/widgets/timetable_generator_dialog.dart';
+import 'package:kobac/school_admin/widgets/school_timetable_generator_dialog.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
 const Color kPrimaryGreen = Color(0xFF5AB04B);
@@ -85,7 +85,7 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
     final provider = context.read<AcademicYearsProvider>();
     await provider.ensureLoaded();
     if (!mounted) return;
-    final generated = await showTimetableGeneratorDialog(
+    final generated = await showSchoolTimetableGeneratorDialog(
       context,
       years: provider.years,
       initialAcademicYearId: _selectedAcademicYearId ?? provider.activeYear?.id,

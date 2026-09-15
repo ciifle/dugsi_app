@@ -4,8 +4,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:kobac/services/academic_years_service.dart';
+import 'package:kobac/services/shifts_service.dart';
+import 'package:provider/provider.dart';
 import 'package:kobac/services/timetable_generator_service.dart';
 import 'package:kobac/school_admin/widgets/timetable_generator_dialog.dart';
+
+/// Step 3 fields always start empty now (even when the backend has a saved
+/// periods_per_week for the subject) — every test that reaches Save Level
+/// Configuration must type a value into each visible field itself, exactly
+/// as an admin would, rather than relying on any backend-provided pre-fill.
+Future<void> _fillAllPeriodFields(WidgetTester tester, String value) async {
+  final fields = find.byType(TextFormField);
+  final count = fields.evaluate().length;
+  for (var i = 0; i < count; i++) {
+    final field = fields.at(i);
+    await tester.ensureVisible(field);
+    await tester.enterText(field, value);
+    await tester.pump();
+  }
+}
 
 void main() {
   test('recognizes missing teacher days off in backend errors and flags', () {
@@ -55,6 +72,12 @@ void main() {
                 {'id': 2, 'name': 'Sare'},
               ],
             };
+          if (path.endsWith('/shifts'))
+            data = {
+              'shifts': [
+                {'id': 1, 'name': 'Morning'},
+              ],
+            };
           if (path.endsWith('/working-days'))
             data = {
               'days': ['MON', 'TUE', 'WED', 'THU', 'SAT', 'SUN'],
@@ -94,24 +117,40 @@ void main() {
                     ]
                   : [],
               'summary': {'required_periods': 16},
+              'classes': [
+                {
+                  'class_name': 'Form One',
+                  'status': 'COMPLETE',
+                  'requested_periods': 42,
+                  'available_slots': 42,
+                  'ready_to_generate': !missing,
+                },
+              ],
             };
           return http.Response(jsonEncode(data), 200);
         });
         await http.runWithClient(() async {
           await tester.pumpWidget(
-            MaterialApp(
-              home: Scaffold(
-                body: Builder(
-                  builder: (context) => TextButton(
-                    onPressed: () => showTimetableGeneratorDialog(
-                      context,
-                      years: const [
-                        AcademicYear(id: 7, name: '2026-2027', isActive: true),
-                      ],
-                      initialAcademicYearId: 7,
-                      onOpenTeacherDaysOff: () => openedDaysOff = true,
+            ChangeNotifierProvider<ShiftsProvider>(
+              create: (_) => ShiftsProvider(),
+              child: MaterialApp(
+                home: Scaffold(
+                  body: Builder(
+                    builder: (context) => TextButton(
+                      onPressed: () => showTimetableGeneratorDialog(
+                        context,
+                        years: const [
+                          AcademicYear(
+                            id: 7,
+                            name: '2026-2027',
+                            isActive: true,
+                          ),
+                        ],
+                        initialAcademicYearId: 7,
+                        onOpenTeacherDaysOff: () => openedDaysOff = true,
+                      ),
+                      child: const Text('Open'),
                     ),
-                    child: const Text('Open'),
                   ),
                 ),
               ),
@@ -122,6 +161,10 @@ void main() {
           expect(tester.takeException(), isNull);
           if (width < 600) expect(find.text('Step 1 of 5'), findsOneWidget);
           await tester.tap(find.text('Continue'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byType(DropdownButtonFormField<int?>));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Morning').last);
           await tester.pumpAndSettle();
           await tester.tap(find.text('Save Working Days'));
           await tester.pumpAndSettle();
@@ -153,6 +196,7 @@ void main() {
           );
           await tester.ensureVisible(first);
           await tester.enterText(first, '5');
+          await tester.pump();
           await tester.tap(find.text('Save Level Configuration'));
           await tester.pumpAndSettle();
           expect(periods, [5, 3, 3, 5]);
@@ -166,8 +210,6 @@ void main() {
             ),
             periods,
           );
-          await tester.tap(find.text('Preview Timetable'));
-          await tester.pumpAndSettle();
           expect(find.text('Manage Teacher Days Off'), findsOneWidget);
           expect(find.text('Random Teacher Days Off'), findsNothing);
           expect(
@@ -230,7 +272,7 @@ void main() {
       expect(preview.feasible, isFalse);
       // Backend reports infeasible purely on capacity, so Flutter must not
       // block generation — canGenerate stays true despite feasible:false.
-      expect(preview.canGenerate, isTrue);
+      expect(preview.canGenerate, isFalse);
       expect(preview.capacityIssues, hasLength(3));
       expect(preview.capacityIssues[0].className, 'Class 5 A');
       expect(preview.capacityIssues[0].requested, 44);
@@ -429,23 +471,26 @@ void main() {
       },
     );
 
-    test('an explicit can_generate field always wins over derived logic', () {
-      final blockedDespiteNoIssues = TimetableGeneratorPreview.fromJson({
-        'feasible': true,
-        'can_generate': false,
-      });
-      expect(blockedDespiteNoIssues.canGenerate, isFalse);
+    test(
+      'an explicit can_generate flag cannot bypass missing readiness or errors',
+      () {
+        final blockedDespiteNoIssues = TimetableGeneratorPreview.fromJson({
+          'feasible': true,
+          'can_generate': false,
+        });
+        expect(blockedDespiteNoIssues.canGenerate, isFalse);
 
-      final allowedDespiteCapacityAndErrors =
-          TimetableGeneratorPreview.fromJson({
-            'feasible': false,
-            'can_generate': true,
-            'errors': [
-              {'message': 'Some warning the backend still allows past.'},
-            ],
-          });
-      expect(allowedDespiteCapacityAndErrors.canGenerate, isTrue);
-    });
+        final allowedDespiteCapacityAndErrors =
+            TimetableGeneratorPreview.fromJson({
+              'feasible': false,
+              'can_generate': true,
+              'errors': [
+                {'message': 'Some warning the backend still allows past.'},
+              ],
+            });
+        expect(allowedDespiteCapacityAndErrors.canGenerate, isFalse);
+      },
+    );
 
     for (final scenario in [
       (required: 44, available: 42, expectWarning: true),
@@ -453,28 +498,31 @@ void main() {
       (required: 42, available: 42, expectWarning: false),
       (required: 40, available: 42, expectWarning: false),
     ]) {
-      test('required=${scenario.required} available=${scenario.available} → '
-          'canGenerate=true, warning=${scenario.expectWarning}', () {
-        final capacityShaped = scenario.required > scenario.available
-            ? [
-                {
-                  'class_name': 'Class 5 A',
-                  'required_periods': scenario.required,
-                  'available_periods': scenario.available,
-                },
-              ]
-            : <Map<String, dynamic>>[];
-        final preview = TimetableGeneratorPreview.fromJson({
-          'feasible': capacityShaped.isEmpty,
-          'summary': {
-            'required_periods': scenario.required,
-            'available_periods': scenario.available,
-          },
-          'capacity_issues': capacityShaped,
-        });
-        expect(preview.canGenerate, isTrue);
-        expect(preview.capacityIssues.isNotEmpty, scenario.expectWarning);
-      });
+      test(
+        'required=${scenario.required} available=${scenario.available} → '
+        'legacy summary alone cannot authorize generation, warning=${scenario.expectWarning}',
+        () {
+          final capacityShaped = scenario.required > scenario.available
+              ? [
+                  {
+                    'class_name': 'Class 5 A',
+                    'required_periods': scenario.required,
+                    'available_periods': scenario.available,
+                  },
+                ]
+              : <Map<String, dynamic>>[];
+          final preview = TimetableGeneratorPreview.fromJson({
+            'feasible': capacityShaped.isEmpty,
+            'summary': {
+              'required_periods': scenario.required,
+              'available_periods': scenario.available,
+            },
+            'capacity_issues': capacityShaped,
+          });
+          expect(preview.canGenerate, isFalse);
+          expect(preview.capacityIssues.isNotEmpty, scenario.expectWarning);
+        },
+      );
     }
   });
 
@@ -538,109 +586,121 @@ void main() {
     });
   });
 
-  testWidgets(
-    'Dhaxe Hoose case: four over-capacity classes show precise amber warnings, Generate stays enabled',
-    (tester) async {
-      final client = MockClient((request) async {
-        final path = request.url.path;
-        if (path.endsWith('/levels')) {
-          return http.Response(
-            jsonEncode({
-              'levels': [
-                {'id': 2, 'name': 'Dhaxe Hoose'},
-              ],
-            }),
-            200,
-          );
-        }
-        if (path.endsWith('/working-days')) {
-          return http.Response(
-            jsonEncode({
-              'days': ['MON', 'TUE', 'WED', 'THU', 'FRI'],
-            }),
-            200,
-          );
-        }
-        if (path.endsWith('/subjects')) {
-          return http.Response(
-            jsonEncode({
-              'subjects': [
-                {
-                  'subject_id': 1,
-                  'subject_name': 'Mathematics',
-                  'periods_per_week': 6,
-                },
-              ],
-            }),
-            200,
-          );
-        }
-        if (path.endsWith('/preview')) {
-          // Documented contract: over-capacity alone reports
-          // feasible:true / can_generate:true with a top-level
-          // capacity_warnings array — never a fatal condition.
-          return http.Response(
-            jsonEncode({
-              'feasible': true,
-              'can_generate': true,
-              'errors': [],
-              'capacity_warnings': [
-                {
-                  'class_name': 'Class 5 A',
-                  'requested_periods': 44,
-                  'available_periods': 42,
-                  'scheduled_periods': 42,
-                  'unscheduled_periods': 2,
-                  'reason_code': 'CLASS_CAPACITY_EXCEEDED',
-                  'subject_results': [
-                    {
-                      'subject_name': 'Mathematics',
-                      'requested': 6,
-                      'scheduled': 6,
-                      'unscheduled': 0,
-                    },
-                    {
-                      'subject_name': 'Islamic',
-                      'requested': 5,
-                      'scheduled': 4,
-                      'unscheduled': 1,
-                    },
-                  ],
-                },
-                {
-                  'class_name': 'Class 4 A',
-                  'requested_periods': 43,
-                  'available_periods': 42,
-                  'scheduled_periods': 42,
-                  'unscheduled_periods': 1,
-                  'reason_code': 'CLASS_CAPACITY_EXCEEDED',
-                },
-                {
-                  'class_name': 'Class 4 B',
-                  'requested_periods': 43,
-                  'available_periods': 42,
-                  'scheduled_periods': 42,
-                  'unscheduled_periods': 1,
-                  'reason_code': 'CLASS_CAPACITY_EXCEEDED',
-                },
-                {
-                  'class_name': 'Class 3 A',
-                  'requested_periods': 43,
-                  'available_periods': 42,
-                  'scheduled_periods': 42,
-                  'unscheduled_periods': 1,
-                  'reason_code': 'CLASS_CAPACITY_EXCEEDED',
-                },
-              ],
-            }),
-            200,
-          );
-        }
-        return http.Response(jsonEncode({}), 200);
-      });
-      await http.runWithClient(() async {
-        await tester.pumpWidget(
-          MaterialApp(
+  testWidgets('legacy over-capacity preview cannot enable generation', (
+    tester,
+  ) async {
+    final client = MockClient((request) async {
+      final path = request.url.path;
+      if (path.endsWith('/levels')) {
+        return http.Response(
+          jsonEncode({
+            'levels': [
+              {'id': 2, 'name': 'Dhaxe Hoose'},
+            ],
+          }),
+          200,
+        );
+      }
+      if (path.endsWith('/shifts')) {
+        return http.Response(
+          jsonEncode({
+            'shifts': [
+              {'id': 1, 'name': 'Morning'},
+            ],
+          }),
+          200,
+        );
+      }
+      if (path.endsWith('/working-days')) {
+        return http.Response(
+          jsonEncode({
+            'days': ['MON', 'TUE', 'WED', 'THU', 'FRI'],
+          }),
+          200,
+        );
+      }
+      if (path.endsWith('/subjects')) {
+        return http.Response(
+          jsonEncode({
+            'subjects': [
+              {
+                'subject_id': 1,
+                'subject_name': 'Mathematics',
+                'periods_per_week': 6,
+              },
+            ],
+          }),
+          200,
+        );
+      }
+      if (path.endsWith('/preview')) {
+        // Documented contract: over-capacity alone reports
+        // feasible:true / can_generate:true with a top-level
+        // capacity_warnings array — never a fatal condition.
+        return http.Response(
+          jsonEncode({
+            'feasible': true,
+            'can_generate': true,
+            'errors': [],
+            'capacity_warnings': [
+              {
+                'class_name': 'Class 5 A',
+                'requested_periods': 44,
+                'available_periods': 42,
+                'scheduled_periods': 42,
+                'unscheduled_periods': 2,
+                'reason_code': 'CLASS_CAPACITY_EXCEEDED',
+                'subject_results': [
+                  {
+                    'subject_name': 'Mathematics',
+                    'requested': 6,
+                    'scheduled': 6,
+                    'unscheduled': 0,
+                  },
+                  {
+                    'subject_name': 'Islamic',
+                    'requested': 5,
+                    'scheduled': 4,
+                    'unscheduled': 1,
+                  },
+                ],
+              },
+              {
+                'class_name': 'Class 4 A',
+                'requested_periods': 43,
+                'available_periods': 42,
+                'scheduled_periods': 42,
+                'unscheduled_periods': 1,
+                'reason_code': 'CLASS_CAPACITY_EXCEEDED',
+              },
+              {
+                'class_name': 'Class 4 B',
+                'requested_periods': 43,
+                'available_periods': 42,
+                'scheduled_periods': 42,
+                'unscheduled_periods': 1,
+                'reason_code': 'CLASS_CAPACITY_EXCEEDED',
+              },
+              {
+                'class_name': 'Class 3 A',
+                'requested_periods': 43,
+                'available_periods': 42,
+                'scheduled_periods': 42,
+                'unscheduled_periods': 1,
+                'reason_code': 'CLASS_CAPACITY_EXCEEDED',
+              },
+            ],
+          }),
+          200,
+        );
+      }
+      return http.Response(jsonEncode({}), 200);
+    });
+    await http.runWithClient(() async {
+      await tester.pumpWidget(
+        ChangeNotifierProvider<ShiftsProvider>(
+          create: (_) => ShiftsProvider(),
+          child: MaterialApp(
             home: Scaffold(
               body: Builder(
                 builder: (context) => TextButton(
@@ -656,82 +716,42 @@ void main() {
               ),
             ),
           ),
-        );
-        await tester.tap(find.text('Open'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Continue'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Save Working Days'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byType(DropdownButtonFormField<int?>));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Dhaxe Hoose').last);
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Save Level Configuration'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Preview Timetable'));
-        await tester.pumpAndSettle();
-        // Non-blocking warning framing, never a fatal-error state.
-        expect(find.text('Ready to Generate'), findsOneWidget);
-        expect(find.text('With capacity warnings'), findsOneWidget);
-        expect(find.text('Timetable Cannot Be Generated Yet'), findsNothing);
-        expect(find.text('Configuration needs attention'), findsNothing);
-        expect(find.text('Capacity Warnings'), findsOneWidget);
-        // The obsolete generic teacher/class-conflict message must never
-        // appear for a pure capacity shortage.
-        expect(find.textContaining('teacher or class conflict'), findsNothing);
-        expect(find.textContaining('Requires 44 periods'), findsNothing);
-
-        for (final className in [
-          'Class 5 A',
-          'Class 4 A',
-          'Class 4 B',
-          'Class 3 A',
-        ]) {
-          expect(find.text(className), findsOneWidget);
-        }
-        expect(find.text('Available timetable slots: 42'), findsNWidgets(4));
-        expect(
-          find.text(
-            'Reason: This class has 42 physical weekly timetable slots.',
-          ),
-          findsNWidgets(4),
-        );
-        expect(find.text('2 unscheduled'), findsOneWidget);
-        expect(find.text('1 unscheduled'), findsNWidgets(3));
-
-        // Subject-level breakdown is expandable, not shown by default.
-        expect(find.text('Mathematics'), findsNothing);
-        await tester.ensureVisible(find.text('Subject details').first);
-        await tester.tap(find.text('Subject details').first);
-        await tester.pumpAndSettle();
-        expect(find.text('Mathematics'), findsOneWidget);
-        expect(find.text('Requested 6 • Scheduled 6'), findsOneWidget);
-        expect(find.text('Islamic'), findsOneWidget);
-        expect(
-          find.text('Requested 5 • Scheduled 4 • Unscheduled 1'),
-          findsOneWidget,
-        );
-
-        // Generate remains enabled — the only Continue button on this step.
-        expect(
-          tester
-              .widget<FilledButton>(
-                find.widgetWithText(FilledButton, 'Continue to Generate'),
-              )
-              .onPressed,
-          isNotNull,
-        );
-        expect(
-          tester
-              .widget<TextButton>(find.widgetWithText(TextButton, 'Back'))
-              .onPressed,
-          isNotNull,
-        );
-        expect(tester.takeException(), isNull);
-      }, () => client);
-    },
-  );
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DropdownButtonFormField<int?>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Morning').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save Working Days'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DropdownButtonFormField<int?>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Dhaxe Hoose').last);
+      await tester.pumpAndSettle();
+      await _fillAllPeriodFields(tester, '6');
+      await tester.tap(find.text('Save Level Configuration'));
+      await tester.pumpAndSettle();
+      // Older capacity-only responses cannot authorize strict generation.
+      expect(
+        find.text(
+          'The backend has not returned complete per-class readiness. Refresh the preview before generating.',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<FilledButton>(find.widgetWithText(FilledButton, 'Continue'))
+            .onPressed,
+        isNull,
+      );
+      expect(find.text('Generate Anyway'), findsNothing);
+      expect(tester.takeException(), isNull);
+    }, () => client);
+  });
 
   testWidgets(
     'a real blocking error (missing teacher assignment) disables Generate',
@@ -743,6 +763,16 @@ void main() {
             jsonEncode({
               'levels': [
                 {'id': 2, 'name': 'Sare'},
+              ],
+            }),
+            200,
+          );
+        }
+        if (path.endsWith('/shifts')) {
+          return http.Response(
+            jsonEncode({
+              'shifts': [
+                {'id': 1, 'name': 'Morning'},
               ],
             }),
             200,
@@ -789,18 +819,21 @@ void main() {
       });
       await http.runWithClient(() async {
         await tester.pumpWidget(
-          MaterialApp(
-            home: Scaffold(
-              body: Builder(
-                builder: (context) => TextButton(
-                  onPressed: () => showTimetableGeneratorDialog(
-                    context,
-                    years: const [
-                      AcademicYear(id: 7, name: '2026-2027', isActive: true),
-                    ],
-                    initialAcademicYearId: 7,
+          ChangeNotifierProvider<ShiftsProvider>(
+            create: (_) => ShiftsProvider(),
+            child: MaterialApp(
+              home: Scaffold(
+                body: Builder(
+                  builder: (context) => TextButton(
+                    onPressed: () => showTimetableGeneratorDialog(
+                      context,
+                      years: const [
+                        AcademicYear(id: 7, name: '2026-2027', isActive: true),
+                      ],
+                      initialAcademicYearId: 7,
+                    ),
+                    child: const Text('Open'),
                   ),
-                  child: const Text('Open'),
                 ),
               ),
             ),
@@ -810,17 +843,25 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Continue'));
         await tester.pumpAndSettle();
+        await tester.tap(find.byType(DropdownButtonFormField<int?>));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Morning').last);
+        await tester.pumpAndSettle();
         await tester.tap(find.text('Save Working Days'));
         await tester.pumpAndSettle();
         await tester.tap(find.byType(DropdownButtonFormField<int?>));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Sare').last);
         await tester.pumpAndSettle();
+        await _fillAllPeriodFields(tester, '5');
         await tester.tap(find.text('Save Level Configuration'));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Preview Timetable'));
-        await tester.pumpAndSettle();
-        expect(find.text('Timetable Cannot Be Generated Yet'), findsOneWidget);
+        expect(
+          find.text(
+            'The backend has not returned complete per-class readiness. Refresh the preview before generating.',
+          ),
+          findsOneWidget,
+        );
         expect(find.text('Capacity Warning'), findsNothing);
         expect(
           find.text(
@@ -838,7 +879,9 @@ void main() {
         );
         expect(
           tester
-              .widget<TextButton>(find.widgetWithText(TextButton, 'Back'))
+              .widget<TextButton>(
+                find.widgetWithText(TextButton, 'Back to Fix'),
+              )
               .onPressed,
           isNotNull,
         );
@@ -871,6 +914,16 @@ void main() {
             200,
           );
         }
+        if (path.endsWith('/shifts')) {
+          return http.Response(
+            jsonEncode({
+              'shifts': [
+                {'id': 1, 'name': 'Morning'},
+              ],
+            }),
+            200,
+          );
+        }
         if (path.endsWith('/working-days')) {
           return http.Response(
             jsonEncode({
@@ -892,18 +945,21 @@ void main() {
       });
       await http.runWithClient(() async {
         await tester.pumpWidget(
-          MaterialApp(
-            home: Scaffold(
-              body: Builder(
-                builder: (context) => TextButton(
-                  onPressed: () => showTimetableGeneratorDialog(
-                    context,
-                    years: const [
-                      AcademicYear(id: 7, name: '2026-2027', isActive: true),
-                    ],
-                    initialAcademicYearId: 7,
+          ChangeNotifierProvider<ShiftsProvider>(
+            create: (_) => ShiftsProvider(),
+            child: MaterialApp(
+              home: Scaffold(
+                body: Builder(
+                  builder: (context) => TextButton(
+                    onPressed: () => showTimetableGeneratorDialog(
+                      context,
+                      years: const [
+                        AcademicYear(id: 7, name: '2026-2027', isActive: true),
+                      ],
+                      initialAcademicYearId: 7,
+                    ),
+                    child: const Text('Open'),
                   ),
-                  child: const Text('Open'),
                 ),
               ),
             ),
@@ -912,6 +968,10 @@ void main() {
         await tester.tap(find.text('Open'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Continue'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byType(DropdownButtonFormField<int?>));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Morning').last);
         await tester.pumpAndSettle();
         await tester.tap(find.text('Save Working Days'));
         await tester.pumpAndSettle();
@@ -947,7 +1007,7 @@ void main() {
     {'required': 42, 'available': 42, 'label': null},
   ]) {
     testWidgets(
-      'free/exact capacity preview never claims an error (required=${scenario['required']}, available=${scenario['available']})',
+      'legacy summary cannot enable generation (required=${scenario['required']}, available=${scenario['available']})',
       (tester) async {
         final client = MockClient((request) async {
           final path = request.url.path;
@@ -956,6 +1016,16 @@ void main() {
               jsonEncode({
                 'levels': [
                   {'id': 2, 'name': 'Sare'},
+                ],
+              }),
+              200,
+            );
+          }
+          if (path.endsWith('/shifts')) {
+            return http.Response(
+              jsonEncode({
+                'shifts': [
+                  {'id': 1, 'name': 'Morning'},
                 ],
               }),
               200,
@@ -999,18 +1069,25 @@ void main() {
         });
         await http.runWithClient(() async {
           await tester.pumpWidget(
-            MaterialApp(
-              home: Scaffold(
-                body: Builder(
-                  builder: (context) => TextButton(
-                    onPressed: () => showTimetableGeneratorDialog(
-                      context,
-                      years: const [
-                        AcademicYear(id: 7, name: '2026-2027', isActive: true),
-                      ],
-                      initialAcademicYearId: 7,
+            ChangeNotifierProvider<ShiftsProvider>(
+              create: (_) => ShiftsProvider(),
+              child: MaterialApp(
+                home: Scaffold(
+                  body: Builder(
+                    builder: (context) => TextButton(
+                      onPressed: () => showTimetableGeneratorDialog(
+                        context,
+                        years: const [
+                          AcademicYear(
+                            id: 7,
+                            name: '2026-2027',
+                            isActive: true,
+                          ),
+                        ],
+                        initialAcademicYearId: 7,
+                      ),
+                      child: const Text('Open'),
                     ),
-                    child: const Text('Open'),
                   ),
                 ),
               ),
@@ -1020,29 +1097,32 @@ void main() {
           await tester.pumpAndSettle();
           await tester.tap(find.text('Continue'));
           await tester.pumpAndSettle();
+          await tester.tap(find.byType(DropdownButtonFormField<int?>));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Morning').last);
+          await tester.pumpAndSettle();
           await tester.tap(find.text('Save Working Days'));
           await tester.pumpAndSettle();
           await tester.tap(find.byType(DropdownButtonFormField<int?>));
           await tester.pumpAndSettle();
           await tester.tap(find.text('Sare').last);
           await tester.pumpAndSettle();
+          await _fillAllPeriodFields(tester, '5');
           await tester.tap(find.text('Save Level Configuration'));
           await tester.pumpAndSettle();
-          await tester.tap(find.text('Preview Timetable'));
-          await tester.pumpAndSettle();
-          expect(find.text('Ready to Generate'), findsOneWidget);
-          expect(find.text('Timetable Cannot Be Generated Yet'), findsNothing);
-          final label = scenario['label'];
-          if (label != null) {
-            expect(find.text(label as String), findsOneWidget);
-          }
+          expect(
+            find.text(
+              'The backend has not returned complete per-class readiness. Refresh the preview before generating.',
+            ),
+            findsOneWidget,
+          );
           expect(
             tester
                 .widget<FilledButton>(
-                  find.widgetWithText(FilledButton, 'Continue to Generate'),
+                  find.widgetWithText(FilledButton, 'Continue'),
                 )
                 .onPressed,
-            isNotNull,
+            isNull,
           );
           expect(tester.takeException(), isNull);
         }, () => client);
@@ -1090,6 +1170,16 @@ void main() {
             200,
           );
         }
+        if (path.endsWith('/shifts')) {
+          return http.Response(
+            jsonEncode({
+              'shifts': [
+                {'id': 1, 'name': 'Morning'},
+              ],
+            }),
+            200,
+          );
+        }
         if (path.endsWith('/working-days')) {
           return http.Response(
             jsonEncode({
@@ -1118,18 +1208,21 @@ void main() {
       });
       await http.runWithClient(() async {
         await tester.pumpWidget(
-          MaterialApp(
-            home: Scaffold(
-              body: Builder(
-                builder: (context) => TextButton(
-                  onPressed: () => showTimetableGeneratorDialog(
-                    context,
-                    years: const [
-                      AcademicYear(id: 7, name: '2026-2027', isActive: true),
-                    ],
-                    initialAcademicYearId: 7,
+          ChangeNotifierProvider<ShiftsProvider>(
+            create: (_) => ShiftsProvider(),
+            child: MaterialApp(
+              home: Scaffold(
+                body: Builder(
+                  builder: (context) => TextButton(
+                    onPressed: () => showTimetableGeneratorDialog(
+                      context,
+                      years: const [
+                        AcademicYear(id: 7, name: '2026-2027', isActive: true),
+                      ],
+                      initialAcademicYearId: 7,
+                    ),
+                    child: const Text('Open'),
                   ),
-                  child: const Text('Open'),
                 ),
               ),
             ),
@@ -1138,6 +1231,10 @@ void main() {
         await tester.tap(find.text('Open'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Continue'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byType(DropdownButtonFormField<int?>));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Morning').last);
         await tester.pumpAndSettle();
         await tester.tap(find.text('Save Working Days'));
         await tester.pumpAndSettle();
@@ -1153,6 +1250,7 @@ void main() {
         }
         expect(find.text('Jirdhis'), findsOneWidget);
 
+        await _fillAllPeriodFields(tester, '1');
         await tester.tap(find.text('Save Level Configuration'));
         await tester.pumpAndSettle();
 
@@ -1167,79 +1265,91 @@ void main() {
     },
   );
 
-  testWidgets(
-    'generation with unscheduled periods shows an informational result dialog',
-    (tester) async {
-      final client = MockClient((request) async {
-        final path = request.url.path;
-        if (path.endsWith('/levels')) {
-          return http.Response(
-            jsonEncode({
-              'levels': [
-                {'id': 2, 'name': 'Sare'},
-              ],
-            }),
-            200,
-          );
-        }
-        if (path.endsWith('/working-days')) {
-          return http.Response(
-            jsonEncode({
-              'days': ['MON', 'TUE', 'WED', 'THU', 'FRI'],
-            }),
-            200,
-          );
-        }
-        if (path.endsWith('/subjects')) {
-          return http.Response(
-            jsonEncode({
-              'subjects': [
-                {
-                  'subject_id': 1,
-                  'subject_name': 'Arabic',
-                  'periods_per_week': 44,
-                },
-              ],
-            }),
-            200,
-          );
-        }
-        if (path.endsWith('/preview')) {
-          return http.Response(
-            jsonEncode({
-              'feasible': false,
-              'errors': [],
-              'capacity_issues': [
-                {
-                  'class_name': 'Class 5 A',
-                  'required_periods': 44,
-                  'available_periods': 42,
-                },
-              ],
-            }),
-            200,
-          );
-        }
-        if (path.endsWith('/generate')) {
-          return http.Response(
-            jsonEncode({
-              'success': true,
-              'unscheduled': [
-                {
-                  'class_name': 'Class 5 A',
-                  'scheduled_periods': 42,
-                  'unscheduled_periods': 2,
-                },
-              ],
-            }),
-            200,
-          );
-        }
-        return http.Response(jsonEncode({}), 200);
-      });
-      await http.runWithClient(() async {
-        await tester.pumpWidget(
-          MaterialApp(
+  testWidgets('an incomplete generation response is not presented as success', (
+    tester,
+  ) async {
+    final client = MockClient((request) async {
+      final path = request.url.path;
+      if (path.endsWith('/levels')) {
+        return http.Response(
+          jsonEncode({
+            'levels': [
+              {'id': 2, 'name': 'Sare'},
+            ],
+          }),
+          200,
+        );
+      }
+      if (path.endsWith('/shifts')) {
+        return http.Response(
+          jsonEncode({
+            'shifts': [
+              {'id': 1, 'name': 'Morning'},
+            ],
+          }),
+          200,
+        );
+      }
+      if (path.endsWith('/working-days')) {
+        return http.Response(
+          jsonEncode({
+            'days': ['MON', 'TUE', 'WED', 'THU', 'FRI'],
+          }),
+          200,
+        );
+      }
+      if (path.endsWith('/subjects')) {
+        return http.Response(
+          jsonEncode({
+            'subjects': [
+              {
+                'subject_id': 1,
+                'subject_name': 'Arabic',
+                'periods_per_week': 44,
+              },
+            ],
+          }),
+          200,
+        );
+      }
+      if (path.endsWith('/preview')) {
+        return http.Response(
+          jsonEncode({
+            'classes': [
+              {
+                'class_name': 'Class 5 A',
+                'status': 'COMPLETE',
+                'requested_periods': 42,
+                'available_slots': 42,
+                'ready_to_generate': true,
+              },
+            ],
+          }),
+          200,
+        );
+      }
+      if (path.endsWith('/generate')) {
+        return http.Response(
+          jsonEncode({
+            'success': true,
+            'unscheduled': [
+              {
+                'class_name': 'Class 5 A',
+                'scheduled_periods': 42,
+                'unscheduled_periods': 2,
+              },
+            ],
+          }),
+          200,
+        );
+      }
+      return http.Response(jsonEncode({}), 200);
+    });
+    await http.runWithClient(() async {
+      await tester.pumpWidget(
+        ChangeNotifierProvider<ShiftsProvider>(
+          create: (_) => ShiftsProvider(),
+          child: MaterialApp(
             home: Scaffold(
               body: Builder(
                 builder: (context) => TextButton(
@@ -1255,35 +1365,38 @@ void main() {
               ),
             ),
           ),
-        );
-        await tester.tap(find.text('Open'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Continue'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Save Working Days'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byType(DropdownButtonFormField<int?>));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Sare').last);
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Save Level Configuration'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Preview Timetable'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Continue to Generate'));
-        await tester.pumpAndSettle();
-        await tester.tap(
-          find.widgetWithText(FilledButton, 'Generate Timetable'),
-        );
-        await tester.pumpAndSettle();
-        expect(find.text('Timetable Generated'), findsOneWidget);
-        expect(find.text('Class 5 A'), findsOneWidget);
-        expect(find.text('42 scheduled'), findsOneWidget);
-        expect(find.text('2 unscheduled'), findsOneWidget);
-        await tester.tap(find.text('Close'));
-        await tester.pumpAndSettle();
-        expect(tester.takeException(), isNull);
-      }, () => client);
-    },
-  );
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DropdownButtonFormField<int?>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Morning').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save Working Days'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DropdownButtonFormField<int?>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sare').last);
+      await tester.pumpAndSettle();
+      await _fillAllPeriodFields(tester, '44');
+      await tester.tap(find.text('Save Level Configuration'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Continue to Generate'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Generate Timetable'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          'The backend returned an incomplete timetable. Refresh the preview and review the configuration.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Timetable generated successfully.'), findsNothing);
+      expect(find.text('Back to Fix'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }, () => client);
+  });
 }
