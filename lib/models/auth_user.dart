@@ -67,6 +67,8 @@ UserRole roleFromApiString(String apiRole) {
       return UserRole.student;
     case 'PARENT':
       return UserRole.parent;
+    case 'FINANCE':
+      return UserRole.finance;
     default:
       return UserRole.student;
   }
@@ -83,5 +85,7 @@ String roleToUiString(UserRole role) {
       return 'student';
     case UserRole.parent:
       return 'parent';
+    case UserRole.finance:
+      return 'finance';
   }
 }

@@ -1,5 +1,5 @@
 
-enum UserRole { schoolAdmin, teacher, student, parent }
+enum UserRole { schoolAdmin, teacher, student, parent, finance }
 
 class DummyUser {
   final String id;

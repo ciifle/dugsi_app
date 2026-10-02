@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kobac/student/pages/student_fees.dart';
 import 'package:provider/provider.dart';
 import 'package:kobac/services/auth_provider.dart';
 import 'package:kobac/student/pages/student_timetable_screen.dart';
@@ -82,6 +83,11 @@ class AppDrawer extends StatelessWidget {
       icon: Icons.notifications_rounded,
       screen: AllNoticesScreen(),
     ),
+    DrawerItem(
+      label: 'Fees & Payments',
+      icon: Icons.receipt_long_rounded,
+      screen: StudentFeesScreen(),
+    ),
     // Messaging temporarily disabled from active UI/navigation.
     DrawerItem(
       label: "Profile",
@@ -132,13 +138,14 @@ class AppDrawer extends StatelessWidget {
                       0,
                       compact ? 36 : 60,
                     ),
-                    child: Column(
-                      children: [
-                        _buildMenuItems(context),
-                        Expanded(
-                          child: Center(child: _buildLogoutButton(context)),
-                        ),
-                      ],
+                    child: SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          _buildMenuItems(context),
+                          const SizedBox(height: 16),
+                          _buildLogoutButton(context),
+                        ],
+                      ),
                     ),
                   );
                 },
@@ -308,11 +315,15 @@ class AppDrawer extends StatelessWidget {
   }
 
   Widget _buildMenuItems(BuildContext context) {
+    final enabled = context.watch<AuthProvider>().feesEnabled;
+    final items = _allItems
+        .where((item) => enabled || item.label != 'Fees & Payments')
+        .toList();
     return Column(
       mainAxisAlignment: MainAxisAlignment.start,
       children: List.generate(
-        _allItems.length,
-        (index) => _buildMenuItem(context, _allItems[index], index),
+        items.length,
+        (index) => _buildMenuItem(context, items[index], index),
       ),
     );
   }

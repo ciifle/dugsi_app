@@ -905,55 +905,8 @@ class StudentService {
     }
   }
 
-  /// POST /api/student/payments  Body: { fee_id, amount, method }
-  Future<StudentResult<StudentPaymentModel>> payFee({
-    required int feeId,
-    required num amount,
-    required String method,
-  }) async {
-    try {
-      final body = {'fee_id': feeId, 'amount': amount, 'method': method};
-      final response = await _client.post(
-        apiUrl('$_base/payments'),
-        body: body,
-      );
-      devLogResponse(
-        'StudentService.payFee',
-        response.statusCode,
-        response.body,
-      );
-      if (response.statusCode == 400)
-        return StudentError(
-          _errorMessage(response) ?? 'Invalid fee or amount.',
-          400,
-        );
-      if (response.statusCode == 403)
-        return StudentError(
-          _errorMessage(response) ?? 'Payments module disabled.',
-          403,
-        );
-      if (response.statusCode == 404)
-        return StudentError(
-          _errorMessage(response) ?? 'Fee or student not found.',
-          404,
-        );
-      if (response.statusCode != 200 && response.statusCode != 201) {
-        return StudentError(
-          _errorMessage(response) ?? 'Payment failed.',
-          response.statusCode,
-        );
-      }
-      final raw = _parseJson(response.body);
-      Map<String, dynamic>? map;
-      if (raw is Map<String, dynamic>) {
-        map = raw['payment'] ?? raw['data'] ?? raw;
-      }
-      if (map == null) return StudentError('Invalid response.');
-      return StudentSuccess(StudentPaymentModel.fromJson(map));
-    } catch (e, st) {
-      return StudentError(userFriendlyMessage(e, st, 'StudentService.payFee'));
-    }
-  }
+  /// Retained for source compatibility; students cannot submit payments.
+  Future<StudentResult<StudentPaymentModel>> payFee({required int feeId, required num amount, required String method}) async => StudentError('Payments are recorded by the school Finance office.', 403);
 
   /// GET /api/student/notices
   Future<StudentResult<List<StudentNoticeModel>>> listNotices() async {

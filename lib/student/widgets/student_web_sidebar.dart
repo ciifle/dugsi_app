@@ -127,15 +127,8 @@ class StudentWebSidebar extends StatelessWidget {
                 if (feesEnabled) ...[
                   _StudentNavItem(
                     icon: Icons.account_balance_wallet_rounded,
-                    label: 'Fees',
+                    label: 'Fees & Payments',
                     pageKey: 'fees',
-                    selectedPage: selectedPage,
-                    onNavigate: onNavigate,
-                  ),
-                  _StudentNavItem(
-                    icon: Icons.payment_rounded,
-                    label: 'Payments',
-                    pageKey: 'payments',
                     selectedPage: selectedPage,
                     onNavigate: onNavigate,
                   ),

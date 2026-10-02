@@ -16,6 +16,8 @@ import 'package:kobac/school_admin/pages/admin_classes.dart';
 import 'package:kobac/school_admin/pages/admin_class_details_screen.dart';
 import 'package:kobac/school_admin/pages/admin_subjects_screen.dart';
 import 'package:kobac/school_admin/pages/admin_attendance_screen.dart';
+import 'package:kobac/school_admin/widgets/admin_leave_guard.dart';
+import 'package:kobac/exam_fees/pages/exam_fees_page.dart';
 import 'package:kobac/school_admin/pages/admin_fees_screen.dart';
 import 'package:kobac/services/fees_service.dart';
 import 'package:kobac/school_admin/pages/payments_screen.dart';
@@ -40,6 +42,18 @@ import 'package:kobac/school_admin/pages/change_password_page.dart';
 import 'package:kobac/school_admin/pages/exam_hall_management_pages.dart';
 import 'package:kobac/school_admin/pages/admin_periods_screen.dart';
 import 'package:kobac/school_admin/widgets/web_admin_legacy_routes.dart';
+import 'package:kobac/finance/pages/class_fees_page.dart';
+import 'package:kobac/finance/widgets/finance_ui.dart';
+import 'package:kobac/finance/pages/collect_payment_page.dart';
+import 'package:kobac/finance/pages/finance_dashboard_page.dart';
+import 'package:kobac/finance/pages/finance_users_page.dart';
+import 'package:kobac/finance/pages/fee_ledger_page.dart';
+import 'package:kobac/finance/pages/generate_fees_page.dart';
+import 'package:kobac/finance/pages/payment_history_page.dart';
+import 'package:kobac/finance/pages/student_discounts_page.dart';
+import 'package:kobac/finance/pages/student_fee_ledger_page.dart';
+
+const String kSchoolAdminFinanceBasePath = 'api/school-admin/finance';
 
 /// Responsive admin shell for desktop/web layout
 /// Shows sidebar + top bar + main content area
@@ -63,7 +77,9 @@ class _WebAdminShellState extends State<WebAdminShell> {
   String _selectedPage = 'dashboard';
   Object? _selectedArguments;
 
-  void _navigateToPage(String pageKey, {Object? arguments}) {
+  Future<void> _navigateToPage(String pageKey, {Object? arguments}) async {
+    // A page with unsaved work (e.g. Attendance) may ask to stay.
+    if (!await AdminLeaveGuard.confirmLeave() || !mounted) return;
     setState(() {
       _selectedPage = supportedWebAdminPage(pageKey);
       _selectedArguments = arguments;
@@ -104,6 +120,24 @@ class _WebAdminShellState extends State<WebAdminShell> {
         return 'Fees';
       case 'payments':
         return 'Payments';
+      case 'financeDashboard':
+        return 'Finance Dashboard';
+      case 'financeUsers':
+        return 'Finance Users';
+      case 'financeClassFees':
+        return 'Class Fees';
+      case 'financeStudentDiscounts':
+        return 'Student Discounts';
+      case 'financeGenerateFees':
+        return 'Generate Fees';
+      case 'financeFeeLedger':
+        return 'Fee Ledger';
+      case 'financeStudentLedger':
+        return 'Student Fee Ledger';
+      case 'financeCollectPayment':
+        return 'Collect Payment';
+      case 'financePaymentHistory':
+        return 'Payment History';
 
       case 'timetable':
         return 'Time Table';
@@ -133,6 +167,8 @@ class _WebAdminShellState extends State<WebAdminShell> {
         return 'Hall Reports';
       case 'passCards':
         return 'Exam Pass Cards';
+      case 'examFees':
+        return 'Exam Fees';
       case 'topStudents':
         return 'Top Students';
       case 'notices':
@@ -172,6 +208,14 @@ class _WebAdminShellState extends State<WebAdminShell> {
   }
 
   Widget _buildBody() {
+    if (!context.watch<AuthProvider>().feesEnabled &&
+        (_selectedPage.startsWith('finance') ||
+            const {'fees', 'payments', 'feeDetail'}.contains(_selectedPage))) {
+      return const FinancePageFrame(
+        embedBodyOnly: true,
+        child: FinanceNotEnabledView(),
+      );
+    }
     final examsEnabled = context.watch<AuthProvider>().examsEnabled;
     if (!examsEnabled &&
         const {
@@ -306,6 +350,65 @@ class _WebAdminShellState extends State<WebAdminShell> {
           embedBodyOnly: true,
           onNavigateToPage: _navigateToPage,
         );
+      case 'financeDashboard':
+        return FinanceDashboardPage(
+          basePath: kSchoolAdminFinanceBasePath,
+          embedBodyOnly: true,
+          onNavigateToPage: _navigateToPage,
+        );
+      case 'financeUsers':
+        return FinanceUsersPage(
+          embedBodyOnly: true,
+          onNavigateToPage: _navigateToPage,
+        );
+      case 'financeClassFees':
+        return ClassFeesPage(
+          basePath: kSchoolAdminFinanceBasePath,
+          embedBodyOnly: true,
+          onNavigateToPage: _navigateToPage,
+        );
+      case 'financeStudentDiscounts':
+        return StudentDiscountsPage(
+          basePath: kSchoolAdminFinanceBasePath,
+          embedBodyOnly: true,
+          onNavigateToPage: _navigateToPage,
+        );
+      case 'financeGenerateFees':
+        return GenerateFeesPage(
+          basePath: kSchoolAdminFinanceBasePath,
+          embedBodyOnly: true,
+          onNavigateToPage: _navigateToPage,
+        );
+      case 'financeFeeLedger':
+        return FeeLedgerPage(
+          basePath: kSchoolAdminFinanceBasePath,
+          embedBodyOnly: true,
+          onNavigateToPage: _navigateToPage,
+        );
+      case 'financeStudentLedger':
+        final args = _selectedArguments as Map<String, dynamic>;
+        return StudentFeeLedgerPage(
+          basePath: kSchoolAdminFinanceBasePath,
+          studentId: args['studentId'] as int,
+          academicYearId: args['academicYearId'] as int,
+          embedBodyOnly: true,
+          onNavigateToPage: _navigateToPage,
+        );
+      case 'financeCollectPayment':
+        return CollectPaymentPage(
+          basePath: kSchoolAdminFinanceBasePath,
+          embedBodyOnly: true,
+          onNavigateToPage: _navigateToPage,
+          initial: _selectedArguments is Map<String, dynamic>
+              ? _selectedArguments as Map<String, dynamic>
+              : null,
+        );
+      case 'financePaymentHistory':
+        return PaymentHistoryPage(
+          basePath: kSchoolAdminFinanceBasePath,
+          embedBodyOnly: true,
+          onNavigateToPage: _navigateToPage,
+        );
       // Messaging temporarily disabled from active UI/navigation.
       case 'timetable':
         return AdminTimetableScreen(
@@ -347,6 +450,12 @@ class _WebAdminShellState extends State<WebAdminShell> {
         return const HallReportsPage(embedBodyOnly: true);
       case 'passCards':
         return const ExamPassCardsPage(embedBodyOnly: true);
+      case 'examFees':
+        // ExamFeesPage blocks itself when examFeeCustomEnabled is off.
+        return ExamFeesPage(
+          embedBodyOnly: true,
+          onNavigateToPage: _navigateToPage,
+        );
       case 'topStudents':
         return const TopStudentsPage();
       case 'notices':
@@ -392,18 +501,28 @@ class _WebAdminShellState extends State<WebAdminShell> {
             ),
           ),
           Expanded(
-            child: Column(
-              children: [
-                WebTopBar(
-                  title: _getTitle(_selectedPage),
-                  subtitle: _getSubtitle(_selectedPage),
-                  onSearch: widget.onSearch,
-                  onNavigateToPage: _navigateToPage,
-                  onLogout: _handleLogout,
-                ),
-                Expanded(child: _buildBody()),
-              ],
-            ),
+            child: _selectedPage.startsWith('finance')
+                ? FinancePageChrome(
+                    header: WebTopBar(
+                      title: 'Finance',
+                      onSearch: widget.onSearch,
+                      onNavigateToPage: _navigateToPage,
+                      onLogout: _handleLogout,
+                    ),
+                    child: _buildBody(),
+                  )
+                : Column(
+                    children: [
+                      WebTopBar(
+                        title: _getTitle(_selectedPage),
+                        subtitle: _getSubtitle(_selectedPage),
+                        onSearch: widget.onSearch,
+                        onNavigateToPage: _navigateToPage,
+                        onLogout: _handleLogout,
+                      ),
+                      Expanded(child: _buildBody()),
+                    ],
+                  ),
           ),
         ],
       ),

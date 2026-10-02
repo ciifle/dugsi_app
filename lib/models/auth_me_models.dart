@@ -50,16 +50,34 @@ class SchoolFeatures {
   final bool? feesEnabled;
   final bool? examsEnabled;
 
-  const SchoolFeatures({this.feesEnabled, this.examsEnabled});
+  /// school_features.exam_fee_custom_enabled. Independent of feesEnabled
+  /// (payments). Null/missing is treated as OFF by AuthProvider.
+  final bool? examFeeCustomEnabled;
+
+  const SchoolFeatures({
+    this.feesEnabled,
+    this.examsEnabled,
+    this.examFeeCustomEnabled,
+  });
 
   factory SchoolFeatures.fromJson(Map<String, dynamic> json) => SchoolFeatures(
-    feesEnabled: _boolOpt(json['feesEnabled'] ?? json['fees_enabled']),
+    feesEnabled: _boolOpt(json['feesEnabled'] ?? json['payments_enabled'] ?? json['fees_enabled']),
     examsEnabled: _boolOpt(json['examsEnabled'] ?? json['exams_enabled']),
+    examFeeCustomEnabled: _boolOpt(
+      json['examFeeCustomEnabled'] ?? json['exam_fee_custom_enabled'],
+    ),
+  );
+
+  SchoolFeatures copyWith({bool? examFeeCustomEnabled}) => SchoolFeatures(
+    feesEnabled: feesEnabled,
+    examsEnabled: examsEnabled,
+    examFeeCustomEnabled: examFeeCustomEnabled ?? this.examFeeCustomEnabled,
   );
 
   Map<String, dynamic> toJson() => {
     'feesEnabled': feesEnabled,
     'examsEnabled': examsEnabled,
+    'examFeeCustomEnabled': examFeeCustomEnabled,
   };
 }
 
@@ -357,6 +375,33 @@ class SchoolAdminProfile {
   }
 }
 
+/// Finance profile from GET /api/auth/me (profile when role == FINANCE).
+class FinanceProfile {
+  final int id;
+  final int? userId;
+  final int? schoolId;
+  final String? name;
+  final String? email;
+
+  FinanceProfile({
+    required this.id,
+    this.userId,
+    this.schoolId,
+    this.name,
+    this.email,
+  });
+
+  factory FinanceProfile.fromJson(Map<String, dynamic> json) {
+    return FinanceProfile(
+      id: _parseId(json['id']),
+      userId: json['user_id'] != null ? _parseId(json['user_id']) : null,
+      schoolId: json['school_id'] != null ? _parseId(json['school_id']) : null,
+      name: _strOpt(json['name']),
+      email: _strOpt(json['email']),
+    );
+  }
+}
+
 // ==================== AUTH ME RESPONSE ====================
 
 /// Result of GET /api/auth/me: user + role-specific profile + optional school feature flags.
@@ -387,6 +432,8 @@ class AuthMeResponse {
       profile is ParentProfile ? profile as ParentProfile : null;
   SchoolAdminProfile? get schoolAdminProfile =>
       profile is SchoolAdminProfile ? profile as SchoolAdminProfile : null;
+  FinanceProfile? get financeProfile =>
+      profile is FinanceProfile ? profile as FinanceProfile : null;
 }
 
 /// Parse profile map by role. Never store password fields.
@@ -412,6 +459,8 @@ dynamic parseProfileByRole(String role, dynamic profileJson) {
       return ParentProfile.fromJson(profileJson);
     case 'SCHOOL_ADMIN':
       return SchoolAdminProfile.fromJson(profileJson);
+    case 'FINANCE':
+      return FinanceProfile.fromJson(profileJson);
     default:
       return null;
   }

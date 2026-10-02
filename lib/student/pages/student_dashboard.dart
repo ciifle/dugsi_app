@@ -11,7 +11,7 @@ import 'package:kobac/student/pages/student_profile.dart';
 import 'package:kobac/student/pages/student_result.dart';
 import 'package:kobac/student/pages/student_marks_screen.dart';
 import 'package:kobac/student/pages/student_timetable_screen.dart';
-import 'package:kobac/student/pages/student_pay_fee_screen.dart';
+import 'package:kobac/student/finance/student_finance_page.dart';
 import 'package:kobac/student/widgets/student_drawer.dart';
 import 'package:kobac/student/pages/student_notices.dart';
 import 'package:kobac/student/pages/academic_performance_page.dart';
@@ -211,7 +211,6 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
   _timetableTodayFuture;
   late Future<PerformanceResult<StudentAcademicPerformance>> _performanceFuture;
   late Future<StudentResult<List<StudentNoticeModel>>> _noticesFuture;
-  late Future<StudentResult<List<StudentFeeModel>>> _feesFuture;
 
   late final List<_FeatureCardData> _featureCards;
 
@@ -258,15 +257,6 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
         ),
       ),
       _FeatureCardData(
-        title: 'Pay Fee',
-        subtitle: 'Make a payment',
-        icon: Icons.payment_rounded,
-        onTap: (context) => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const StudentPayFeeScreen()),
-        ),
-      ),
-      _FeatureCardData(
         title: 'Academic Performance',
         subtitle: 'Academic progress',
         icon: Icons.insights_rounded,
@@ -298,7 +288,6 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
     _timetableTodayFuture = StudentService().getTimetable(day: todayDay);
     _performanceFuture = AcademicPerformanceService().performance();
     _noticesFuture = StudentService().listNotices();
-    _feesFuture = StudentService().listFees();
   }
 
   Future<void> _refresh() async {
@@ -312,7 +301,6 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
       );
       _performanceFuture = AcademicPerformanceService().performance();
       _noticesFuture = StudentService().listNotices();
-      _feesFuture = StudentService().listFees();
     });
   }
 
@@ -984,121 +972,18 @@ class _DashboardHomeContentState extends State<_DashboardHomeContent> {
                   },
                 ),
 
-                // ---------- SECTION 5: Fees Summary ----------
-                FutureBuilder<StudentResult<List<StudentFeeModel>>>(
-                  future: _feesFuture,
-                  builder: (context, snap) {
-                    if (snap.data is StudentError &&
-                        (snap.data as StudentError).statusCode == 403) {
-                      return const SizedBox.shrink();
-                    }
-                    if (snap.connectionState == ConnectionState.waiting ||
-                        snap.data is! StudentSuccess<List<StudentFeeModel>>) {
-                      return const SizedBox.shrink();
-                    }
-                    final fees =
-                        (snap.data as StudentSuccess<List<StudentFeeModel>>)
-                            .data;
-                    num remaining = 0;
-                    int unpaidCount = 0;
-                    for (final fee in fees) {
-                      if (fee.status?.toUpperCase() == 'UNPAID') {
-                        remaining += fee.amount ?? 0;
-                        unpaidCount++;
-                      }
-                    }
-                    return SliverToBoxAdapter(
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 20),
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: kCardColor,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: kPrimaryBlue.withOpacity(0.06),
-                              blurRadius: 20,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: kPrimaryGreen.withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: const Icon(
-                                Icons.account_balance_wallet_rounded,
-                                color: kPrimaryBlue,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Fees summary',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: kTextPrimary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Remaining: $remaining',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: kPrimaryBlue,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (unpaidCount > 0)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: kPrimaryGreen.withOpacity(0.12),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  '$unpaidCount unpaid',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: kPrimaryGreen,
-                                  ),
-                                ),
-                              ),
-                            const SizedBox(width: 8),
-                            TextButton(
-                              onPressed: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const StudentFeesScreen(),
-                                ),
-                              ),
-                              style: TextButton.styleFrom(
-                                foregroundColor: kPrimaryBlue,
-                              ),
-                              child: const Text('View'),
-                            ),
-                          ],
+                if (context.watch<AuthProvider>().feesEnabled)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: StudentFinanceSummaryCard(
+                      onView: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const StudentFeesScreen(),
                         ),
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  ),
               ],
             ),
           ),

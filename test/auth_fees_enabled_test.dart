@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kobac/services/auth_provider.dart';
 import 'package:kobac/models/auth_me_models.dart';
 import 'package:kobac/models/auth_user.dart';
 
@@ -7,11 +8,7 @@ void main() {
     late AuthUser dummyUser;
 
     setUp(() {
-      dummyUser = const AuthUser(
-        id: 1,
-        name: 'Test',
-        role: 'SCHOOL_ADMIN',
-      );
+      dummyUser = const AuthUser(id: 1, name: 'Test', role: 'SCHOOL_ADMIN');
     });
 
     test('when feesEnabled is true, value is true', () {
@@ -43,12 +40,8 @@ void main() {
   });
 
   group('AuthProvider.feesEnabled getter (behavior)', () {
-    test('when null, app treats as true (backward compat)', () {
-      // AuthProvider exposes feesEnabled as _feesEnabled ?? true
-      // So when backend does not send the flag, we show fees UI
-      const bool? stored = null;
-      final effective = stored ?? true;
-      expect(effective, true);
+    test('missing feature information hides finance', () {
+      expect(AuthProvider().feesEnabled, false);
     });
 
     test('when false, app hides fees UI', () {

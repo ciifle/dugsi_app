@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:kobac/school_admin/attendance/take_attendance_controller.dart';
+import 'package:kobac/school_admin/attendance/attendance_reports_view.dart';
+import 'package:kobac/school_admin/attendance/take_attendance_view.dart';
+import 'package:kobac/school_admin/widgets/admin_desktop_kit.dart';
+import 'package:kobac/school_admin/widgets/admin_leave_guard.dart';
 import 'package:kobac/school_admin/widgets/admin_responsive_layout.dart';
+import 'package:kobac/services/academic_years_service.dart';
 import 'package:kobac/services/attendance_service.dart';
 import 'package:kobac/services/classes_service.dart';
-import 'package:kobac/services/students_service.dart';
 import 'package:kobac/services/api_error_helpers.dart';
 import 'package:kobac/school_admin/widgets/delete_confirm_dialog.dart';
 import 'package:kobac/widgets/form_3d/form_3d.dart';
@@ -12,27 +18,42 @@ const Color kPrimaryGreen = Color(0xFF5AB04B);
 const Color kBgColor = Color(0xFFF0F3F7);
 const double kCardRadius = 28.0;
 
-/// Status options: at least PRESENT; extend from data or use fallback.
+/// Statuses the single-record edit accepts (PATCH keeps historical LATE).
 const List<String> kAttendanceStatusOptions = ['PRESENT', 'ABSENT', 'LATE'];
 
-String _dateToYmd(DateTime d) {
-  final y = d.year;
-  final m = d.month.toString().padLeft(2, '0');
-  final day = d.day.toString().padLeft(2, '0');
-  return '$y-$m-$day';
-}
+const String kAttendanceSubtitle = 'Take, review and manage student attendance.';
+
+String _dateToYmd(DateTime d) => attendanceYmd(d);
+
+enum AdminAttendanceView { take, records, reports }
 
 class AdminAttendanceScreen extends StatefulWidget {
-  /// If true, date filter defaults to today and is applied on load.
+  /// Records view: date filter defaults to today.
   final bool defaultToToday;
   final bool embedBodyOnly;
   final void Function(String, {Object? arguments})? onNavigateToPage;
+
+  /// Tab to open; null = the tab last used in this Attendance session.
+  final AdminAttendanceView? initialView;
+
+  /// Explicit controller (tests). Otherwise the School Admin session's shared
+  /// controller ([AttendanceSessionScope]) is used, so mobile and desktop
+  /// render the same state; only outside that scope does the screen create
+  /// (and dispose) its own.
+  final TakeAttendanceController? controller;
+
+  /// Test hook: force the desktop presentation without a web build.
+  @visibleForTesting
+  final bool? desktopOverride;
 
   const AdminAttendanceScreen({
     Key? key,
     this.defaultToToday = true,
     this.embedBodyOnly = false,
     this.onNavigateToPage,
+    this.initialView,
+    this.controller,
+    this.desktopOverride,
   }) : super(key: key);
 
   @override
@@ -40,29 +61,77 @@ class AdminAttendanceScreen extends StatefulWidget {
 }
 
 class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
+  late final TakeAttendanceController _take;
+  late final bool _ownsController;
+  late AdminAttendanceView _view;
+  AcademicYearsProvider? _years;
+  bool _yearsReady = false;
+
+  // --- Attendance Records (existing list / edit / delete) ---
   int? _filterClassId;
-  DateTime _filterDate;
+  DateTime _filterDate = DateTime.now();
   late Future<AttendanceResult<List<AttendanceModel>>> _attendanceFuture;
   List<ClassModel> _classes = [];
-  List<StudentModel> _students = [];
   bool _refLoaded = false;
-
-  _AdminAttendanceScreenState() : _filterDate = DateTime.now();
 
   @override
   void initState() {
     super.initState();
+    final shared = widget.controller ?? AttendanceSessionScope.maybeOf(context);
+    _ownsController = shared == null;
+    _take = shared ?? TakeAttendanceController();
+    if (widget.initialView != null) {
+      _take.lastView = widget.initialView!.index;
+    }
+    _view = AdminAttendanceView.values[_take.lastView];
     _loadRefData();
     _loadAttendance();
+    AdminLeaveGuard.register(_confirmLeave);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initYears());
+  }
+
+  @override
+  void dispose() {
+    AdminLeaveGuard.unregister(_confirmLeave);
+    _years?.removeListener(_syncYears);
+    if (_ownsController) _take.dispose();
+    super.dispose();
+  }
+
+  Future<void> _initYears() async {
+    if (!mounted) return;
+    final years = context.read<AcademicYearsProvider>();
+    _years = years..addListener(_syncYears);
+    _syncYears();
+    await years.ensureLoaded();
+    _yearsReady = true;
+    _syncYears();
+  }
+
+  void _syncYears() {
+    final years = _years;
+    if (!mounted || years == null) return;
+    if (years.years.isNotEmpty) {
+      _take.setYears(years.years, years.activeYear);
+      _take.reports.setYears(years.years, years.activeYear);
+    }
+    setState(() {});
+  }
+
+  Future<bool> _confirmLeave() async {
+    if (!_take.hasUnsavedChanges || !mounted) return true;
+    final discard = await confirmDiscardAttendance(context);
+    // The session controller outlives this page, so Discard must really
+    // drop the marks rather than keep them for the next visit.
+    if (discard) _take.clearAll();
+    return discard;
   }
 
   Future<void> _loadRefData() async {
     final classRes = await ClassesService().listClasses();
-    final studentRes = await StudentsService().listStudents();
     if (!mounted) return;
     setState(() {
       if (classRes is ClassSuccess<List<ClassModel>>) _classes = classRes.data;
-      if (studentRes is StudentSuccess<List<StudentModel>>) _students = studentRes.data;
       _refLoaded = true;
     });
   }
@@ -76,16 +145,6 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
     });
   }
 
-  String _studentName(int? id) {
-    if (id == null) return '—';
-    for (final s in _students) { if (s.id == id) return s.studentName; }
-    return '—';
-  }
-  String _studentEmis(int? id) {
-    if (id == null) return '—';
-    for (final s in _students) { if (s.id == id) return s.emisNumber; }
-    return '—';
-  }
   String _className(int? id) {
     if (id == null) return '—';
     for (final c in _classes) { if (c.id == id) return c.name; }
@@ -135,7 +194,7 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
   }
 
   Future<void> _deleteAttendance(AttendanceModel record) async {
-    final studentName = _studentName(record.studentId);
+    final studentName = record.studentName ?? 'this student';
     final dateStr = record.date ?? _dateToYmd(_filterDate);
     final confirmed = await showDeleteConfirmDialog(
       context,
@@ -158,11 +217,9 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
   }
 
   void _clearFilters() {
-    setState(() {
-      _filterClassId = null;
-      _filterDate = DateTime.now();
-      _loadAttendance();
-    });
+    _filterClassId = null;
+    _filterDate = DateTime.now();
+    _loadAttendance();
   }
 
   Future<void> _pickFilterDate() async {
@@ -171,468 +228,433 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
       initialDate: _filterDate,
       firstDate: DateTime(2020),
       lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: Theme.of(context).colorScheme.copyWith(
+            primary: kPrimaryBlue,
+            onPrimary: Colors.white,
+          ),
+        ),
+        child: child!,
+      ),
     );
     if (picked == null) return;
-    setState(() {
-      _filterDate = picked;
-      _loadAttendance();
-    });
+    _filterDate = picked;
+    _loadAttendance();
   }
 
-  String _displayEmis(String emis) {
-    if (emis.trim().isEmpty || emis == '—') return '-';
+  String _displayEmis(String? emis) {
+    if (emis == null || emis.trim().isEmpty) return '-';
     return emis;
   }
 
-  InputDecoration _desktopFilterDecoration(String label) {
-    return InputDecoration(
-      labelText: label,
-      labelStyle: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-      floatingLabelStyle: const TextStyle(color: kPrimaryBlue, fontSize: 14),
-      filled: true,
-      fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+  // --- Layout ---------------------------------------------------------------
+
+  @override
+  Widget build(BuildContext context) {
+    // Presentation only: both branches render the same controller, view and
+    // records features below.
+    final isDesktop = widget.desktopOverride ??
+        isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly);
+    final content = _buildContent(isDesktop);
+
+    final Widget page;
+    if (isDesktop) {
+      // Shell sidebar + top bar stay fixed; the whole page content scrolls.
+      page = Container(
+        color: const Color(0xFFF8F9FC),
+        child: _scrollable(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+          child: content,
+        ),
+      );
+    } else {
+      page = Scaffold(
+        backgroundColor: kBgColor,
+        body: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (Navigator.of(context).canPop())
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: _BackButton(onPressed: () => Navigator.of(context).maybePop()),
+                  ),
+                ),
+              Expanded(
+                child: _scrollable(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                  child: content,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Only the PopScope rebuilds when marks change, never the whole page.
+    return ValueListenableBuilder<int>(
+      valueListenable: _take.marksVersion,
+      child: page,
+      builder: (context, _, child) => PopScope(
+        canPop: !_take.hasUnsavedChanges,
+        onPopInvokedWithResult: (didPop, _) async {
+          if (didPop) return;
+          if (await confirmDiscardAttendance(context) && context.mounted) {
+            _take.clearAll();
+            Navigator.of(context).pop();
+          }
+        },
+        child: child!,
       ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: kPrimaryBlue, width: 1.5),
+    );
+  }
+
+  Widget _scrollable({required EdgeInsets padding, required Widget child}) {
+    final scroll = SingleChildScrollView(
+      key: const ValueKey('attendance-scroll'),
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: padding,
+      child: child,
+    );
+    if (_view != AdminAttendanceView.records) return scroll;
+    return RefreshIndicator(
+      onRefresh: () async => _loadAttendance(),
+      color: kPrimaryGreen,
+      child: scroll,
+    );
+  }
+
+  Widget _buildContent(bool isDesktop) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Same header on every platform; it scrolls with the page.
+        Text(
+          'Attendance',
+          key: const ValueKey('attendance-title'),
+          style: TextStyle(
+            fontSize: isDesktop ? 26 : 24,
+            fontWeight: FontWeight.w800,
+            color: kAdminNavy,
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          kAttendanceSubtitle,
+          style: TextStyle(fontSize: 14, color: kAdminTextSecondary, fontWeight: FontWeight.w500),
+        ),
+        const SizedBox(height: 16),
+        _ViewToggle(
+          value: _view,
+          compact: !isDesktop,
+          onChanged: (v) => setState(() {
+            _view = v;
+            _take.lastView = v.index;
+          }),
+        ),
+        const SizedBox(height: 16),
+        switch (_view) {
+          AdminAttendanceView.take => _yearsGate(
+            () => TakeAttendanceView(controller: _take, isDesktop: isDesktop),
+          ),
+          AdminAttendanceView.records => _buildRecordsView(isDesktop),
+          AdminAttendanceView.reports => _yearsGate(
+            () => AttendanceReportsView(
+              controller: _take.reports,
+              isDesktop: isDesktop,
+            ),
+          ),
+        },
+      ],
+    );
+  }
+
+  /// Take Attendance and Reports both need the academic years first.
+  Widget _yearsGate(Widget Function() child) {
+    final years = _years;
+    if (years == null || years.years.isEmpty) {
+      if (years == null || !_yearsReady || years.loading) {
+        return const Padding(
+          padding: EdgeInsets.all(32),
+          child: Center(child: CircularProgressIndicator(color: kPrimaryBlue)),
+        );
+      }
+      if (years.error != null) {
+        return AdminErrorState(
+          title: 'Could not load academic years',
+          message: years.error!,
+          onRetry: years.refresh,
+        );
+      }
+      return const AdminEmptyState(
+        icon: Icons.calendar_month_outlined,
+        title: 'No academic years',
+        message: 'Create an academic year before taking attendance.',
+      );
+    }
+    return child();
+  }
+
+  // --- Attendance Records ---------------------------------------------------
+
+  Widget _recordsFilters() {
+    return AdminFilterBar(
+      filters: [
+        AdminFilterDropdown<int?>(
+          key: ValueKey('records-class-$_filterClassId-${_classes.length}'),
+          label: 'Class',
+          value: _filterClassId,
+          items: [
+            const DropdownMenuItem<int?>(value: null, child: Text('All classes')),
+            ..._classes.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name, overflow: TextOverflow.ellipsis))),
+          ],
+          onChanged: (v) {
+            _filterClassId = v;
+            _loadAttendance();
+          },
+        ),
+        InkWell(
+          key: const ValueKey('records-date'),
+          onTap: _pickFilterDate,
+          borderRadius: BorderRadius.circular(10),
+          child: InputDecorator(
+            decoration: InputDecoration(
+              labelText: 'Date',
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: kAdminBorder),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: kAdminBorder),
+              ),
+              suffixIcon: const Icon(Icons.calendar_today_outlined, size: 18, color: kAdminNavy),
+            ),
+            child: Text(_dateToYmd(_filterDate), style: const TextStyle(fontSize: 14, color: kAdminNavy)),
+          ),
+        ),
+      ],
+      actions: [
+        AdminSecondaryButton(label: 'Clear', icon: Icons.filter_alt_off_outlined, onPressed: _clearFilters),
+      ],
+    );
+  }
+
+  Widget _buildRecordsView(bool isDesktop) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (_refLoaded) ...[_recordsFilters(), const SizedBox(height: 16)],
+        FutureBuilder<AttendanceResult<List<AttendanceModel>>>(
+          future: _attendanceFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.all(40),
+                child: Center(child: CircularProgressIndicator(color: kPrimaryBlue)),
+              );
+            }
+            if (snapshot.hasError) {
+              return _ErrorState(
+                message: userFriendlyMessage(snapshot.error!, null, 'AdminAttendanceScreen'),
+                onRetry: _loadAttendance,
+              );
+            }
+            final result = snapshot.data;
+            if (result == null) return const Center(child: Text('No data'));
+            if (result is AttendanceError) {
+              return _ErrorState(message: result.message, onRetry: _loadAttendance);
+            }
+            final list = (result as AttendanceSuccess<List<AttendanceModel>>).data;
+            final statusOptions = _statusOptions(list);
+            if (list.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 48),
+                child: Column(
+                  children: [
+                    Icon(Icons.event_note_rounded, size: 56, color: Colors.grey[300]),
+                    const SizedBox(height: 12),
+                    Text(
+                      'No attendance records for this date${_filterClassId != null ? ' / class' : ''}.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                    ),
+                  ],
+                ),
+              );
+            }
+            if (!isDesktop) {
+              return Column(
+                children: [
+                  for (final record in list)
+                    _AttendanceCard(
+                      record: record,
+                      studentName: record.studentName ?? '—',
+                      emis: _displayEmis(record.emisNumber),
+                      className: record.className ?? _className(record.classId),
+                      statusOptions: statusOptions,
+                      onUpdateStatus: () => _openUpdateStatus(record, statusOptions),
+                      onDelete: () => _deleteAttendance(record),
+                    ),
+                ],
+              );
+            }
+            final presentCount = list.where((r) => (r.status ?? '').toUpperCase() == 'PRESENT').length;
+            final absentCount = list.where((r) => (r.status ?? '').toUpperCase() == 'ABSENT').length;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _AttendanceSummaryCards(
+                  presentCount: presentCount,
+                  absentCount: absentCount,
+                  totalCount: list.length,
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: const Color(0xFFE8ECF2)),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                        decoration: const BoxDecoration(
+                          color: kAdminHeaderBg,
+                          border: Border(bottom: BorderSide(color: Color(0xFFE8ECF2), width: 1)),
+                        ),
+                        child: Row(
+                          children: [
+                            for (final (label, flex) in const [
+                              ('Student', 3),
+                              ('EMIS', 2),
+                              ('Class', 2),
+                              ('Subject', 2),
+                              ('Status', 2),
+                              ('Date', 2),
+                            ])
+                              Expanded(
+                                flex: flex,
+                                child: Text(
+                                  label,
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600),
+                                ),
+                              ),
+                            const SizedBox(width: 80),
+                          ],
+                        ),
+                      ),
+                      ...list.map((record) => _AttendanceRow(
+                            record: record,
+                            studentName: record.studentName ?? '—',
+                            emis: _displayEmis(record.emisNumber),
+                            className: record.className ?? _className(record.classId),
+                            onUpdateStatus: () => _openUpdateStatus(record, statusOptions),
+                            onDelete: () => _deleteAttendance(record),
+                          )),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _ViewToggle extends StatelessWidget {
+  final AdminAttendanceView value;
+  final ValueChanged<AdminAttendanceView> onChanged;
+
+  /// Phones: three equal segments with short labels (fits 360px).
+  final bool compact;
+  const _ViewToggle({
+    required this.value,
+    required this.onChanged,
+    this.compact = false,
+  });
+
+  static const _tabs = [
+    (AdminAttendanceView.take, 'Take Attendance', 'Take', Icons.fact_check_outlined),
+    (AdminAttendanceView.records, 'Attendance Records', 'Records', Icons.history_rounded),
+    (AdminAttendanceView.reports, 'Reports', 'Reports', Icons.assessment_outlined),
+  ];
+
+  Widget _tab(AdminAttendanceView v, String label, IconData icon) {
+    final selected = value == v;
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: InkWell(
+        key: ValueKey('attendance-tab-${v.name}'),
+        onTap: selected ? null : () => onChanged(v),
+        borderRadius: BorderRadius.circular(9),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 40),
+          padding: EdgeInsets.symmetric(horizontal: compact ? 6 : 14),
+          decoration: BoxDecoration(
+            color: selected ? kAdminNavy : Colors.transparent,
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: compact ? 16 : 17, color: selected ? Colors.white : kAdminNavy),
+              SizedBox(width: compact ? 4 : 6),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: selected ? Colors.white : kAdminNavy,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
   @override
-  Widget build(BuildContext context) {
-    final body = isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)
-        ? _buildDesktopPageBody(context)
-        : _buildMobilePageBody(context);
-
-    if (isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)) return body;
-    return Scaffold(
-      backgroundColor: kBgColor,
-      body: SafeArea(child: body),
-    );
-  }
-
-  Widget _buildMobilePageBody(BuildContext context) {
-    return Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [kBgColor, kPrimaryBlue.withOpacity(0.02)],
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+  Widget build(BuildContext context) => Container(
+    key: const ValueKey('attendance-modes'),
+    padding: const EdgeInsets.all(4),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: kAdminBorder),
+    ),
+    child: compact
+        ? Row(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                child: Row(
-                  children: [
-                    _BackButton(onPressed: () => Navigator.pop(context)),
-                    const SizedBox(width: 16),
-                    const Expanded(
-                      child: Text('Attendance', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
-                    ),
-                  ],
-                ),
-              ),
-              if (_refLoaded) ...[
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: Select3D<int?>(
-                          value: _filterClassId,
-                          label: 'Class',
-                          items: [
-                            const DropdownMenuItem<int?>(value: null, child: Text('All classes')),
-                            ..._classes.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name))),
-                          ],
-                          onChanged: (v) => setState(() { _filterClassId = v; _loadAttendance(); }),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        flex: 2,
-                        child: DatePicker3D(
-                          label: 'Date',
-                          value: _dateToYmd(_filterDate),
-                          initialDate: _filterDate,
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime.now().add(const Duration(days: 365)),
-                          onDatePicked: (d) => setState(() { _filterDate = d; _loadAttendance(); }),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      TextButton(
-                        onPressed: _clearFilters,
-                        child: const Text('Clear'),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
-              Expanded(
-                child: RefreshIndicator(
-                  onRefresh: () async => _loadAttendance(),
-                  color: kPrimaryGreen,
-                  child: FutureBuilder<AttendanceResult<List<AttendanceModel>>>(
-                    future: _attendanceFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator(color: kPrimaryGreen));
-                      }
-                      if (snapshot.hasError) {
-                        return _ErrorState(
-                          message: userFriendlyMessage(snapshot.error!, null, 'AdminAttendanceScreen'),
-                          onRetry: _loadAttendance,
-                        );
-                      }
-                      final result = snapshot.data;
-                      if (result == null) return const Center(child: Text('No data'));
-                      if (result is AttendanceError) {
-                        return _ErrorState(message: result.message, onRetry: _loadAttendance);
-                      }
-                      final list = (result as AttendanceSuccess<List<AttendanceModel>>).data;
-                      final statusOptions = _statusOptions(list);
-                      if (list.isEmpty) {
-                        return ListView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          children: [
-                            SizedBox(height: MediaQuery.of(context).size.height * 0.2),
-                            Center(
-                              child: Column(
-                                children: [
-                                  Icon(Icons.event_note_rounded, size: 60, color: Colors.grey[300]),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    'No attendance records for this date${_filterClassId != null ? ' / class' : ''}.',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(color: Colors.grey[600], fontSize: 16),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        );
-                      }
-                      return ListView.builder(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                        itemCount: list.length,
-                        itemBuilder: (context, index) {
-                          final record = list[index];
-                          return _AttendanceCard(
-                            record: record,
-                            studentName: record.studentName ?? _studentName(record.studentId),
-                            emis: _studentEmis(record.studentId),
-                            className: record.className ?? _className(record.classId),
-                            statusOptions: statusOptions,
-                            onUpdateStatus: () => _openUpdateStatus(record, statusOptions),
-                            onDelete: () => _deleteAttendance(record),
-                          );
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ),
+              for (final (v, _, short, icon) in _tabs)
+                Expanded(child: _tab(v, short, icon)),
+            ],
+          )
+        : Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: [
+              for (final (v, full, _, icon) in _tabs) _tab(v, full, icon),
             ],
           ),
-        );
-  }
-
-  Widget _buildDesktopPageBody(BuildContext context) {
-    return Container(
-      color: const Color(0xFFF8F9FC),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (_refLoaded)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-              child: _buildDesktopFilterToolbar(),
-            ),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: () async => _loadAttendance(),
-              color: kPrimaryGreen,
-              child: FutureBuilder<AttendanceResult<List<AttendanceModel>>>(
-                future: _attendanceFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator(color: kPrimaryBlue));
-                  }
-                  if (snapshot.hasError) {
-                    return ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: [
-                        SizedBox(height: MediaQuery.of(context).size.height * 0.2),
-                        _ErrorState(
-                          message: userFriendlyMessage(snapshot.error!, null, 'AdminAttendanceScreen'),
-                          onRetry: _loadAttendance,
-                        ),
-                      ],
-                    );
-                  }
-                  final result = snapshot.data;
-                  if (result == null) {
-                    return const Center(child: Text('No data'));
-                  }
-                  if (result is AttendanceError) {
-                    return ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: [
-                        SizedBox(height: MediaQuery.of(context).size.height * 0.2),
-                        _ErrorState(message: result.message, onRetry: _loadAttendance),
-                      ],
-                    );
-                  }
-                  final list = (result as AttendanceSuccess<List<AttendanceModel>>).data;
-                  final statusOptions = _statusOptions(list);
-                  if (list.isEmpty) {
-                    return ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-                      children: [
-                        SizedBox(height: MediaQuery.of(context).size.height * 0.15),
-                        Center(
-                          child: Text(
-                            'No attendance records for this date${_filterClassId != null ? ' / class' : ''}.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.grey[600], fontSize: 16),
-                          ),
-                        ),
-                      ],
-                    );
-                  }
-
-                  final presentCount = list.where((r) => (r.status ?? '').toUpperCase() == 'PRESENT').length;
-                  final absentCount = list.where((r) => (r.status ?? '').toUpperCase() == 'ABSENT').length;
-
-                  return ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(24),
-                    children: [
-                      _AttendanceSummaryCards(
-                        presentCount: presentCount,
-                        absentCount: absentCount,
-                        totalCount: list.length,
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: const Color(0xFFE8ECF2)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.03),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                              decoration: const BoxDecoration(
-                                border: Border(bottom: BorderSide(color: Color(0xFFE8ECF2), width: 1)),
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    flex: 3,
-                                    child: Text(
-                                      'Student',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Text(
-                                      'EMIS',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Text(
-                                      'Class',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Text(
-                                      'Status',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Text(
-                                      'Date',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 80),
-                                ],
-                              ),
-                            ),
-                            ...list.map((record) {
-                              return _AttendanceRow(
-                                record: record,
-                                studentName: record.studentName ?? _studentName(record.studentId),
-                                emis: _displayEmis(_studentEmis(record.studentId)),
-                                className: record.className ?? _className(record.classId),
-                                onUpdateStatus: () => _openUpdateStatus(record, statusOptions),
-                                onDelete: () => _deleteAttendance(record),
-                              );
-                            }),
-                          ],
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDesktopFilterToolbar() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE8ECF2)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final isWide = constraints.maxWidth >= 900;
-          final fieldWidth = isWide ? (constraints.maxWidth - 88) / 2 : constraints.maxWidth;
-
-          Widget classField() {
-            return SizedBox(
-              width: fieldWidth,
-              child: DropdownButtonFormField<int?>(
-                value: _filterClassId,
-                decoration: _desktopFilterDecoration('Class'),
-                items: [
-                  const DropdownMenuItem<int?>(value: null, child: Text('All classes')),
-                  ..._classes.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name))),
-                ],
-                onChanged: (value) => setState(() {
-                  _filterClassId = value;
-                  _loadAttendance();
-                }),
-              ),
-            );
-          }
-
-          Widget dateField() {
-            return SizedBox(
-              width: fieldWidth,
-              child: InputDecorator(
-                decoration: _desktopFilterDecoration('Date'),
-                child: InkWell(
-                  onTap: _pickFilterDate,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _dateToYmd(_filterDate),
-                          style: const TextStyle(fontSize: 14, color: kPrimaryBlue),
-                        ),
-                      ),
-                      Icon(Icons.calendar_today_outlined, size: 18, color: Colors.grey.shade600),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }
-
-          if (isWide) {
-            return Row(
-              children: [
-                classField(),
-                const SizedBox(width: 16),
-                dateField(),
-                const Spacer(),
-                TextButton(
-                  onPressed: _clearFilters,
-                  child: const Text('Clear'),
-                ),
-              ],
-            );
-          }
-
-          return Wrap(
-            spacing: 16,
-            runSpacing: 12,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              classField(),
-              dateField(),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: _clearFilters,
-                  child: const Text('Clear'),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
+  );
 }
 
 class _AttendanceSummaryCards extends StatelessWidget {
@@ -674,10 +696,10 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFE8ECF2)),
       ),
       child: Column(
@@ -687,10 +709,10 @@ class _SummaryCard extends StatelessWidget {
             label,
             style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             value,
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color),
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color),
           ),
         ],
       ),
@@ -724,6 +746,7 @@ class _AttendanceRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final initial = studentName.trim().isNotEmpty ? studentName.trim().substring(0, 1).toUpperCase() : '?';
     final displayDate = _displayValue(record.date ?? '');
+    TextStyle cell() => TextStyle(fontSize: 14, color: Colors.grey.shade700);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
@@ -742,27 +765,19 @@ class _AttendanceRow extends StatelessWidget {
                   height: 40,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: kPrimaryBlue.withOpacity(0.1),
+                    color: kPrimaryBlue.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Text(
                     initial,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: kPrimaryBlue,
-                    ),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimaryBlue),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     studentName,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: kPrimaryBlue,
-                    ),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kPrimaryBlue),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -770,37 +785,19 @@ class _AttendanceRow extends StatelessWidget {
               ],
             ),
           ),
+          Expanded(flex: 2, child: Text(emis, style: cell(), maxLines: 1, overflow: TextOverflow.ellipsis)),
+          Expanded(flex: 2, child: Text(_displayValue(className), style: cell(), maxLines: 1, overflow: TextOverflow.ellipsis)),
           Expanded(
             flex: 2,
             child: Text(
-              emis,
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+              _displayValue(record.subjectName ?? ''),
+              style: cell(),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              _displayValue(className),
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: _AttendanceStatusBadge(status: record.status),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              displayDate,
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
+          Expanded(flex: 2, child: _AttendanceStatusBadge(status: record.status)),
+          Expanded(flex: 2, child: Text(displayDate, style: cell(), maxLines: 1, overflow: TextOverflow.ellipsis)),
           SizedBox(
             width: 80,
             child: Row(
@@ -837,7 +834,7 @@ class _AttendanceStatusBadge extends StatelessWidget {
     Color background;
     Color foreground;
     if (normalized == 'PRESENT') {
-      background = kPrimaryGreen.withOpacity(0.12);
+      background = kPrimaryGreen.withValues(alpha: 0.12);
       foreground = kPrimaryGreen;
     } else if (normalized == 'ABSENT') {
       background = const Color(0xFFFFE8E0);
@@ -857,11 +854,7 @@ class _AttendanceStatusBadge extends StatelessWidget {
         ),
         child: Text(
           status ?? '-',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: foreground,
-          ),
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: foreground),
         ),
       ),
     );
@@ -880,7 +873,7 @@ class _ErrorState extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
             const SizedBox(height: 12),
@@ -915,46 +908,51 @@ class _AttendanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(kCardRadius),
-          boxShadow: [
-            BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 6)),
-            BoxShadow(color: kPrimaryBlue.withOpacity(0.03), blurRadius: 32, offset: const Offset(0, 12)),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: kPrimaryBlue.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: const Icon(Icons.person_outline_rounded, color: kPrimaryBlue, size: 24),
+    final lesson = [
+      if (record.subjectName != null && record.subjectName!.isNotEmpty) record.subjectName!,
+      if (record.time != null && record.time!.isNotEmpty) record.time!,
+    ].join(' · ');
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: kAdminBorder),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: kPrimaryBlue.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(14),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(studentName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
-                  Text('EMIS: $emis · ${record.status ?? "—"}', style: TextStyle(fontSize: 13, color: Colors.grey[700])),
-                  if (record.recordedAt != null || record.date != null)
-                    Text('${record.date ?? ""} ${record.recordedAt ?? ""}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                ],
-              ),
+            child: const Icon(Icons.person_outline_rounded, color: kPrimaryBlue, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  studentName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                ),
+                Text('EMIS: $emis · ${record.status ?? "—"}', style: TextStyle(fontSize: 13, color: Colors.grey[700])),
+                if (lesson.isNotEmpty)
+                  Text(lesson, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                if (record.date != null)
+                  Text('$className · ${record.date}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              ],
             ),
-            IconButton(icon: const Icon(Icons.edit_outlined, size: 22, color: kPrimaryGreen), onPressed: onUpdateStatus, tooltip: 'Edit Status'),
-            IconButton(icon: Icon(Icons.delete_outline, size: 22, color: Colors.red[400]), onPressed: onDelete, tooltip: 'Delete'),
-          ],
-        ),
+          ),
+          IconButton(icon: const Icon(Icons.edit_outlined, size: 22, color: kPrimaryGreen), onPressed: onUpdateStatus, tooltip: 'Edit Status'),
+          IconButton(icon: Icon(Icons.delete_outline, size: 22, color: Colors.red[400]), onPressed: onDelete, tooltip: 'Delete'),
+        ],
       ),
     );
   }
@@ -1035,16 +1033,21 @@ class _BackButton extends StatelessWidget {
   const _BackButton({required this.onPressed});
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+    return Tooltip(
+      message: 'Back',
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: kAdminBorder),
+          ),
+          child: const Icon(Icons.arrow_back_rounded, color: kPrimaryBlue, size: 22),
         ),
-        child: const Icon(Icons.arrow_back_rounded, color: kPrimaryBlue, size: 24),
       ),
     );
   }

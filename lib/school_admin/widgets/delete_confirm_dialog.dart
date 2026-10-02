@@ -9,6 +9,7 @@ Future<bool?> showDeleteConfirmDialog(
   required String title,
   required String message,
   String confirmLabel = 'Delete',
+  String cancelLabel = 'Cancel',
   IconData icon = Icons.delete_outline_rounded,
 }) {
   return showDialog<bool>(
@@ -84,10 +85,13 @@ Future<bool?> showDeleteConfirmDialog(
                             BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2)),
                           ],
                         ),
-                        child: const Center(
+                        child: Center(
                           child: Text(
-                            'Cancel',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: _kPrimaryBlue),
+                            cancelLabel,
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: _kPrimaryBlue),
                           ),
                         ),
                       ),

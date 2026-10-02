@@ -28,7 +28,7 @@ class AuthProvider extends ChangeNotifier {
   String?
   _profileError; // e.g. "Your account is missing profile data. Contact your admin."
   bool?
-  _feesEnabled; // from GET /api/auth/me (school-level feature flag); null = not set, treat as true
+  _feesEnabled; // from GET /api/auth/me (school-level feature flag); null = not enabled
 
   bool get isLoading => _isLoading;
   bool get isAuthenticated => _isAuthenticated;
@@ -39,9 +39,31 @@ class AuthProvider extends ChangeNotifier {
   SchoolFeatures? get schoolFeatures => _schoolFeatures;
   String? get profileError => _profileError;
 
-  /// True when the school has fees/payment feature enabled. When null (e.g. backend not yet updated), treated as true.
-  bool get feesEnabled => _feesEnabled ?? true;
+  /// True when the school has fees/payment feature enabled. Missing feature information is treated as disabled.
+  bool get feesEnabled => _feesEnabled ?? false;
+
+  /// A server feature denial overrides cached visibility until /me is refreshed.
+  void disableFinanceAccess() {
+    if (_feesEnabled == false) return;
+    _feesEnabled = false;
+    notifyListeners();
+  }
   bool get examsEnabled => _schoolFeatures?.examsEnabled ?? true;
+
+  /// Exam Fee Custom module. Fails closed: missing/null is OFF. Independent
+  /// of [feesEnabled] (payments).
+  bool get examFeeCustomEnabled =>
+      _schoolFeatures?.examFeeCustomEnabled ?? false;
+
+  /// A server EXAM_FEE_CUSTOM_NOT_ENABLED denial hides the module until the
+  /// next /me refresh replaces the features.
+  void disableExamFeeAccess() {
+    if (!examFeeCustomEnabled) return;
+    _schoolFeatures = (_schoolFeatures ?? const SchoolFeatures()).copyWith(
+      examFeeCustomEnabled: false,
+    );
+    notifyListeners();
+  }
 
   TeacherProfile? get teacherProfile =>
       _profile is TeacherProfile ? _profile as TeacherProfile : null;
@@ -51,6 +73,8 @@ class AuthProvider extends ChangeNotifier {
       _profile is ParentProfile ? _profile as ParentProfile : null;
   SchoolAdminProfile? get schoolAdminProfile =>
       _profile is SchoolAdminProfile ? _profile as SchoolAdminProfile : null;
+  FinanceProfile? get financeProfile =>
+      _profile is FinanceProfile ? _profile as FinanceProfile : null;
 
   /// Call on app start: load session, set token, then call GET /api/auth/me to refresh user+profile.
   Future<void> initializeAuth() async {

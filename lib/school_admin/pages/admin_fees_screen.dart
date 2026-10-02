@@ -15,7 +15,7 @@ const double kCardRadius = 28.0;
 
 const List<String> kFeeStatusOptions = ['UNPAID', 'PARTIAL', 'PAID'];
 
-class AdminFeesScreen extends StatefulWidget {
+class AdminFeesScreen extends StatelessWidget {
   final bool openCreateOnLoad;
   final bool embedBodyOnly;
   final void Function(String, {Object? arguments})? onNavigateToPage;
@@ -28,10 +28,28 @@ class AdminFeesScreen extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<AdminFeesScreen> createState() => _AdminFeesScreenState();
+  Widget build(BuildContext context) => FeesFeatureGuard(
+    child: _EnabledAdminFeesScreen(
+      openCreateOnLoad: openCreateOnLoad,
+      embedBodyOnly: embedBodyOnly,
+      onNavigateToPage: onNavigateToPage,
+    ),
+  );
 }
 
-class _AdminFeesScreenState extends State<AdminFeesScreen> {
+class _EnabledAdminFeesScreen extends StatefulWidget {
+  final bool openCreateOnLoad, embedBodyOnly;
+  final void Function(String, {Object? arguments})? onNavigateToPage;
+  const _EnabledAdminFeesScreen({
+    required this.openCreateOnLoad,
+    required this.embedBodyOnly,
+    this.onNavigateToPage,
+  });
+  @override
+  State<_EnabledAdminFeesScreen> createState() => _AdminFeesScreenState();
+}
+
+class _AdminFeesScreenState extends State<_EnabledAdminFeesScreen> {
   late Future<FeeResult<List<FeeModel>>> _feesFuture;
   List<StudentModel> _students = [];
   bool _refLoaded = false;
@@ -70,18 +88,25 @@ class _AdminFeesScreenState extends State<AdminFeesScreen> {
   }
 
   String _studentName(int id) {
-    for (final s in _students) { if (s.id == id) return s.studentName; }
+    for (final s in _students) {
+      if (s.id == id) return s.studentName;
+    }
     return '—';
   }
+
   String _studentEmis(int id) {
-    for (final s in _students) { if (s.id == id) return s.emisNumber; }
+    for (final s in _students) {
+      if (s.id == id) return s.emisNumber;
+    }
     return '—';
   }
 
   List<FeeModel> get _filteredFees {
     var list = _allFees;
-    if (_filterStudentId != null) list = list.where((f) => f.studentId == _filterStudentId).toList();
-    if (_filterStatus != null && _filterStatus!.isNotEmpty) list = list.where((f) => f.status == _filterStatus).toList();
+    if (_filterStudentId != null)
+      list = list.where((f) => f.studentId == _filterStudentId).toList();
+    if (_filterStatus != null && _filterStatus!.isNotEmpty)
+      list = list.where((f) => f.status == _filterStatus).toList();
     return list;
   }
 
@@ -99,17 +124,26 @@ class _AdminFeesScreenState extends State<AdminFeesScreen> {
     if (created == true && mounted) {
       _loadFees();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Fee created'), backgroundColor: kPrimaryGreen),
+        const SnackBar(
+          content: Text('Fee created'),
+          backgroundColor: kPrimaryGreen,
+        ),
       );
     }
   }
 
-  Future<bool> _createFeeFromDialog(BuildContext ctx, Map<String, dynamic> payload) async {
+  Future<bool> _createFeeFromDialog(
+    BuildContext ctx,
+    Map<String, dynamic> payload,
+  ) async {
     final result = await FeesService().createFee(payload);
     if (result is FeeSuccess) return true;
     if (ctx.mounted) {
       ScaffoldMessenger.of(ctx).showSnackBar(
-        SnackBar(content: Text((result as FeeError).message), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text((result as FeeError).message),
+          backgroundColor: Colors.red,
+        ),
       );
     }
     return false;
@@ -127,17 +161,27 @@ class _AdminFeesScreenState extends State<AdminFeesScreen> {
     if (updated == true && mounted) {
       _loadFees();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Status updated'), backgroundColor: kPrimaryGreen),
+        const SnackBar(
+          content: Text('Status updated'),
+          backgroundColor: kPrimaryGreen,
+        ),
       );
     }
   }
 
-  Future<bool> _updateStatusFromDialog(BuildContext ctx, int id, String status) async {
+  Future<bool> _updateStatusFromDialog(
+    BuildContext ctx,
+    int id,
+    String status,
+  ) async {
     final result = await FeesService().updateFeeStatus(id, {'status': status});
     if (result is FeeSuccess) return true;
     if (ctx.mounted) {
       ScaffoldMessenger.of(ctx).showSnackBar(
-        SnackBar(content: Text((result as FeeError).message), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text((result as FeeError).message),
+          backgroundColor: Colors.red,
+        ),
       );
     }
     return false;
@@ -155,11 +199,17 @@ class _AdminFeesScreenState extends State<AdminFeesScreen> {
     if (result is FeeSuccess) {
       _loadFees();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Fee deleted'), backgroundColor: kPrimaryGreen),
+        const SnackBar(
+          content: Text('Fee deleted'),
+          backgroundColor: kPrimaryGreen,
+        ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text((result as FeeError).message), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text((result as FeeError).message),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -167,137 +217,192 @@ class _AdminFeesScreenState extends State<AdminFeesScreen> {
   @override
   Widget build(BuildContext context) {
     final body = Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [kBgColor, kPrimaryBlue.withOpacity(0.02)],
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [kBgColor, kPrimaryBlue.withOpacity(0.02)],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+            child: Row(
+              children: [
+                if (!isEmbeddedDesktopAdminBody(
+                  context,
+                  widget.embedBodyOnly,
+                )) ...[
+                  _BackButton(onPressed: () => Navigator.pop(context)),
+                  const SizedBox(width: 16),
+                  const Expanded(
+                    child: Text(
+                      'Fees',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: kPrimaryBlue,
+                      ),
+                    ),
+                  ),
+                ] else
+                  const Spacer(),
+                _AddButton(onPressed: _openCreateFee),
+              ],
+            ),
+          ),
+          if (_refLoaded) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Select3D<int?>(
+                      value: _filterStudentId,
+                      label: 'Student',
+                      items: [
+                        const DropdownMenuItem<int?>(
+                          value: null,
+                          child: Text('All students'),
+                        ),
+                        ..._students.map(
+                          (s) => DropdownMenuItem<int?>(
+                            value: s.id,
+                            child: Text(
+                              '${s.studentName} (${s.emisNumber.trim().isEmpty ? '—' : s.emisNumber})',
+                            ),
+                          ),
+                        ),
+                      ],
+                      onChanged: (v) => setState(() => _filterStudentId = v),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Select3D<String?>(
+                      value: _filterStatus,
+                      label: 'Status',
+                      items: [
+                        const DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text('All'),
+                        ),
+                        ...kFeeStatusOptions.map(
+                          (s) => DropdownMenuItem<String?>(
+                            value: s,
+                            child: Text(s),
+                          ),
+                        ),
+                      ],
+                      onChanged: (v) => setState(() => _filterStatus = v),
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                child: Row(
-                  children: [
-                    if (!isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)) ...[
-                      _BackButton(onPressed: () => Navigator.pop(context)),
-                      const SizedBox(width: 16),
-                      const Expanded(
-                        child: Text('Fees', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
+            const SizedBox(height: 12),
+          ],
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () async => _loadFees(),
+              color: kPrimaryGreen,
+              child: FutureBuilder<FeeResult<List<FeeModel>>>(
+                future: _feesFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(color: kPrimaryGreen),
+                    );
+                  }
+                  if (snapshot.hasError) {
+                    return _ErrorState(
+                      message: userFriendlyMessage(
+                        snapshot.error!,
+                        null,
+                        'AdminFeesScreen',
                       ),
-                    ] else
-                      const Spacer(),
-                    _AddButton(onPressed: _openCreateFee),
-                  ],
-                ),
-              ),
-              if (_refLoaded) ...[
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Select3D<int?>(
-                          value: _filterStudentId,
-                          label: 'Student',
-                          items: [
-                            const DropdownMenuItem<int?>(value: null, child: Text('All students')),
-                            ..._students.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text('${s.studentName} (${s.emisNumber.trim().isEmpty ? '—' : s.emisNumber})'))),
-                          ],
-                          onChanged: (v) => setState(() => _filterStudentId = v),
+                      onRetry: _loadFees,
+                    );
+                  }
+                  final result = snapshot.data;
+                  if (result == null)
+                    return const Center(child: Text('No data'));
+                  if (result is FeeError) {
+                    return _ErrorState(
+                      message: result.message,
+                      onRetry: _loadFees,
+                    );
+                  }
+                  _allFees = (result as FeeSuccess<List<FeeModel>>).data;
+                  final list = _filteredFees;
+                  if (list.isEmpty) {
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.2,
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Select3D<String?>(
-                          value: _filterStatus,
-                          label: 'Status',
-                          items: [
-                            const DropdownMenuItem<String?>(value: null, child: Text('All')),
-                            ...kFeeStatusOptions.map((s) => DropdownMenuItem<String?>(value: s, child: Text(s))),
-                          ],
-                          onChanged: (v) => setState(() => _filterStatus = v),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
-              Expanded(
-                child: RefreshIndicator(
-                  onRefresh: () async => _loadFees(),
-                  color: kPrimaryGreen,
-                  child: FutureBuilder<FeeResult<List<FeeModel>>>(
-                    future: _feesFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator(color: kPrimaryGreen));
-                      }
-                      if (snapshot.hasError) {
-                        return _ErrorState(
-                          message: userFriendlyMessage(snapshot.error!, null, 'AdminFeesScreen'),
-                          onRetry: _loadFees,
-                        );
-                      }
-                      final result = snapshot.data;
-                      if (result == null) return const Center(child: Text('No data'));
-                      if (result is FeeError) {
-                        return _ErrorState(message: result.message, onRetry: _loadFees);
-                      }
-                      _allFees = (result as FeeSuccess<List<FeeModel>>).data;
-                      final list = _filteredFees;
-                      if (list.isEmpty) {
-                        return ListView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          children: [
-                            SizedBox(height: MediaQuery.of(context).size.height * 0.2),
-                            Center(
-                              child: Column(
-                                children: [
-                                  Icon(Icons.payment_rounded, size: 60, color: Colors.grey[300]),
-                                  const SizedBox(height: 12),
-                                  Text('No fee records', style: TextStyle(color: Colors.grey[600], fontSize: 16)),
-                                  const SizedBox(height: 16),
-                                  TextButton.icon(
-                                    onPressed: _openCreateFee,
-                                    icon: const Icon(Icons.add_rounded),
-                                    label: const Text('Create Fee'),
-                                  ),
-                                ],
+                        Center(
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.payment_rounded,
+                                size: 60,
+                                color: Colors.grey[300],
                               ),
-                            ),
-                          ],
-                        );
-                      }
-                      return ListView.builder(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                        itemCount: list.length,
-                        itemBuilder: (context, index) {
-                          final fee = list[index];
-                          return _FeeCard(
-                            fee: fee,
-                            studentName: fee.studentName ?? _studentName(fee.studentId),
-                            emis: fee.emisNumber ?? _studentEmis(fee.studentId),
-                            onTap: () => _openFeeDetail(fee),
-                            onUpdateStatus: () => _openUpdateStatus(fee),
-                            onDelete: () => _deleteFee(fee),
-                          );
-                        },
+                              const SizedBox(height: 12),
+                              Text(
+                                'No fee records',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              TextButton.icon(
+                                onPressed: _openCreateFee,
+                                icon: const Icon(Icons.add_rounded),
+                                label: const Text('Create Fee'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+                  return ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 8,
+                    ),
+                    itemCount: list.length,
+                    itemBuilder: (context, index) {
+                      final fee = list[index];
+                      return _FeeCard(
+                        fee: fee,
+                        studentName:
+                            fee.studentName ?? _studentName(fee.studentId),
+                        emis: fee.emisNumber ?? _studentEmis(fee.studentId),
+                        onTap: () => _openFeeDetail(fee),
+                        onUpdateStatus: () => _openUpdateStatus(fee),
+                        onDelete: () => _deleteFee(fee),
                       );
                     },
-                  ),
-                ),
+                  );
+                },
               ),
-            ],
+            ),
           ),
-        );
+        ],
+      ),
+    );
 
-    final scaffoldPart = isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly) 
-        ? body 
+    final scaffoldPart =
+        isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)
+        ? body
         : Scaffold(
             backgroundColor: kBgColor,
             body: SafeArea(child: body),
@@ -313,9 +418,7 @@ class _AdminFeesScreenState extends State<AdminFeesScreen> {
     } else {
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => FeeDetailScreen(fee: fee),
-        ),
+        MaterialPageRoute(builder: (_) => FeeDetailScreen(fee: fee)),
       ).then((_) => _loadFees());
     }
   }
@@ -337,9 +440,17 @@ class _ErrorState extends StatelessWidget {
           children: [
             Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
             const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.grey[800])),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, color: Colors.grey[800]),
+            ),
             const SizedBox(height: 16),
-            TextButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh), label: const Text('Retry')),
+            TextButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+            ),
           ],
         ),
       ),
@@ -375,8 +486,16 @@ class _FeeCard extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(kCardRadius),
           boxShadow: [
-            BoxShadow(color: kPrimaryBlue.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 6)),
-            BoxShadow(color: kPrimaryBlue.withOpacity(0.03), blurRadius: 32, offset: const Offset(0, 12)),
+            BoxShadow(
+              color: kPrimaryBlue.withOpacity(0.06),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+            BoxShadow(
+              color: kPrimaryBlue.withOpacity(0.03),
+              blurRadius: 32,
+              offset: const Offset(0, 12),
+            ),
           ],
         ),
         child: InkWell(
@@ -390,7 +509,11 @@ class _FeeCard extends StatelessWidget {
                   color: kPrimaryBlue.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Icon(Icons.payment_rounded, color: kPrimaryBlue, size: 24),
+                child: const Icon(
+                  Icons.payment_rounded,
+                  color: kPrimaryBlue,
+                  size: 24,
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -398,14 +521,44 @@ class _FeeCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(studentName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
-                    Text('Amount: ${fee.amount} · Paid: ${fee.paidAmount ?? 0} · Remaining: ${fee.remainingAmount ?? fee.amount}', style: TextStyle(fontSize: 13, color: Colors.grey[700])),
-                    if (fee.status != null) Text('Status: ${fee.status}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                    Text(
+                      studentName,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: kPrimaryBlue,
+                      ),
+                    ),
+                    Text(
+                      'Amount: ${fee.amount} · Paid: ${fee.paidAmount ?? 0} · Remaining: ${fee.remainingAmount ?? fee.amount}',
+                      style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                    ),
+                    if (fee.status != null)
+                      Text(
+                        'Status: ${fee.status}',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
                   ],
                 ),
               ),
-              IconButton(icon: const Icon(Icons.edit_outlined, size: 22, color: kPrimaryGreen), onPressed: onUpdateStatus, tooltip: 'Update Status'),
-              IconButton(icon: Icon(Icons.delete_outline, size: 22, color: Colors.red[400]), onPressed: onDelete, tooltip: 'Delete'),
+              IconButton(
+                icon: const Icon(
+                  Icons.edit_outlined,
+                  size: 22,
+                  color: kPrimaryGreen,
+                ),
+                onPressed: onUpdateStatus,
+                tooltip: 'Update Status',
+              ),
+              IconButton(
+                icon: Icon(
+                  Icons.delete_outline,
+                  size: 22,
+                  color: Colors.red[400],
+                ),
+                onPressed: onDelete,
+                tooltip: 'Delete',
+              ),
             ],
           ),
         ),
@@ -446,7 +599,9 @@ class _FeeDetailScreenState extends State<FeeDetailScreen> {
         fee: _fee,
         currentStatus: _fee.status,
         onSave: (status) async {
-          final result = await FeesService().updateFeeStatus(_fee.id, {'status': status});
+          final result = await FeesService().updateFeeStatus(_fee.id, {
+            'status': status,
+          });
           if (result is FeeSuccess) {
             setState(() {
               _fee = FeeModel(
@@ -466,7 +621,10 @@ class _FeeDetailScreenState extends State<FeeDetailScreen> {
           }
           if (ctx.mounted) {
             ScaffoldMessenger.of(ctx).showSnackBar(
-              SnackBar(content: Text((result as FeeError).message), backgroundColor: Colors.red),
+              SnackBar(
+                content: Text((result as FeeError).message),
+                backgroundColor: Colors.red,
+              ),
             );
           }
           return false;
@@ -475,7 +633,10 @@ class _FeeDetailScreenState extends State<FeeDetailScreen> {
     );
     if (updated == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Status updated'), backgroundColor: kPrimaryGreen),
+        const SnackBar(
+          content: Text('Status updated'),
+          backgroundColor: kPrimaryGreen,
+        ),
       );
     }
   }
@@ -487,13 +648,16 @@ class _FeeDetailScreenState extends State<FeeDetailScreen> {
       message: 'Delete this fee record?',
     );
     if (confirmed != true) return;
-    
+
     final result = await FeesService().deleteFee(_fee.id);
     if (!mounted) return;
-    
+
     if (result is FeeSuccess) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Fee deleted'), backgroundColor: kPrimaryGreen),
+        const SnackBar(
+          content: Text('Fee deleted'),
+          backgroundColor: kPrimaryGreen,
+        ),
       );
       final isDesktop = isDesktopWebAdminLayout(context);
       if (isDesktop && widget.onNavigateToPage != null) {
@@ -503,7 +667,10 @@ class _FeeDetailScreenState extends State<FeeDetailScreen> {
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text((result as FeeError).message), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text((result as FeeError).message),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -512,66 +679,111 @@ class _FeeDetailScreenState extends State<FeeDetailScreen> {
   Widget build(BuildContext context) {
     final studentName = _fee.studentName ?? 'Unknown Student';
     final emis = _fee.emisNumber ?? '—';
-    
+
     final body = Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-              child: Row(
-                children: [
-                  if (!isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)) ...[
-                    GestureDetector(
-                      onTap: () {
-                        final isDesktop = isDesktopWebAdminLayout(context);
-                        if (isDesktop && widget.onNavigateToPage != null) {
-                          widget.onNavigateToPage!('fees');
-                        } else {
-                          Navigator.pop(context);
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+          child: Row(
+            children: [
+              if (!isEmbeddedDesktopAdminBody(
+                context,
+                widget.embedBodyOnly,
+              )) ...[
+                GestureDetector(
+                  onTap: () {
+                    final isDesktop = isDesktopWebAdminLayout(context);
+                    if (isDesktop && widget.onNavigateToPage != null) {
+                      widget.onNavigateToPage!('fees');
+                    } else {
+                      Navigator.pop(context);
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: kPrimaryBlue.withOpacity(0.08),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
                         ),
-                        child: const Icon(Icons.arrow_back_rounded, color: kPrimaryBlue, size: 24),
-                      ),
+                      ],
                     ),
-                    const SizedBox(width: 16),
-                    const Expanded(child: Text('Fee Details', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kPrimaryBlue))),
-                  ] else
-                    const Spacer(),
-                  TextButton.icon(onPressed: _openUpdateStatus, icon: const Icon(Icons.edit, size: 18), label: const Text('Update Status')),
-                  IconButton(icon: Icon(Icons.delete_outline, color: Colors.red[400]), onPressed: _deleteFee, tooltip: 'Delete'),
+                    child: const Icon(
+                      Icons.arrow_back_rounded,
+                      color: kPrimaryBlue,
+                      size: 24,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                const Expanded(
+                  child: Text(
+                    'Fee Details',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: kPrimaryBlue,
+                    ),
+                  ),
+                ),
+              ] else
+                const Spacer(),
+              TextButton.icon(
+                onPressed: _openUpdateStatus,
+                icon: const Icon(Icons.edit, size: 18),
+                label: const Text('Update Status'),
+              ),
+              IconButton(
+                icon: Icon(Icons.delete_outline, color: Colors.red[400]),
+                onPressed: _deleteFee,
+                tooltip: 'Delete',
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: FormCard(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    studentName,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: kPrimaryBlue,
+                    ),
+                  ),
+                  if (emis.isNotEmpty && emis != '—')
+                    Text(
+                      'EMIS: $emis',
+                      style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                    ),
+                  const SizedBox(height: 20),
+                  _DetailRow('Amount', '${_fee.amount}'),
+                  _DetailRow('Paid Amount', '${_fee.paidAmount ?? 0}'),
+                  _DetailRow(
+                    'Remaining',
+                    '${_fee.remainingAmount ?? _fee.amount}',
+                  ),
+                  if (_fee.status != null) _DetailRow('Status', _fee.status!),
+                  if (_fee.createdAt != null)
+                    _DetailRow('Created', _fee.createdAt!),
                 ],
               ),
             ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: FormCard(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(studentName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
-                      if (emis.isNotEmpty && emis != '—') Text('EMIS: $emis', style: TextStyle(fontSize: 14, color: Colors.grey[700])),
-                      const SizedBox(height: 20),
-                      _DetailRow('Amount', '${_fee.amount}'),
-                      _DetailRow('Paid Amount', '${_fee.paidAmount ?? 0}'),
-                      _DetailRow('Remaining', '${_fee.remainingAmount ?? _fee.amount}'),
-                      if (_fee.status != null) _DetailRow('Status', _fee.status!),
-                      if (_fee.createdAt != null) _DetailRow('Created', _fee.createdAt!),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        );
+          ),
+        ),
+      ],
+    );
 
     if (isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly)) return body;
     return Scaffold(
@@ -595,7 +807,14 @@ class _DetailRow extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: TextStyle(fontSize: 14, color: Colors.grey[700])),
-          Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kPrimaryBlue)),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: kPrimaryBlue,
+            ),
+          ),
         ],
       ),
     );
@@ -626,20 +845,29 @@ class _CreateFeeDialogState extends State<_CreateFeeDialog> {
   Future<void> _submit() async {
     if (_studentId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a student'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('Please select a student'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
     final amount = num.tryParse(_amount.text.trim()) ?? 0;
     if (amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Amount must be greater than 0'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('Amount must be greater than 0'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
     if (_submitting) return;
     setState(() => _submitting = true);
-    final ok = await widget.onSave({'student_id': _studentId, 'amount': amount});
+    final ok = await widget.onSave({
+      'student_id': _studentId,
+      'amount': amount,
+    });
     if (!mounted) return;
     setState(() => _submitting = false);
     if (ok) Navigator.of(context).pop(true);
@@ -656,14 +884,31 @@ class _CreateFeeDialogState extends State<_CreateFeeDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Create Fee', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
+            const Text(
+              'Create Fee',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: kPrimaryBlue,
+              ),
+            ),
             const SizedBox(height: 20),
             Select3D<int?>(
               value: _studentId,
               label: 'Student',
               items: [
-                const DropdownMenuItem<int?>(value: null, child: Text('Select student')),
-                ...widget.students.map((s) => DropdownMenuItem<int?>(value: s.id, child: Text('${s.studentName} (${s.emisNumber.trim().isEmpty ? '—' : s.emisNumber})'))),
+                const DropdownMenuItem<int?>(
+                  value: null,
+                  child: Text('Select student'),
+                ),
+                ...widget.students.map(
+                  (s) => DropdownMenuItem<int?>(
+                    value: s.id,
+                    child: Text(
+                      '${s.studentName} (${s.emisNumber.trim().isEmpty ? '—' : s.emisNumber})',
+                    ),
+                  ),
+                ),
               ],
               onChanged: (v) => setState(() => _studentId = v),
             ),
@@ -672,15 +917,32 @@ class _CreateFeeDialogState extends State<_CreateFeeDialog> {
               controller: _amount,
               label: 'Amount',
               keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
+              ],
               onSubmitted: (_) => _submit(),
             ),
             const SizedBox(height: 24),
             Row(
               children: [
-                Expanded(child: TextButton(onPressed: _submitting ? null : () => Navigator.pop(context), child: const Text('Cancel'))),
+                Expanded(
+                  child: TextButton(
+                    onPressed: _submitting
+                        ? null
+                        : () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                ),
                 const SizedBox(width: 12),
-                Expanded(flex: 2, child: PrimaryButton3D(label: 'Create', onPressed: _submit, loading: _submitting, height: 48)),
+                Expanded(
+                  flex: 2,
+                  child: PrimaryButton3D(
+                    label: 'Create',
+                    onPressed: _submit,
+                    loading: _submitting,
+                    height: 48,
+                  ),
+                ),
               ],
             ),
           ],
@@ -695,7 +957,11 @@ class _UpdateFeeStatusDialog extends StatefulWidget {
   final String? currentStatus;
   final Future<bool> Function(String status) onSave;
 
-  const _UpdateFeeStatusDialog({required this.fee, this.currentStatus, required this.onSave});
+  const _UpdateFeeStatusDialog({
+    required this.fee,
+    this.currentStatus,
+    required this.onSave,
+  });
 
   @override
   State<_UpdateFeeStatusDialog> createState() => _UpdateFeeStatusDialogState();
@@ -732,7 +998,14 @@ class _UpdateFeeStatusDialogState extends State<_UpdateFeeStatusDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Update Fee Status', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
+            const Text(
+              'Update Fee Status',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: kPrimaryBlue,
+              ),
+            ),
             const SizedBox(height: 12),
             Text(
               'Amounts cannot be edited manually. Status is usually auto-calculated; only change if necessary.',
@@ -742,15 +1015,34 @@ class _UpdateFeeStatusDialogState extends State<_UpdateFeeStatusDialog> {
             Select3D<String>(
               value: _status,
               label: 'Status',
-              items: kFeeStatusOptions.map((s) => DropdownMenuItem<String>(value: s, child: Text(s))).toList(),
+              items: kFeeStatusOptions
+                  .map(
+                    (s) => DropdownMenuItem<String>(value: s, child: Text(s)),
+                  )
+                  .toList(),
               onChanged: (v) => setState(() => _status = v ?? 'UNPAID'),
             ),
             const SizedBox(height: 24),
             Row(
               children: [
-                Expanded(child: TextButton(onPressed: _submitting ? null : () => Navigator.pop(context), child: const Text('Cancel'))),
+                Expanded(
+                  child: TextButton(
+                    onPressed: _submitting
+                        ? null
+                        : () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                ),
                 const SizedBox(width: 12),
-                Expanded(flex: 2, child: PrimaryButton3D(label: 'Save', onPressed: _submit, loading: _submitting, height: 48)),
+                Expanded(
+                  flex: 2,
+                  child: PrimaryButton3D(
+                    label: 'Save',
+                    onPressed: _submit,
+                    loading: _submitting,
+                    height: 48,
+                  ),
+                ),
               ],
             ),
           ],
@@ -772,9 +1064,19 @@ class _BackButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+          boxShadow: [
+            BoxShadow(
+              color: kPrimaryBlue.withOpacity(0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        child: const Icon(Icons.arrow_back_rounded, color: kPrimaryBlue, size: 24),
+        child: const Icon(
+          Icons.arrow_back_rounded,
+          color: kPrimaryBlue,
+          size: 24,
+        ),
       ),
     );
   }
@@ -792,7 +1094,13 @@ class _AddButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: kPrimaryGreen.withOpacity(0.12),
           borderRadius: BorderRadius.circular(14),
-          boxShadow: [BoxShadow(color: kPrimaryGreen.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))],
+          boxShadow: [
+            BoxShadow(
+              color: kPrimaryGreen.withOpacity(0.2),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: const Icon(Icons.add_rounded, color: kPrimaryGreen, size: 24),
       ),

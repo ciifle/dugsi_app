@@ -10,23 +10,33 @@ class AdminFeatureDialog extends StatelessWidget {
   final double maxWidth;
   final VoidCallback? onClose;
 
+  /// Optional content kept below the header and outside the scrolling area
+  /// (e.g. a search field), so it stays visible when the keyboard shrinks the
+  /// dialog and only [child] scrolls.
+  final Widget? pinned;
+
   const AdminFeatureDialog({
     super.key,
     required this.title,
     required this.child,
     this.maxWidth = 460,
     this.onClose,
+    this.pinned,
   });
 
   @override
-  Widget build(BuildContext context) => Dialog(
+  Widget build(BuildContext context) {
+    // With the keyboard open the dialog gets tighter margins/padding so the
+    // scrolling content keeps as much room as possible.
+    final compact = MediaQuery.viewInsetsOf(context).bottom > 0;
+    return Dialog(
     backgroundColor: Colors.transparent,
     elevation: 0,
-    insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+    insetPadding: EdgeInsets.symmetric(horizontal: 24, vertical: compact ? 12 : 24),
     child: ConstrainedBox(
       constraints: BoxConstraints(maxWidth: maxWidth),
       child: FormCard(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(compact ? 16 : 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -50,12 +60,19 @@ class AdminFeatureDialog extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 18),
-            Flexible(child: SingleChildScrollView(child: child)),
+            if (pinned != null) ...[pinned!, const SizedBox(height: 12)],
+            Flexible(
+              child: SingleChildScrollView(
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                child: child,
+              ),
+            ),
           ],
         ),
       ),
     ),
   );
+  }
 }
 
 Future<bool?> showAdminFeatureConfirmation(

@@ -58,7 +58,7 @@ class _StudentWebShellState extends State<StudentWebShell> {
       case 'payments':
         return 'Payments';
       case 'payFee':
-        return 'Pay Fee';
+        return 'Student';
       case 'attendance':
         return 'Attendance';
       case 'notices':
@@ -93,7 +93,7 @@ class _StudentWebShellState extends State<StudentWebShell> {
       case 'payments':
         return 'Your payment history.';
       case 'payFee':
-        return 'Submit a fee payment.';
+        return null;
       case 'attendance':
         return 'Monthly attendance records.';
       case 'notices':
@@ -216,8 +216,13 @@ class _StudentWebShellState extends State<StudentWebShell> {
             child: Column(
               children: [
                 StudentWebTopBar(
-                  title: _getTitle(_selectedPage),
-                  subtitle: _getSubtitle(_selectedPage),
+                  title: ['fees', 'payments', 'payFee'].contains(_selectedPage)
+                      ? 'Student'
+                      : _getTitle(_selectedPage),
+                  subtitle:
+                      ['fees', 'payments', 'payFee'].contains(_selectedPage)
+                      ? context.watch<AuthProvider>().school?.name
+                      : _getSubtitle(_selectedPage),
                   onNavigateToPage: _navigateToPage,
                   onLogout: _handleLogout,
                 ),

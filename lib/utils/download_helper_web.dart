@@ -1,23 +1,22 @@
 import 'dart:html' as html;
 
-/// Web-only download helper to avoid compilation issues on mobile
+const _xlsxMime =
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+/// Web-only download helper (kept out of mobile builds via the conditional
+/// export in download_helper.dart). Triggers a browser download of an Excel
+/// workbook without navigating away or opening a tab.
 void downloadFile(List<int> bytes, String filename) {
-  // Create a blob from bytes
-  final blob = html.Blob([bytes], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  
-  // Create a temporary anchor element
-  final url = html.Url.createObjectUrlFromBlob(blob);
+  final url = html.Url.createObjectUrlFromBlob(html.Blob([bytes], _xlsxMime));
   final anchor = html.AnchorElement(href: url)
-    ..setAttribute("download", filename)
+    ..download = filename
     ..style.display = 'none';
-  
-  // Add to DOM, click, and remove
-  html.document.body!.append(anchor);
+  html.document.body?.append(anchor);
   anchor.click();
   anchor.remove();
-  
-  // Clean up the object URL
-  html.Url.revokeObjectUrl(url);
-  
-  print('DEBUG: Web download completed successfully');
+  // Revoking synchronously can cancel the download in some browsers.
+  Future<void>.delayed(
+    const Duration(seconds: 1),
+    () => html.Url.revokeObjectUrl(url),
+  );
 }

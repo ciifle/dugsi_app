@@ -294,7 +294,7 @@ Future<GetMeResult> getMe() async {
         profile: profile,
         school: school,
         schoolFeatures: schoolFeatures,
-        feesEnabled: feesEnabled ?? schoolFeatures?.feesEnabled,
+        feesEnabled: schoolFeatures?.feesEnabled ?? feesEnabled,
       ),
     );
   } catch (_) {

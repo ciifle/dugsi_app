@@ -17,7 +17,7 @@ import 'package:kobac/widgets/form_3d/form_3d.dart';
 import 'package:kobac/services/periods_service.dart';
 import 'package:kobac/services/shifts_service.dart';
 import 'package:kobac/services/teacher_day_off_service.dart';
-import 'package:kobac/school_admin/widgets/timetable_print_dialog.dart';
+import 'package:kobac/school_admin/widgets/export_timetable_dialog.dart';
 import 'package:kobac/school_admin/widgets/school_timetable_generator_dialog.dart';
 
 const Color kPrimaryBlue = Color(0xFF023471);
@@ -74,8 +74,8 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
     setState(() => _selectedAcademicYearId = provider.activeYear?.id);
   }
 
-  Future<void> _openPrintDialog() async {
-    await showTimetablePrintDialog(
+  Future<void> _openExportDialog() async {
+    await showExportTimetableDialog(
       context,
       initialAcademicYearId: _selectedAcademicYearId,
     );
@@ -535,9 +535,9 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: OutlinedButton.icon(
-                      onPressed: _openPrintDialog,
-                      icon: const Icon(Icons.print_rounded, size: 18),
-                      label: const Text('Print Timetable'),
+                      onPressed: _openExportDialog,
+                      icon: const Icon(Icons.file_download_outlined, size: 18),
+                      label: const Text('Export Timetable'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: kPrimaryBlue,
                         side: const BorderSide(color: Color(0xFFE5E7EB)),
@@ -1146,9 +1146,9 @@ class _AdminTimetableScreenState extends State<AdminTimetableScreen> {
                   _openGenerator,
                 ),
                 webAdminAction(
-                  'Print Timetable',
-                  Icons.print,
-                  _openPrintDialog,
+                  'Export Timetable',
+                  Icons.file_download_outlined,
+                  _openExportDialog,
                   outlined: true,
                   color: webNavy,
                 ),

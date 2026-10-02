@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import 'package:kobac/services/api_client.dart';
 import 'package:kobac/services/api_error_helpers.dart';
+import 'package:kobac/services/excel_file_result.dart';
 import 'package:kobac/services/pdf_file_result.dart';
 import 'package:kobac/services/periods_service.dart';
 
@@ -191,7 +192,7 @@ class TimetablesService {
           List<dynamic>? found;
           for (final value in raw.values) {
             if (value is List) {
-              found = value as List<dynamic>;
+              found = value;
               break;
             }
           }
@@ -460,184 +461,161 @@ class TimetablesService {
     }
   }
 
-  String _printPdfError(
+  // ---------------------------------------------------------------------------
+  // Exports (PDF / Excel). One request path so every combination gets the same
+  // authentication, timeout, binary validation and error mapping.
+  // ---------------------------------------------------------------------------
+
+  static const _exportTimeout = Duration(seconds: 90);
+
+  /// User-facing message for a failed export. Backend text is used when it is
+  /// clean; otherwise a status-specific default. Never raw JSON/HTML/SQL.
+  String _exportError(
     http.Response response, {
-    required bool allTeachers,
-    String? shiftLabel,
+    required bool excel,
+    bool classScope = false,
+    String? levelLabel,
   }) {
     final backend = _errorMessage(response);
-    if (backend != null &&
-        !backend.toLowerCase().contains('<html') &&
-        !backend.toLowerCase().contains('sql')) {
-      return backend;
+    if (backend != null && backend.trim().isNotEmpty) return backend;
+    switch (response.statusCode) {
+      case 400:
+        return 'Please check your selection and try again.';
+      case 401:
+        return 'Your session has expired. Please sign in again.';
+      case 403:
+        return 'School administrator access is required.';
+      case 404:
+        return 'No timetable entries were found for this selection.';
+      case 409:
+        if (classScope && !excel && (levelLabel?.trim().isNotEmpty ?? false)) {
+          return "${levelLabel!.trim()} classes could not be matched to a single shift. Check each class's shift assignment and try again.";
+        }
+        return 'No periods are configured for this timetable.';
+      default:
+        return 'Could not export the timetable. Please try again.';
     }
-    if (response.statusCode == 401)
-      return 'Your session has expired. Please sign in again.';
-    if (response.statusCode == 403)
-      return 'School administrator access is required.';
-    if (response.statusCode == 404) {
-      if (allTeachers && shiftLabel != null && shiftLabel.trim().isNotEmpty) {
-        return 'No ${shiftLabel.trim()} timetable entries were found for this academic year.';
-      }
-      return allTeachers
-          ? 'No teacher timetables were found for this academic year.'
-          : 'No timetable was found for this teacher in this academic year.';
-    }
-    return 'The timetable PDF could not be generated. Please try again.';
   }
+
+  Future<TimetableResult<T>> _export<T>(
+    String label,
+    Uri uri, {
+    required bool excel,
+    required T? Function(http.Response) parse,
+    bool classScope = false,
+    String? levelLabel,
+  }) async {
+    try {
+      final response = await _client
+          .get(
+            uri,
+            headers: {'Accept': excel ? xlsxMimeType : 'application/pdf'},
+          )
+          .timeout(_exportTimeout);
+      final ok = response.statusCode == 200;
+      devLogResponse(
+        'TimetablesService.$label',
+        response.statusCode,
+        ok ? '<binary ${response.bodyBytes.length} bytes>' : response.body,
+      );
+      final document = ok ? parse(response) : null;
+      if (document == null) {
+        // A 200 that is not a genuine PDF/XLSX (HTML login page, proxy error,
+        // JSON) is an error, never a file.
+        return TimetableError(
+          ok
+              ? 'Could not export the timetable. Please try again.'
+              : _exportError(
+                  response,
+                  excel: excel,
+                  classScope: classScope,
+                  levelLabel: levelLabel,
+                ),
+          response.statusCode,
+        );
+      }
+      return TimetableSuccess(document);
+    } catch (e, st) {
+      return TimetableError(
+        userFriendlyMessage(e, st, 'TimetablesService.$label'),
+      );
+    }
+  }
+
+  static PdfFileResult? _validPdf(http.Response response) {
+    final file = pdfFileResultFromResponse(response);
+    if (file == null) return null;
+    final b = file.bytes;
+    final isPdf =
+        b.length > 4 && b[0] == 0x25 && b[1] == 0x50 && b[2] == 0x44 && b[3] == 0x46;
+    return isPdf ? file : null;
+  }
+
+  /// GET /api/school-admin/timetables/classes/print?academic_year_id=&level_id=
+  /// Class PDF is level-scoped: a level is required.
+  Future<TimetableResult<PdfFileResult>> getClassesTimetablePrintPdf({
+    required int academicYearId,
+    required int levelId,
+    String? levelLabel,
+  }) => _export<PdfFileResult>(
+    'getClassesTimetablePrintPdf',
+    apiUrl('$_base/classes/print').replace(
+      queryParameters: {
+        'academic_year_id': academicYearId.toString(),
+        'level_id': levelId.toString(),
+      },
+    ),
+    excel: false,
+    parse: _validPdf,
+    classScope: true,
+    levelLabel: levelLabel,
+  );
+
+  /// GET /api/school-admin/timetables/classes/export?academic_year_id=&level_id=
+  /// Editable Excel export. `levelId` is optional: omitted = every level (no
+  /// `level_id` is sent). The file is a one-way export; editing it never
+  /// changes Dugsi.
+  Future<TimetableResult<ExcelFileResult>> getClassesTimetableExcel({
+    required int academicYearId,
+    int? levelId,
+    String? levelLabel,
+  }) => _export<ExcelFileResult>(
+    'getClassesTimetableExcel',
+    apiUrl('$_base/classes/export').replace(
+      queryParameters: {
+        'academic_year_id': academicYearId.toString(),
+        if (levelId != null) 'level_id': levelId.toString(),
+      },
+    ),
+    excel: true,
+    parse: excelFileResultFromResponse,
+    classScope: true,
+    levelLabel: levelLabel,
+  );
 
   /// GET /api/school-admin/timetables/teachers/{teacherId}/print?academic_year_id=
   Future<TimetableResult<PdfFileResult>> getTeacherTimetablePrintPdf({
     required int teacherId,
     required int academicYearId,
-  }) async {
-    try {
-      final response = await _client.get(
-        apiUrl('$_base/teachers/$teacherId/print').replace(
-          queryParameters: {'academic_year_id': academicYearId.toString()},
-        ),
-        headers: const {'Accept': 'application/pdf'},
-      );
-      devLogResponse(
-        'TimetablesService.getTeacherTimetablePrintPdf',
-        response.statusCode,
-        response.body.length > 200 ? '<pdf bytes>' : response.body,
-      );
-      final document = pdfFileResultFromResponse(response);
-      if (document == null) {
-        return TimetableError(
-          _printPdfError(response, allTeachers: false),
-          response.statusCode,
-        );
-      }
-      return TimetableSuccess(document);
-    } catch (e, st) {
-      return TimetableError(
-        userFriendlyMessage(
-          e,
-          st,
-          'TimetablesService.getTeacherTimetablePrintPdf',
-        ),
-      );
-    }
-  }
+  }) => _export<PdfFileResult>(
+    'getTeacherTimetablePrintPdf',
+    apiUrl('$_base/teachers/$teacherId/print').replace(
+      queryParameters: {'academic_year_id': academicYearId.toString()},
+    ),
+    excel: false,
+    parse: _validPdf,
+  );
 
-  /// GET /api/school-admin/timetables/teachers/print?academic_year_id=&shift=
-  /// `shift` is the backend's fixed enum (`MORNING`|`AFTERNOON`, verified
-  /// against the live Swagger contract) and is required on every request —
-  /// NOT the school's arbitrary Shift entity id. `shiftLabel` (the display
-  /// name, e.g. "Morning") is only used to word a clean "no entries" error.
-  Future<TimetableResult<PdfFileResult>> getAllTeachersTimetablePrintPdf({
+  /// GET /api/school-admin/timetables/teachers/{teacherId}/export?academic_year_id=
+  Future<TimetableResult<ExcelFileResult>> getTeacherTimetableExcel({
+    required int teacherId,
     required int academicYearId,
-    required String shift,
-    String? shiftLabel,
-  }) async {
-    try {
-      final response = await _client.get(
-        apiUrl('$_base/teachers/print').replace(
-          queryParameters: {
-            'academic_year_id': academicYearId.toString(),
-            'shift': shift,
-          },
-        ),
-        headers: const {'Accept': 'application/pdf'},
-      );
-      devLogResponse(
-        'TimetablesService.getAllTeachersTimetablePrintPdf',
-        response.statusCode,
-        response.body.length > 200 ? '<pdf bytes>' : response.body,
-      );
-      final document = pdfFileResultFromResponse(response);
-      if (document == null) {
-        return TimetableError(
-          _printPdfError(response, allTeachers: true, shiftLabel: shiftLabel),
-          response.statusCode,
-        );
-      }
-      return TimetableSuccess(document);
-    } catch (e, st) {
-      return TimetableError(
-        userFriendlyMessage(
-          e,
-          st,
-          'TimetablesService.getAllTeachersTimetablePrintPdf',
-        ),
-      );
-    }
-  }
-
-  String _classesPrintError(http.Response response, {String? levelLabel}) {
-    final backend = _errorMessage(response);
-    if (backend != null &&
-        !backend.toLowerCase().contains('<html') &&
-        !backend.toLowerCase().contains('sql')) {
-      return backend;
-    }
-    if (response.statusCode == 401) {
-      return 'Your session has expired. Please sign in again.';
-    }
-    if (response.statusCode == 403) {
-      return 'School administrator access is required.';
-    }
-    if (response.statusCode == 400) {
-      return 'Select an academic year and a level.';
-    }
-    if (response.statusCode == 404) {
-      final label = levelLabel != null && levelLabel.trim().isNotEmpty
-          ? levelLabel.trim()
-          : 'this level';
-      return 'No timetable has been generated for $label in the selected academic year.';
-    }
-    if (response.statusCode == 409) {
-      final label = levelLabel != null && levelLabel.trim().isNotEmpty
-          ? levelLabel.trim()
-          : "This level's";
-      return "$label classes could not be matched to a single shift. Check each class's shift assignment and try again.";
-    }
-    return 'The timetable PDF could not be generated. Please try again.';
-  }
-
-  /// GET /api/school-admin/timetables/classes/print?academic_year_id=&level_id=
-  /// Swagger-verified: the class-based, level-scoped weekly wall timetable
-  /// that supersedes the shift-based all-teachers print above. No shift
-  /// parameter exists — the backend resolves it from the level's own
-  /// classes and rejects (409) if they don't resolve to exactly one shift.
-  Future<TimetableResult<PdfFileResult>> getClassesByLevelTimetablePrintPdf({
-    required int academicYearId,
-    required int levelId,
-    String? levelLabel,
-  }) async {
-    try {
-      final response = await _client.get(
-        apiUrl('$_base/classes/print').replace(
-          queryParameters: {
-            'academic_year_id': academicYearId.toString(),
-            'level_id': levelId.toString(),
-          },
-        ),
-        headers: const {'Accept': 'application/pdf'},
-      );
-      devLogResponse(
-        'TimetablesService.getClassesByLevelTimetablePrintPdf',
-        response.statusCode,
-        response.body.length > 200 ? '<pdf bytes>' : response.body,
-      );
-      final document = pdfFileResultFromResponse(response);
-      if (document == null) {
-        return TimetableError(
-          _classesPrintError(response, levelLabel: levelLabel),
-          response.statusCode,
-        );
-      }
-      return TimetableSuccess(document);
-    } catch (e, st) {
-      return TimetableError(
-        userFriendlyMessage(
-          e,
-          st,
-          'TimetablesService.getClassesByLevelTimetablePrintPdf',
-        ),
-      );
-    }
-  }
+  }) => _export<ExcelFileResult>(
+    'getTeacherTimetableExcel',
+    apiUrl('$_base/teachers/$teacherId/export').replace(
+      queryParameters: {'academic_year_id': academicYearId.toString()},
+    ),
+    excel: true,
+    parse: excelFileResultFromResponse,
+  );
 }

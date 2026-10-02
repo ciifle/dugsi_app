@@ -407,6 +407,7 @@ class AdminTableCard extends StatelessWidget {
           rows.length,
           (i) => i == rows.length - 1
               ? AdminTableRow(
+                  key: rows[i].key,
                   cells: rows[i].cells,
                   flexes: rows[i].flexes,
                   onTap: rows[i].onTap,
@@ -455,12 +456,16 @@ class AdminStatusPill extends StatelessWidget {
           Icon(icon, size: 14, color: color),
           const SizedBox(width: 5),
         ],
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            color: color,
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
           ),
         ),
       ],
@@ -605,4 +610,140 @@ class AdminFilterDropdown<T> extends StatelessWidget {
     items: items,
     onChanged: onChanged,
   );
+}
+
+/// Shared list pagination: "Showing 1–10 of 24 users" + previous / numbered
+/// pages / next. Pass a null [onPageChanged] to disable it while loading.
+class AdminPaginationBar extends StatelessWidget {
+  final int page; // 1-based
+  final int pageSize;
+  final int total;
+  final String singular;
+  final String plural;
+  final ValueChanged<int>? onPageChanged;
+
+  const AdminPaginationBar({
+    super.key,
+    required this.page,
+    required this.pageSize,
+    required this.total,
+    required this.singular,
+    required this.plural,
+    required this.onPageChanged,
+  });
+
+  int get _pages => total <= 0 ? 1 : (total / pageSize).ceil();
+
+  /// Page numbers to show: first, last, current ±1, with gaps as `null`.
+  List<int?> _window() {
+    final shown = <int>{1, _pages, page - 1, page, page + 1}
+      ..removeWhere((p) => p < 1 || p > _pages);
+    final sorted = shown.toList()..sort();
+    final out = <int?>[];
+    for (var i = 0; i < sorted.length; i++) {
+      if (i > 0 && sorted[i] - sorted[i - 1] > 1) out.add(null);
+      out.add(sorted[i]);
+    }
+    return out;
+  }
+
+  Widget _pageButton({
+    required Widget child,
+    required VoidCallback? onTap,
+    bool selected = false,
+    String? tooltip,
+  }) {
+    final box = Container(
+      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: selected ? kAdminNavy : Colors.white,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: selected ? kAdminNavy : kAdminBorder),
+      ),
+      child: child,
+    );
+    final tappable = InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(9),
+      child: box,
+    );
+    return tooltip == null ? tappable : Tooltip(message: tooltip, child: tappable);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (total <= 0) return const SizedBox.shrink();
+    final start = (page - 1) * pageSize + 1;
+    final end = (page * pageSize).clamp(0, total);
+    final noun = total == 1 ? singular : plural;
+    final label = start >= end
+        ? 'Showing $end of $total $noun'
+        : 'Showing $start–$end of $total $noun';
+    final change = onPageChanged;
+    return Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 16,
+      runSpacing: 10,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 13,
+            color: kAdminTextSecondary,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Wrap(
+          spacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            _pageButton(
+              tooltip: 'Previous page',
+              onTap: change != null && page > 1 ? () => change(page - 1) : null,
+              child: Icon(
+                Icons.chevron_left_rounded,
+                size: 20,
+                color: change != null && page > 1
+                    ? kAdminNavy
+                    : kAdminTextSecondary.withValues(alpha: .5),
+              ),
+            ),
+            for (final p in _window())
+              if (p == null)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 2),
+                  child: Text('…', style: TextStyle(color: kAdminTextSecondary)),
+                )
+              else
+                _pageButton(
+                  selected: p == page,
+                  onTap: change != null && p != page ? () => change(p) : null,
+                  child: Text(
+                    '$p',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: p == page ? Colors.white : kAdminNavy,
+                    ),
+                  ),
+                ),
+            _pageButton(
+              tooltip: 'Next page',
+              onTap: change != null && page < _pages ? () => change(page + 1) : null,
+              child: Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: change != null && page < _pages
+                    ? kAdminNavy
+                    : kAdminTextSecondary.withValues(alpha: .5),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 }

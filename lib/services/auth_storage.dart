@@ -149,6 +149,15 @@ class AuthStorage {
         'email': profile.email,
       };
     }
+    if (profile is FinanceProfile) {
+      return {
+        'id': profile.id,
+        'user_id': profile.userId,
+        'school_id': profile.schoolId,
+        'name': profile.name,
+        'email': profile.email,
+      };
+    }
     return null;
   }
 

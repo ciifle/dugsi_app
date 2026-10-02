@@ -61,16 +61,38 @@ class AcademicYearSuccess<T> extends AcademicYearResult<T> {
 class AcademicYearError extends AcademicYearResult<Never> {
   final String message;
   final int? statusCode;
-  AcademicYearError(this.message, [this.statusCode]);
+
+  /// Machine-readable backend code, e.g. FINANCE_NOT_ENABLED.
+  final String? code;
+  AcademicYearError(this.message, [this.statusCode, this.code]);
 }
 
+/// Read-only academic-year list for the FINANCE role:
+///   GET /api/finance/academic-years -> {success, data: [...]} (newest first;
+///   the active year is the row with is_active == 1).
+/// FINANCE has no /active or write endpoints; only this GET is ever issued.
+const String kFinanceAcademicYearsPath = 'api/finance/academic-years';
+
 class AcademicYearsService {
-  AcademicYearsService._();
-  static final instance = AcademicYearsService._();
+  AcademicYearsService._(this._base, {required this.hasActiveEndpoint});
+  static final instance = AcademicYearsService._(
+    'api/school-admin/academic-years',
+    hasActiveEndpoint: true,
+  );
   factory AcademicYearsService() => instance;
 
+  /// The FINANCE role's read-only service ([kFinanceAcademicYearsPath]).
+  factory AcademicYearsService.finance() => AcademicYearsService._(
+    kFinanceAcademicYearsPath,
+    hasActiveEndpoint: false,
+  );
+
+  /// Whether `$base/active` exists. When false the active year is the list
+  /// row flagged is_active.
+  final bool hasActiveEndpoint;
+
   final ApiClient _client = ApiClient();
-  static const _base = 'api/school-admin/academic-years';
+  final String _base;
 
   String _message(dynamic raw, String fallback) {
     final map = _map(raw);
@@ -111,6 +133,7 @@ class AcademicYearsService {
         return AcademicYearError(
           _message(raw, 'Could not load academic years.'),
           response.statusCode,
+          _map(raw)?['code']?.toString(),
         );
       }
       return AcademicYearSuccess(
@@ -261,6 +284,8 @@ class AcademicYearsProvider extends ChangeNotifier {
   bool loading = false;
   bool submitting = false;
   String? error;
+  int? errorStatus;
+  String? errorCode;
   bool _loaded = false;
   final Set<int> _deletedYearIds = {};
 
@@ -283,18 +308,25 @@ class AcademicYearsProvider extends ChangeNotifier {
     if (loading) return;
     loading = true;
     error = null;
+    errorStatus = null;
+    errorCode = null;
     notifyListeners();
-    final results = await Future.wait([service.list(), service.active()]);
-    final listResult = results[0];
-    final activeResult = results[1];
+    final Object listResult = await service.list();
+    // FINANCE has no /active endpoint: its active year is the is_active row.
+    final Object? activeResult = service.hasActiveEndpoint ? await service.active() : null;
     if (listResult is AcademicYearSuccess<List<AcademicYear>>) {
       years = listResult.data
           .where((year) => !_deletedYearIds.contains(year.id))
           .toList();
     } else {
       error = (listResult as AcademicYearError).message;
+      errorStatus = listResult.statusCode;
+      errorCode = listResult.code;
     }
-    if (activeResult is AcademicYearSuccess<AcademicYear?>) {
+    if (activeResult == null) {
+      final flagged = years.where((y) => y.isActive);
+      activeYear = flagged.isEmpty ? null : flagged.first;
+    } else if (activeResult is AcademicYearSuccess<AcademicYear?>) {
       final active = activeResult.data;
       activeYear = active != null && _deletedYearIds.contains(active.id)
           ? null

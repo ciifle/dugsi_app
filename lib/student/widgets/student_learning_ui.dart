@@ -9,16 +9,8 @@ const studentLine = Color(0xFFE8ECF2);
 const studentBlueTint = Color(0xFFE6F0FF);
 
 const _studentShadow = [
-  BoxShadow(
-    color: Color(0x12023471),
-    blurRadius: 20,
-    offset: Offset(0, 8),
-  ),
-  BoxShadow(
-    color: Color(0x8AFFFFFF),
-    blurRadius: 1,
-    offset: Offset(0, -1),
-  ),
+  BoxShadow(color: Color(0x12023471), blurRadius: 20, offset: Offset(0, 8)),
+  BoxShadow(color: Color(0x8AFFFFFF), blurRadius: 1, offset: Offset(0, -1)),
 ];
 
 class StudentPageHeader extends StatelessWidget {
@@ -103,9 +95,7 @@ class _HeaderControl extends StatelessWidget {
           width: 46,
           height: 46,
           decoration: BoxDecoration(
-            border: Border.all(
-              color: isMenu ? studentBlue : studentLine,
-            ),
+            border: Border.all(color: isMenu ? studentBlue : studentLine),
             borderRadius: BorderRadius.circular(15),
             boxShadow: _studentShadow,
           ),
@@ -162,64 +152,67 @@ class StudentIdentityCard extends StatelessWidget {
           ),
           Row(
             children: [
-          Container(
-            width: 58,
-            height: 58,
-            decoration: BoxDecoration(
-              color: studentBlue,
-              shape: BoxShape.circle,
-              border: Border.all(color: studentGreen, width: 3),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x14023471),
-                  blurRadius: 10,
-                  offset: Offset(0, 5),
-                ),
-              ],
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              initials.isEmpty ? 'S' : initials,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 19,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: studentBlue,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                    height: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 7,
-                  runSpacing: 6,
-                  children: [
-                    _MetaChip(icon: Icons.school_rounded, label: className),
-                    _MetaChip(icon: Icons.badge_outlined, label: 'EMIS $emis'),
+              Container(
+                width: 58,
+                height: 58,
+                decoration: BoxDecoration(
+                  color: studentBlue,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: studentGreen, width: 3),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x14023471),
+                      blurRadius: 10,
+                      offset: Offset(0, 5),
+                    ),
                   ],
                 ),
-              ],
-            ),
-          ),
-          if (onTap != null)
-            const Padding(
-              padding: EdgeInsets.only(left: 6),
-              child: Icon(Icons.chevron_right_rounded, color: studentMuted),
-            ),
+                alignment: Alignment.center,
+                child: Text(
+                  initials.isEmpty ? 'S' : initials,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: studentBlue,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 7,
+                      runSpacing: 6,
+                      children: [
+                        _MetaChip(icon: Icons.school_rounded, label: className),
+                        _MetaChip(
+                          icon: Icons.badge_outlined,
+                          label: 'EMIS $emis',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              if (onTap != null)
+                const Padding(
+                  padding: EdgeInsets.only(left: 6),
+                  child: Icon(Icons.chevron_right_rounded, color: studentMuted),
+                ),
             ],
           ),
         ],
@@ -248,12 +241,16 @@ class _MetaChip extends StatelessWidget {
         children: [
           Icon(icon, color: studentBlue, size: 13),
           const SizedBox(width: 5),
-          Text(
-            label,
-            style: const TextStyle(
-              color: studentMuted,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: studentMuted,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -423,9 +420,7 @@ class StudentScheduleCard extends StatelessWidget {
                   boxShadow: const [_StudentDotShadow()],
                 ),
               ),
-              Expanded(
-                child: Container(width: 2, color: studentLine),
-              ),
+              Expanded(child: Container(width: 2, color: studentLine)),
             ],
           ),
         ),
@@ -605,10 +600,7 @@ class StudentNextClassCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        icon: const Icon(
-                          Icons.arrow_forward_rounded,
-                          size: 17,
-                        ),
+                        icon: const Icon(Icons.arrow_forward_rounded, size: 17),
                         label: const Text('View Timetable'),
                       ),
                     ],
@@ -647,11 +639,11 @@ class StudentNextClassCard extends StatelessWidget {
 
 class _StudentDotShadow extends BoxShadow {
   const _StudentDotShadow()
-      : super(
-          color: const Color(0x26023471),
-          blurRadius: 5,
-          offset: const Offset(0, 2),
-        );
+    : super(
+        color: const Color(0x26023471),
+        blurRadius: 5,
+        offset: const Offset(0, 2),
+      );
 }
 
 class StudentMetricCard extends StatelessWidget {
@@ -903,9 +895,7 @@ class StudentDrawerItem extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: selected ? studentBlue : studentLine,
-            ),
+            border: Border.all(color: selected ? studentBlue : studentLine),
             boxShadow: _studentShadow,
           ),
           child: Row(

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:kobac/finance/pages/finance_dashboard.dart';
 import 'package:kobac/models/auth_user.dart';
 import 'package:kobac/models/dummy_user.dart';
 import 'package:kobac/parent/pages/parent_dashboard.dart';
@@ -541,6 +542,8 @@ Widget roleToHome(AuthUser? user) {
       return const StudentDashboardScreen();
     case UserRole.parent:
       return const ParentDashboardScreen();
+    case UserRole.finance:
+      return const FinanceDashboardScreen();
     default:
       return const LoginPage();
   }

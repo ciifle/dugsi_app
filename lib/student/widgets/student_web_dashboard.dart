@@ -1,3 +1,4 @@
+import 'package:kobac/student/finance/student_finance_page.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:kobac/services/auth_provider.dart';
@@ -32,7 +33,6 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
   late Future<StudentResult<List<StudentTimetableSlotModel>>>
   _timetableTodayFuture;
   late Future<StudentResult<List<StudentNoticeModel>>> _noticesFuture;
-  late Future<StudentResult<List<StudentFeeModel>>> _feesFuture;
   late Future<StudentResult<List<StudentAttendanceRecordModel>>>
   _attendanceFuture;
   late Future<PerformanceResult<StudentAcademicPerformance>> _performanceFuture;
@@ -52,7 +52,7 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
 
     _timetableTodayFuture = StudentService().getTimetable(day: todayDay);
     _noticesFuture = StudentService().listNotices();
-    _feesFuture = StudentService().listFees();
+
     _attendanceFuture = StudentService().listAttendance(
       from:
           '${monthStart.year.toString().padLeft(4, '0')}-${monthStart.month.toString().padLeft(2, '0')}-${monthStart.day.toString().padLeft(2, '0')}',
@@ -111,9 +111,13 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
               const SizedBox(height: 24),
               _buildFeatureCards(),
               const SizedBox(height: 24),
-              _buildStatsGrid(auth.feesEnabled),
+              _buildStatsGrid(),
               const SizedBox(height: 24),
               _buildQuickActions(auth.feesEnabled),
+              if (auth.feesEnabled) ...[
+                const SizedBox(height: 24),
+                StudentFinanceSummaryCard(onView: () => _navigate('fees')),
+              ],
               const SizedBox(height: 24),
               _buildTodayClasses(),
               const SizedBox(height: 24),
@@ -374,7 +378,7 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
     return 1;
   }
 
-  Widget _buildStatsGrid(bool feesEnabled) {
+  Widget _buildStatsGrid() {
     return LayoutBuilder(
       builder: (context, constraints) {
         final columns = _statColumns(constraints.maxWidth);
@@ -382,17 +386,12 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
           future: Future.wait([
             _timetableTodayFuture,
             _noticesFuture,
-            if (feesEnabled)
-              _feesFuture
-            else
-              Future.value(StudentSuccess<List<StudentFeeModel>>([])),
             _attendanceFuture,
           ]),
           builder: (context, snap) {
             final loading = snap.connectionState != ConnectionState.done;
             final todayClasses = _countTodayClasses(snap.data);
             final noticeCount = _countNotices(snap.data);
-            final unpaidFees = _countUnpaidFees(snap.data, feesEnabled);
             final attendanceRate = _attendanceRate(snap.data);
 
             final stats =
@@ -426,14 +425,6 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
                     color: const Color(0xFFF59E0B),
                     pageKey: 'attendance',
                   ),
-                  if (feesEnabled)
-                    (
-                      icon: Icons.account_balance_wallet_rounded,
-                      label: 'Unpaid fees',
-                      value: loading ? '—' : '$unpaidFees',
-                      color: _kPrimaryBlue,
-                      pageKey: 'fees',
-                    ),
                 ];
 
             return GridView.builder(
@@ -477,17 +468,6 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
     final result = data[1];
     if (result is StudentSuccess<List<StudentNoticeModel>>) {
       return result.data.length;
-    }
-    return 0;
-  }
-
-  int _countUnpaidFees(List<dynamic>? data, bool feesEnabled) {
-    if (!feesEnabled || data == null || data.length < 3) return 0;
-    final result = data[2];
-    if (result is StudentSuccess<List<StudentFeeModel>>) {
-      return result.data
-          .where((f) => f.status?.toUpperCase() == 'UNPAID')
-          .length;
     }
     return 0;
   }
@@ -552,16 +532,8 @@ class _StudentWebDashboardState extends State<StudentWebDashboard> {
               key: 'fees',
               icon: Icons.account_balance_wallet_rounded,
               color: _kPrimaryBlue,
-              title: 'Fees',
+              title: 'Fees & Payments',
               subtitle: 'Payment status',
-            ),
-          if (feesEnabled)
-            (
-              key: 'payFee',
-              icon: Icons.payment_rounded,
-              color: _kPrimaryGreen,
-              title: 'Pay Fee',
-              subtitle: 'Make a payment',
             ),
           (
             key: 'notices',

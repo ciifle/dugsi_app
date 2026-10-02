@@ -39,6 +39,16 @@ class _WebSidebarState extends State<WebSidebar> {
       'subjects': ['subjects', 'classSubjects', 'addSubject', 'editSubject'],
       'attendance': ['attendance'],
       'fees': ['fees', 'payments'],
+      'finance': [
+        'financeDashboard',
+        'financeUsers',
+        'financeClassFees',
+        'financeStudentDiscounts',
+        'financeGenerateFees',
+        'financeFeeLedger',
+        'financeCollectPayment',
+        'financePaymentHistory',
+      ],
       'timetable': [
         'timetable',
         'teacherDayOff',
@@ -52,6 +62,7 @@ class _WebSidebarState extends State<WebSidebar> {
         'hallAllocation',
         'hallReports',
         'passCards',
+        'examFees',
       ],
     };
     for (final entry in groups.entries) {
@@ -77,6 +88,8 @@ class _WebSidebarState extends State<WebSidebar> {
   @override
   Widget build(BuildContext context) {
     final examsEnabled = context.watch<AuthProvider>().examsEnabled;
+    final examFeeCustomEnabled =
+        context.watch<AuthProvider>().examFeeCustomEnabled;
     final school = context.watch<AuthProvider>().school;
     final schoolName = school?.name?.trim();
     return Container(
@@ -321,6 +334,66 @@ class _WebSidebarState extends State<WebSidebar> {
                       ],
                     ),
                   ],
+                  if (context.watch<AuthProvider>().feesEnabled) ...[
+                    const _SidebarDivider(),
+                    _SidebarSection(
+                      title: 'Finance',
+                      icon: Icons.account_balance_wallet_rounded,
+                      isExpanded: _expandedSection == 'finance',
+                      isActive: _sectionFor(widget.selectedPage) == 'finance',
+                      onTap: () => _toggleSection('finance'),
+                      children: [
+                        _SidebarItem(
+                          title: 'Dashboard',
+                          icon: Icons.dashboard_outlined,
+                          isActive: widget.selectedPage == 'financeDashboard',
+                          onTap: () => _navigateToPage('financeDashboard'),
+                        ),
+                        _SidebarItem(
+                          title: 'Finance Users',
+                          icon: Icons.people_outline_rounded,
+                          isActive: widget.selectedPage == 'financeUsers',
+                          onTap: () => _navigateToPage('financeUsers'),
+                        ),
+                        _SidebarItem(
+                          title: 'Class Fees',
+                          icon: Icons.class_outlined,
+                          isActive: widget.selectedPage == 'financeClassFees',
+                          onTap: () => _navigateToPage('financeClassFees'),
+                        ),
+                        _SidebarItem(
+                          title: 'Student Discounts',
+                          icon: Icons.percent_rounded,
+                          isActive: widget.selectedPage == 'financeStudentDiscounts',
+                          onTap: () => _navigateToPage('financeStudentDiscounts'),
+                        ),
+                        _SidebarItem(
+                          title: 'Generate Fees',
+                          icon: Icons.receipt_long_outlined,
+                          isActive: widget.selectedPage == 'financeGenerateFees',
+                          onTap: () => _navigateToPage('financeGenerateFees'),
+                        ),
+                        _SidebarItem(
+                          title: 'Fee Ledger',
+                          icon: Icons.list_alt_rounded,
+                          isActive: widget.selectedPage == 'financeFeeLedger',
+                          onTap: () => _navigateToPage('financeFeeLedger'),
+                        ),
+                        _SidebarItem(
+                          title: 'Collect Payment',
+                          icon: Icons.payments_outlined,
+                          isActive: widget.selectedPage == 'financeCollectPayment',
+                          onTap: () => _navigateToPage('financeCollectPayment'),
+                        ),
+                        _SidebarItem(
+                          title: 'Payment History',
+                          icon: Icons.history_rounded,
+                          isActive: widget.selectedPage == 'financePaymentHistory',
+                          onTap: () => _navigateToPage('financePaymentHistory'),
+                        ),
+                      ],
+                    ),
+                  ],
                   const _SidebarDivider(),
                   _SidebarSection(
                     title: 'Time Table',
@@ -412,6 +485,14 @@ class _WebSidebarState extends State<WebSidebar> {
                           onTap: () => _navigateToPage('passCards'),
                         ),
                       ],
+                      // Independent of payments (feesEnabled); fails closed.
+                      if (examFeeCustomEnabled)
+                        _SidebarItem(
+                          title: 'Exam Fees',
+                          icon: Icons.request_quote_outlined,
+                          isActive: widget.selectedPage == 'examFees',
+                          onTap: () => _navigateToPage('examFees'),
+                        ),
                     ],
                   ),
                   const _SidebarDivider(),

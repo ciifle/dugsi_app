@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kobac/finance/pages/finance_admin_mobile_menu_page.dart';
 import 'package:kobac/school_admin/widgets/admin_responsive_layout.dart';
 import 'package:provider/provider.dart';
 import 'package:kobac/models/dummy_user.dart';
@@ -402,13 +403,25 @@ class _WebDashboardState extends State<WebDashboard> {
       description: 'Track attendance',
       onTap: () => _navigateToPage('attendance', const AdminAttendanceScreen()),
     ),
-    QuickActionCard(
-      icon: Icons.attach_money_rounded,
-      iconColor: const Color(0xFF2E7CC9),
-      title: 'Fees',
-      description: 'Manage fees',
-      onTap: () => _navigateToPage('fees', const AdminFeesScreen()),
-    ),
+    if (context.watch<AuthProvider>().feesEnabled)
+      QuickActionCard(
+        icon: Icons.account_balance_rounded,
+        iconColor: const Color(0xFF023471),
+        title: 'Finance',
+        description: 'Review school collections',
+        onTap: () => _navigateToPage(
+          'financeDashboard',
+          const FinanceAdminMobileMenuPage(),
+        ),
+      ),
+    if (context.watch<AuthProvider>().feesEnabled)
+      QuickActionCard(
+        icon: Icons.attach_money_rounded,
+        iconColor: const Color(0xFF2E7CC9),
+        title: 'Fees',
+        description: 'Manage fees',
+        onTap: () => _navigateToPage('fees', const AdminFeesScreen()),
+      ),
     // Messaging temporarily disabled from active UI/navigation.
     QuickActionCard(
       icon: Icons.schedule_rounded,

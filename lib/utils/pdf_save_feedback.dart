@@ -4,18 +4,33 @@ import 'package:kobac/utils/mobile_pdf_save.dart';
 import 'package:kobac/utils/mobile_pdf_save_result.dart';
 import 'package:kobac/utils/student_pdf_handler.dart';
 
-Future<void> savePdfWithFeedback(
+/// Returns true once the PDF was handed to the browser / written to storage;
+/// false when the user cancelled the save dialog or saving failed.
+Future<bool> savePdfWithFeedback(
   BuildContext context, {
   required Uint8List bytes,
   required String filename,
 }) async {
   if (kIsWeb) {
-    await downloadStudentPdf(bytes, filename);
-    return;
+    try {
+      await downloadStudentPdf(bytes, filename);
+      return true;
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not download the PDF. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return false;
+    }
   }
 
   final result = await saveMobilePdf(bytes: bytes, suggestedFilename: filename);
-  if (!context.mounted || result.status == MobileSaveStatus.cancelled) return;
+  if (result.status == MobileSaveStatus.cancelled) return false;
+  if (!context.mounted) return result.status == MobileSaveStatus.saved;
   if (result.status == MobileSaveStatus.saved) {
     final savedFilename = result.savedFilename;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -28,7 +43,7 @@ Future<void> savePdfWithFeedback(
         backgroundColor: const Color(0xFF5AB04B),
       ),
     );
-    return;
+    return true;
   }
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
@@ -38,4 +53,5 @@ Future<void> savePdfWithFeedback(
       backgroundColor: Colors.red,
     ),
   );
+  return false;
 }

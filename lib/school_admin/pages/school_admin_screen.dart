@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kobac/finance/pages/finance_admin_mobile_menu_page.dart';
 
 import 'package:kobac/models/dummy_user.dart';
 import 'package:kobac/school_admin/pages/admin_classes.dart';
@@ -13,6 +14,8 @@ import 'package:kobac/school_admin/pages/admin_notices_screen.dart';
 import 'package:kobac/school_admin/pages/admin_students.dart';
 import 'package:kobac/school_admin/pages/admin_fees_screen.dart';
 import 'package:kobac/school_admin/pages/admin_attendance_screen.dart';
+import 'package:kobac/school_admin/attendance/take_attendance_controller.dart';
+import 'package:kobac/exam_fees/state/exam_fees_controller.dart';
 import 'package:kobac/school_admin/pages/create_student_screen.dart';
 import 'package:kobac/school_admin/pages/create_teacher_screen.dart';
 import 'package:kobac/school_admin/pages/notifications_page.dart';
@@ -65,6 +68,21 @@ class _SchoolAdminScreenState extends State<SchoolAdminScreen> {
 
   bool _dataLoaded = false;
   String _searchQuery = '';
+
+  /// Shared by the mobile and desktop Attendance presentations.
+  final TakeAttendanceController _attendanceSession =
+      TakeAttendanceController();
+
+  /// Shared by the mobile and desktop Exam Fees presentations. Makes no
+  /// request until the Exam Fees page (feature-gated) uses it.
+  final ExamFeesController _examFeesSession = ExamFeesController();
+
+  @override
+  void dispose() {
+    _attendanceSession.dispose();
+    _examFeesSession.dispose();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -205,12 +223,20 @@ class _SchoolAdminScreenState extends State<SchoolAdminScreen> {
   Widget build(BuildContext context) {
     final feesEnabled = context.watch<AuthProvider>().feesEnabled;
 
-    // Check if we should use desktop layout
-    if (isDesktopLayout(context)) {
-      return _buildDesktopLayout(feesEnabled);
-    }
+    // One Attendance session above the layout switch: mobile and desktop
+    // render the same feature/state, only the presentation differs.
+    return AttendanceSessionScope(
+      controller: _attendanceSession,
+      child: ExamFeesSessionScope(
+        controller: _examFeesSession,
+        child: isDesktopLayout(context)
+            ? _buildDesktopLayout(feesEnabled)
+            : _buildMobileLayout(feesEnabled),
+      ),
+    );
+  }
 
-    // Mobile layout (existing)
+  Widget _buildMobileLayout(bool feesEnabled) {
     return Scaffold(
       backgroundColor: kBgColor,
       drawer: _bottomNavIndex == 0
@@ -390,8 +416,10 @@ class _SchoolAdminScreenState extends State<SchoolAdminScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            spacing: 12,
+            runSpacing: 8,
             children: [
               const Text(
                 "Fees Overview",
@@ -583,31 +611,44 @@ class _SchoolAdminScreenState extends State<SchoolAdminScreen> {
                     )
                     .then((_) => _loadData()),
               ),
-              _QuickActionButton(
-                icon: Icons.payments_rounded,
-                label: "Fees",
-                color: kPrimaryBlue,
-                onTap: () => _nestedNavKey.currentState
-                    ?.push(
-                      MaterialPageRoute(
-                        builder: (_) => const AdminFeesScreen(),
-                      ),
-                    )
-                    .then((_) => _loadData()),
-              ),
-              _QuickActionButton(
-                icon: Icons.add_circle_outline_rounded,
-                label: "Create Fee",
-                color: kPrimaryGreen,
-                onTap: () => _nestedNavKey.currentState
-                    ?.push(
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            const AdminFeesScreen(openCreateOnLoad: true),
-                      ),
-                    )
-                    .then((_) => _loadData()),
-              ),
+              if (context.watch<AuthProvider>().feesEnabled)
+                _QuickActionButton(
+                  icon: Icons.account_balance_rounded,
+                  label: "Finance",
+                  color: kPrimaryBlue,
+                  onTap: () => _nestedNavKey.currentState?.push(
+                    MaterialPageRoute(
+                      builder: (_) => const FinanceAdminMobileMenuPage(),
+                    ),
+                  ),
+                ),
+              if (context.watch<AuthProvider>().feesEnabled)
+                _QuickActionButton(
+                  icon: Icons.payments_rounded,
+                  label: "Fees",
+                  color: kPrimaryBlue,
+                  onTap: () => _nestedNavKey.currentState
+                      ?.push(
+                        MaterialPageRoute(
+                          builder: (_) => const AdminFeesScreen(),
+                        ),
+                      )
+                      .then((_) => _loadData()),
+                ),
+              if (context.watch<AuthProvider>().feesEnabled)
+                _QuickActionButton(
+                  icon: Icons.add_circle_outline_rounded,
+                  label: "Create Fee",
+                  color: kPrimaryGreen,
+                  onTap: () => _nestedNavKey.currentState
+                      ?.push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const AdminFeesScreen(openCreateOnLoad: true),
+                        ),
+                      )
+                      .then((_) => _loadData()),
+                ),
               _QuickActionButton(
                 icon: Icons.event_note_rounded,
                 label: "Attendance",
@@ -627,8 +668,10 @@ class _SchoolAdminScreenState extends State<SchoolAdminScreen> {
                 onTap: () => _nestedNavKey.currentState
                     ?.push(
                       MaterialPageRoute(
-                        builder: (_) =>
-                            const AdminAttendanceScreen(defaultToToday: true),
+                        builder: (_) => const AdminAttendanceScreen(
+                          defaultToToday: true,
+                          initialView: AdminAttendanceView.records,
+                        ),
                       ),
                     )
                     .then((_) => _loadData()),

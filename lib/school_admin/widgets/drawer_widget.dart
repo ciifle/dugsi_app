@@ -15,7 +15,9 @@ import 'package:kobac/school_admin/pages/notifications_page.dart';
 import 'package:kobac/school_admin/pages/school_admin_screen.dart';
 import 'package:kobac/school_admin/pages/admin_parents_screen.dart';
 import 'package:kobac/school_admin/pages/admin_fees_screen.dart';
+import 'package:kobac/finance/pages/finance_admin_mobile_menu_page.dart';
 import 'package:kobac/school_admin/pages/admin_attendance_screen.dart';
+import 'package:kobac/exam_fees/pages/exam_fees_page.dart';
 import 'package:kobac/school_admin/pages/admin_class_subjects_screen.dart';
 import 'package:kobac/services/classes_service.dart';
 import 'package:kobac/school_admin/pages/exam_hall_management_pages.dart';
@@ -235,6 +237,27 @@ class AppDrawer extends StatelessWidget {
                               label: 'Fees',
                               onTap: () =>
                                   _navTo(context, const AdminFeesScreen()),
+                            ),
+                            const SizedBox(height: 12),
+                            _DrawerMenuCard(
+                              icon: Icons.account_balance_wallet_outlined,
+                              label: 'Finance',
+                              onTap: () => _navTo(
+                                context,
+                                const FinanceAdminMobileMenuPage(),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                          // Independent of Fees/Finance; fails closed.
+                          if (context
+                              .watch<AuthProvider>()
+                              .examFeeCustomEnabled) ...[
+                            _DrawerMenuCard(
+                              icon: Icons.request_quote_outlined,
+                              label: 'Exam Fees',
+                              onTap: () =>
+                                  _navTo(context, const ExamFeesPage()),
                             ),
                             const SizedBox(height: 12),
                           ],
