@@ -825,7 +825,7 @@ class TeacherService {
       if (response.statusCode == 403) {
         return TeacherError(
           _errorMessage(response) ??
-              'Not allowed to take attendance for this class or invalid time window.',
+              'Not allowed to take attendance for this class, or the lesson has not started yet.',
           403,
         );
       }

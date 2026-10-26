@@ -284,6 +284,13 @@ class _TeacherWebDashboardState extends State<TeacherWebDashboard> {
         onTap: () => _navigate('marks'),
       ),
       QuickActionCard(
+        icon: Icons.campaign_rounded,
+        iconColor: _kSoftOrange,
+        title: 'Notices',
+        description: 'School announcements',
+        onTap: () => _navigate('notices'),
+      ),
+      QuickActionCard(
         icon: Icons.person_rounded,
         iconColor: _kPrimaryBlue,
         title: 'Profile',

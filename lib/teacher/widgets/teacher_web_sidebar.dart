@@ -103,6 +103,13 @@ class TeacherWebSidebar extends StatelessWidget {
                   selectedPage: selectedPage,
                   onNavigate: onNavigate,
                 ),
+                _TeacherNavItem(
+                  icon: Icons.campaign_rounded,
+                  label: 'Notices',
+                  pageKey: 'notices',
+                  selectedPage: selectedPage,
+                  onNavigate: onNavigate,
+                ),
                 // Messaging temporarily disabled from active UI/navigation.
                 _TeacherNavItem(
                   icon: Icons.person_rounded,

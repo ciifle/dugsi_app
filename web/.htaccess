@@ -1,0 +1,11 @@
+# Dugsi web/PWA cache rules (Apache / LiteSpeed). Ignored by other servers;
+# see DEPLOY.md for the nginx equivalent.
+#
+# These files are not content-hashed and decide which build runs, so the
+# browser must revalidate them on every load. Everything else is versioned by
+# flutter_service_worker.js and may be cached normally.
+<IfModule mod_headers.c>
+  <FilesMatch "^(index\.html|flutter_service_worker\.js|flutter_bootstrap\.js|flutter\.js|main\.dart\.js|main\.dart\.wasm|main\.dart\.mjs|version\.json|manifest\.json)$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+</IfModule>

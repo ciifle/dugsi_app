@@ -7,6 +7,35 @@
 | Android APK | `flutter build apk --release` | `build/app/outputs/flutter-apk/app-release.apk` |
 | Web PWA | `flutter build web --release` | `build/web/` |
 
+## Where the web app lives
+
+- Flutter PWA: **https://portal.dugsi.so** (Apache). Check with
+  `curl https://portal.dugsi.so/version.json` — it shows the pubspec `version`/build number.
+- `https://dugsi.so` root is a separate React/Vite site, not this app. The steps below say
+  `dugsi.so` for historical reasons; upload to the portal.dugsi.so document root.
+- Bump `version:` in `pubspec.yaml` for every release so the live `version.json` proves which
+  build is deployed (Android also needs a higher build number to update over an install).
+
+## PWA updates (how old installs get the new UI)
+
+- `web/.htaccess` (copied into `build/web`) makes Apache/LiteSpeed revalidate `index.html`,
+  `flutter_service_worker.js`, `flutter_bootstrap.js`, `flutter.js`, `main.dart.js`,
+  `version.json` and `manifest.json` on every load. Upload it too (it is a dotfile; check your
+  FTP client shows hidden files). nginx equivalent:
+
+  ```nginx
+  location ~ ^/(index\.html|flutter_service_worker\.js|flutter_bootstrap\.js|flutter\.js|main\.dart\.(js|wasm|mjs)|version\.json|manifest\.json)$ {
+    add_header Cache-Control "no-cache, must-revalidate";
+  }
+  ```
+- Each build changes `flutter_service_worker.js`. Browsers install the new worker on the next
+  check; the app polls for it every 30 minutes and whenever the tab/PWA becomes visible, then
+  shows **"A new version of Dugsi is available — Reload"**. Reload only reloads the page: it never
+  unregisters the worker or clears localStorage/IndexedDB/caches, so unsent teacher attendance
+  (stored in localStorage) survives. Users no longer need to clear site data.
+- The first update from a build without this prompt (1.0.1+3) still needs one normal reload or
+  app restart; from then on the prompt appears.
+
 ## Deploy web to https://dugsi.so
 
 ### 1. Build (if not already done)
@@ -64,10 +93,8 @@ Upload everything inside `build/web/` to the site root (e.g. `/var/www/dugsi.so/
 ### 5. Cache invalidation (PWA updates)
 
 - Each build gets a new **service worker version** (in `flutter_bootstrap.js` / `flutter.js`). New deployments register a new worker; when it activates, old caches are replaced.
-- After deploy, ask users to:
-  - **Hard refresh**: Ctrl+Shift+R (Windows/Linux) or Cmd+Shift+R (macOS).
-  - Or **clear site data** for dugsi.so in browser settings.
-- For “Install app” to show the new version, a hard refresh or clearing site data may be needed once.
+- Open apps show the in-app "Reload" prompt (see "PWA updates" above). Do **not** tell teachers to
+  clear site data: that deletes attendance saved offline and not yet synchronized.
 
 ### 6. Verify live site
 

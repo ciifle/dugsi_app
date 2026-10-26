@@ -8,6 +8,7 @@ import 'package:kobac/teacher/pages/assignments_screen.dart';
 import 'package:kobac/teacher/pages/attendance_mark.dart';
 import 'package:kobac/teacher/pages/teacher_classes_screen.dart';
 import 'package:kobac/teacher/pages/teacher_marks_screen.dart';
+import 'package:kobac/teacher/pages/notices_screen.dart';
 import 'package:kobac/teacher/pages/teacher_profile.dart';
 import 'package:kobac/teacher/pages/teacher_drawer.dart';
 import 'package:kobac/teacher/pages/teacher_students_list_screen.dart';
@@ -96,6 +97,12 @@ enum _TeacherRootPage {
     title: 'Marks',
     subtitle: 'Enter or view marks',
     drawerLabel: 'Marks',
+  ),
+  notices(
+    tabIndex: null,
+    title: 'Notices',
+    subtitle: 'Announcements from your School Admin',
+    drawerLabel: 'Notices',
   );
 
   final int? tabIndex;
@@ -179,6 +186,8 @@ class _TeacherMobileShellState extends State<_TeacherMobileShell> {
         return const TeacherWeeklyScheduleScreen(showAppBar: false);
       case _TeacherRootPage.marks:
         return const TeacherMarksScreen(showAppBar: false);
+      case _TeacherRootPage.notices:
+        return const TeacherNoticesScreen(showAppBar: false);
       default:
         return const SizedBox.shrink();
     }
@@ -491,6 +500,13 @@ class _TeacherDashboardHomeState extends State<_TeacherDashboardHome> {
         title: 'Marks',
         description: 'Enter marks',
         onTap: () => widget.onOpenRootPage(_TeacherRootPage.marks),
+      ),
+      QuickActionCard(
+        icon: Icons.campaign_rounded,
+        iconColor: kPrimaryBlue,
+        title: 'Notices',
+        description: 'School announcements',
+        onTap: () => widget.onOpenRootPage(_TeacherRootPage.notices),
       ),
     ];
 

@@ -5,14 +5,21 @@ import 'package:kobac/school_admin/widgets/web_admin_theme.dart';
 import 'package:kobac/school_admin/widgets/web_admin_legacy_routes.dart';
 import 'package:provider/provider.dart';
 
+import 'package:kobac/services/app_update/app_update_service.dart';
 import 'package:kobac/services/auth_provider.dart';
 import 'package:kobac/services/academic_years_service.dart';
 import 'package:kobac/services/shifts_service.dart';
 import 'package:kobac/shared/pages/login_screen.dart';
 import 'package:kobac/shared/pages/splash_screen.dart';
+import 'package:kobac/shared/widgets/app_update_banner.dart';
+
+/// Web/PWA: offers a reload when a newer deployment is ready. No-op on
+/// Android.
+final appUpdates = AppUpdateService();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  appUpdates.start();
   runApp(const AppRoot());
 }
 
@@ -39,9 +46,12 @@ class AppRoot extends StatelessWidget {
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         ),
         initialRoute: '/',
-        builder: (context, child) => isDesktopWebAdminLayout(context)
-            ? Theme(data: webAdminTheme(Theme.of(context)), child: child!)
-            : child!,
+        builder: (context, child) => AppUpdateBanner(
+          service: appUpdates,
+          child: isDesktopWebAdminLayout(context)
+              ? Theme(data: webAdminTheme(Theme.of(context)), child: child!)
+              : child!,
+        ),
         onGenerateRoute: (settings) {
           if (kIsWeb && isRetiredWebAdminRoute(settings.name)) {
             return MaterialPageRoute<void>(

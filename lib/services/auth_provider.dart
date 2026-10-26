@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:kobac/services/teacher_attendance_sync.dart';
 import 'package:flutter/material.dart';
 
 import 'package:kobac/models/auth_me_models.dart';
@@ -13,6 +15,46 @@ final GlobalKey<NavigatorState> authNavigatorKey = GlobalKey<NavigatorState>();
 
 /// Auth state and actions. User + profile from GET /api/auth/me.
 class AuthProvider extends ChangeNotifier {
+  String? _attendanceOwner;
+  String? _attendanceToken;
+
+  /// Offline attendance worker for the signed-in teacher; null otherwise.
+  /// Scoped to school + user so accounts never see each other's data.
+  Future<TeacherAttendanceSync>? get attendanceSync =>
+      _attendanceOwner == null ? null : TeacherAttendanceSync.current;
+
+  @override
+  void notifyListeners() {
+    final teacher = _user;
+    final schoolId = teacher?.schoolId;
+    final owner =
+        _isAuthenticated &&
+            teacher?.role.toUpperCase() == 'TEACHER' &&
+            schoolId != null
+        ? TeacherAttendanceSync.ownerKey(schoolId, teacher!.id)
+        : null;
+    if (owner != _attendanceOwner) {
+      _attendanceOwner = owner;
+      _attendanceToken = _token;
+      if (owner == null) {
+        TeacherAttendanceSync.stopWorker();
+      } else {
+        unawaited(
+          TeacherAttendanceSync.forTeacher(
+            schoolId: schoolId!,
+            userId: teacher!.id,
+            token: () => _attendanceOwner == owner ? _token : null,
+          ).then<void>((_) {}, onError: (Object error) {}),
+        );
+      }
+    } else if (owner != null && _token != _attendanceToken) {
+      // Same teacher signed in again (e.g. after expiry): resume sending.
+      _attendanceToken = _token;
+      TeacherAttendanceSync.current?.then((s) => s.wake(), onError: (_) {});
+    }
+    super.notifyListeners();
+  }
+
   AuthProvider() {
     onUnauthorized = _handleUnauthorized;
   }
@@ -48,6 +90,7 @@ class AuthProvider extends ChangeNotifier {
     _feesEnabled = false;
     notifyListeners();
   }
+
   bool get examsEnabled => _schoolFeatures?.examsEnabled ?? true;
 
   /// Exam Fee Custom module. Fails closed: missing/null is OFF. Independent
@@ -284,6 +327,19 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    final user = _user;
+    if (user != null &&
+        user.role.toUpperCase() == 'TEACHER' &&
+        user.schoolId != null) {
+      // Queued attendance is kept until the server confirms it.
+      TeacherAttendanceSync.stopWorker();
+      try {
+        await TeacherAttendanceSync.clearDownloadedData(
+          user.schoolId!,
+          user.id,
+        );
+      } catch (_) {}
+    }
     await AuthStorage().clearSession();
     _token = null;
     _user = null;

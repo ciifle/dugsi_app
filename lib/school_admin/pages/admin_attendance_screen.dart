@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:kobac/school_admin/attendance/take_attendance_controller.dart';
 import 'package:kobac/school_admin/attendance/attendance_reports_view.dart';
+import 'package:kobac/school_admin/attendance/attendance_review_controller.dart';
+import 'package:kobac/school_admin/attendance/attendance_review_view.dart';
 import 'package:kobac/school_admin/attendance/take_attendance_view.dart';
 import 'package:kobac/school_admin/widgets/admin_desktop_kit.dart';
 import 'package:kobac/school_admin/widgets/admin_leave_guard.dart';
@@ -21,11 +23,13 @@ const double kCardRadius = 28.0;
 /// Statuses the single-record edit accepts (PATCH keeps historical LATE).
 const List<String> kAttendanceStatusOptions = ['PRESENT', 'ABSENT', 'LATE'];
 
-const String kAttendanceSubtitle = 'Take, review and manage student attendance.';
+const String kAttendanceSubtitle =
+    'Take, review and manage student attendance.';
 
 String _dateToYmd(DateTime d) => attendanceYmd(d);
 
-enum AdminAttendanceView { take, records, reports }
+// Order matters: `lastView` stores the index, so new views go at the end.
+enum AdminAttendanceView { take, records, reports, review }
 
 class AdminAttendanceScreen extends StatefulWidget {
   /// Records view: date filter defaults to today.
@@ -64,6 +68,7 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
   late final TakeAttendanceController _take;
   late final bool _ownsController;
   late AdminAttendanceView _view;
+  late final AttendanceReviewController _review;
   AcademicYearsProvider? _years;
   bool _yearsReady = false;
 
@@ -84,6 +89,17 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
       _take.lastView = widget.initialView!.index;
     }
     _view = AdminAttendanceView.values[_take.lastView];
+    // Legacy Review is never a landing tab: it only appears once the server
+    // reports legacy pending submissions.
+    if (_view == AdminAttendanceView.review && widget.initialView == null) {
+      _view = AdminAttendanceView.take;
+      _take.lastView = _view.index;
+    }
+    _review = AttendanceReviewController(
+      onAttendanceChanged: () => _take.reports.reloadShownReports(),
+    );
+    // Decides whether the Legacy Review tab is shown; failures hide it.
+    _review.refreshPendingCount();
     _loadRefData();
     _loadAttendance();
     AdminLeaveGuard.register(_confirmLeave);
@@ -95,6 +111,7 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
     AdminLeaveGuard.unregister(_confirmLeave);
     _years?.removeListener(_syncYears);
     if (_ownsController) _take.dispose();
+    _review.dispose();
     super.dispose();
   }
 
@@ -147,7 +164,9 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
 
   String _className(int? id) {
     if (id == null) return '—';
-    for (final c in _classes) { if (c.id == id) return c.name; }
+    for (final c in _classes) {
+      if (c.id == id) return c.name;
+    }
     return '—';
   }
 
@@ -164,7 +183,10 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
     return combined;
   }
 
-  Future<void> _openUpdateStatus(AttendanceModel record, List<String> statusOptions) async {
+  Future<void> _openUpdateStatus(
+    AttendanceModel record,
+    List<String> statusOptions,
+  ) async {
     final updated = await showDialog<bool>(
       context: context,
       builder: (ctx) => _UpdateAttendanceStatusDialog(
@@ -177,17 +199,29 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
     if (updated == true && mounted) {
       _loadAttendance();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Attendance updated'), backgroundColor: kPrimaryGreen),
+        const SnackBar(
+          content: Text('Attendance updated'),
+          backgroundColor: kPrimaryGreen,
+        ),
       );
     }
   }
 
-  Future<bool> _updateStatusFromDialog(BuildContext ctx, int id, String status) async {
-    final result = await AttendanceService().updateAttendanceStatus(id, {'status': status});
+  Future<bool> _updateStatusFromDialog(
+    BuildContext ctx,
+    int id,
+    String status,
+  ) async {
+    final result = await AttendanceService().updateAttendanceStatus(id, {
+      'status': status,
+    });
     if (result is AttendanceSuccess) return true;
     if (ctx.mounted) {
       ScaffoldMessenger.of(ctx).showSnackBar(
-        SnackBar(content: Text((result as AttendanceError).message), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text((result as AttendanceError).message),
+          backgroundColor: Colors.red,
+        ),
       );
     }
     return false;
@@ -207,11 +241,17 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
     if (result is AttendanceSuccess) {
       _loadAttendance();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Attendance record deleted'), backgroundColor: kPrimaryGreen),
+        const SnackBar(
+          content: Text('Attendance record deleted'),
+          backgroundColor: kPrimaryGreen,
+        ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text((result as AttendanceError).message), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text((result as AttendanceError).message),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -254,7 +294,8 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
   Widget build(BuildContext context) {
     // Presentation only: both branches render the same controller, view and
     // records features below.
-    final isDesktop = widget.desktopOverride ??
+    final isDesktop =
+        widget.desktopOverride ??
         isEmbeddedDesktopAdminBody(context, widget.embedBodyOnly);
     final content = _buildContent(isDesktop);
 
@@ -280,7 +321,9 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                   child: Align(
                     alignment: Alignment.centerLeft,
-                    child: _BackButton(onPressed: () => Navigator.of(context).maybePop()),
+                    child: _BackButton(
+                      onPressed: () => Navigator.of(context).maybePop(),
+                    ),
                   ),
                 ),
               Expanded(
@@ -343,18 +386,46 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
           ),
         ),
         const SizedBox(height: 4),
-        const Text(
-          kAttendanceSubtitle,
-          style: TextStyle(fontSize: 14, color: kAdminTextSecondary, fontWeight: FontWeight.w500),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          alignment: WrapAlignment.spaceBetween,
+          children: [
+            const Text(
+              kAttendanceSubtitle,
+              style: TextStyle(
+                fontSize: 14,
+                color: kAdminTextSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            TextButton.icon(
+              key: const ValueKey('attendance-policy'),
+              onPressed: () => showDialog<void>(
+                context: context,
+                builder: (_) => AttendancePolicyDialog(controller: _review),
+              ),
+              icon: const Icon(Icons.timer_outlined, size: 18),
+              label: const Text('Attendance policy'),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
-        _ViewToggle(
-          value: _view,
-          compact: !isDesktop,
-          onChanged: (v) => setState(() {
-            _view = v;
-            _take.lastView = v.index;
-          }),
+        ListenableBuilder(
+          listenable: _review,
+          builder: (context, _) => _ViewToggle(
+            value: _view,
+            compact: !isDesktop,
+            // Stays visible while open so the last decision can finish.
+            showLegacy:
+                (_review.pendingCount ?? 0) > 0 ||
+                _view == AdminAttendanceView.review,
+            onChanged: (v) => setState(() {
+              _view = v;
+              _take.lastView = v.index;
+            }),
+          ),
         ),
         const SizedBox(height: 16),
         switch (_view) {
@@ -367,6 +438,10 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
               controller: _take.reports,
               isDesktop: isDesktop,
             ),
+          ),
+          AdminAttendanceView.review => AttendanceReviewView(
+            controller: _review,
+            isDesktop: isDesktop,
           ),
         },
       ],
@@ -409,8 +484,16 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
           label: 'Class',
           value: _filterClassId,
           items: [
-            const DropdownMenuItem<int?>(value: null, child: Text('All classes')),
-            ..._classes.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name, overflow: TextOverflow.ellipsis))),
+            const DropdownMenuItem<int?>(
+              value: null,
+              child: Text('All classes'),
+            ),
+            ..._classes.map(
+              (c) => DropdownMenuItem<int?>(
+                value: c.id,
+                child: Text(c.name, overflow: TextOverflow.ellipsis),
+              ),
+            ),
           ],
           onChanged: (v) {
             _filterClassId = v;
@@ -425,7 +508,10 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
             decoration: InputDecoration(
               labelText: 'Date',
               isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 12,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
                 borderSide: const BorderSide(color: kAdminBorder),
@@ -434,14 +520,25 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
                 borderRadius: BorderRadius.circular(10),
                 borderSide: const BorderSide(color: kAdminBorder),
               ),
-              suffixIcon: const Icon(Icons.calendar_today_outlined, size: 18, color: kAdminNavy),
+              suffixIcon: const Icon(
+                Icons.calendar_today_outlined,
+                size: 18,
+                color: kAdminNavy,
+              ),
             ),
-            child: Text(_dateToYmd(_filterDate), style: const TextStyle(fontSize: 14, color: kAdminNavy)),
+            child: Text(
+              _dateToYmd(_filterDate),
+              style: const TextStyle(fontSize: 14, color: kAdminNavy),
+            ),
           ),
         ),
       ],
       actions: [
-        AdminSecondaryButton(label: 'Clear', icon: Icons.filter_alt_off_outlined, onPressed: _clearFilters),
+        AdminSecondaryButton(
+          label: 'Clear',
+          icon: Icons.filter_alt_off_outlined,
+          onPressed: _clearFilters,
+        ),
       ],
     );
   }
@@ -457,28 +554,42 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Padding(
                 padding: EdgeInsets.all(40),
-                child: Center(child: CircularProgressIndicator(color: kPrimaryBlue)),
+                child: Center(
+                  child: CircularProgressIndicator(color: kPrimaryBlue),
+                ),
               );
             }
             if (snapshot.hasError) {
               return _ErrorState(
-                message: userFriendlyMessage(snapshot.error!, null, 'AdminAttendanceScreen'),
+                message: userFriendlyMessage(
+                  snapshot.error!,
+                  null,
+                  'AdminAttendanceScreen',
+                ),
                 onRetry: _loadAttendance,
               );
             }
             final result = snapshot.data;
             if (result == null) return const Center(child: Text('No data'));
             if (result is AttendanceError) {
-              return _ErrorState(message: result.message, onRetry: _loadAttendance);
+              return _ErrorState(
+                message: result.message,
+                onRetry: _loadAttendance,
+              );
             }
-            final list = (result as AttendanceSuccess<List<AttendanceModel>>).data;
+            final list =
+                (result as AttendanceSuccess<List<AttendanceModel>>).data;
             final statusOptions = _statusOptions(list);
             if (list.isEmpty) {
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 48),
                 child: Column(
                   children: [
-                    Icon(Icons.event_note_rounded, size: 56, color: Colors.grey[300]),
+                    Icon(
+                      Icons.event_note_rounded,
+                      size: 56,
+                      color: Colors.grey[300],
+                    ),
                     const SizedBox(height: 12),
                     Text(
                       'No attendance records for this date${_filterClassId != null ? ' / class' : ''}.',
@@ -499,14 +610,19 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
                       emis: _displayEmis(record.emisNumber),
                       className: record.className ?? _className(record.classId),
                       statusOptions: statusOptions,
-                      onUpdateStatus: () => _openUpdateStatus(record, statusOptions),
+                      onUpdateStatus: () =>
+                          _openUpdateStatus(record, statusOptions),
                       onDelete: () => _deleteAttendance(record),
                     ),
                 ],
               );
             }
-            final presentCount = list.where((r) => (r.status ?? '').toUpperCase() == 'PRESENT').length;
-            final absentCount = list.where((r) => (r.status ?? '').toUpperCase() == 'ABSENT').length;
+            final presentCount = list
+                .where((r) => (r.status ?? '').toUpperCase() == 'PRESENT')
+                .length;
+            final absentCount = list
+                .where((r) => (r.status ?? '').toUpperCase() == 'ABSENT')
+                .length;
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -526,10 +642,18 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
                   child: Column(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 16,
+                        ),
                         decoration: const BoxDecoration(
                           color: kAdminHeaderBg,
-                          border: Border(bottom: BorderSide(color: Color(0xFFE8ECF2), width: 1)),
+                          border: Border(
+                            bottom: BorderSide(
+                              color: Color(0xFFE8ECF2),
+                              width: 1,
+                            ),
+                          ),
                         ),
                         child: Row(
                           children: [
@@ -545,21 +669,29 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
                                 flex: flex,
                                 child: Text(
                                   label,
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade600,
+                                  ),
                                 ),
                               ),
                             const SizedBox(width: 80),
                           ],
                         ),
                       ),
-                      ...list.map((record) => _AttendanceRow(
-                            record: record,
-                            studentName: record.studentName ?? '—',
-                            emis: _displayEmis(record.emisNumber),
-                            className: record.className ?? _className(record.classId),
-                            onUpdateStatus: () => _openUpdateStatus(record, statusOptions),
-                            onDelete: () => _deleteAttendance(record),
-                          )),
+                      ...list.map(
+                        (record) => _AttendanceRow(
+                          record: record,
+                          studentName: record.studentName ?? '—',
+                          emis: _displayEmis(record.emisNumber),
+                          className:
+                              record.className ?? _className(record.classId),
+                          onUpdateStatus: () =>
+                              _openUpdateStatus(record, statusOptions),
+                          onDelete: () => _deleteAttendance(record),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -576,19 +708,48 @@ class _ViewToggle extends StatelessWidget {
   final AdminAttendanceView value;
   final ValueChanged<AdminAttendanceView> onChanged;
 
-  /// Phones: three equal segments with short labels (fits 360px).
+  /// Phones: equal segments with short labels (fits 360px).
   final bool compact;
+
+  /// Legacy Review tab: only while legacy pending submissions exist. New
+  /// attendance needs no approval, so it is not a normal navigation entry.
+  final bool showLegacy;
   const _ViewToggle({
     required this.value,
     required this.onChanged,
     this.compact = false,
+    this.showLegacy = false,
   });
 
   static const _tabs = [
-    (AdminAttendanceView.take, 'Take Attendance', 'Take', Icons.fact_check_outlined),
-    (AdminAttendanceView.records, 'Attendance Records', 'Records', Icons.history_rounded),
-    (AdminAttendanceView.reports, 'Reports', 'Reports', Icons.assessment_outlined),
+    (
+      AdminAttendanceView.take,
+      'Take Attendance',
+      'Take',
+      Icons.fact_check_outlined,
+    ),
+    (
+      AdminAttendanceView.records,
+      'Attendance Records',
+      'Records',
+      Icons.history_rounded,
+    ),
+    (
+      AdminAttendanceView.reports,
+      'Reports',
+      'Reports',
+      Icons.assessment_outlined,
+    ),
+    (
+      AdminAttendanceView.review,
+      'Legacy Review',
+      'Legacy',
+      Icons.history_edu_outlined,
+    ),
   ];
+
+  Iterable<(AdminAttendanceView, String, String, IconData)> get _visible =>
+      _tabs.where((t) => showLegacy || t.$1 != AdminAttendanceView.review);
 
   Widget _tab(AdminAttendanceView v, String label, IconData icon) {
     final selected = value == v;
@@ -610,7 +771,11 @@ class _ViewToggle extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: compact ? 16 : 17, color: selected ? Colors.white : kAdminNavy),
+              Icon(
+                icon,
+                size: compact ? 16 : 17,
+                color: selected ? Colors.white : kAdminNavy,
+              ),
               SizedBox(width: compact ? 4 : 6),
               Flexible(
                 child: Text(
@@ -643,7 +808,7 @@ class _ViewToggle extends StatelessWidget {
     child: compact
         ? Row(
             children: [
-              for (final (v, _, short, icon) in _tabs)
+              for (final (v, _, short, icon) in _visible)
                 Expanded(child: _tab(v, short, icon)),
             ],
           )
@@ -651,7 +816,7 @@ class _ViewToggle extends StatelessWidget {
             spacing: 4,
             runSpacing: 4,
             children: [
-              for (final (v, full, _, icon) in _tabs) _tab(v, full, icon),
+              for (final (v, full, _, icon) in _visible) _tab(v, full, icon),
             ],
           ),
   );
@@ -672,11 +837,29 @@ class _AttendanceSummaryCards extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: _SummaryCard(label: 'Total Records', value: '$totalCount', color: kPrimaryBlue)),
+        Expanded(
+          child: _SummaryCard(
+            label: 'Total Records',
+            value: '$totalCount',
+            color: kPrimaryBlue,
+          ),
+        ),
         const SizedBox(width: 16),
-        Expanded(child: _SummaryCard(label: 'Present', value: '$presentCount', color: kPrimaryGreen)),
+        Expanded(
+          child: _SummaryCard(
+            label: 'Present',
+            value: '$presentCount',
+            color: kPrimaryGreen,
+          ),
+        ),
         const SizedBox(width: 16),
-        Expanded(child: _SummaryCard(label: 'Absent', value: '$absentCount', color: const Color(0xFFE67E22))),
+        Expanded(
+          child: _SummaryCard(
+            label: 'Absent',
+            value: '$absentCount',
+            color: const Color(0xFFE67E22),
+          ),
+        ),
       ],
     );
   }
@@ -707,12 +890,20 @@ class _SummaryCard extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade600,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
             value,
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color),
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
           ),
         ],
       ),
@@ -744,7 +935,9 @@ class _AttendanceRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final initial = studentName.trim().isNotEmpty ? studentName.trim().substring(0, 1).toUpperCase() : '?';
+    final initial = studentName.trim().isNotEmpty
+        ? studentName.trim().substring(0, 1).toUpperCase()
+        : '?';
     final displayDate = _displayValue(record.date ?? '');
     TextStyle cell() => TextStyle(fontSize: 14, color: Colors.grey.shade700);
 
@@ -770,14 +963,22 @@ class _AttendanceRow extends StatelessWidget {
                   ),
                   child: Text(
                     initial,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: kPrimaryBlue,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     studentName,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kPrimaryBlue),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: kPrimaryBlue,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -785,8 +986,24 @@ class _AttendanceRow extends StatelessWidget {
               ],
             ),
           ),
-          Expanded(flex: 2, child: Text(emis, style: cell(), maxLines: 1, overflow: TextOverflow.ellipsis)),
-          Expanded(flex: 2, child: Text(_displayValue(className), style: cell(), maxLines: 1, overflow: TextOverflow.ellipsis)),
+          Expanded(
+            flex: 2,
+            child: Text(
+              emis,
+              style: cell(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              _displayValue(className),
+              style: cell(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
           Expanded(
             flex: 2,
             child: Text(
@@ -796,20 +1013,39 @@ class _AttendanceRow extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          Expanded(flex: 2, child: _AttendanceStatusBadge(status: record.status)),
-          Expanded(flex: 2, child: Text(displayDate, style: cell(), maxLines: 1, overflow: TextOverflow.ellipsis)),
+          Expanded(
+            flex: 2,
+            child: _AttendanceStatusBadge(status: record.status),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              displayDate,
+              style: cell(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
           SizedBox(
             width: 80,
             child: Row(
               children: [
                 IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 20, color: kPrimaryGreen),
+                  icon: const Icon(
+                    Icons.edit_outlined,
+                    size: 20,
+                    color: kPrimaryGreen,
+                  ),
                   onPressed: onUpdateStatus,
                   tooltip: 'Edit Status',
                   visualDensity: VisualDensity.compact,
                 ),
                 IconButton(
-                  icon: Icon(Icons.delete_outline, size: 20, color: Colors.red[400]),
+                  icon: Icon(
+                    Icons.delete_outline,
+                    size: 20,
+                    color: Colors.red[400],
+                  ),
                   onPressed: onDelete,
                   tooltip: 'Delete',
                   visualDensity: VisualDensity.compact,
@@ -854,7 +1090,11 @@ class _AttendanceStatusBadge extends StatelessWidget {
         ),
         child: Text(
           status ?? '-',
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: foreground),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: foreground,
+          ),
         ),
       ),
     );
@@ -877,9 +1117,17 @@ class _ErrorState extends StatelessWidget {
           children: [
             Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
             const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.grey[800])),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, color: Colors.grey[800]),
+            ),
             const SizedBox(height: 16),
-            TextButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh), label: const Text('Retry')),
+            TextButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+            ),
           ],
         ),
       ),
@@ -909,7 +1157,8 @@ class _AttendanceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lesson = [
-      if (record.subjectName != null && record.subjectName!.isNotEmpty) record.subjectName!,
+      if (record.subjectName != null && record.subjectName!.isNotEmpty)
+        record.subjectName!,
       if (record.time != null && record.time!.isNotEmpty) record.time!,
     ].join(' · ');
     return Container(
@@ -928,7 +1177,11 @@ class _AttendanceCard extends StatelessWidget {
               color: kPrimaryBlue.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(Icons.person_outline_rounded, color: kPrimaryBlue, size: 22),
+            child: const Icon(
+              Icons.person_outline_rounded,
+              color: kPrimaryBlue,
+              size: 22,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -940,18 +1193,47 @@ class _AttendanceCard extends StatelessWidget {
                   studentName,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: kPrimaryBlue),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: kPrimaryBlue,
+                  ),
                 ),
-                Text('EMIS: $emis · ${record.status ?? "—"}', style: TextStyle(fontSize: 13, color: Colors.grey[700])),
+                Text(
+                  'EMIS: $emis · ${record.status ?? "—"}',
+                  style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                ),
                 if (lesson.isNotEmpty)
-                  Text(lesson, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                  Text(
+                    lesson,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
                 if (record.date != null)
-                  Text('$className · ${record.date}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                  Text(
+                    '$className · ${record.date}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
               ],
             ),
           ),
-          IconButton(icon: const Icon(Icons.edit_outlined, size: 22, color: kPrimaryGreen), onPressed: onUpdateStatus, tooltip: 'Edit Status'),
-          IconButton(icon: Icon(Icons.delete_outline, size: 22, color: Colors.red[400]), onPressed: onDelete, tooltip: 'Delete'),
+          IconButton(
+            icon: const Icon(
+              Icons.edit_outlined,
+              size: 22,
+              color: kPrimaryGreen,
+            ),
+            onPressed: onUpdateStatus,
+            tooltip: 'Edit Status',
+          ),
+          IconButton(
+            icon: Icon(Icons.delete_outline, size: 22, color: Colors.red[400]),
+            onPressed: onDelete,
+            tooltip: 'Delete',
+          ),
         ],
       ),
     );
@@ -972,17 +1254,23 @@ class _UpdateAttendanceStatusDialog extends StatefulWidget {
   });
 
   @override
-  State<_UpdateAttendanceStatusDialog> createState() => _UpdateAttendanceStatusDialogState();
+  State<_UpdateAttendanceStatusDialog> createState() =>
+      _UpdateAttendanceStatusDialogState();
 }
 
-class _UpdateAttendanceStatusDialogState extends State<_UpdateAttendanceStatusDialog> {
+class _UpdateAttendanceStatusDialogState
+    extends State<_UpdateAttendanceStatusDialog> {
   late String _status;
   bool _submitting = false;
 
   @override
   void initState() {
     super.initState();
-    _status = widget.statusOptions.contains(widget.currentStatus) ? widget.currentStatus : (widget.statusOptions.isNotEmpty ? widget.statusOptions.first : 'PRESENT');
+    _status = widget.statusOptions.contains(widget.currentStatus)
+        ? widget.currentStatus
+        : (widget.statusOptions.isNotEmpty
+              ? widget.statusOptions.first
+              : 'PRESENT');
   }
 
   Future<void> _submit() async {
@@ -1005,20 +1293,46 @@ class _UpdateAttendanceStatusDialogState extends State<_UpdateAttendanceStatusDi
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Update Attendance', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimaryBlue)),
+            const Text(
+              'Update Attendance',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: kPrimaryBlue,
+              ),
+            ),
             const SizedBox(height: 20),
             Select3D<String>(
               value: _status,
               label: 'Status',
-              items: widget.statusOptions.map((s) => DropdownMenuItem<String>(value: s, child: Text(s))).toList(),
+              items: widget.statusOptions
+                  .map(
+                    (s) => DropdownMenuItem<String>(value: s, child: Text(s)),
+                  )
+                  .toList(),
               onChanged: (v) => setState(() => _status = v ?? 'PRESENT'),
             ),
             const SizedBox(height: 24),
             Row(
               children: [
-                Expanded(child: TextButton(onPressed: _submitting ? null : () => Navigator.pop(context), child: const Text('Cancel'))),
+                Expanded(
+                  child: TextButton(
+                    onPressed: _submitting
+                        ? null
+                        : () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                ),
                 const SizedBox(width: 12),
-                Expanded(flex: 2, child: PrimaryButton3D(label: 'Save', onPressed: _submit, loading: _submitting, height: 48)),
+                Expanded(
+                  flex: 2,
+                  child: PrimaryButton3D(
+                    label: 'Save',
+                    onPressed: _submit,
+                    loading: _submitting,
+                    height: 48,
+                  ),
+                ),
               ],
             ),
           ],
@@ -1046,7 +1360,11 @@ class _BackButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: kAdminBorder),
           ),
-          child: const Icon(Icons.arrow_back_rounded, color: kPrimaryBlue, size: 22),
+          child: const Icon(
+            Icons.arrow_back_rounded,
+            color: kPrimaryBlue,
+            size: 22,
+          ),
         ),
       ),
     );

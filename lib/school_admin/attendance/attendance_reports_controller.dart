@@ -267,6 +267,15 @@ class AttendanceReportsController extends ChangeNotifier {
   bool get canViewClassReport =>
       yearId != null && classId != null && dateError == null;
 
+  /// Attendance changed on the server (e.g. a review approval): re-fetch any
+  /// report on screen. Totals always come from the server.
+  Future<void> reloadShownReports() async {
+    await Future.wait([
+      if (classReport != null && canViewClassReport) loadClassReport(),
+      if (studentReport != null && canViewStudentReport) loadStudentReport(),
+    ]);
+  }
+
   Future<void> loadClassReport() async {
     final year = yearId, cls = classId;
     if (year == null || cls == null || dateError != null) return;

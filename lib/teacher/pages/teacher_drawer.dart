@@ -6,6 +6,7 @@ import 'package:kobac/teacher/pages/attendance_mark.dart';
 import 'package:kobac/teacher/pages/teacher_classes_screen.dart';
 import 'package:kobac/teacher/pages/teacher_dashboard.dart';
 import 'package:kobac/teacher/pages/teacher_marks_screen.dart';
+import 'package:kobac/teacher/pages/notices_screen.dart';
 import 'package:kobac/teacher/pages/teacher_profile.dart';
 import 'package:kobac/teacher/pages/teacher_students_list_screen.dart';
 import 'package:kobac/teacher/pages/change_password_page.dart';
@@ -86,6 +87,11 @@ class TeacherDrawer extends StatelessWidget {
       color: kPrimaryBlue,
     ),
     _MenuItem(icon: Icons.grade_rounded, label: 'Marks', color: kSoftOrange),
+    _MenuItem(
+      icon: Icons.campaign_rounded,
+      label: 'Notices',
+      color: kPrimaryBlue,
+    ),
     _MenuItem(icon: Icons.person_rounded, label: 'Profile', color: kSoftOrange),
     _MenuItem(
       icon: Icons.lock_outline_rounded,
@@ -477,6 +483,9 @@ class TeacherDrawer extends StatelessWidget {
         break;
       case 'Marks':
         screen = const TeacherMarksScreen();
+        break;
+      case 'Notices':
+        screen = const TeacherNoticesScreen();
         break;
       // Messaging temporarily disabled from active UI/navigation.
       case 'Profile':
